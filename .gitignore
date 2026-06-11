@@ -53,3 +53,6 @@ logs/
 # Test coverage
 coverage/
 .nyc_output/
+
+# Device certificates — contain private keys, never commit
+device-certs/
