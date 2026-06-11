@@ -1,0 +1,924 @@
+================================================================================
+PEAKLOGIC — CLAUDE DEV SESSION TRANSCRIPT
+Session Date: June 10, 2026
+File: PeakLogic Claude Dev Session V1_06102026.txt
+================================================================================
+
+
+────────────────────────────────────────────────────────────────────────────────
+1. SESSION OVERVIEW
+────────────────────────────────────────────────────────────────────────────────
+
+This session established the full architecture, codebase, and development
+workflow for PeakLogic — a multi-tenant, cloud-native IoT SaaS platform for
+asset, energy, and risk management.
+
+By the end of the session, the following was completed and committed to GitHub:
+
+  Phase A  — AWS CDK infrastructure (6 stacks)
+  Phase C  — Backend Lambda API + telemetry ingest + alert rules
+  Phase D  — React frontend (dashboard, all pages, auth)
+  Phase B  — Device onboarding wizard (3-step claim flow)
+  Scripts  — Device provisioning script (IoT Core + DB)
+
+GitHub Repository: https://github.com/PeakLogicSystems/PeakLogicSystems
+Active Branch:     dev
+Local Path:        C:\Users\SiteREADY\Dropbox\PC\Desktop\PeakLogic\PeakLogicSystems
+
+
+────────────────────────────────────────────────────────────────────────────────
+2. AGENT CONTEXT — THE BRIEF
+────────────────────────────────────────────────────────────────────────────────
+
+Claude was configured as a senior full-stack and cloud architect with the
+following standing instructions for the PeakLogic project:
+
+  Brand:
+    - Name: PeakLogic
+    - Mountain icon, "Peak" in black, "Logic" in purple, green accent
+    - Verticals: pumping stations, QSR (quick service restaurants), pool monitoring
+
+  Business Model:
+    - Low-cost IoT devices detect abnormal equipment behavior early
+    - Reduce risk of equipment/property damage
+    - Proactively trigger service tickets to partner companies
+
+  Non-Negotiable Requirements:
+    1. Cloud-native, secure, scalable to millions of devices
+    2. Multi-tenant — each customer sees only their own data
+    3. SSO portal with RBAC (admin, operator, service_partner)
+    4. Intuitive UX: device onboarding, asset mapping, dashboards, device control
+    5. Predictive analytics: anomaly detection, proactive alerts
+    6. Asset spec intelligence: upload spec sheets, extract parameters
+    7. Security: TLS everywhere, audit logging, least-privilege access
+    8. Speed to market: managed services, incremental delivery
+
+  Standing Rule (user-requested):
+    Claude must challenge overcomplication. Before any feature or architectural
+    choice, ask: "Can the first 5 customers use the product without this?"
+    If yes, it is deferred to v2. Require a named customer request before adding
+    complexity. Always present the simpler path first.
+
+
+────────────────────────────────────────────────────────────────────────────────
+3. ARCHITECTURE DECISIONS
+────────────────────────────────────────────────────────────────────────────────
+
+3.1  REFERENCE ARCHITECTURE (TEXT DIAGRAM)
+──────────────────────────────────────────
+
+  DEVICE LAYER
+    IoT Sensors → MQTT/TLS → AWS IoT Core (Thing Registry + X.509 certs)
+                                    │
+                               IoT Rule Engine
+                                    │
+  INGESTION LAYER
+    Lambda (ingest) ← IoT Rule forwards telemetry
+         │
+         ▼
+  STORAGE LAYER
+    RDS PostgreSQL (t3.micro) — all relational data + telemetry
+    S3 — spec sheets, documents
+    Secrets Manager — DB credentials
+
+  APPLICATION LAYER
+    API Gateway + Lambda (REST API, all routes)
+    Cognito User Pools (SSO + RBAC)
+
+  FRONTEND LAYER
+    React SPA → S3 + CloudFront
+
+  INTEGRATION LAYER
+    SES — alert emails
+    Webhook POST — service ticket delivery to partners
+
+
+3.2  MULTI-TENANT MODEL
+───────────────────────
+
+  Decision: Hybrid Pooled — shared PostgreSQL with Row-Level Security (RLS)
+
+  How it works:
+    - Every tenant-scoped table has a tenant_id column
+    - RLS policies are defined at the database level
+    - App sets: SET LOCAL app.current_tenant_id = '<uuid>' at transaction start
+    - Cognito JWT contains custom:tenant_id claim
+    - API Gateway extracts claim and passes it to Lambda via authorizer context
+    - Lambda's withTenant() helper wraps every DB operation in:
+        BEGIN
+        SET LOCAL app.current_tenant_id = '<uuid>'
+        [queries run here — RLS enforces tenant isolation automatically]
+        COMMIT
+
+  Why this choice:
+    - Speed to market: fastest to build
+    - Cost: shared infrastructure, no per-tenant DB instances
+    - Security: PostgreSQL RLS provides strong isolation at the DB layer
+    - Escape hatch: large tenants can be promoted to dedicated DB later
+
+
+3.3  WHAT WAS DELIBERATELY DEFERRED TO V2
+──────────────────────────────────────────
+
+  The following were proposed in early architecture and then cut for MVP:
+
+    ✗  Kinesis Data Streams     — overkill, direct IoT Rule → Lambda works
+    ✗  TimescaleDB / hypertable — plain Postgres handles dev-scale telemetry
+    ✗  SageMaker / ML detection — no training data yet; use threshold rules
+    ✗  Textract spec extraction — let users type specs manually for now
+    ✗  EventBridge routing      — Lambda calling webhook directly is simpler
+    ✗  PostGIS geography columns — store lat/lng as floats
+    ✗  DB-configurable alert rules — hardcode per vertical for now
+    ✗  service_partners table   — single webhook_url on tenant settings
+    ✗  Aurora Serverless v2     — RDS t3.micro is cheaper and simpler
+    ✗  Fargate / ECS            — Lambda only
+    ✗  SAML federation          — Cognito User Pools email/password for now
+    ✗  Device remote control    — read-only telemetry for v1
+    ✗  Multi-region             — single region for MVP
+    ✗  ServiceNow integration   — generic webhook only
+    ✗  Mobile app
+    ✗  White-labeling
+
+
+────────────────────────────────────────────────────────────────────────────────
+4. DATA MODEL
+────────────────────────────────────────────────────────────────────────────────
+
+Full SQL schema is at: docs/data-model.sql
+
+Tables (all with tenant_id + RLS):
+
+  tenants          — id, name, slug, plan, status, settings (JSONB)
+  users            — id, tenant_id, cognito_sub, email, role
+  sites            — id, tenant_id, name, type, address, lat, lng, timezone
+  assets           — id, tenant_id, site_id, name, category, make, model,
+                     serial_number, specs (JSONB), health_status
+  devices          — id, tenant_id, asset_id, serial, thing_name,
+                     firmware_version, status, last_seen_at
+  telemetry        — time, device_id, tenant_id, metric, value, quality
+                     (indexed on tenant_id, device_id, time DESC)
+  alerts           — id, tenant_id, device_id, asset_id, severity, type,
+                     message, context (JSONB), status, triggered_at
+  service_tickets  — id, tenant_id, alert_id, asset_id, title, priority,
+                     status, webhook_url, external_ref
+
+  Asset categories: pump, hvac, pool_system, compressor
+  Site types:       pumping_station, qsr, pool, other
+  User roles:       admin, operator, service_partner
+  Alert severities: info, warning, critical
+  Alert statuses:   open, acknowledged, resolved, suppressed
+  Ticket priorities:low, medium, high, emergency
+  Device statuses:  provisioning, online, offline, decommissioned
+
+
+────────────────────────────────────────────────────────────────────────────────
+5. PHASE A — AWS CDK INFRASTRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+Location: infra/
+
+Files:
+  infra/bin/peaklogic.ts         — CDK app entry point, all 6 stacks
+  infra/lib/network-stack.ts     — VPC, subnets, security groups
+  infra/lib/data-stack.ts        — RDS Postgres, Secrets Manager
+  infra/lib/auth-stack.ts        — Cognito User Pool, groups, SPA client
+  infra/lib/api-stack.ts         — Lambda functions, API Gateway
+  infra/lib/iot-stack.ts         — IoT Core thing type, policy, topic rule
+  infra/lib/frontend-stack.ts    — S3 bucket, CloudFront distribution
+  infra/package.json             — CDK dependencies
+  infra/tsconfig.json
+  infra/cdk.json
+
+Stack Details:
+
+  NetworkStack:
+    - VPC with 2 AZs
+    - Public subnets (internet access)
+    - Private subnets with egress (Lambda lives here)
+    - Isolated subnets (RDS lives here, no internet)
+    - 1 NAT Gateway (~$32/month)
+    - Lambda security group: outbound only
+    - RDS security group: only accepts port 5432 from Lambda SG
+
+  DataStack:
+    - RDS PostgreSQL 16, instance: db.t3.micro
+    - Single AZ (flip multiAz=true for production)
+    - Storage encrypted, 7-day backup retention
+    - Credentials auto-generated and stored in Secrets Manager
+    - deletionProtection=false (flip for production)
+    - removalPolicy=SNAPSHOT (DB snapshot on stack delete)
+
+  AuthStack:
+    - Cognito User Pool: peaklogic-users
+    - selfSignUpEnabled=false (admin-invited only)
+    - Sign in with email
+    - Custom attributes: custom:tenant_id, custom:role
+    - RBAC groups: admin, operator, service_partner
+    - MFA: optional TOTP
+    - SPA client: no secret, PKCE flow (authorizationCodeGrant)
+    - Token validity: access=1h, id=1h, refresh=30d
+    - Callback URLs: localhost:5173 + app.peaklogic.io
+
+  ApiStack:
+    - Two Lambda functions (NodejsFunction, esbuild bundled):
+        peaklogic-ingest — receives telemetry from IoT Core
+        peaklogic-api    — handles all REST API routes
+    - Runtime: Node.js 20.x
+    - Memory: 512MB, Timeout: 30s
+    - Both Lambda functions placed in private VPC subnet
+    - DB secret granted read access to both functions
+    - API Gateway REST API with Cognito authorizer
+    - CRUD routes: /v1/sites, /v1/assets, /v1/devices,
+                   /v1/alerts, /v1/tickets, /v1/telemetry
+    - Throttling: 200 burst, 100 rate
+    - Log retention: 2 weeks
+
+  IoTStack:
+    - Thing type: PeakLogicSensor (searchable: tenantId, siteId, assetId)
+    - Device policy: PeakLogicDevicePolicy
+        Each device may ONLY connect/publish to its own thing name topic
+        Scoped using ${iot:Connection.Thing.ThingName} variable
+        Topics:
+          Publish:   peaklogic/{thingName}/telemetry
+          Subscribe: peaklogic/{thingName}/commands
+    - Topic rule: PeakLogicTelemetryIngest
+        SQL: SELECT *, topic(2) AS thingName FROM 'peaklogic/+/telemetry'
+        Action: invoke peaklogic-ingest Lambda
+        Error action: write to /peaklogic/iot/errors CloudWatch log group
+
+  FrontendStack:
+    - Private S3 bucket (no public access)
+    - CloudFront distribution with Origin Access Control
+    - HTTPS only (redirect HTTP)
+    - SPA fallback: 403/404 → serve index.html
+    - Price class: PRICE_CLASS_100 (US + Europe only, cheapest)
+
+To deploy:
+  cd infra
+  npm install
+  npx cdk bootstrap       (first time only per AWS account)
+  npx cdk deploy --all    (takes 10-15 minutes)
+
+
+────────────────────────────────────────────────────────────────────────────────
+6. PHASE C — BACKEND API + TELEMETRY INGEST
+────────────────────────────────────────────────────────────────────────────────
+
+Location: backend/
+
+File Structure:
+  backend/
+  ├── shared/
+  │   ├── types.ts      — TypeScript interfaces for all DB rows
+  │   ├── db.ts         — pg Pool, Secrets Manager caching, withTenant()
+  │   ├── auth.ts       — JWT claim extraction, requireRole() guard
+  │   └── response.ts   — HTTP response helpers (ok, created, notFound, etc.)
+  ├── api/
+  │   ├── handler.ts    — Lambda entry point, error boundary
+  │   ├── router.ts     — Dispatch table: "METHOD /resource" → handler
+  │   └── routes/
+  │       ├── sites.ts
+  │       ├── assets.ts
+  │       ├── devices.ts
+  │       ├── alerts.ts
+  │       ├── tickets.ts
+  │       └── telemetry.ts
+  └── ingest/
+      └── handler.ts    — IoT Core telemetry processing + alert rules
+
+
+6.1  DATABASE CONNECTION (backend/shared/db.ts)
+───────────────────────────────────────────────
+
+  - Module-level pg.Pool cached across warm Lambda invocations
+  - DB credentials fetched from Secrets Manager on first cold start, cached
+  - Pool settings: max=2 connections (keeps RDS connection count manageable)
+  - SSL enabled (traffic stays in VPC, rejectUnauthorized=false for simplicity)
+
+  withTenant(tenantId, async (client) => { ... }):
+    - Acquires a pool connection
+    - Runs BEGIN
+    - Runs SET LOCAL app.current_tenant_id = '<uuid>'
+    - Executes the callback (all queries here are RLS-scoped to the tenant)
+    - Runs COMMIT (or ROLLBACK on error)
+    - Releases the connection
+
+
+6.2  AUTH MIDDLEWARE (backend/shared/auth.ts)
+─────────────────────────────────────────────
+
+  getAuth(event):
+    - Reads Cognito JWT claims from event.requestContext.authorizer.claims
+    - Extracts: sub, email, custom:tenant_id, cognito:groups
+    - Returns AuthContext: { sub, email, tenantId, role }
+    - Throws 401 if no claims, 403 if no tenant_id
+
+  requireRole(auth, ...roles):
+    - Throws 403 if auth.role is not in the allowed list
+    - Used in route handlers to enforce role-based access
+
+
+6.3  REST API ROUTES
+────────────────────
+
+  All routes protected by Cognito authorizer (JWT required).
+  All routes use withTenant() for automatic RLS enforcement.
+
+  Sites:
+    GET    /v1/sites              — list all sites for tenant
+    POST   /v1/sites              — create site (admin only)
+    GET    /v1/sites/{siteId}     — get single site
+    PUT    /v1/sites/{siteId}     — update site (admin/operator)
+    DELETE /v1/sites/{siteId}     — delete site (admin only)
+
+  Assets:
+    GET    /v1/assets             — list assets (optional ?siteId= filter)
+    POST   /v1/assets             — create asset (admin/operator)
+    GET    /v1/assets/{assetId}   — get single asset with site name
+    PUT    /v1/assets/{assetId}   — update asset including specs JSONB
+    DELETE /v1/assets/{assetId}   — delete (admin only)
+
+  Devices:
+    GET    /v1/devices            — list devices with asset/site names
+    POST   /v1/devices            — CLAIM device by serial number
+    GET    /v1/devices/{deviceId} — get single device
+    PUT    /v1/devices/{deviceId} — update (assign to asset, firmware version)
+    DELETE /v1/devices/{deviceId} — decommission (sets status, not hard delete)
+
+  Claim endpoint (POST /v1/devices) logic:
+    - Accepts { serial, assetId? } in request body
+    - Uses unscoped pool to find device where serial matches + tenant_id IS NULL
+    - Returns 404 if not found, 409 if already claimed
+    - Updates: tenant_id, status='online', provisioned_at=now()
+
+  Alerts:
+    GET    /v1/alerts             — list (optional ?status= ?assetId= filter)
+    GET    /v1/alerts/{alertId}   — get single alert
+    PUT    /v1/alerts/{alertId}   — update status (acknowledged/resolved/suppressed)
+
+  Tickets:
+    GET    /v1/tickets            — list (optional ?status= filter)
+    POST   /v1/tickets            — create ticket (fires webhook if set)
+    GET    /v1/tickets/{ticketId} — get single ticket
+    PUT    /v1/tickets/{ticketId} — update status, assignee, external_ref
+    DELETE /v1/tickets/{ticketId} — cancel (sets status=cancelled)
+
+  Telemetry:
+    GET    /v1/telemetry          — query time-series data
+      Params: deviceId (required), metric, from, to, limit (max 5000)
+      Returns: array of { time, device_id, metric, value, quality }
+
+
+6.4  TELEMETRY INGEST (backend/ingest/handler.ts)
+──────────────────────────────────────────────────
+
+  Triggered by IoT Core rule when a device publishes to:
+    peaklogic/{thingName}/telemetry
+
+  Expected payload from device:
+    {
+      "thingName": "plg-device-0001",
+      "ts": 1749600000000,
+      "metrics": {
+        "power_kw": 3.8,
+        "flow_lpm": 210,
+        "pressure_psi": 45,
+        "temp_c": 52
+      }
+    }
+
+  Processing steps:
+    1. Look up device by thingName (no RLS — system operation)
+    2. Update device.last_seen_at and device.status = 'online'
+    3. Insert one telemetry row per metric key
+    4. If device is linked to an asset with a known category:
+       evaluate hardcoded alert rules (see below)
+
+
+6.5  HARDCODED ALERT RULES (MVP)
+─────────────────────────────────
+
+  pump category:
+    power_kw > rated_power * 1.25  → WARNING  "Power draw X kW exceeds rated limit Y kW"
+    power_kw > rated_power * 1.50  → CRITICAL "Power draw critically high"
+    flow_lpm < rated_flow * 0.75   → WARNING  "Flow rate below minimum"
+    pressure_psi > rated * 1.20    → CRITICAL "Pressure exceeds safe limit"
+
+  hvac category:
+    temp_c > specs.temp_max_c      → CRITICAL "Temperature exceeds maximum"
+    temp_c < 60                    → WARNING  "Temperature below operating range"
+
+  pool_system category:
+    flow_lpm < rated_flow * 0.80   → WARNING  "Pool flow rate below minimum"
+    temp_c > 35                    → WARNING  "Pool temperature above safe limit"
+
+  Deduplication:
+    Before creating an alert, check if an open/acknowledged alert of the same
+    severity + metric already exists for this device. If yes, skip.
+    Prevents alert spam for sustained threshold violations.
+
+  Auto-ticket for critical alerts:
+    When a CRITICAL alert is created:
+      1. Gets tenant.settings.webhook_url
+      2. Creates a service ticket with priority=emergency
+      3. Fire-and-forget POST to webhook_url (does not block response)
+
+
+────────────────────────────────────────────────────────────────────────────────
+7. PHASE D — REACT FRONTEND
+────────────────────────────────────────────────────────────────────────────────
+
+Location: frontend/
+
+Tech Stack:
+  - React 18 + TypeScript
+  - Vite (build tool)
+  - Tailwind CSS (utility-first styling)
+  - AWS Amplify v6 (Cognito authentication)
+  - React Router v6 (client-side routing)
+  - Recharts (line charts on dashboard)
+  - Lucide React (icons)
+
+Brand Colors (tailwind.config.ts):
+  brand-purple:       #7C3AED
+  brand-purple-mid:   #8B5CF6
+  brand-purple-soft:  #EDE9FE
+  brand-green:        #22C55E
+  brand-green-soft:   #DCFCE7
+  brand-black:        #0F172A
+
+File Structure:
+  frontend/
+  ├── index.html
+  ├── package.json
+  ├── vite.config.ts
+  ├── tsconfig.json
+  ├── tailwind.config.ts
+  ├── postcss.config.cjs
+  ├── .env.local              (VITE_PREVIEW=true for local dev — not committed)
+  └── src/
+      ├── main.tsx            — React entry point
+      ├── amplify-config.ts   — Cognito configuration from env vars
+      ├── App.tsx             — Routes + Authenticator wrapper
+      ├── index.css           — Tailwind directives + Amplify CSS overrides
+      ├── components/
+      │   └── layout/
+      │       ├── AppShell.tsx        — Main layout wrapper (sidebar + content)
+      │       ├── Sidebar.tsx         — Dark sidebar: logo, nav links, user info
+      │       └── LoginBackground.tsx — PeakLogic logo above Cognito form
+      ├── hooks/
+      │   └── useApi.ts       — Generic data-fetching hook with cancellation
+      ├── lib/
+      │   └── api.ts          — Typed fetch wrapper (injects JWT from Amplify)
+      └── pages/
+          ├── Dashboard.tsx   — Stat cards + 24h power chart + recent alerts
+          ├── Sites.tsx       — Table: name, type, location, devices, status
+          ├── Assets.tsx      — Card grid: status dot, category, make/model
+          ├── Devices.tsx     — Table: serial, thing name, firmware, last seen
+          ├── Alerts.tsx      — Severity-banded list with acknowledge button
+          ├── Tickets.tsx     — Priority + status cards
+          └── DeviceOnboard.tsx — 3-step device onboarding wizard
+
+
+7.1  AUTHENTICATION FLOW
+─────────────────────────
+
+  Production:
+    - Amplify Authenticator wraps entire app
+    - Handles: sign-in, MFA, forgot password, first-login password reset
+    - hideSignUp=true (no self-registration — admin creates users)
+    - Cognito JWT injected as Authorization header on all API calls
+
+  Local preview (VITE_PREVIEW=true in .env.local):
+    - Authenticator is bypassed
+    - App renders with placeholder user (preview@peaklogic.io)
+    - All pages visible with mock data
+    - API calls will fail (no real backend) but UI is fully interactive
+
+
+7.2  API CLIENT (frontend/src/lib/api.ts)
+──────────────────────────────────────────
+
+  - Base URL from VITE_API_URL env var (e.g. https://<id>.execute-api.../v1)
+  - Gets current Cognito ID token via fetchAuthSession() on every request
+  - Injects Authorization: <jwt> header automatically
+  - Typed generic: api.get<Site[]>('/sites'), api.post<Device>('/devices', body)
+  - Throws Error with API message on non-2xx responses
+
+
+7.3  PAGES — MOCK DATA NOTE
+────────────────────────────
+
+  All pages currently display hardcoded mock data (arrays defined at the top
+  of each file). This was intentional for Phase D — the UI was built before
+  the API was wired up.
+
+  To connect a page to the real API, replace the mock array with:
+    const [data, setData] = useState<T[]>([]);
+    useEffect(() => { api.get<T[]>('/endpoint').then(setData); }, []);
+
+  Or use the useApi hook:
+    const { data, loading, error } = useApi<T[]>('/endpoint');
+
+
+────────────────────────────────────────────────────────────────────────────────
+8. PHASE B — DEVICE ONBOARDING WIZARD
+────────────────────────────────────────────────────────────────────────────────
+
+Location: frontend/src/pages/DeviceOnboard.tsx
+Route:    /devices/onboard
+Access:   Devices page "Onboard device" button → Link to /devices/onboard
+
+
+8.1  WIZARD FLOW
+─────────────────
+
+  Step 1 — Enter Serial:
+    - User types the serial number printed on the physical device label
+    - Input auto-normalizes to uppercase (PLG-XXXX format)
+    - On "Next": POST /v1/devices { serial }
+      Success → advance to Step 2 with the claimed device
+      Error   → inline error message (not found, already claimed, etc.)
+
+  Step 2 — Assign Location (optional):
+    - Fetches /v1/sites on mount
+    - Fetches /v1/assets?siteId=<id> when user selects a site
+    - Both dropdowns show loading spinners while fetching
+    - "Skip for now" bypasses asset assignment → go to Success
+    - "Finish" with asset selected → PUT /v1/devices/{id} { assetId }
+
+  Success Screen:
+    - Green checkmark
+    - Device summary table: serial, thing name, status, site, asset
+    - Two CTAs: "Onboard another" (resets wizard) + "View all devices"
+
+
+8.2  API CALLS
+───────────────
+
+  Claim device:   POST   /v1/devices       { serial: "PLG-0042" }
+  Fetch sites:    GET    /v1/sites
+  Fetch assets:   GET    /v1/assets?siteId=<uuid>
+  Assign asset:   PUT    /v1/devices/{id}  { assetId: "<uuid>" }
+
+
+────────────────────────────────────────────────────────────────────────────────
+9. DEVICE PROVISIONING SCRIPT
+────────────────────────────────────────────────────────────────────────────────
+
+Location: scripts/provision-devices.ts
+
+Purpose:
+  Creates pre-provisioned device records that customers later claim through
+  the onboarding wizard. Run this BEFORE shipping devices to customers.
+
+What it does for each device:
+  1. Creates AWS IoT Core Thing (type: PeakLogicSensor)
+  2. Generates X.509 certificate + private key (CreateKeysAndCertificate)
+  3. Attaches PeakLogicDevicePolicy to the certificate
+  4. Attaches certificate to the Thing
+  5. Saves three files to device-certs/{serial}/:
+       certificate.pem    — device identity certificate (flash to hardware)
+       private.key        — private key (flash to hardware, NEVER commit to git)
+       device-config.json — firmware config: endpoint, thing name, topic paths
+  6. Inserts DB record: tenant_id=NULL, status='provisioning'
+     ON CONFLICT (serial) DO NOTHING — idempotent, safe to re-run
+
+Setup:
+  cd scripts
+  npm install
+  cp .env.example .env
+  # Edit .env with DB connection details (see section below)
+
+Usage:
+  # Provision 5 new devices (auto-increments from highest existing serial)
+  npx ts-node provision-devices.ts --count 5
+
+  # Provision specific serials
+  npx ts-node provision-devices.ts --serials PLG-0001,PLG-0002,PLG-0003
+
+  # DB-only mode (skip IoT Core — use for local dev testing)
+  npx ts-node provision-devices.ts --count 5 --db-only
+
+  # Override AWS region
+  npx ts-node provision-devices.ts --count 3 --region us-west-2
+
+Serial Format:
+  PLG-XXXX (e.g. PLG-0001, PLG-0042)
+  Thing name is derived: PLG-0001 → plg-0001 (lowercase)
+
+DB Connection (scripts/.env):
+  Option A — Direct (local dev):
+    DB_HOST=localhost
+    DB_PORT=5432
+    DB_NAME=peaklogic
+    DB_USER=peaklogic_admin
+    DB_PASSWORD=localdev
+    DB_SSL=false
+
+  Option B — Via Secrets Manager (staging/prod):
+    DB_HOST=<rds-endpoint-from-cdk-output>
+    DB_SECRET_ARN=<arn-from-cdk-output>
+    AWS_REGION=us-east-1
+
+Output example:
+  PeakLogic — Device Provisioning
+
+  Mode   : Full (IoT Core + DB)
+  Region : us-east-1
+  IoT endpoint: xxxx.iot.us-east-1.amazonaws.com
+
+  Provisioning 3 device(s): PLG-0001, PLG-0002, PLG-0003
+
+    ✓ PLG-0001     thing: plg-0001     certs: device-certs/PLG-0001
+    ✓ PLG-0002     thing: plg-0002     certs: device-certs/PLG-0002
+    ~ PLG-0003     already exists — skipped
+
+  Summary:  2 provisioned  ·  1 skipped  ·  0 failed
+
+  ⚠  device-certs/ contains private keys — store securely, never commit.
+
+Important:
+  device-certs/ is in .gitignore — private keys must NEVER be committed.
+  If a private key is lost, you must revoke and re-provision the device.
+
+
+────────────────────────────────────────────────────────────────────────────────
+10. GIT & GITHUB WORKFLOW
+────────────────────────────────────────────────────────────────────────────────
+
+Repository: https://github.com/PeakLogicSystems/PeakLogicSystems (private)
+GitHub Account: PeakLogicSystems
+Git Identity: PeakLogicSystems / blovas@msn.com
+
+Branch Strategy:
+  main           — production-ready code only, merge here at stable milestones
+  dev            — integration branch, all active development (current)
+  feature/<name> — feature branches, PR into dev
+  fix/<name>     — bug fixes
+
+Commit Convention:
+  feat:   new user-facing feature
+  fix:    bug fix
+  infra:  CDK / AWS config changes
+  chore:  tooling, scripts, dependencies, scaffolding
+  docs:   documentation
+
+Commits in this session (all on dev branch):
+  678ac6e  chore: initialize PeakLogic repository
+  f253c2f  infra: add CDK stacks for MVP cloud infrastructure
+  0ad8f1b  feat: add React frontend scaffold (Phase D)
+  ddcdcc2  feat: implement backend API and telemetry ingest (Phase C)
+  e61e04f  feat: add device onboarding wizard (Phase B)
+  f848020  chore: add device provisioning script
+  29f1636  chore: add local preview mode to bypass Cognito auth
+
+How to run locally (preview UI without AWS):
+  1. Install Node.js from nodejs.org (LTS version)
+  2. cd frontend
+  3. npm install
+  4. npm run dev
+  5. Open http://localhost:5173
+  (VITE_PREVIEW=true is already set in frontend/.env.local)
+
+
+────────────────────────────────────────────────────────────────────────────────
+11. FULL PROJECT FILE STRUCTURE
+────────────────────────────────────────────────────────────────────────────────
+
+PeakLogicSystems/
+├── .gitignore
+├── .env.example                    ← frontend env var template (post-deploy)
+├── README.md
+│
+├── infra/                          ← AWS CDK (TypeScript)
+│   ├── bin/
+│   │   └── peaklogic.ts            ← CDK app entry, all 6 stacks
+│   ├── lib/
+│   │   ├── network-stack.ts
+│   │   ├── data-stack.ts
+│   │   ├── auth-stack.ts
+│   │   ├── api-stack.ts
+│   │   ├── iot-stack.ts
+│   │   └── frontend-stack.ts
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── cdk.json
+│
+├── backend/                        ← Lambda functions
+│   ├── shared/
+│   │   ├── types.ts
+│   │   ├── db.ts
+│   │   ├── auth.ts
+│   │   └── response.ts
+│   ├── api/
+│   │   ├── handler.ts
+│   │   ├── router.ts
+│   │   └── routes/
+│   │       ├── sites.ts
+│   │       ├── assets.ts
+│   │       ├── devices.ts
+│   │       ├── alerts.ts
+│   │       ├── tickets.ts
+│   │       └── telemetry.ts
+│   ├── ingest/
+│   │   └── handler.ts
+│   ├── package.json
+│   └── tsconfig.json
+│
+├── frontend/                       ← React SPA
+│   ├── index.html
+│   ├── package.json
+│   ├── vite.config.ts
+│   ├── tsconfig.json
+│   ├── tailwind.config.ts
+│   ├── postcss.config.cjs
+│   ├── .env.local                  ← VITE_PREVIEW=true (not committed)
+│   └── src/
+│       ├── main.tsx
+│       ├── amplify-config.ts
+│       ├── App.tsx
+│       ├── index.css
+│       ├── components/layout/
+│       │   ├── AppShell.tsx
+│       │   ├── Sidebar.tsx
+│       │   └── LoginBackground.tsx
+│       ├── hooks/
+│       │   └── useApi.ts
+│       ├── lib/
+│       │   └── api.ts
+│       └── pages/
+│           ├── Dashboard.tsx
+│           ├── Sites.tsx
+│           ├── Assets.tsx
+│           ├── Devices.tsx
+│           ├── Alerts.tsx
+│           ├── Tickets.tsx
+│           └── DeviceOnboard.tsx
+│
+├── scripts/                        ← Tooling
+│   ├── provision-devices.ts        ← Device provisioning script
+│   ├── package.json
+│   ├── tsconfig.json
+│   └── .env.example
+│
+└── docs/
+    └── data-model.sql              ← Full PostgreSQL schema with RLS
+
+
+────────────────────────────────────────────────────────────────────────────────
+12. DEPLOYMENT CHECKLIST
+────────────────────────────────────────────────────────────────────────────────
+
+When ready to deploy to AWS (in order):
+
+  Step 1 — Merge dev to main
+    git checkout main
+    git merge dev
+    git push origin main
+
+  Step 2 — Bootstrap CDK (one-time per AWS account)
+    cd infra
+    npm install
+    npx cdk bootstrap
+
+  Step 3 — Deploy all stacks
+    npx cdk deploy --all
+    (Takes ~10–15 minutes. Note the outputs: ApiUrl, UserPoolId,
+     UserPoolClientId, BucketName, DistributionUrl, DbHost, DbSecretArn)
+
+  Step 4 — Run DB schema migration
+    Connect to the RDS instance (via bastion or RDS Proxy) and run:
+    docs/data-model.sql
+
+  Step 5 — Seed test devices
+    cd scripts
+    npm install
+    cp .env.example .env
+    # Fill in DB_HOST and DB_SECRET_ARN from CDK outputs
+    npx ts-node provision-devices.ts --count 5 --db-only
+    # (use full mode without --db-only for real IoT Core provisioning)
+
+  Step 6 — Configure frontend env vars
+    Copy root .env.example to frontend/.env
+    Fill in VITE_API_URL, VITE_USER_POOL_ID, VITE_USER_POOL_CLIENT_ID
+    from CDK stack outputs
+
+  Step 7 — Build and deploy frontend
+    cd frontend
+    npm run build
+    aws s3 sync dist/ s3://<BucketName>
+    aws cloudfront create-invalidation --distribution-id <id> --paths "/*"
+
+  Step 8 — Create first admin user
+    Go to AWS Console → Cognito → User Pool → Create user
+    Set email, temporary password, add to 'admin' group
+    Set custom:tenant_id attribute to the tenant UUID
+
+  Step 9 — Open the app
+    https://<DistributionUrl>
+
+
+────────────────────────────────────────────────────────────────────────────────
+13. ESTIMATED AWS COSTS
+────────────────────────────────────────────────────────────────────────────────
+
+At zero/minimal traffic (dev/staging):
+
+  NAT Gateway              ~$32/month   (biggest cost — runs 24/7)
+  RDS db.t3.micro          ~$13/month   (runs 24/7)
+  Secrets Manager           ~$0.40/month (1 secret)
+  Lambda                    ~$0/month    (within free tier at dev scale)
+  API Gateway               ~$0/month    (within free tier first 12 months)
+  IoT Core                  ~$0/month    (within free tier)
+  CloudFront + S3           ~$0/month    (within free tier)
+  Cognito                   ~$0/month    (free up to 50,000 MAUs)
+
+  Total estimate:           ~$46/month at zero traffic
+
+To reduce to ~$14/month for testing:
+  In infra/lib/network-stack.ts, change natGateways: 1 to natGateways: 0
+  and move Lambda subnets to PUBLIC (acceptable for dev, not for production).
+  Note: Lambda will then need VPC endpoints to reach Secrets Manager and SES,
+  or those services must be called from outside the VPC.
+
+
+────────────────────────────────────────────────────────────────────────────────
+14. V2 ROADMAP (DEFERRED FEATURES)
+────────────────────────────────────────────────────────────────────────────────
+
+The following features were explicitly scoped out of v1 and should be
+revisited once the first 5 customers are live:
+
+  Analytics:
+    - ML-based anomaly detection (Isolation Forest or Z-score baseline)
+    - Spec sheet upload + Textract parameter extraction
+    - Normalized baselines from historical telemetry
+    - Deviation scoring: live vs. expected behavior
+
+  Infrastructure:
+    - TimescaleDB or Amazon Timestream for high-volume telemetry
+    - Kinesis Data Streams for high-throughput ingestion
+    - Multi-AZ RDS (flip multiAz=true in data-stack.ts)
+    - Multi-region deployment
+
+  Auth & Access:
+    - SAML / enterprise SSO federation
+    - IP allowlisting per tenant
+    - Session audit logging
+
+  Devices:
+    - Remote device control (start/stop, setpoints, schedules)
+    - OTA firmware updates via IoT Core Jobs
+    - Device offline detection (scheduled Lambda checking last_seen_at)
+    - QR code scanning in onboarding wizard
+
+  Integrations:
+    - ServiceNow / JIRA / Salesforce ticket sync
+    - Configurable alert rules (per-asset DB-driven rules)
+    - Partner portal (service_partners table + RBAC)
+    - Email/SMS notifications via SES/SNS
+
+  Frontend:
+    - Real API wiring (replace mock data on each page)
+    - Live dashboard telemetry (WebSocket via API Gateway)
+    - Site map view (PostGIS + Mapbox or Google Maps)
+    - Mobile app (React Native)
+    - White-labeling per tenant
+
+  Compliance:
+    - Audit logging (CloudTrail + custom event log table)
+    - Data retention policies per tenant
+    - GDPR data export/deletion
+
+
+────────────────────────────────────────────────────────────────────────────────
+15. KEY ENVIRONMENT VARIABLES REFERENCE
+────────────────────────────────────────────────────────────────────────────────
+
+Lambda (set by CDK via commonEnv in api-stack.ts):
+  DB_SECRET_ARN      — Secrets Manager ARN for DB credentials
+  DB_HOST            — RDS endpoint hostname
+  DB_NAME            — Database name (peaklogic)
+  USER_POOL_ID       — Cognito User Pool ID
+  NODE_ENV           — production
+
+Frontend (.env or .env.local):
+  VITE_API_URL            — https://<id>.execute-api.<region>.amazonaws.com/v1
+  VITE_USER_POOL_ID       — Cognito User Pool ID
+  VITE_USER_POOL_CLIENT_ID — Cognito App Client ID
+  VITE_REGION             — AWS region
+  VITE_PREVIEW            — true = bypass auth for local dev (never in prod)
+
+Provisioning script (scripts/.env):
+  AWS_REGION         — AWS region
+  DB_HOST            — RDS endpoint
+  DB_SECRET_ARN      — (prod) Secrets Manager ARN
+  DB_USER            — (dev) direct DB username
+  DB_PASSWORD        — (dev) direct DB password
+  DB_SSL             — false for local dev, omit for prod (uses SSL)
+
+
+────────────────────────────────────────────────────────────────────────────────
+END OF TRANSCRIPT
+================================================================================

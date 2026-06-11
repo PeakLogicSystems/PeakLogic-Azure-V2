@@ -1,0 +1,1450 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeakLogic — System Administrator Guide v1.0.0</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 10.5pt; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.65;
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  h1 { font-size: 2rem; color: #0f172a; margin-bottom: .4rem; }
+  h2 { font-size: 1.35rem; color: #0f172a; margin: 2rem 0 .6rem;
+       padding-bottom: .35rem; border-bottom: 2px solid #7c3aed; }
+  h3 { font-size: 1.05rem; color: #7c3aed; margin: 1.4rem 0 .4rem; }
+  h4 { font-size: .95rem; color: #334155; margin: 1rem 0 .3rem; font-weight: 600; }
+  p  { margin: .55rem 0; }
+  ul, ol { margin: .5rem 0 .5rem 1.4rem; }
+  li { margin: .25rem 0; }
+  a  { color: #7c3aed; text-decoration: none; }
+  strong { color: #0f172a; }
+
+  /* ── Cover Page ───────────────────────────────────────────── */
+  .cover {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 100vh; text-align: center; padding: 60px 40px;
+  }
+  .cover-logo {
+    font-size: 3rem; font-weight: 800; letter-spacing: -1px;
+    margin-bottom: .3rem;
+  }
+  .cover-logo .peak { color: #0f172a; }
+  .cover-logo .logic { color: #7c3aed; }
+  .cover-rule {
+    width: 80px; height: 4px; background: #22c55e;
+    margin: 1.2rem auto; border-radius: 2px;
+  }
+  .cover-title { font-size: 1.6rem; color: #334155; font-weight: 300; margin-bottom: .5rem; }
+  .cover-sub   { font-size: 1rem; color: #64748b; margin-bottom: 2.5rem; }
+  .cover-meta  { font-size: .85rem; color: #94a3b8; }
+  .cover-meta span { display: block; margin: .15rem 0; }
+  .cover-badge {
+    display: inline-block; background: #fef3c7; color: #92400e;
+    border: 1px solid #fde68a; padding: .3rem .8rem; border-radius: 999px;
+    font-size: .8rem; font-weight: 600; margin-top: 1.5rem;
+  }
+
+  /* ── Revision History ─────────────────────────────────────── */
+  .rev-history { margin: 2.5rem 0; page-break-after: always; }
+  .rev-title {
+    font-size: 1.2rem; font-weight: 700; color: #0f172a;
+    margin-bottom: 1rem; padding-bottom: .4rem;
+    border-bottom: 2px solid #7c3aed;
+  }
+  .rev-history table { font-size: .88rem; }
+  .rev-note { font-size: .8rem; color: #94a3b8; margin-top: .6rem; }
+
+  /* ── TOC ──────────────────────────────────────────────────── */
+  .toc { page-break-after: always; }
+  .toc-title { font-size: 1.2rem; font-weight: 700; color: #0f172a;
+               margin: 2rem 0 1rem; border-bottom: 2px solid #7c3aed; padding-bottom: .4rem; }
+  .toc ol { counter-reset: toc-section; list-style: none; margin: 0; }
+  .toc > ol > li { margin: .4rem 0; font-weight: 600; }
+  .toc > ol > li > ol { counter-reset: toc-sub; list-style: none; margin: .2rem 0 .4rem 1.2rem; }
+  .toc > ol > li > ol > li { font-weight: 400; font-size: .92rem; color: #475569; margin: .15rem 0; }
+  .toc-num { color: #7c3aed; font-weight: 700; margin-right: .5rem; }
+  .toc-dots { flex: 1; border-bottom: 1px dotted #cbd5e1; margin: 0 .4rem; display: inline-block; min-width: 30px; }
+  .toc-item { display: flex; align-items: baseline; }
+  .toc-page { color: #94a3b8; font-size: .85rem; }
+
+  /* ── Section wrappers ─────────────────────────────────────── */
+  .section { margin-bottom: 2.5rem; }
+  .page-break { page-break-before: always; }
+
+  /* ── Info boxes ───────────────────────────────────────────── */
+  .box {
+    border-radius: 6px; padding: .8rem 1rem; margin: .8rem 0;
+    font-size: .9rem; line-height: 1.55;
+  }
+  .box-info    { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .box-warn    { background: #fffbeb; border-left: 4px solid #f59e0b; }
+  .box-danger  { background: #fef2f2; border-left: 4px solid #ef4444; }
+  .box-success { background: #f0fdf4; border-left: 4px solid #22c55e; }
+  .box-title   { font-weight: 700; margin-bottom: .3rem; }
+
+  /* ── Tables ───────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; margin: .8rem 0; font-size: .88rem; }
+  th {
+    background: #0f172a; color: #fff; text-align: left;
+    padding: .5rem .75rem; font-weight: 600; font-size: .82rem;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  td { padding: .45rem .75rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  tr:hover td { background: #f1f5f9; }
+  .col-name  { font-weight: 600; color: #0f172a; white-space: nowrap; }
+  .col-type  { color: #7c3aed; font-family: 'Courier New', monospace; font-size: .82rem; }
+  .col-mono  { font-family: 'Courier New', monospace; font-size: .82rem; }
+
+  /* ── Code blocks ──────────────────────────────────────────── */
+  pre {
+    background: #0f172a; color: #e2e8f0;
+    padding: .85rem 1rem; border-radius: 6px;
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: .82rem; line-height: 1.6;
+    overflow-x: auto; margin: .6rem 0;
+    white-space: pre-wrap; word-break: break-word;
+  }
+  code {
+    font-family: 'Courier New', Consolas, monospace;
+    font-size: .85rem; background: #f1f5f9;
+    color: #7c3aed; padding: .1rem .3rem; border-radius: 3px;
+  }
+  pre code { background: none; color: inherit; padding: 0; font-size: inherit; }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .badge {
+    display: inline-block; padding: .15rem .5rem; border-radius: 4px;
+    font-size: .75rem; font-weight: 600; white-space: nowrap;
+  }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-yellow { background: #fef9c3; color: #713f12; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+
+  /* ── Step list ────────────────────────────────────────────── */
+  .steps { counter-reset: step; list-style: none; margin: .5rem 0 .5rem 0; }
+  .steps li { counter-increment: step; display: flex; gap: .8rem; margin: .6rem 0; align-items: flex-start; }
+  .steps li::before {
+    content: counter(step);
+    background: #7c3aed; color: #fff;
+    min-width: 22px; height: 22px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; font-weight: 700; flex-shrink: 0; margin-top: .1rem;
+  }
+
+  /* ── Print ────────────────────────────────────────────────── */
+  @media print {
+    body { max-width: none; padding: 0; font-size: 9.5pt; }
+    .cover { min-height: auto; padding: 80px 60px; page-break-after: always; }
+    .toc   { page-break-after: always; }
+    .page-break { page-break-before: always; }
+    h2 { page-break-after: avoid; }
+    h3 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+    pre   { page-break-inside: avoid; }
+    .box  { page-break-inside: avoid; }
+    a { color: #7c3aed; }
+    @page {
+      margin: 18mm 16mm;
+      @bottom-center { content: "PeakLogic — System Administrator Guide"; font-size: 8pt; color: #94a3b8; }
+      @bottom-right  { content: counter(page); font-size: 8pt; color: #94a3b8; }
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <span class="peak">Peak</span><span class="logic">Logic</span>
+  </div>
+  <div class="cover-rule"></div>
+  <div class="cover-title">System Administrator Guide</div>
+  <div class="cover-sub">PeakLogic IoT SaaS Platform — v1.0.0</div>
+  <div class="cover-meta">
+    <span>Document Version: v1.0.0</span>
+    <span>Issue Date: 2026-06-10</span>
+    <span>Platform Version: v1.0.0 (MVP)</span>
+    <span>Environment: AWS (us-east-1)</span>
+    <span>Audience: System Administrators, DevOps Engineers</span>
+    <span>Classification: INTERNAL — CONFIDENTIAL</span>
+  </div>
+  <div>
+    <span class="cover-badge">INTERNAL — CONFIDENTIAL</span>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     DOCUMENT REVISION HISTORY
+════════════════════════════════════════════════════════════ -->
+<div class="rev-history">
+  <div class="rev-title">Document Revision History</div>
+  <table>
+    <tr>
+      <th style="width:72px">Version</th>
+      <th style="width:96px">Date</th>
+      <th style="width:130px">Author</th>
+      <th>Summary of Changes</th>
+      <th style="width:90px">Status</th>
+    </tr>
+    <tr>
+      <td class="col-mono">v1.0.0</td>
+      <td>2026-06-10</td>
+      <td>PeakLogic Engineering</td>
+      <td>Initial release. Documents MVP platform: 6 CDK stacks, multi-tenant PostgreSQL RLS architecture, 18 REST API endpoints, IoT Core device provisioning, React frontend, hardcoded alert rules, deployment procedures, monitoring, security hardening, and disaster recovery.</td>
+      <td><span class="badge badge-green">Released</span></td>
+    </tr>
+  </table>
+  <p class="rev-note">
+    This document is version-controlled under SemVer 2.0.0. Each release creates an immutable archived copy named
+    <code>PeakLogic_SysAdmin_Guide_v{version}_{YYYYMMDD}.html</code> in the repository root. Never delete archived copies.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li><span class="toc-num">1</span> System Overview</li>
+    <li><span class="toc-num">2</span> Architecture &amp; Infrastructure
+      <ol>
+        <li>Network Stack (VPC)</li>
+        <li>Data Stack (RDS)</li>
+        <li>Auth Stack (Cognito)</li>
+        <li>API Stack (Lambda + API Gateway)</li>
+        <li>IoT Stack (AWS IoT Core)</li>
+        <li>Frontend Stack (S3 + CloudFront)</li>
+      </ol>
+    </li>
+    <li><span class="toc-num">3</span> AWS Cost Reference</li>
+    <li><span class="toc-num">4</span> Initial Deployment Procedure</li>
+    <li><span class="toc-num">5</span> User &amp; Tenant Management
+      <ol>
+        <li>Creating a New Tenant</li>
+        <li>Creating User Accounts</li>
+        <li>RBAC Roles</li>
+        <li>Resetting Passwords</li>
+      </ol>
+    </li>
+    <li><span class="toc-num">6</span> Database Administration
+      <ol>
+        <li>Connecting to RDS</li>
+        <li>Schema &amp; Tables</li>
+        <li>Row-Level Security</li>
+        <li>Backups &amp; Restore</li>
+      </ol>
+    </li>
+    <li><span class="toc-num">7</span> IoT Device Management
+      <ol>
+        <li>Device Provisioning Script</li>
+        <li>Certificate Management</li>
+        <li>IoT Core Policies</li>
+        <li>Decommissioning Devices</li>
+      </ol>
+    </li>
+    <li><span class="toc-num">8</span> API Reference</li>
+    <li><span class="toc-num">9</span> Alert Rules</li>
+    <li><span class="toc-num">10</span> Frontend Application</li>
+    <li><span class="toc-num">11</span> Environment Variables</li>
+    <li><span class="toc-num">12</span> Monitoring &amp; Logging</li>
+    <li><span class="toc-num">13</span> Security Hardening</li>
+    <li><span class="toc-num">14</span> Troubleshooting</li>
+    <li><span class="toc-num">15</span> Disaster Recovery</li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — SYSTEM OVERVIEW
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>1. System Overview</h2>
+
+<p>PeakLogic is a multi-tenant, cloud-native IoT SaaS platform that monitors industrial and commercial equipment — pumping stations, HVAC systems, pool equipment, and QSR (quick-service restaurant) assets — in real time. Sensors attached to physical equipment transmit telemetry data to AWS IoT Core over MQTT/TLS. The platform evaluates that data against threshold rules, raises alerts, and automatically creates service tickets for partner companies when critical thresholds are breached.</p>
+
+<h3>Business Purpose</h3>
+<ul>
+  <li>Detect abnormal equipment behavior before failure occurs</li>
+  <li>Reduce risk of equipment damage and property loss for customers</li>
+  <li>Proactively trigger service tickets to partner service companies via webhook</li>
+</ul>
+
+<h3>Target Verticals</h3>
+<table>
+  <tr><th>Vertical</th><th>Asset Categories</th><th>Key Metrics</th></tr>
+  <tr><td>Pumping Stations</td><td>pump</td><td>power_kw, flow_lpm, pressure_psi</td></tr>
+  <tr><td>QSR (Restaurants)</td><td>hvac, compressor</td><td>temp_c, power_kw</td></tr>
+  <tr><td>Pool Monitoring</td><td>pool_system</td><td>flow_lpm, temp_c, ph</td></tr>
+</table>
+
+<h3>Multi-Tenancy Model</h3>
+<p>PeakLogic uses a <strong>hybrid pooled</strong> model: all tenants share a single PostgreSQL database, but every tenant-scoped table carries a <code>tenant_id</code> column and PostgreSQL Row-Level Security (RLS) policies enforce data isolation at the database level. No application query can accidentally cross tenant boundaries because the database engine enforces it.</p>
+
+<h3>Core Technology Stack</h3>
+<table>
+  <tr><th>Layer</th><th>Technology</th></tr>
+  <tr><td>Cloud Platform</td><td>Amazon Web Services (AWS) — us-east-1</td></tr>
+  <tr><td>Infrastructure as Code</td><td>AWS CDK v2 (TypeScript)</td></tr>
+  <tr><td>Device Connectivity</td><td>AWS IoT Core (MQTT/TLS, X.509 certificates)</td></tr>
+  <tr><td>API</td><td>AWS Lambda (Node.js 20) + API Gateway REST</td></tr>
+  <tr><td>Database</td><td>Amazon RDS PostgreSQL 16 (db.t3.micro)</td></tr>
+  <tr><td>Authentication</td><td>Amazon Cognito User Pools (PKCE, TOTP MFA)</td></tr>
+  <tr><td>Frontend Hosting</td><td>Amazon S3 + CloudFront</td></tr>
+  <tr><td>Secrets</td><td>AWS Secrets Manager</td></tr>
+  <tr><td>Email Alerts</td><td>Amazon SES</td></tr>
+  <tr><td>Frontend App</td><td>React 18 + Vite + TypeScript + Tailwind CSS</td></tr>
+  <tr><td>Source Control</td><td>GitHub (github.com/PeakLogicSystems/PeakLogicSystems)</td></tr>
+</table>
+
+<h3>Repository Structure</h3>
+<pre>PeakLogicSystems/
+├── infra/          AWS CDK stacks (TypeScript)
+├── backend/        Lambda function source code
+│   ├── api/        REST API handler + route files
+│   ├── ingest/     IoT telemetry ingest handler
+│   └── shared/     DB, auth, response helpers
+├── frontend/       React SPA (Vite + Tailwind)
+├── scripts/        Admin tooling (device provisioning)
+├── docs/           data-model.sql schema file
+└── device-certs/   Generated device certificates (gitignored)</pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — ARCHITECTURE
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>2. Architecture &amp; Infrastructure</h2>
+
+<p>All infrastructure is defined as code in the <code>infra/</code> directory using AWS CDK v2. Six CDK stacks are deployed in order. Each stack's outputs are consumed by subsequent stacks.</p>
+
+<pre>infra/bin/peaklogic.ts  (CDK App entry point)
+├── PeakLogic-Network   → VPC, subnets, security groups
+├── PeakLogic-Data      → RDS PostgreSQL, Secrets Manager
+├── PeakLogic-Auth      → Cognito User Pool + App Client
+├── PeakLogic-Api       → Lambda functions + API Gateway
+├── PeakLogic-IoT       → IoT Core: thing type, policy, rule
+└── PeakLogic-Frontend  → S3 bucket + CloudFront distribution</pre>
+
+<h3>2.1 Network Stack</h3>
+<p>File: <code>infra/lib/network-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>VPC</td><td>2 Availability Zones, CIDR 10.0.0.0/16</td></tr>
+  <tr><td>Public Subnets</td><td>One per AZ — internet-routable (for NAT Gateway)</td></tr>
+  <tr><td>Private Subnets (Egress)</td><td>One per AZ — Lambda lives here; outbound via NAT</td></tr>
+  <tr><td>Isolated Subnets</td><td>One per AZ — RDS lives here; no internet route</td></tr>
+  <tr><td>NAT Gateway</td><td>1 shared NAT Gateway (~$32/month)</td></tr>
+  <tr><td>Lambda Security Group</td><td>All outbound; no inbound rules</td></tr>
+  <tr><td>RDS Security Group</td><td>Accepts TCP:5432 from Lambda SG only</td></tr>
+</table>
+
+<div class="box box-warn">
+  <div class="box-title">Cost Note — NAT Gateway</div>
+  NAT Gateway costs ~$32/month regardless of traffic. For non-production environments, set <code>natGateways: 0</code> in <code>network-stack.ts</code> and move Lambda to public subnets. This reduces the monthly bill to ~$14/month but is not recommended for production.
+</div>
+
+<h3>2.2 Data Stack</h3>
+<p>File: <code>infra/lib/data-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>Engine</td><td>PostgreSQL 16.x</td></tr>
+  <tr><td>Instance</td><td>db.t3.micro (2 vCPU, 1 GB RAM)</td></tr>
+  <tr><td>Storage</td><td>20 GB gp2, encrypted at rest</td></tr>
+  <tr><td>Multi-AZ</td><td>Disabled (enable for production)</td></tr>
+  <tr><td>Backup Retention</td><td>7 days</td></tr>
+  <tr><td>Maintenance Window</td><td>Sun 03:00–04:00 UTC</td></tr>
+  <tr><td>Credentials</td><td>Auto-generated, stored in Secrets Manager</td></tr>
+  <tr><td>Deletion Policy</td><td>SNAPSHOT (CDK will take a snapshot before deleting)</td></tr>
+  <tr><td>Deletion Protection</td><td>Disabled (enable for production)</td></tr>
+  <tr><td>Subnet</td><td>Isolated (no internet access)</td></tr>
+</table>
+
+<div class="box box-danger">
+  <div class="box-title">Production Checklist — RDS</div>
+  Before going live: set <code>multiAz: true</code>, <code>deletionProtection: true</code>, upgrade instance to <code>db.t3.small</code> or larger, and enable Enhanced Monitoring.
+</div>
+
+<h3>2.3 Auth Stack</h3>
+<p>File: <code>infra/lib/auth-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>User Pool Name</td><td>peaklogic-users</td></tr>
+  <tr><td>Sign-in</td><td>Email address only</td></tr>
+  <tr><td>Self-registration</td><td>Disabled — admin must create users</td></tr>
+  <tr><td>MFA</td><td>Optional TOTP (Google Authenticator)</td></tr>
+  <tr><td>Custom Attributes</td><td>custom:tenant_id, custom:role (mutable)</td></tr>
+  <tr><td>Groups</td><td>admin, operator, service_partner</td></tr>
+  <tr><td>App Client</td><td>PKCE flow, no client secret</td></tr>
+  <tr><td>Access Token Validity</td><td>1 hour</td></tr>
+  <tr><td>Refresh Token Validity</td><td>30 days</td></tr>
+  <tr><td>Callback URLs</td><td>http://localhost:5173, https://app.peaklogic.io</td></tr>
+</table>
+
+<h3>2.4 API Stack</h3>
+<p>File: <code>infra/lib/api-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>Lambda: peaklogic-api</td><td>Node.js 20.x, 512 MB, 30s timeout, VPC private subnet</td></tr>
+  <tr><td>Lambda: peaklogic-ingest</td><td>Node.js 20.x, 512 MB, 30s timeout, VPC private subnet</td></tr>
+  <tr><td>API Gateway</td><td>REST API, regional, Cognito authorizer on all routes</td></tr>
+  <tr><td>Throttling</td><td>200 burst, 100 rate (requests/sec)</td></tr>
+  <tr><td>Log Retention</td><td>14 days (CloudWatch)</td></tr>
+  <tr><td>DB Access</td><td>Secrets Manager read permission granted to both Lambdas</td></tr>
+</table>
+
+<h3>2.5 IoT Stack</h3>
+<p>File: <code>infra/lib/iot-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>Thing Type</td><td>PeakLogicSensor (searchable attrs: tenantId, siteId, assetId)</td></tr>
+  <tr><td>Device Policy</td><td>PeakLogicDevicePolicy — scoped per-device using thing name variable</td></tr>
+  <tr><td>Topic Rule</td><td>PeakLogicTelemetryIngest — <code>peaklogic/+/telemetry</code> → Lambda ingest</td></tr>
+  <tr><td>Error Action</td><td>CloudWatch log group: /peaklogic/iot/errors</td></tr>
+</table>
+
+<h4>Device MQTT Topics</h4>
+<table>
+  <tr><th>Purpose</th><th>Topic Pattern</th><th>Direction</th></tr>
+  <tr><td>Telemetry publish</td><td class="col-mono">peaklogic/{thingName}/telemetry</td><td>Device → Cloud</td></tr>
+  <tr><td>Commands receive</td><td class="col-mono">peaklogic/{thingName}/commands</td><td>Cloud → Device</td></tr>
+</table>
+
+<div class="box box-info">
+  <div class="box-title">Security — Per-Device Topic Scoping</div>
+  The IoT policy uses <code>${iot:Connection.Thing.ThingName}</code> to restrict each device certificate to only its own topic. A device cannot publish to another device's telemetry topic even if it has a valid certificate.
+</div>
+
+<h3>2.6 Frontend Stack</h3>
+<p>File: <code>infra/lib/frontend-stack.ts</code></p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>S3 Bucket</td><td>Private (no public access), server-side encryption</td></tr>
+  <tr><td>CloudFront</td><td>Origin Access Control (OAC), HTTPS-only</td></tr>
+  <tr><td>Price Class</td><td>PRICE_CLASS_100 (US + Europe edge locations)</td></tr>
+  <tr><td>SPA Routing</td><td>403 and 404 errors rewrite to /index.html (client-side routing)</td></tr>
+  <tr><td>HTTP → HTTPS</td><td>Redirect enforced</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — COSTS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>3. AWS Cost Reference</h2>
+
+<p>Estimates below are at zero to minimal traffic. Costs grow linearly with device count and API requests.</p>
+
+<table>
+  <tr><th>Service</th><th>Resource</th><th>Est. Monthly Cost</th><th>Notes</th></tr>
+  <tr><td>VPC</td><td>NAT Gateway</td><td>~$32</td><td>Hourly charge + data processing. Largest fixed cost.</td></tr>
+  <tr><td>RDS</td><td>db.t3.micro</td><td>~$13</td><td>On-demand, single AZ. Multi-AZ doubles this.</td></tr>
+  <tr><td>Secrets Manager</td><td>1 secret</td><td>~$0.40</td><td>$0.40/secret/month + API call costs</td></tr>
+  <tr><td>Lambda</td><td>api + ingest</td><td>~$0</td><td>1M free requests/month, then $0.20/1M</td></tr>
+  <tr><td>API Gateway</td><td>REST API</td><td>~$0</td><td>1M free calls/month for first 12 months</td></tr>
+  <tr><td>AWS IoT Core</td><td>Messages</td><td>~$0</td><td>Free tier: 500K messages/month; $1/million after</td></tr>
+  <tr><td>CloudFront</td><td>Distribution</td><td>~$0</td><td>1 TB free data transfer/month for first 12 months</td></tr>
+  <tr><td>S3</td><td>Frontend bucket</td><td>~$0</td><td>5 GB free storage, 20K GET requests free/month</td></tr>
+  <tr><td>Cognito</td><td>User Pool</td><td>~$0</td><td>Free up to 50,000 MAUs</td></tr>
+  <tr><td colspan="2"><strong>Total (dev/staging)</strong></td><td><strong>~$46/month</strong></td><td>At near-zero traffic</td></tr>
+  <tr><td colspan="2"><strong>Total (no NAT Gateway)</strong></td><td><strong>~$14/month</strong></td><td>Dev only — not production-safe</td></tr>
+</table>
+
+<h3>Scaling Cost Estimates</h3>
+<table>
+  <tr><th>Scale</th><th>Devices</th><th>Telemetry/day</th><th>Est. Additional Cost</th></tr>
+  <tr><td>Small</td><td>1–50</td><td>&lt;1M messages</td><td>$0 additional (within free tier)</td></tr>
+  <tr><td>Medium</td><td>50–500</td><td>1–10M messages</td><td>+$9 IoT Core + RDS storage costs</td></tr>
+  <tr><td>Large</td><td>500+</td><td>10M+ messages</td><td>Upgrade RDS instance + consider read replica</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — INITIAL DEPLOYMENT
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>4. Initial Deployment Procedure</h2>
+
+<div class="box box-warn">
+  <div class="box-title">Prerequisites</div>
+  <ul>
+    <li>AWS CLI installed and configured (<code>aws configure</code>) with an IAM user/role that has Administrator-level permissions</li>
+    <li>Node.js 20 LTS installed</li>
+    <li>Git installed and authenticated with GitHub</li>
+    <li>AWS account bootstrapped for CDK (one-time per account/region)</li>
+  </ul>
+</div>
+
+<h3>Step 1 — Clone the repository</h3>
+<pre>git clone https://github.com/PeakLogicSystems/PeakLogicSystems.git
+cd PeakLogicSystems
+git checkout dev</pre>
+
+<h3>Step 2 — Bootstrap CDK (first time only)</h3>
+<p>This creates an S3 bucket and IAM roles that CDK needs to deploy stacks. Run once per AWS account per region.</p>
+<pre>cd infra
+npm install
+npx cdk bootstrap aws://YOUR_ACCOUNT_ID/us-east-1</pre>
+
+<h3>Step 3 — Deploy all stacks</h3>
+<pre>npx cdk deploy --all --require-approval never</pre>
+<p>This takes approximately 10–15 minutes. CloudFormation deploys all 6 stacks in dependency order. When complete, the terminal outputs key values you will need:</p>
+<table>
+  <tr><th>CDK Output Key</th><th>Used For</th></tr>
+  <tr><td class="col-mono">PeakLogic-Api.ApiUrl</td><td>Frontend VITE_API_URL</td></tr>
+  <tr><td class="col-mono">PeakLogic-Auth.UserPoolId</td><td>Frontend VITE_USER_POOL_ID</td></tr>
+  <tr><td class="col-mono">PeakLogic-Auth.UserPoolClientId</td><td>Frontend VITE_USER_POOL_CLIENT_ID</td></tr>
+  <tr><td class="col-mono">PeakLogic-Data.DbHost</td><td>scripts/.env DB_HOST</td></tr>
+  <tr><td class="col-mono">PeakLogic-Data.DbSecretArn</td><td>Lambda env + scripts/.env</td></tr>
+  <tr><td class="col-mono">PeakLogic-Frontend.BucketName</td><td>S3 sync target</td></tr>
+  <tr><td class="col-mono">PeakLogic-Frontend.DistributionUrl</td><td>Public app URL</td></tr>
+</table>
+
+<h3>Step 4 — Apply the database schema</h3>
+<p>Connect to the RDS instance and run the schema SQL. The easiest method is via an EC2 instance in the same VPC or AWS Systems Manager Session Manager.</p>
+<pre># From a bastion host or EC2 in the VPC:
+psql -h YOUR_DB_HOST -U peaklogic_admin -d peaklogic \
+  -f /path/to/docs/data-model.sql</pre>
+<p>The schema creates all tables, indexes, RLS policies, and the <code>app.current_tenant_id</code> configuration parameter.</p>
+
+<h3>Step 5 — Build and deploy the frontend</h3>
+<pre>cd frontend
+cp ../.env.example .env
+# Edit .env: fill in VITE_API_URL, VITE_USER_POOL_ID, VITE_USER_POOL_CLIENT_ID
+
+npm install
+npm run build
+
+# Deploy to S3
+aws s3 sync dist/ s3://YOUR_BUCKET_NAME --delete
+
+# Invalidate CloudFront cache
+aws cloudfront create-invalidation \
+  --distribution-id YOUR_DISTRIBUTION_ID \
+  --paths "/*"</pre>
+
+<h3>Step 6 — Create the first tenant record</h3>
+<pre>psql -h YOUR_DB_HOST -U peaklogic_admin -d peaklogic
+INSERT INTO tenants (id, name, slug, plan, status)
+VALUES (gen_random_uuid(), 'Acme Corp', 'acme', 'starter', 'active')
+RETURNING id;  -- copy this UUID</pre>
+
+<h3>Step 7 — Create the first admin user</h3>
+<ol class="steps">
+  <li>Open AWS Console → Cognito → User Pools → peaklogic-users</li>
+  <li>Click <strong>Create user</strong></li>
+  <li>Enter email address, set a temporary password</li>
+  <li>Under <em>Custom attributes</em>, set <code>custom:tenant_id</code> to the UUID from Step 6</li>
+  <li>Set <code>custom:role</code> to <code>admin</code></li>
+  <li>Click <strong>Add user to group</strong> → select <code>admin</code></li>
+  <li>User will be forced to change password on first login</li>
+</ol>
+
+<h3>Step 8 — Provision test devices (optional)</h3>
+<pre>cd scripts
+npm install
+cp .env.example .env
+# Edit .env with DB_HOST and DB_SECRET_ARN
+
+# Create 5 pre-provisioned device records (no IoT Core — for testing only)
+npx ts-node provision-devices.ts --count 5 --db-only
+
+# Create real IoT Core devices (requires valid AWS credentials)
+npx ts-node provision-devices.ts --count 5</pre>
+
+<h3>Step 9 — Verify the deployment</h3>
+<ol class="steps">
+  <li>Open https://YOUR_DISTRIBUTION_URL in a browser</li>
+  <li>The PeakLogic login page should appear</li>
+  <li>Sign in with the admin user created in Step 7</li>
+  <li>Dashboard should load (will show empty data until devices are active)</li>
+  <li>Navigate to Devices → Onboard Device, enter a provisioned serial number</li>
+</ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — USER & TENANT MANAGEMENT
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>5. User &amp; Tenant Management</h2>
+
+<h3>5.1 Creating a New Tenant</h3>
+<p>A tenant is a customer organization. Creating a tenant is a two-step process: insert the DB record, then create users in Cognito and link them via <code>custom:tenant_id</code>.</p>
+<pre>-- 1. Insert tenant record
+INSERT INTO tenants (id, name, slug, plan, status, settings)
+VALUES (
+  gen_random_uuid(),
+  'Customer Name',
+  'customer-slug',   -- lowercase, no spaces, used in URLs
+  'starter',         -- starter | professional | enterprise
+  'active',
+  '{"webhook_url": "https://partner.example.com/webhooks/peaklogic"}'
+)
+RETURNING id;  -- save this UUID
+
+-- 2. Verify it was created
+SELECT id, name, slug, plan, status FROM tenants WHERE slug = 'customer-slug';</pre>
+
+<p>After creating the DB record, create at least one admin user in Cognito (see §5.2) with that tenant's UUID as their <code>custom:tenant_id</code>.</p>
+
+<h3>5.2 Creating User Accounts</h3>
+<p>All user creation goes through the AWS Cognito console or CLI. Self-registration is disabled.</p>
+
+<h4>Via AWS Console</h4>
+<ol class="steps">
+  <li>AWS Console → Cognito → User Pools → <strong>peaklogic-users</strong></li>
+  <li>Users tab → <strong>Create user</strong></li>
+  <li>Set <em>Invitation message</em> to send temporary password by email</li>
+  <li>Enter the user's email address</li>
+  <li>Under <em>User attributes</em>, click <strong>Add attribute</strong>:
+    <ul>
+      <li><code>custom:tenant_id</code> → the tenant UUID from the DB</li>
+      <li><code>custom:role</code> → one of: <code>admin</code>, <code>operator</code>, <code>service_partner</code></li>
+    </ul>
+  </li>
+  <li>Click <strong>Create user</strong></li>
+  <li>In the Users list, click the new user → <strong>Add user to group</strong> → select matching group name</li>
+</ol>
+
+<h4>Via AWS CLI</h4>
+<pre>aws cognito-idp admin-create-user \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com \
+  --user-attributes \
+    Name=email,Value=user@example.com \
+    Name=email_verified,Value=true \
+    "Name=custom:tenant_id,Value=TENANT_UUID" \
+    "Name=custom:role,Value=operator" \
+  --desired-delivery-mediums EMAIL
+
+# Add user to group
+aws cognito-idp admin-add-user-to-group \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com \
+  --group-name operator</pre>
+
+<h3>5.3 RBAC Roles</h3>
+<table>
+  <tr><th>Role</th><th>Cognito Group</th><th>Permissions</th></tr>
+  <tr>
+    <td><span class="badge badge-purple">admin</span></td>
+    <td>admin</td>
+    <td>Full access: create/delete sites, assets, devices; manage users; view all data; create/delete tickets</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-blue">operator</span></td>
+    <td>operator</td>
+    <td>Create/update assets and devices; acknowledge alerts; create/update tickets. Cannot delete or manage users.</td>
+  </tr>
+  <tr>
+    <td><span class="badge badge-gray">service_partner</span></td>
+    <td>service_partner</td>
+    <td>View-only access to alerts and tickets assigned to them. Cannot modify data.</td>
+  </tr>
+</table>
+
+<div class="box box-info">
+  <div class="box-title">How roles are enforced</div>
+  The Cognito JWT contains a <code>cognito:groups</code> claim. API Gateway validates the token; the Lambda extracts the group and calls <code>requireRole()</code> to gate each route. The role is also stored in <code>custom:role</code> for display in the UI.
+</div>
+
+<h3>5.4 Resetting a User Password</h3>
+<pre># Force password reset (user will be prompted on next login)
+aws cognito-idp admin-reset-user-password \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com
+
+# Set a specific temporary password
+aws cognito-idp admin-set-user-password \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com \
+  --password "TempPass123!" \
+  --permanent false</pre>
+
+<h3>5.5 Disabling / Deleting a User</h3>
+<pre># Disable (user cannot log in; data preserved)
+aws cognito-idp admin-disable-user \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com
+
+# Delete permanently
+aws cognito-idp admin-delete-user \
+  --user-pool-id YOUR_USER_POOL_ID \
+  --username user@example.com</pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — DATABASE ADMINISTRATION
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>6. Database Administration</h2>
+
+<h3>6.1 Connecting to RDS</h3>
+<p>The RDS instance is in an isolated subnet with no internet route. To connect as an admin, use one of the following methods:</p>
+
+<h4>Option A — EC2 Bastion Host (recommended for production)</h4>
+<pre># Launch a t3.nano EC2 in the VPC public subnet
+# SSH into the bastion, then:
+psql -h YOUR_DB_HOST -U peaklogic_admin -d peaklogic</pre>
+
+<h4>Option B — AWS SSM Port Forwarding (no bastion needed)</h4>
+<pre># Requires SSM agent on an EC2 in the VPC
+aws ssm start-session \
+  --target INSTANCE_ID \
+  --document-name AWS-StartPortForwardingSessionToRemoteHost \
+  --parameters "host=YOUR_DB_HOST,portNumber=5432,localPortNumber=5432"
+
+# Then in another terminal:
+psql -h localhost -U peaklogic_admin -d peaklogic</pre>
+
+<h4>Retrieving DB credentials from Secrets Manager</h4>
+<pre>aws secretsmanager get-secret-value \
+  --secret-id YOUR_DB_SECRET_ARN \
+  --query SecretString --output text | python -m json.tool</pre>
+
+<h3>6.2 Schema &amp; Tables</h3>
+<table>
+  <tr><th>Table</th><th>RLS</th><th>Purpose</th><th>Key Columns</th></tr>
+  <tr><td class="col-name">tenants</td><td><span class="badge badge-gray">none</span></td><td>Customer organizations</td><td>id, name, slug, plan, status, settings (JSONB)</td></tr>
+  <tr><td class="col-name">users</td><td><span class="badge badge-green">yes</span></td><td>Portal user accounts (mirrors Cognito)</td><td>id, tenant_id, cognito_sub, email, role</td></tr>
+  <tr><td class="col-name">sites</td><td><span class="badge badge-green">yes</span></td><td>Physical locations</td><td>id, tenant_id, name, type, address, lat, lng, timezone</td></tr>
+  <tr><td class="col-name">assets</td><td><span class="badge badge-green">yes</span></td><td>Equipment at a site</td><td>id, tenant_id, site_id, name, category, make, model, specs (JSONB)</td></tr>
+  <tr><td class="col-name">devices</td><td><span class="badge badge-green">yes</span></td><td>IoT sensors (one per asset)</td><td>id, tenant_id, asset_id, serial, thing_name, status, last_seen_at</td></tr>
+  <tr><td class="col-name">telemetry</td><td><span class="badge badge-green">yes</span></td><td>Time-series sensor readings</td><td>time, device_id, tenant_id, metric, value, quality</td></tr>
+  <tr><td class="col-name">alerts</td><td><span class="badge badge-green">yes</span></td><td>Threshold breach events</td><td>id, tenant_id, device_id, severity, type, status, context (JSONB)</td></tr>
+  <tr><td class="col-name">service_tickets</td><td><span class="badge badge-green">yes</span></td><td>Work orders for partners</td><td>id, tenant_id, alert_id, priority, status, webhook_url</td></tr>
+</table>
+
+<h4>Device Status Values</h4>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><span class="badge badge-yellow">provisioning</span></td><td>Device created but not yet claimed by a customer</td></tr>
+  <tr><td><span class="badge badge-green">online</span></td><td>Device sending telemetry (last_seen_at updated on ingest)</td></tr>
+  <tr><td><span class="badge badge-red">offline</span></td><td>Device not seen recently (set by a scheduled check — future feature)</td></tr>
+  <tr><td><span class="badge badge-gray">decommissioned</span></td><td>Device removed from service (soft delete)</td></tr>
+</table>
+
+<h4>Alert Status Values</h4>
+<table>
+  <tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><span class="badge badge-red">open</span></td><td>Alert is active and unacknowledged</td></tr>
+  <tr><td><span class="badge badge-yellow">acknowledged</span></td><td>A user has seen and acknowledged the alert</td></tr>
+  <tr><td><span class="badge badge-green">resolved</span></td><td>The condition that triggered the alert has cleared</td></tr>
+  <tr><td><span class="badge badge-gray">suppressed</span></td><td>Alert was muted by an admin (will not re-alert for same condition)</td></tr>
+</table>
+
+<h3>6.3 Row-Level Security (RLS)</h3>
+<p>Every tenant-scoped table has RLS enabled. The application sets the active tenant via a PostgreSQL session variable at the start of every transaction:</p>
+<pre>BEGIN;
+SET LOCAL app.current_tenant_id = 'TENANT_UUID';
+-- All queries in this transaction are automatically filtered to this tenant
+SELECT * FROM sites;  -- returns only this tenant's sites
+COMMIT;</pre>
+
+<p>To query data as a specific tenant in a psql session (for debugging):</p>
+<pre>BEGIN;
+SET LOCAL app.current_tenant_id = 'YOUR_TENANT_UUID';
+SELECT * FROM devices WHERE status = 'online';
+ROLLBACK;  -- or COMMIT if making changes</pre>
+
+<p>To query across all tenants (requires superuser / RLS bypass):</p>
+<pre>-- As the peaklogic_admin superuser, RLS is bypassed automatically
+SELECT t.name AS tenant, count(d.id) AS device_count
+FROM tenants t
+LEFT JOIN devices d ON d.tenant_id = t.id
+GROUP BY t.name;</pre>
+
+<h3>6.4 Backups &amp; Point-in-Time Restore</h3>
+<p>RDS automated backups are retained for 7 days. To restore:</p>
+<pre># List available restore points
+aws rds describe-db-instances \
+  --db-instance-identifier peaklogic-db \
+  --query 'DBInstances[0].LatestRestorableTime'
+
+# Restore to a new instance at a specific point in time
+aws rds restore-db-instance-to-point-in-time \
+  --source-db-instance-identifier peaklogic-db \
+  --target-db-instance-identifier peaklogic-db-restored \
+  --restore-time 2026-06-09T03:00:00Z</pre>
+
+<div class="box box-warn">
+  <div class="box-title">After restore</div>
+  A restored instance will have a different endpoint hostname. You must update the <code>DB_HOST</code> environment variable on the Lambda functions and redeploy, or use a Route 53 CNAME that you can update without redeploying Lambda.
+</div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 7 — IoT DEVICE MANAGEMENT
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>7. IoT Device Management</h2>
+
+<h3>7.1 Device Provisioning Script</h3>
+<p>Run this script before shipping devices to customers. It creates the IoT Core Thing, generates X.509 certificates, and inserts a DB record with <code>tenant_id = NULL</code> (unclaimed). Customers then claim devices through the onboarding wizard in the web portal.</p>
+
+<pre>cd scripts
+npm install
+cp .env.example .env
+# Fill in DB_HOST and DB_SECRET_ARN (or DB_USER + DB_PASSWORD for local dev)
+
+# Provision 10 new devices (auto-increments serial numbers)
+npx ts-node provision-devices.ts --count 10
+
+# Provision specific serial numbers
+npx ts-node provision-devices.ts --serials PLG-0050,PLG-0051,PLG-0052
+
+# DB-only mode (no AWS IoT Core calls — use for development/testing)
+npx ts-node provision-devices.ts --count 5 --db-only</pre>
+
+<p>For each successfully provisioned device, the script creates:</p>
+<table>
+  <tr><th>File</th><th>Purpose</th></tr>
+  <tr><td class="col-mono">device-certs/{serial}/certificate.pem</td><td>Device identity certificate — flash to hardware firmware</td></tr>
+  <tr><td class="col-mono">device-certs/{serial}/private.key</td><td>Private key — flash to hardware, store securely, NEVER commit to git</td></tr>
+  <tr><td class="col-mono">device-certs/{serial}/device-config.json</td><td>Firmware config: IoT endpoint, thing name, topic paths</td></tr>
+</table>
+
+<div class="box box-danger">
+  <div class="box-title">Critical — Private Key Security</div>
+  The <code>device-certs/</code> directory is in <code>.gitignore</code> and must never be committed. If a private key is lost or compromised, the certificate must be revoked in IoT Core and a new one issued. There is no way to recover a lost private key.
+</div>
+
+<h3>7.2 Device Serial Number Format</h3>
+<pre>Format:     PLG-XXXX  (e.g. PLG-0001, PLG-0042, PLG-1000)
+Thing name: plg-xxxx  (lowercase, used as MQTT client ID)</pre>
+
+<h3>7.3 Firmware Configuration</h3>
+<p>The <code>device-config.json</code> file contains everything the firmware needs to connect:</p>
+<pre>{
+  "serial": "PLG-0001",
+  "thingName": "plg-0001",
+  "endpoint": "xxxx.iot.us-east-1.amazonaws.com",
+  "port": 8883,
+  "clientId": "plg-0001",
+  "topics": {
+    "telemetry": "peaklogic/plg-0001/telemetry",
+    "commands":  "peaklogic/plg-0001/commands"
+  },
+  "certificateArn": "arn:aws:iot:us-east-1:...",
+  "rootCaUrl": "https://www.amazontrust.com/repository/AmazonRootCA1.pem"
+}</pre>
+
+<h4>Expected Telemetry Payload</h4>
+<p>Devices publish JSON to their telemetry topic:</p>
+<pre>{
+  "thingName": "plg-0001",
+  "ts": 1749600000000,
+  "metrics": {
+    "power_kw": 3.8,
+    "flow_lpm": 210,
+    "pressure_psi": 45,
+    "temp_c": 52
+  }
+}</pre>
+
+<h3>7.4 Revoking a Device Certificate</h3>
+<p>Use this when a device is decommissioned, lost, or its key is suspected compromised.</p>
+<pre># 1. Find the certificate ARN (stored in device-config.json or IoT console)
+CERT_ARN="arn:aws:iot:us-east-1:ACCOUNT:cert/CERT_ID"
+
+# 2. Deactivate the certificate (blocks MQTT connections immediately)
+aws iot update-certificate \
+  --certificate-id CERT_ID \
+  --new-status INACTIVE
+
+# 3. Detach from thing
+aws iot detach-thing-principal \
+  --thing-name plg-0001 \
+  --principal $CERT_ARN
+
+# 4. Detach policy
+aws iot detach-policy \
+  --policy-name PeakLogicDevicePolicy \
+  --target $CERT_ARN
+
+# 5. Delete the certificate
+aws iot delete-certificate --certificate-id CERT_ID
+
+# 6. Mark device as decommissioned in DB
+UPDATE devices SET status = 'decommissioned' WHERE thing_name = 'plg-0001';</pre>
+
+<h3>7.5 Viewing Device Activity in IoT Core</h3>
+<pre># List all registered things
+aws iot list-things --thing-type-name PeakLogicSensor
+
+# Get a specific thing's attributes
+aws iot describe-thing --thing-name plg-0001
+
+# View IoT Core ingest error log
+aws logs tail /peaklogic/iot/errors --follow</pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 8 — API REFERENCE
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>8. API Reference</h2>
+
+<p>All endpoints require a valid Cognito ID token as a Bearer token in the <code>Authorization</code> header. The base URL is the API Gateway URL from the CDK output: <code>https://&lt;id&gt;.execute-api.us-east-1.amazonaws.com/v1</code></p>
+
+<h3>Authentication Header</h3>
+<pre>Authorization: eyJraWQiOiJxxxxxxxx...  (Cognito ID token, no "Bearer" prefix)</pre>
+
+<h3>Sites</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Role Required</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/sites</td><td>any</td><td>List all sites for the authenticated tenant</td></tr>
+  <tr><td><span class="badge badge-green">POST</span></td><td class="col-mono">/v1/sites</td><td>admin</td><td>Create a new site</td></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/sites/{siteId}</td><td>any</td><td>Get a single site by ID</td></tr>
+  <tr><td><span class="badge badge-yellow">PUT</span></td><td class="col-mono">/v1/sites/{siteId}</td><td>admin, operator</td><td>Update site details</td></tr>
+  <tr><td><span class="badge badge-red">DELETE</span></td><td class="col-mono">/v1/sites/{siteId}</td><td>admin</td><td>Delete a site</td></tr>
+</table>
+
+<h3>Assets</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Role Required</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/assets?siteId=</td><td>any</td><td>List assets (optional siteId filter)</td></tr>
+  <tr><td><span class="badge badge-green">POST</span></td><td class="col-mono">/v1/assets</td><td>admin, operator</td><td>Create a new asset</td></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/assets/{assetId}</td><td>any</td><td>Get a single asset including specs</td></tr>
+  <tr><td><span class="badge badge-yellow">PUT</span></td><td class="col-mono">/v1/assets/{assetId}</td><td>admin, operator</td><td>Update asset (including specs JSONB)</td></tr>
+  <tr><td><span class="badge badge-red">DELETE</span></td><td class="col-mono">/v1/assets/{assetId}</td><td>admin</td><td>Delete an asset</td></tr>
+</table>
+
+<h3>Devices</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Role Required</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/devices</td><td>any</td><td>List all claimed devices</td></tr>
+  <tr><td><span class="badge badge-green">POST</span></td><td class="col-mono">/v1/devices</td><td>admin, operator</td><td>Claim a device by serial number</td></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/devices/{deviceId}</td><td>any</td><td>Get a single device</td></tr>
+  <tr><td><span class="badge badge-yellow">PUT</span></td><td class="col-mono">/v1/devices/{deviceId}</td><td>admin, operator</td><td>Update device (assign to asset, firmware version)</td></tr>
+  <tr><td><span class="badge badge-red">DELETE</span></td><td class="col-mono">/v1/devices/{deviceId}</td><td>admin</td><td>Decommission a device (sets status, does not hard-delete)</td></tr>
+</table>
+
+<h3>Alerts</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Role Required</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/alerts?status=&assetId=</td><td>any</td><td>List alerts (optional status and assetId filters)</td></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/alerts/{alertId}</td><td>any</td><td>Get a single alert with full context</td></tr>
+  <tr><td><span class="badge badge-yellow">PUT</span></td><td class="col-mono">/v1/alerts/{alertId}</td><td>admin, operator</td><td>Update alert status (acknowledge / resolve / suppress)</td></tr>
+</table>
+
+<h3>Tickets</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Role Required</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/tickets?status=</td><td>any</td><td>List service tickets (optional status filter)</td></tr>
+  <tr><td><span class="badge badge-green">POST</span></td><td class="col-mono">/v1/tickets</td><td>admin, operator</td><td>Create a ticket (fires webhook if configured)</td></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/tickets/{ticketId}</td><td>any</td><td>Get a single ticket</td></tr>
+  <tr><td><span class="badge badge-yellow">PUT</span></td><td class="col-mono">/v1/tickets/{ticketId}</td><td>admin, operator</td><td>Update ticket status, assignee, external reference</td></tr>
+  <tr><td><span class="badge badge-red">DELETE</span></td><td class="col-mono">/v1/tickets/{ticketId}</td><td>admin</td><td>Cancel a ticket (sets status to cancelled)</td></tr>
+</table>
+
+<h3>Telemetry</h3>
+<table>
+  <tr><th>Method</th><th>Path</th><th>Description</th></tr>
+  <tr><td><span class="badge badge-blue">GET</span></td><td class="col-mono">/v1/telemetry</td><td>Query time-series data</td></tr>
+</table>
+
+<h4>Telemetry Query Parameters</h4>
+<table>
+  <tr><th>Parameter</th><th>Required</th><th>Description</th></tr>
+  <tr><td class="col-mono">deviceId</td><td><span class="badge badge-red">required</span></td><td>Device UUID</td></tr>
+  <tr><td class="col-mono">metric</td><td>optional</td><td>Filter to a single metric name (e.g. power_kw)</td></tr>
+  <tr><td class="col-mono">from</td><td>optional</td><td>ISO 8601 start time (default: 24 hours ago)</td></tr>
+  <tr><td class="col-mono">to</td><td>optional</td><td>ISO 8601 end time (default: now)</td></tr>
+  <tr><td class="col-mono">limit</td><td>optional</td><td>Max rows to return (default: 500, max: 5000)</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 9 — ALERT RULES
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>9. Alert Rules</h2>
+
+<p>Alert rules are evaluated in the ingest Lambda every time a telemetry payload arrives. Rules are hardcoded per asset category in <code>backend/ingest/handler.ts</code>. To modify thresholds you must edit the source code and redeploy the Lambda.</p>
+
+<h3>Pump Rules</h3>
+<table>
+  <tr><th>Metric</th><th>Condition</th><th>Threshold</th><th>Severity</th><th>Message</th></tr>
+  <tr><td class="col-mono">power_kw</td><td>&gt;</td><td>rated_power × 1.25</td><td><span class="badge badge-yellow">warning</span></td><td>Power draw exceeds rated limit by 25%</td></tr>
+  <tr><td class="col-mono">power_kw</td><td>&gt;</td><td>rated_power × 1.50</td><td><span class="badge badge-red">critical</span></td><td>Power draw critically high (150% of rated)</td></tr>
+  <tr><td class="col-mono">flow_lpm</td><td>&lt;</td><td>rated_flow × 0.75</td><td><span class="badge badge-yellow">warning</span></td><td>Flow rate below 75% of rated minimum</td></tr>
+  <tr><td class="col-mono">pressure_psi</td><td>&gt;</td><td>rated_pressure × 1.20</td><td><span class="badge badge-red">critical</span></td><td>Pressure exceeds safe operating limit</td></tr>
+</table>
+
+<p><em>Rated values come from the asset's <code>specs</code> JSONB column (power_kw, flow_lpm, pressure_psi). If specs are not set, defaults of 5 kW, 100 lpm, and 80 psi are used.</em></p>
+
+<h3>HVAC Rules</h3>
+<table>
+  <tr><th>Metric</th><th>Condition</th><th>Threshold</th><th>Severity</th><th>Message</th></tr>
+  <tr><td class="col-mono">temp_c</td><td>&gt;</td><td>specs.temp_max_c (default 180°C)</td><td><span class="badge badge-red">critical</span></td><td>Temperature exceeds maximum operating limit</td></tr>
+  <tr><td class="col-mono">temp_c</td><td>&lt;</td><td>60°C</td><td><span class="badge badge-yellow">warning</span></td><td>Temperature below normal operating range</td></tr>
+</table>
+
+<h3>Pool System Rules</h3>
+<table>
+  <tr><th>Metric</th><th>Condition</th><th>Threshold</th><th>Severity</th><th>Message</th></tr>
+  <tr><td class="col-mono">flow_lpm</td><td>&lt;</td><td>rated_flow × 0.80</td><td><span class="badge badge-yellow">warning</span></td><td>Pool circulation flow below safe minimum</td></tr>
+  <tr><td class="col-mono">temp_c</td><td>&gt;</td><td>35°C</td><td><span class="badge badge-yellow">warning</span></td><td>Pool temperature above safe bathing limit</td></tr>
+</table>
+
+<h3>Alert Deduplication</h3>
+<p>Before creating a new alert, the ingest handler checks whether an <code>open</code> or <code>acknowledged</code> alert already exists for the same device, metric, and severity. If one exists, the ingest completes silently without creating a duplicate. This prevents alert storms during sustained threshold violations.</p>
+
+<h3>Auto-Ticket for Critical Alerts</h3>
+<p>When a CRITICAL alert is created, the ingest handler automatically:</p>
+<ol class="steps">
+  <li>Looks up the tenant's <code>settings.webhook_url</code> from the tenants table</li>
+  <li>Creates a service ticket with priority = <code>emergency</code> linked to the alert</li>
+  <li>POSTs the ticket payload to the webhook URL (fire-and-forget, 8-second timeout)</li>
+</ol>
+
+<h4>Webhook Payload Format</h4>
+<pre>{
+  "event": "service_ticket.created",
+  "ticket": {
+    "id": "uuid",
+    "title": "CRITICAL: Power draw critically high — pump at Main St Station",
+    "priority": "emergency",
+    "status": "open",
+    "asset": { "name": "...", "category": "pump", "site": "..." },
+    "alert": { "severity": "critical", "metric": "power_kw", "value": 9.2 },
+    "created_at": "2026-06-10T14:22:00Z"
+  }
+}</pre>
+
+<h3>Modifying Alert Rules</h3>
+<p>To change thresholds or add new rules:</p>
+<ol class="steps">
+  <li>Edit <code>backend/ingest/handler.ts</code> — find the <code>RULES_BY_CATEGORY</code> constant</li>
+  <li>Commit and push to the dev branch</li>
+  <li>Redeploy: <code>cd infra &amp;&amp; npx cdk deploy PeakLogic-Api</code></li>
+  <li>The new Lambda code takes effect within seconds of deploy completing</li>
+</ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 10 — FRONTEND
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>10. Frontend Application</h2>
+
+<h3>Pages &amp; Navigation</h3>
+<table>
+  <tr><th>URL Path</th><th>Page</th><th>Description</th></tr>
+  <tr><td class="col-mono">/dashboard</td><td>Dashboard</td><td>KPI stat cards, 24-hour power chart, recent alerts list</td></tr>
+  <tr><td class="col-mono">/sites</td><td>Sites</td><td>All customer locations — filterable table with type and status</td></tr>
+  <tr><td class="col-mono">/assets</td><td>Assets</td><td>Equipment card grid — category, make/model, health status</td></tr>
+  <tr><td class="col-mono">/devices</td><td>Devices</td><td>IoT sensor table — serial, thing name, firmware, last seen</td></tr>
+  <tr><td class="col-mono">/devices/onboard</td><td>Onboard Device</td><td>2-step wizard to claim and assign a new device</td></tr>
+  <tr><td class="col-mono">/alerts</td><td>Alerts</td><td>Severity-banded alert list with acknowledge action</td></tr>
+  <tr><td class="col-mono">/tickets</td><td>Tickets</td><td>Service ticket management — priority and status cards</td></tr>
+</table>
+
+<h3>Authentication Flow</h3>
+<p>The frontend uses AWS Amplify v6 with the Cognito User Pool configured in <code>frontend/src/amplify-config.ts</code>. Authentication flow:</p>
+<ol class="steps">
+  <li>User visits the app URL — Amplify Authenticator intercepts and shows the login form</li>
+  <li>User enters email and password</li>
+  <li>If first login, user is forced to set a new password</li>
+  <li>Optionally, user sets up TOTP MFA (Google Authenticator)</li>
+  <li>Cognito returns ID + Access tokens (stored in localStorage)</li>
+  <li>App renders; tokens are refreshed automatically by Amplify before expiry</li>
+  <li>Every API call injects the ID token as the <code>Authorization</code> header</li>
+</ol>
+
+<h3>Deploying Frontend Updates</h3>
+<pre># From project root:
+cd frontend
+npm run build        # outputs to frontend/dist/
+
+aws s3 sync dist/ s3://YOUR_BUCKET_NAME --delete
+
+aws cloudfront create-invalidation \
+  --distribution-id YOUR_DISTRIBUTION_ID \
+  --paths "/*"</pre>
+
+<p>CloudFront propagates the invalidation within ~30 seconds. Users will see the new version on their next page load.</p>
+
+<h3>Local Development Preview</h3>
+<p>Developers can run the frontend locally without AWS credentials using preview mode:</p>
+<pre>cd frontend
+# Ensure frontend/.env.local contains:
+# VITE_PREVIEW=true
+
+npm install
+npm run dev
+# Open http://localhost:5173</pre>
+
+<p>In preview mode, the Cognito login is bypassed and the app renders with a placeholder user. API calls will fail unless a local backend is running, but all pages and UI components are visible.</p>
+
+<div class="box box-danger">
+  <div class="box-title">Never set VITE_PREVIEW=true in production</div>
+  This flag bypasses all authentication. The <code>.env.local</code> file is gitignored and must never be deployed to the S3 bucket or included in a production build.
+</div>
+
+<h3>Updating Cognito Configuration</h3>
+<p>If the User Pool or Client ID changes (e.g. after redeploying the Auth stack), update <code>frontend/.env</code> with the new values and redeploy the frontend.</p>
+<pre># frontend/.env (production)
+VITE_API_URL=https://xxxxx.execute-api.us-east-1.amazonaws.com/v1
+VITE_USER_POOL_ID=us-east-1_xxxxxxxxx
+VITE_USER_POOL_CLIENT_ID=xxxxxxxxxxxxxxxxxxxxxxxxxx
+VITE_REGION=us-east-1</pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 11 — ENVIRONMENT VARIABLES
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>11. Environment Variables Reference</h2>
+
+<h3>Lambda Functions (set by CDK — do not edit manually)</h3>
+<table>
+  <tr><th>Variable</th><th>Value Source</th><th>Description</th></tr>
+  <tr><td class="col-mono">DB_HOST</td><td>CDK — RDS endpoint</td><td>PostgreSQL hostname</td></tr>
+  <tr><td class="col-mono">DB_NAME</td><td>CDK — hardcoded "peaklogic"</td><td>Database name</td></tr>
+  <tr><td class="col-mono">DB_SECRET_ARN</td><td>CDK — Secrets Manager ARN</td><td>ARN of the DB credentials secret</td></tr>
+  <tr><td class="col-mono">USER_POOL_ID</td><td>CDK — Cognito User Pool ID</td><td>Used to verify JWT issuer</td></tr>
+  <tr><td class="col-mono">NODE_ENV</td><td>CDK — "production"</td><td>Runtime environment flag</td></tr>
+</table>
+
+<h3>Frontend Build Variables (frontend/.env)</h3>
+<table>
+  <tr><th>Variable</th><th>Example Value</th><th>Description</th></tr>
+  <tr><td class="col-mono">VITE_API_URL</td><td>https://xxx.execute-api.us-east-1.amazonaws.com/v1</td><td>API Gateway base URL</td></tr>
+  <tr><td class="col-mono">VITE_USER_POOL_ID</td><td>us-east-1_xxxxxxxxx</td><td>Cognito User Pool ID</td></tr>
+  <tr><td class="col-mono">VITE_USER_POOL_CLIENT_ID</td><td>xxxxxxxxxxxxxxxxxxxxxxxxxx</td><td>Cognito App Client ID</td></tr>
+  <tr><td class="col-mono">VITE_REGION</td><td>us-east-1</td><td>AWS region</td></tr>
+  <tr><td class="col-mono">VITE_PREVIEW</td><td>true / <em>omit</em></td><td>Bypasses auth for local dev. Never set in production.</td></tr>
+</table>
+
+<h3>Device Provisioning Script (scripts/.env)</h3>
+<table>
+  <tr><th>Variable</th><th>Required</th><th>Description</th></tr>
+  <tr><td class="col-mono">AWS_REGION</td><td>yes</td><td>AWS region (must match deployment)</td></tr>
+  <tr><td class="col-mono">DB_HOST</td><td>yes</td><td>RDS endpoint hostname</td></tr>
+  <tr><td class="col-mono">DB_SECRET_ARN</td><td>prod only</td><td>Secrets Manager ARN — uses this to get password</td></tr>
+  <tr><td class="col-mono">DB_USER</td><td>dev only</td><td>Direct DB username (when not using Secrets Manager)</td></tr>
+  <tr><td class="col-mono">DB_PASSWORD</td><td>dev only</td><td>Direct DB password (never use in production)</td></tr>
+  <tr><td class="col-mono">DB_NAME</td><td>optional</td><td>Database name (default: peaklogic)</td></tr>
+  <tr><td class="col-mono">DB_SSL</td><td>optional</td><td>Set to "false" for local dev without SSL</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 12 — MONITORING & LOGGING
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>12. Monitoring &amp; Logging</h2>
+
+<h3>CloudWatch Log Groups</h3>
+<table>
+  <tr><th>Log Group</th><th>Source</th><th>Retention</th></tr>
+  <tr><td class="col-mono">/aws/lambda/peaklogic-api</td><td>REST API Lambda</td><td>14 days</td></tr>
+  <tr><td class="col-mono">/aws/lambda/peaklogic-ingest</td><td>Telemetry ingest Lambda</td><td>14 days</td></tr>
+  <tr><td class="col-mono">/peaklogic/iot/errors</td><td>IoT Core rule engine errors</td><td>Default (never)</td></tr>
+  <tr><td class="col-mono">/aws/rds/instance/peaklogic-db/postgresql</td><td>RDS PostgreSQL logs</td><td>Default</td></tr>
+</table>
+
+<h3>Tailing Logs in Real Time</h3>
+<pre># Follow API Lambda logs
+aws logs tail /aws/lambda/peaklogic-api --follow
+
+# Follow ingest Lambda logs
+aws logs tail /aws/lambda/peaklogic-ingest --follow
+
+# Check IoT Core errors
+aws logs tail /peaklogic/iot/errors --follow</pre>
+
+<h3>Key Metrics to Watch</h3>
+<table>
+  <tr><th>Metric</th><th>Service</th><th>Alert When</th></tr>
+  <tr><td>Errors</td><td>Lambda (peaklogic-api)</td><td>Error count &gt; 0 over 5 minutes</td></tr>
+  <tr><td>Errors</td><td>Lambda (peaklogic-ingest)</td><td>Error count &gt; 0 over 5 minutes</td></tr>
+  <tr><td>Duration</td><td>Lambda</td><td>P99 duration &gt; 20 seconds</td></tr>
+  <tr><td>DatabaseConnections</td><td>RDS</td><td>Approaching max_connections (85 for t3.micro)</td></tr>
+  <tr><td>FreeStorageSpace</td><td>RDS</td><td>&lt; 2 GB (upgrade storage)</td></tr>
+  <tr><td>CPUUtilization</td><td>RDS</td><td>Sustained &gt; 80% (upgrade instance)</td></tr>
+  <tr><td>4xxError / 5xxError</td><td>API Gateway</td><td>5xx rate &gt; 1% over 5 minutes</td></tr>
+  <tr><td>IoT Rule errors</td><td>IoT Core</td><td>Any entry in /peaklogic/iot/errors</td></tr>
+</table>
+
+<h3>Checking Lambda Configuration</h3>
+<pre># Verify environment variables are set correctly on a Lambda
+aws lambda get-function-configuration \
+  --function-name peaklogic-api \
+  --query 'Environment.Variables'
+
+# Invoke the API Lambda manually for debugging
+aws lambda invoke \
+  --function-name peaklogic-api \
+  --payload '{"httpMethod":"GET","path":"/v1/sites","headers":{}}' \
+  --cli-binary-format raw-in-base64-out \
+  output.json && cat output.json</pre>
+
+<h3>RDS Performance Queries</h3>
+<pre>-- Connection count by application
+SELECT client_addr, count(*) FROM pg_stat_activity
+WHERE datname = 'peaklogic' GROUP BY client_addr;
+
+-- Largest tables
+SELECT relname AS table, pg_size_pretty(pg_total_relation_size(relid))
+FROM pg_stat_user_tables ORDER BY pg_total_relation_size(relid) DESC LIMIT 10;
+
+-- Telemetry row count per tenant
+SELECT t.name, count(tl.*)
+FROM tenants t
+JOIN devices d ON d.tenant_id = t.id
+JOIN telemetry tl ON tl.device_id = d.id
+GROUP BY t.name;</pre>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 13 — SECURITY
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>13. Security Hardening</h2>
+
+<h3>Network Security</h3>
+<ul>
+  <li>RDS is in an isolated subnet with no internet gateway route — unreachable from the internet</li>
+  <li>Lambda can only reach RDS because the Lambda Security Group is explicitly allowed on port 5432 in the RDS Security Group</li>
+  <li>API Gateway is the only internet-facing entry point to the application</li>
+  <li>All traffic between CloudFront and S3 uses Origin Access Control — the S3 bucket URL is private</li>
+</ul>
+
+<h3>Authentication &amp; Authorization</h3>
+<ul>
+  <li>Cognito JWT tokens expire after 1 hour; refresh tokens expire after 30 days</li>
+  <li>All API routes require a valid JWT — there are no unauthenticated endpoints</li>
+  <li>Role-based access is checked in every route handler via <code>requireRole()</code></li>
+  <li>Tenant isolation is enforced by PostgreSQL RLS — application code cannot bypass it</li>
+  <li>Self-registration is disabled — users can only be created by an administrator</li>
+</ul>
+
+<h3>Secrets Management</h3>
+<ul>
+  <li>DB credentials are stored in AWS Secrets Manager — never in environment variables in plaintext</li>
+  <li>Device private keys are in <code>device-certs/</code> which is gitignored — never committed to source control</li>
+  <li><code>.env</code> and <code>.env.local</code> files are gitignored — never committed to source control</li>
+</ul>
+
+<h3>Production Hardening Checklist</h3>
+<table>
+  <tr><th>Item</th><th>Action</th></tr>
+  <tr><td>RDS deletion protection</td><td>Set <code>deletionProtection: true</code> in <code>data-stack.ts</code> and redeploy</td></tr>
+  <tr><td>RDS Multi-AZ</td><td>Set <code>multiAz: true</code> in <code>data-stack.ts</code> and redeploy</td></tr>
+  <tr><td>Cognito MFA</td><td>Change MFA setting from OPTIONAL to REQUIRED in auth stack</td></tr>
+  <tr><td>API Gateway WAF</td><td>Attach AWS WAF to the API Gateway stage to block malicious requests</td></tr>
+  <tr><td>CloudTrail</td><td>Enable CloudTrail in the AWS account to log all API calls</td></tr>
+  <tr><td>GuardDuty</td><td>Enable Amazon GuardDuty for threat detection</td></tr>
+  <tr><td>IAM least privilege</td><td>Replace Administrator CDK deploy role with a scoped deployment IAM policy</td></tr>
+  <tr><td>Secrets rotation</td><td>Enable automatic rotation on the DB credentials secret in Secrets Manager</td></tr>
+  <tr><td>VPC Flow Logs</td><td>Enable VPC Flow Logs to CloudWatch for network traffic auditing</td></tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 14 — TROUBLESHOOTING
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>14. Troubleshooting</h2>
+
+<h3>Frontend Issues</h3>
+<table>
+  <tr><th>Symptom</th><th>Likely Cause</th><th>Resolution</th></tr>
+  <tr>
+    <td>Login page shows "UserPool not configured"</td>
+    <td>VITE_USER_POOL_ID or VITE_USER_POOL_CLIENT_ID is missing or wrong</td>
+    <td>Check <code>frontend/.env</code>, rebuild and redeploy to S3</td>
+  </tr>
+  <tr>
+    <td>Login succeeds but app shows blank / redirects to login</td>
+    <td>Cognito callback URL not configured for the CloudFront domain</td>
+    <td>Add the CloudFront URL to the Cognito App Client's allowed callback URLs</td>
+  </tr>
+  <tr>
+    <td>API calls return 401</td>
+    <td>Token expired or VITE_API_URL is incorrect</td>
+    <td>Sign out and back in; verify VITE_API_URL matches CDK output</td>
+  </tr>
+  <tr>
+    <td>App loads old version after deploy</td>
+    <td>CloudFront cache not invalidated</td>
+    <td>Run: <code>aws cloudfront create-invalidation --distribution-id ID --paths "/*"</code></td>
+  </tr>
+  <tr>
+    <td>Page refresh returns 403 or 404</td>
+    <td>CloudFront not configured for SPA fallback</td>
+    <td>Verify the FrontendStack 403/404 error response is set to <code>/index.html</code></td>
+  </tr>
+</table>
+
+<h3>API / Lambda Issues</h3>
+<table>
+  <tr><th>Symptom</th><th>Likely Cause</th><th>Resolution</th></tr>
+  <tr>
+    <td>All API calls return 500</td>
+    <td>Lambda cannot connect to RDS (cold start DB error)</td>
+    <td>Check CloudWatch logs for the peaklogic-api Lambda. Verify DB_HOST env var and security group rules.</td>
+  </tr>
+  <tr>
+    <td>API returns "Tenant ID missing from token"</td>
+    <td>User's Cognito account is missing the <code>custom:tenant_id</code> attribute</td>
+    <td>Update the user in Cognito console to add the correct tenant_id attribute</td>
+  </tr>
+  <tr>
+    <td>Telemetry not appearing after device sends data</td>
+    <td>IoT Rule not triggering Lambda, or Lambda crashing on ingest</td>
+    <td>Check /peaklogic/iot/errors log group. Check peaklogic-ingest CloudWatch logs.</td>
+  </tr>
+  <tr>
+    <td>Lambda timeout errors</td>
+    <td>DB connection pool exhausted, or slow query</td>
+    <td>Check pg_stat_activity for idle connections. Reduce pool max from 2 if running multiple Lambda instances concurrently.</td>
+  </tr>
+  <tr>
+    <td>Secrets Manager permission error on Lambda cold start</td>
+    <td>Lambda IAM role missing Secrets Manager read permission</td>
+    <td>Verify the CDK ApiStack grants the Lambda function access to the secret. Redeploy the Api stack.</td>
+  </tr>
+</table>
+
+<h3>Database Issues</h3>
+<table>
+  <tr><th>Symptom</th><th>Likely Cause</th><th>Resolution</th></tr>
+  <tr>
+    <td>Queries return empty results unexpectedly</td>
+    <td>RLS is active but <code>app.current_tenant_id</code> is not set, or set to wrong value</td>
+    <td>Always wrap queries in <code>withTenant()</code>. Check the tenant_id in the JWT claim.</td>
+  </tr>
+  <tr>
+    <td>Too many connections error</td>
+    <td>Lambda pool creating too many connections (max_connections=85 on t3.micro)</td>
+    <td>Reduce pool <code>max</code> from 2 to 1. Consider adding RDS Proxy to pool connections at the DB level.</td>
+  </tr>
+  <tr>
+    <td>Cannot connect to RDS from local machine</td>
+    <td>RDS is in an isolated subnet — no internet route</td>
+    <td>Use SSM port forwarding or a bastion host in the VPC public subnet</td>
+  </tr>
+</table>
+
+<h3>IoT Device Issues</h3>
+<table>
+  <tr><th>Symptom</th><th>Likely Cause</th><th>Resolution</th></tr>
+  <tr>
+    <td>Device cannot connect (MQTT auth error)</td>
+    <td>Certificate not active, wrong IoT endpoint, or private key mismatch</td>
+    <td>Verify certificate status in IoT Core console. Check device-config.json endpoint matches your region.</td>
+  </tr>
+  <tr>
+    <td>Device connects but telemetry not appearing in DB</td>
+    <td>IoT Rule disabled, thingName in payload doesn't match the registered thing name, or ingest Lambda error</td>
+    <td>Check IoT Rule status. Verify payload includes <code>thingName</code> field. Check /peaklogic/iot/errors.</td>
+  </tr>
+  <tr>
+    <td>Device serial not found during onboarding</td>
+    <td>Device was not provisioned, or serial was entered incorrectly</td>
+    <td>Check devices table: <code>SELECT * FROM devices WHERE serial ILIKE '%PLG-XXXX%';</code></td>
+  </tr>
+  <tr>
+    <td>Device shows as already claimed</td>
+    <td><code>tenant_id</code> is not NULL in the devices table</td>
+    <td>Check which tenant claimed it: <code>SELECT tenant_id, status FROM devices WHERE serial='PLG-XXXX';</code></td>
+  </tr>
+</table>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 15 — DISASTER RECOVERY
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break">
+<h2>15. Disaster Recovery</h2>
+
+<h3>Recovery Time Objectives (Current MVP)</h3>
+<table>
+  <tr><th>Failure Scenario</th><th>Recovery Method</th><th>Est. RTO</th></tr>
+  <tr><td>Lambda function failure</td><td>Lambda auto-restarts on next invocation; no action needed</td><td>&lt; 1 min</td></tr>
+  <tr><td>API Gateway issue</td><td>Managed by AWS; monitor AWS Health Dashboard</td><td>Automatic</td></tr>
+  <tr><td>Frontend CDN outage</td><td>Managed by CloudFront; monitor AWS Health Dashboard</td><td>Automatic</td></tr>
+  <tr><td>RDS instance failure</td><td>AWS auto-recovery restarts the instance in the same AZ</td><td>5–10 min</td></tr>
+  <tr><td>RDS AZ failure (single-AZ)</td><td>Restore from automated backup to a new instance</td><td>20–60 min</td></tr>
+  <tr><td>Accidental data deletion</td><td>RDS point-in-time restore (any second in last 7 days)</td><td>30–60 min</td></tr>
+  <tr><td>CDK stack deletion</td><td>Re-run <code>cdk deploy --all</code>; DB restored from snapshot</td><td>15–30 min</td></tr>
+  <tr><td>Full region outage</td><td>Not supported in MVP; requires multi-region setup (v2)</td><td>N/A</td></tr>
+</table>
+
+<h3>Restoring the Database from a Snapshot</h3>
+<pre># List available snapshots
+aws rds describe-db-snapshots \
+  --db-instance-identifier peaklogic-db \
+  --query 'DBSnapshots[*].{ID:DBSnapshotIdentifier,Time:SnapshotCreateTime}'
+
+# Restore from a specific snapshot to a new instance
+aws rds restore-db-instance-from-db-snapshot \
+  --db-instance-identifier peaklogic-db-restored \
+  --db-snapshot-identifier YOUR_SNAPSHOT_ID \
+  --db-instance-class db.t3.micro \
+  --no-multi-az
+
+# After restore: update Lambda environment variables with new endpoint
+aws lambda update-function-configuration \
+  --function-name peaklogic-api \
+  --environment "Variables={DB_HOST=NEW_HOST,DB_NAME=peaklogic,...}"
+
+aws lambda update-function-configuration \
+  --function-name peaklogic-ingest \
+  --environment "Variables={DB_HOST=NEW_HOST,DB_NAME=peaklogic,...}"</pre>
+
+<h3>Full Stack Redeploy (from scratch)</h3>
+<p>If all CDK stacks need to be redeployed (e.g., after accidental deletion):</p>
+<ol class="steps">
+  <li>Run <code>cd infra &amp;&amp; npx cdk deploy --all</code></li>
+  <li>Restore DB from snapshot if data needs to be preserved (see above)</li>
+  <li>Update frontend <code>.env</code> with new CDK output values</li>
+  <li>Rebuild and sync frontend: <code>npm run build &amp;&amp; aws s3 sync dist/ s3://BUCKET</code></li>
+  <li>Invalidate CloudFront cache</li>
+  <li>Verify Cognito users still exist (User Pool is preserved in CDK RETAIN policy)</li>
+</ol>
+
+<h3>Backing Up Device Certificates</h3>
+<p>Device private keys cannot be re-downloaded from AWS after initial provisioning. Ensure the <code>device-certs/</code> directory is backed up securely (encrypted storage, not git):</p>
+<pre># Create an encrypted zip of all device certificates
+# Store this in a secure, access-controlled location (not git)
+Compress-Archive -Path "device-certs" -DestinationPath "device-certs-backup-$(Get-Date -Format 'yyyyMMdd').zip"</pre>
+
+<div class="box box-info">
+  <div class="box-title">Note on Device Certificate Loss</div>
+  If a private key backup is lost, you must revoke the affected certificate(s) in IoT Core and re-provision the devices. The physical hardware will need to be reflashed with the new certificates. This is why secure off-git backup of device-certs is critical.
+</div>
+
+<hr style="margin: 2.5rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<p style="text-align:center; color:#94a3b8; font-size:.85rem;">
+  PeakLogic — System Administrator Guide &nbsp;·&nbsp; <strong>v1.0.0</strong> &nbsp;·&nbsp; 2026-06-10<br>
+  INTERNAL — CONFIDENTIAL. This document contains configuration details and architecture information.<br>
+  Versioned archive: <code>sysadmin-guides/PeakLogic_SysAdmin_Guide_v1.0.0_20260610.html</code> &nbsp;·&nbsp; github.com/PeakLogicSystems/PeakLogicSystems
+</p>
+
+</div>
+
+</body>
+</html>

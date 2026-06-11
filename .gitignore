@@ -56,3 +56,6 @@ coverage/
 
 # Device certificates — contain private keys, never commit
 device-certs/
+
+# Claude Code internal files — session memory and local settings, not application code
+.claude/
