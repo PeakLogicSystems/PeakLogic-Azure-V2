@@ -110,7 +110,7 @@ export class ApiStack extends cdk.Stack {
     addCrud('sites');
     addCrud('assets');
     addCrud('devices');
-    addCrud('alerts',  false);
+    addCrud('alerts');
     addCrud('tickets');
 
     // Telemetry is read-only from the API (writes come via IoT Core)
