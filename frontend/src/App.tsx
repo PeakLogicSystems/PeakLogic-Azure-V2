@@ -7,8 +7,9 @@ import { Dashboard } from '@/pages/Dashboard';
 import { Sites }     from '@/pages/Sites';
 import { Assets }    from '@/pages/Assets';
 import { Devices }   from '@/pages/Devices';
-import { Alerts }    from '@/pages/Alerts';
-import { Tickets }   from '@/pages/Tickets';
+import { Alerts }        from '@/pages/Alerts';
+import { Tickets }       from '@/pages/Tickets';
+import { DeviceOnboard } from '@/pages/DeviceOnboard';
 
 export function App() {
   return (
@@ -24,7 +25,8 @@ export function App() {
               <Route path="/dashboard" element={<Dashboard />} />
               <Route path="/sites"     element={<Sites />} />
               <Route path="/assets"    element={<Assets />} />
-              <Route path="/devices"   element={<Devices />} />
+              <Route path="/devices"          element={<Devices />} />
+              <Route path="/devices/onboard" element={<DeviceOnboard />} />
               <Route path="/alerts"    element={<Alerts />} />
               <Route path="/tickets"   element={<Tickets />} />
               <Route path="*"          element={<Navigate to="/dashboard" replace />} />

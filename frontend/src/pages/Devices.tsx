@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import { Cpu, Plus, Wifi, WifiOff } from 'lucide-react';
 
 const MOCK_DEVICES = [
@@ -23,9 +24,12 @@ export function Devices() {
           <h1 className="text-2xl font-semibold text-gray-900">Devices</h1>
           <p className="text-sm text-gray-500 mt-1">{MOCK_DEVICES.length} devices · {MOCK_DEVICES.filter(d => d.status === 'online').length} online</p>
         </div>
-        <button className="flex items-center gap-2 bg-brand-purple text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-purple/90 transition-colors">
+        <Link
+          to="/devices/onboard"
+          className="flex items-center gap-2 bg-brand-purple text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-purple/90 transition-colors"
+        >
           <Plus size={15} /> Onboard device
-        </button>
+        </Link>
       </div>
 
       <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
