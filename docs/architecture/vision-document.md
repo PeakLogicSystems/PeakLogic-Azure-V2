@@ -4,7 +4,7 @@
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
 **Company:** PeakLogic
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Owner:** Chief Product Officer / Chief Software Architect function
 **Last updated:** 2026-07-04
 
