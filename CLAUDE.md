@@ -2,6 +2,22 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Naming
+
+- **Company:** PeakLogic
+- **Internal codename:** Vantage
+- **Product:** PeakVantage Hub (the core intelligence/monitoring hub) and PeakVantage 360 (the full device + software ecosystem built on it)
+
+Placeholder naming as of 2026-07 — not yet trademark-cleared, treat as provisional and update everywhere if it changes.
+
+## Governance: architecture-first (adopted 2026-07-04)
+
+This project is moving to the same architecture-first discipline used by the IronQuill project: documents are produced in dependency order in `docs/architecture/` (see `docs/architecture/README.md` for live status and the full artifact list — Vision → PRD → SRS → Domain Model → Compliance & Certification Roadmap → ... → MVP/Enterprise Roadmap), every implementation decision should trace to the PRD once it exists, and later documents can force revisions to earlier ones.
+
+**Existing code is reference, not authoritative.** Unlike IronQuill (which started pre-code), PeakLogicSystems already has a working v1.0.0 — that code isn't being thrown away, but it also isn't the source of truth going forward. As each architecture doc is produced, formally reconcile the existing implementation against it and revise/rewrite where real gaps surface, rather than either ignoring the docs or discarding working code wholesale.
+
+The goal of this discipline is a fully commercialized, enterprise-sellable product — which is also why SOC 2 readiness and a real security/compliance posture are explicit artifacts in the list, not an afterthought bolted on before a big customer's security review.
+
 ## Monorepo Structure
 
 Four independent sub-packages, each with their own `package.json` and `tsconfig.json`:

@@ -1,0 +1,34 @@
+# Architecture Artifacts
+
+Documents are produced in dependency order — each one builds on decisions locked in by the ones before it. Later documents may force revisions to earlier ones (a doc's own governing rule, mirrored from the IronQuill project); check this table for live status before assuming anything is final.
+
+**Note on existing code:** PeakLogicSystems already has a working v1.0.0 (infra, backend, frontend, mock-data pages) built before this architecture-first discipline was adopted (2026-07-04). That code is **reference, not authoritative** — as each artifact below is produced, the existing implementation gets formally reconciled against it (revised or rewritten where gaps surface), the same way IronQuill's Domain Model forced an SRS revision. Nothing here means throwing away validated work (e.g. the tenant-isolation RLS pattern, the CDK stack structure).
+
+| # | Artifact | Status |
+|---|----------|--------|
+| 1 | Vision Document | 🟡 Up next |
+| 2 | Product Requirements Document (PRD) | 🔲 Not started |
+| 3 | Software Requirements Specification (SRS) | 🔲 Not started |
+| 4 | Domain Model | 🔲 Not started |
+| 5 | Compliance & Certification Roadmap | 🔲 Not started |
+| 6 | User Personas | 🔲 Not started |
+| 7 | User Stories | 🔲 Not started |
+| 8 | UX Wireframes | 🔲 Not started |
+| 9 | Information Architecture | 🔲 Not started |
+| 10 | Database Schema | 🔲 Not started |
+| 11 | API Specification | 🔲 Not started |
+| 12 | Device & Command Security Architecture | 🔲 Not started |
+| 13 | Security Architecture | 🔲 Not started |
+| 14 | Multi-Tenant Architecture | 🔲 Not started |
+| 15 | Deployment Architecture | 🔲 Not started |
+| 16 | Infrastructure as Code | 🔲 Not started |
+| 17 | CI/CD Pipeline | 🔲 Not started |
+| 18 | Test Strategy | 🔲 Not started |
+| 19 | Threat Model | 🔲 Not started |
+| 20 | SOC 2 Control Mapping & Evidence Plan | 🔲 Not started |
+| 21 | Patent Opportunity Analysis | 🔲 Not started |
+| 22 | MVP Roadmap | 🔲 Not started |
+| 23 | Enterprise Roadmap | 🔲 Not started |
+| 24 | Technical Debt Register | 🔲 Not started |
+
+Adapted from the IronQuill project's artifact list — items specific to IronQuill's immutable ledger (Ledger Architecture, Blockchain Migration Strategy, EPA/NJ Regulatory Requirements Matrix) are replaced here with items specific to PeakVantage's actual scope: SOC 2 readiness, and the device/command security model needed for the future actuation roadmap (see `CLAUDE.md` → "Future: Command & Control Architecture").

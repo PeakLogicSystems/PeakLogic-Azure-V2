@@ -1,6 +1,8 @@
-# PeakLogic
+# PeakLogic — PeakVantage Hub / PeakVantage 360
 
 Multi-tenant, cloud-native IoT platform for facilities and risk management — targeting small-to-mid-tier commercial and residential properties, built to scale to enterprise.
+
+**PeakVantage Hub** is the core intelligence/monitoring hub; **PeakVantage 360** is the full device + software ecosystem built on it. (Placeholder product naming as of 2026-07 — not yet trademark-cleared.) Company is PeakLogic; `PeakLogicSystems` remains the engineering/repo name for the underlying cloud software. See `CLAUDE.md` for the architecture-first development process this project now follows.
 
 ## Positioning
 
