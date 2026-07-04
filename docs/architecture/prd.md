@@ -147,8 +147,9 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 | ID | Requirement | Priority |
 |---|---|---|
-| CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — minimal, not a full partner portal | Should |
-| CH-2 | Full self-service partner portal/co-branding tooling is deferred past MVP | Won't (MVP) |
+| CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — the pool-chemical/equipment-supplier channel relationship is real and active, not hypothetical, so this is confirmed **Must**, not just a nice-to-have | Must |
+| CH-2 | Basic partner attribution reporting (which tenants/devices came through which partner) — supports a manual/offline revenue-share process; not automated billing | Should |
+| CH-3 | Full self-service partner portal, automated revenue-share, and co-branded/white-label dashboard views are deferred past MVP | Won't (MVP) |
 
 ---
 
@@ -176,7 +177,9 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 ## 8. Assumptions & Constraints
 
-- **Beachhead verticals for MVP demo (confirmed): pool servicing and QSR (gas station convenience stores, fast food).** Both are real, active sales opportunities, not hypothetical — both must be easily demoable at MVP. QSR/gas-station-convenience scope is the **building's facility conditions** (coolers, restroom/plumbing leaks, kitchen gas appliances, energy usage) — explicitly **not** underground fuel-tank leak detection, which is a separate, heavily regulated EPA UST compliance program and would be a materially different, larger product decision than this PRD's horizon. **Industrial pumping stations are the next vertical after MVP** (not required for the MVP demo), building on the already-existing `pump` category.
+- **Beachhead verticals for MVP demo (confirmed): pool servicing and QSR (gas station convenience stores, fast food).** Both are real, active sales opportunities, not hypothetical — both must be easily demoable at MVP. QSR/gas-station-convenience scope for MVP is the **convenience store building's facility conditions only** (coolers, restroom/plumbing leaks, kitchen gas appliances, energy usage).
+- **Confirmed roadmap, explicitly not MVP, for the gas-station vertical specifically**: (a) fuel-dispenser/fuel-pump monitoring, and (b) underground fuel storage tank leak detection — the latter is a separate, heavily regulated EPA UST compliance program (financial responsibility rules, etc.), a materially larger and distinct product decision from this PRD's horizon. **Keep this conceptually separate from "industrial pumping stations"** (§ below) — that term refers to water/wastewater pump infrastructure (the existing `pump` category), a different vertical entirely from gas-station fuel dispensers, even though both use the word "pumping."
+- **Industrial (water/wastewater) pumping stations are the next vertical after MVP** (not required for the MVP demo), building on the already-existing `pump` category.
 - Existing v1.0.0 code's validated patterns (RLS tenant isolation, CDK stack structure, MQTT/IoT Core networking) are assumed sound and are being reconciled, not rebuilt from scratch, per `docs/architecture/README.md`.
 - AWS as the cloud provider (IoT Core, Lambda, RDS, Cognito) is a constraint already made by the existing implementation, not re-litigated in this PRD.
 - MVP validates the product thesis with a small number of design-partner tenants, not general availability — enterprise-grade operational tooling (billing, self-serve tenant onboarding) is intentionally not a requirement yet.
@@ -195,5 +198,5 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 2. **Beachhead vertical**: resolved. Pool servicing and QSR (gas-station convenience/fast food) are both confirmed, active opportunities and both required/demoable at MVP; industrial pumping stations confirmed as the next vertical post-MVP, not required now.
 3. **Performance/availability targets**: resolved. 30-second alert latency, 99.9% v1 uptime target (internal engineering target, not yet a contractual SLA).
 4. **Data retention policy**: resolved. 90 days raw telemetry, 2-year hourly rollups, alerts/tickets retained indefinitely (minimum 7 years).
-5. **Channel-partner depth (CH-1)**: **still open** — need to confirm whether the pool-chemical/equipment-supplier channel conversations are real and active right now, or still hypothetical, since that changes whether "tagging only" is sufficient for MVP.
-6. **New, added during review**: confirm whether the QSR/gas-station vertical should stay scoped to convenience-store facility conditions only (current assumption, §8) or should eventually include underground fuel-tank leak detection (EPA UST-regulated, a materially larger and separate compliance product) — not required to resolve before PRD approval, but should be answered before any gas-station-specific marketing implies fuel-tank coverage.
+5. **Channel-partner depth (CH-1)**: resolved. The pool-chemical/equipment-supplier channel relationship is confirmed real and active — CH-1 bumped from Should to Must, and CH-2 (basic partner attribution reporting) added to support a manual/offline revenue-share process. Full self-service portal/automated revenue-share/white-label views (CH-3) remain deferred past MVP.
+6. **Gas-station vertical scope**: resolved. MVP stays scoped to convenience-store facility conditions only. Fuel-dispenser monitoring and underground fuel-tank leak detection (EPA UST-regulated) are confirmed **roadmap items** for this vertical specifically — not MVP, and not to be confused with the separate industrial (water/wastewater) pumping-station vertical, which happens to share the word "pumping" but is otherwise unrelated.
