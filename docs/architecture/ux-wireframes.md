@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2), [SRS](srs.md) (approved v1.2), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1), [User Stories](user-stories.md) (approved v1)
 **Last updated:** 2026-07-04
 
