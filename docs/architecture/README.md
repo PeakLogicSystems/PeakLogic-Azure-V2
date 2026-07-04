@@ -13,7 +13,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1 |
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
-| 8 | UX Wireframes | 🟡 Up next |
+| 8 | [UX Wireframes](ux-wireframes.md) | 🟡 Draft v0.1 — awaiting review |
 | 9 | Information Architecture | 🔲 Not started |
 | 10 | Database Schema | 🔲 Not started |
 | 11 | API Specification | 🔲 Not started |
