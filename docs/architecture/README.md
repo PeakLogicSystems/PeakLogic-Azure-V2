@@ -6,7 +6,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 
 | # | Artifact | Status |
 |---|----------|--------|
-| 1 | Vision Document | 🟡 Up next |
+| 1 | [Vision Document](vision-document.md) | 🟡 Draft v0.1 — awaiting review |
 | 2 | Product Requirements Document (PRD) | 🔲 Not started |
 | 3 | Software Requirements Specification (SRS) | 🔲 Not started |
 | 4 | Domain Model | 🔲 Not started |
