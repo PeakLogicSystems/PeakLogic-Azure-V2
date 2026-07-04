@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
+**Status:** Approved v1.2 (amended — see Revision History, end of document)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -157,8 +157,8 @@ Surfaced by the User Personas artifact: both the Small Business Owner-Operator (
 
 | ID | Requirement | Priority |
 |---|---|---|
-| RP-1 | A tenant-scoped, multi-site roll-up view shall exist, showing aggregate risk/health status and alert counts across every site a Tenant Admin or Corporate/Regional Ops Leader oversees — not just one site or device at a time | Must |
-| RP-2 | A route-prioritized view shall exist for a Service Partner/technician's assigned sites for the current day, sorted so sites trending toward a problem are surfaced ahead of healthy ones | Should |
+| RP-1 | A tenant-scoped, multi-site roll-up view shall exist, showing aggregate risk/health status and alert counts across every site a Tenant Admin or Corporate/Regional Ops Leader oversees — not just one site or device at a time. The view shall visually distinguish sites **trending toward risk** (AI-3 anomaly/trend flags) from sites **currently in alarm** (static-threshold alerts) — confirmed during User Stories review, not just a single undifferentiated "attention needed" count | Must |
+| RP-2 | A route-prioritized view shall exist for a Service Partner/technician's assigned sites for the current day, sorted so sites trending toward a problem are surfaced ahead of healthy ones. Per-site detail in this view shall include the actual adapter-specific readings (e.g. chemistry, temperature) driving that site's status, not just a health/alert summary — confirmed during User Stories review, since a technician needs to know *what's* wrong before arriving, not just *that* something is | Should |
 | RP-3 | Aggregate savings/avoided-loss estimates (e.g. total alerts that likely prevented a larger incident) are a **future** reporting goal, not required at MVP — RP-1/RP-2 cover presence/status roll-ups only; a defensible ROI dollar figure requires real usage data this PRD's horizon doesn't yet have | Won't (MVP) |
 
 ---
@@ -219,3 +219,8 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 
 - **§5.9 added (RP-1, RP-2, RP-3)**: the Corporate/Regional Facilities Operations Leader and Small Business Owner-Operator personas both need a multi-site roll-up view, and the Route-Based Service Technician needs a route-prioritized view of their own day's stops — neither had a home in the original §5.4, which was written at the single-device level.
 - **AI-3 reworded**: added a requirement that baseline-analytics sensitivity be configurable (at minimum per adapter/category), not a hardcoded constant — the User Personas artifact's Site-Level Facility Operator persona made explicit that alert-fatigue tolerance, not feature count, is what determines whether the product stays trusted.
+
+**v1.2 (2026-07-04)** — forced by two open items the User Stories artifact (#7) surfaced and confirmed rather than left ambiguous.
+
+- **RP-1 reworded**: the multi-site roll-up view must visually distinguish trending-toward-risk sites from currently-alarmed sites, not report a single undifferentiated count.
+- **RP-2 reworded**: the route-prioritized view's per-site detail must include actual adapter-specific readings (chemistry, temperature, etc.), not just a health/alert summary.

@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.1)
+**Status:** Approved v1.2 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2)
 **Last updated:** 2026-07-04
 
 ---
@@ -238,8 +238,8 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 | ID | Requirement |
 |---|---|
-| RP-1.1 | The system shall provide a query/view returning aggregate status (site count by health state, open-alert count) across every Site a Tenant Admin or Corporate/Regional Ops Leader is authorized to see, scoped by the existing tenant/RLS model (MT-1.1) — not a per-device query repeated by the client |
-| RP-2.1 | The system shall provide a query/view returning a Service Partner's assigned sites for the current day, ordered by a defined urgency ranking (e.g. open critical alerts first, then trending-toward-threshold per AI-3.1, then healthy) |
+| RP-1.1 | The system shall provide a query/view returning aggregate status across every Site a Tenant Admin or Corporate/Regional Ops Leader is authorized to see, scoped by the existing tenant/RLS model (MT-1.1) — not a per-device query repeated by the client. The response shall separately report **sites with an open `trend`/`anomaly`-type alert** (AI-3.2) versus **sites with an open `threshold`-type alert**, so a client can render "trending toward risk" distinctly from "currently in alarm" *(added — see Revision History)* |
+| RP-2.1 | The system shall provide a query/view returning a Service Partner's assigned sites for the current day, ordered by a defined urgency ranking (e.g. open critical alerts first, then trending-toward-threshold per AI-3.1, then healthy). Each site's entry shall include its devices' current adapter-specific readings (e.g. `pool_chemistry` pH/chlorine/TDS values, `refrigeration` product temperature) — not solely a health-state/alert summary *(added — see Revision History)* |
 
 **Error/edge conditions:** a Tenant Admin/Ops Leader has zero sites, or a Service Partner has zero assigned stops for the day (RP-1.1/RP-2.1 shall return an empty, valid result — not an error state).
 
@@ -369,3 +369,8 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 
 - **§3.11 added (RP-1.1, RP-2.1)**: elaborates the PRD's new §5.9 (Portfolio & Route Reporting), itself added because the User Personas artifact surfaced two persona needs (multi-site roll-up, route-prioritized view) that had no home in the original single-device-level UX-2.
 - **AI-3.3 added**: baseline-analytics sensitivity must be configurable per adapter/category, elaborating the PRD's reworded AI-3 — the User Personas artifact made explicit that alert-fatigue tolerance drives product trust more than any single feature.
+
+**v1.2 (2026-07-04)** — forced by the User Stories artifact (#7) confirming two open items rather than leaving them ambiguous, and the PRD's own v1.2 amendment.
+
+- **RP-1.1 reworded**: the multi-site roll-up response must separately report `trend`/`anomaly`-type alerts from `threshold`-type alerts, not a single undifferentiated count.
+- **RP-2.1 reworded**: each site's route-view entry must include its devices' actual adapter-specific readings, not just a health/alert summary.

@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.1), [SRS](srs.md) (approved v1.1), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1)
+**Status:** Approved v1
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2), [SRS](srs.md) (approved v1.2), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1)
 **Last updated:** 2026-07-04
 
 ---
@@ -29,7 +29,7 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 - Acceptance: RP-1.1 (multi-site roll-up query/view). Priority: Must.
 
 **US-2.** As a Corporate/Regional Ops Leader, I want to see which specific sites are trending toward risk (not just currently in alarm), so that I can act before a site becomes a full incident, not just react after.
-- Acceptance: RP-1.1 combined with AI-3.1/AI-3.2's trend/anomaly flag type, surfaced in the roll-up view. Priority: Must (RP-1.1 is Must; the trend-flag inclusion is implied, not yet an explicit RP-1.1 sub-requirement — flagged in §4).
+- Acceptance: RP-1.1 (confirmed — now explicitly separates `trend`/`anomaly` sites from `threshold`-alarmed sites, per PRD/SRS v1.2). Priority: Must.
 
 **US-3.** As a Corporate/Regional Ops Leader, I want an eventual aggregate savings/avoided-loss estimate across my portfolio, so that I can justify the platform's cost to my own leadership.
 - Acceptance: RP-3 — explicitly **Won't** at MVP (requires real usage data this PRD's horizon doesn't have yet). Included here so the need is on record even though it isn't being built now.
@@ -62,7 +62,7 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 - Acceptance: RP-2.1. Priority: Should.
 
 **US-11.** As a Route-Based Service Technician, I want to know a site's chemical/equipment status before I arrive, so that I show up prepared instead of discovering the problem on-site.
-- Acceptance: SN-4.1 (pool chemistry telemetry) surfaced via RP-2.1's per-site detail. Priority: Must (SN-4.1) / Should (RP-2.1).
+- Acceptance: SN-4.1 (pool chemistry telemetry), surfaced via RP-2.1's per-site detail (confirmed — RP-2.1 now explicitly requires adapter-specific readings per site, per PRD/SRS v1.2). Priority: Must (SN-4.1) / Should (RP-2.1).
 
 ### 2.5 Field Service Partner
 
@@ -96,8 +96,10 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 
 ## 4. Open Items Surfaced While Writing Stories
 
-1. **US-2 (trend-flag visibility in the roll-up view)** implies RP-1.1's aggregate view should surface *which* sites are trending toward risk, not just which are currently in alarm — RP-1.1 as written doesn't explicitly require this distinction. Recommend an explicit amendment when the API Specification (#11) defines RP-1.1's actual response shape, rather than assuming it's covered.
-2. **US-11 (pre-arrival chemical/equipment status)** combines SN-4.1 and RP-2.1 in a way neither requirement states explicitly — the per-site detail RP-2.1 exposes for a technician's route should include the actual adapter-specific readings (chemistry, temperature, etc.), not just a health/alert summary. Worth confirming as an explicit RP-2.1 sub-requirement when the API Specification is written.
+Both resolved — confirmed and back-ported to the PRD/SRS (v1.2) rather than left open:
+
+1. **US-2 (trend-flag visibility in the roll-up view)**: confirmed. RP-1.1 now explicitly requires separating trend/anomaly-flagged sites from threshold-alarmed sites.
+2. **US-11 (pre-arrival chemical/equipment status)**: confirmed. RP-2.1 now explicitly requires per-site adapter-specific readings, not just a health summary.
 
 ---
 
@@ -109,4 +111,4 @@ Every story above cites its PRD/SRS requirement ID(s) inline in its Acceptance l
 
 ## 6. Review Log
 
-Draft v0.1 — no review conducted yet.
+1. **US-2 / US-11 open items (§4)**: both confirmed "yes" and back-ported as explicit PRD v1.2 / SRS v1.2 amendments (RP-1.1, RP-2.1 reworded) rather than left as an assumption in this document alone.
