@@ -10,7 +10,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1 |
 | 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1 |
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1 |
-| 5 | Compliance & Certification Roadmap | 🟡 Up next |
+| 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | 🟡 Draft v0.1 — awaiting review |
 | 6 | User Personas | 🔲 Not started |
 | 7 | User Stories | 🔲 Not started |
 | 8 | UX Wireframes | 🔲 Not started |
