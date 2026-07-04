@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1), [SRS](srs.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -194,8 +194,8 @@ erDiagram
 
 ## 6. Open Questions Surfaced While Modeling
 
-### 6.1 MetricBaseline: maintained entity vs. live-derived — recommendation, not yet confirmed
-Modeled in §2.3/§4.3 as a maintained, incrementally-updated entity for performance reasons. Alternative: compute it live from Telemetry on each evaluation, which is simpler (no new entity, no staleness risk) but potentially expensive at real telemetry volume. Recommend the maintained-entity approach; flagging for explicit confirmation before Database Schema (#10) commits to it.
+### 6.1 MetricBaseline: maintained entity vs. live-derived — resolved
+Confirmed as a maintained, incrementally-updated entity (§2.3/§4.3), per the performance rationale in §4.3 — recomputing a rolling statistical baseline from raw telemetry on every evaluation doesn't scale as telemetry volume grows across devices/tenants. Database Schema (#10) is free to design it as a real table.
 
 ### 6.2 DeviceAdapter's eventual home — flagged, not urgent
 Confirmed as code (not a table) for MVP per DA-3.1. When a self-service third-party adapter marketplace is eventually built (Vision §10, explicitly post-MVP), DeviceAdapter will need to become a real, versioned database entity. No action needed now; noting it so that future work doesn't have to rediscover this transition point.
@@ -213,4 +213,8 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 
 ## 8. Review Log
 
-Draft v0.1 — no review conducted yet.
+All open items raised during review are resolved; no outstanding sign-offs remain.
+
+1. **MetricBaseline maintained vs. live-derived (§6.1)**: confirmed as a maintained entity, for the performance reasons already stated in §4.3. No change to the modeling.
+2. **DeviceAdapter's eventual home (§6.2)**: confirmed as code, not a table, for MVP — no action needed now; flagged for whenever a self-service adapter marketplace is scoped.
+3. **ChannelPartner cardinality (§6.3)**: confirmed — a Tenant has at most one ChannelPartner, no attribution-history tracking required at MVP.
