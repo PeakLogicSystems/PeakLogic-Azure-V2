@@ -12,7 +12,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1 |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1 |
-| 7 | User Stories | 🟡 Up next |
+| 7 | [User Stories](user-stories.md) | 🟡 Draft v0.1 — awaiting review |
 | 8 | UX Wireframes | 🔲 Not started |
 | 9 | Information Architecture | 🔲 Not started |
 | 10 | Database Schema | 🔲 Not started |
