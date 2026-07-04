@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
+**Status:** Approved v1.1 (amended — see Revision History, end of document)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -140,7 +140,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 |---|---|---|
 | MCP-1 | PeakLogicSystems exposes an MCP server surfacing devices, alerts, and telemetry as callable tools for external AI/agent consumers | Must |
 | MCP-2 | MCP server authentication/authorization reuses existing tenant-scoped API auth (Cognito) — no parallel auth system | Must |
-| AI-3 | Baseline real-time analytics: **rate-of-change/trend detection** (e.g. flag a refrigeration unit trending toward its limit before it crosses it) plus **simple statistical anomaly detection** (a rolling per-device/metric baseline — e.g. z-score against a trailing window) — both computed over already-stored telemetry, no ML training/model infrastructure required | Must |
+| AI-3 | Baseline real-time analytics: **rate-of-change/trend detection** (e.g. flag a refrigeration unit trending toward its limit before it crosses it) plus **simple statistical anomaly detection** (a rolling per-device/metric baseline — e.g. z-score against a trailing window) — both computed over already-stored telemetry, no ML training/model infrastructure required. Sensitivity (how far a deviation must go before it flags) shall be configurable at minimum per adapter/category, not a single hardcoded constant — added per User Personas §6 item 3: alert-fatigue tolerance is the single biggest driver of whether a Site-Level Facility Operator keeps trusting the product | Must |
 | AI-4 | PeakLogicSystems acting as an MCP *client* (consuming external MCP servers) is explicitly deferred until a specific integration need justifies it | Won't (MVP) |
 
 ### 5.8 Channel & Partner Support
@@ -150,6 +150,16 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 | CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — the pool-chemical/equipment-supplier channel relationship is real and active, not hypothetical, so this is confirmed **Must**, not just a nice-to-have | Must |
 | CH-2 | Basic partner attribution reporting (which tenants/devices came through which partner) — supports a manual/offline revenue-share process; not automated billing | Should |
 | CH-3 | Full self-service partner portal, automated revenue-share, and co-branded/white-label dashboard views are deferred past MVP | Won't (MVP) |
+
+### 5.9 Portfolio & Route Reporting *(added v1.1 — see Revision History)*
+
+Surfaced by the User Personas artifact: both the Small Business Owner-Operator (§2.2) and the Corporate/Regional Facilities Operations Leader (§2.1) need a view across *many* sites, not one device at a time — and a Route-Based Service Technician (§2.4) needs the same idea filtered to just their own day's stops. Neither had a home in the original §5.4 (Device Management UX), which was written at the single-device level.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| RP-1 | A tenant-scoped, multi-site roll-up view shall exist, showing aggregate risk/health status and alert counts across every site a Tenant Admin or Corporate/Regional Ops Leader oversees — not just one site or device at a time | Must |
+| RP-2 | A route-prioritized view shall exist for a Service Partner/technician's assigned sites for the current day, sorted so sites trending toward a problem are surfaced ahead of healthy ones | Should |
+| RP-3 | Aggregate savings/avoided-loss estimates (e.g. total alerts that likely prevented a larger incident) are a **future** reporting goal, not required at MVP — RP-1/RP-2 cover presence/status roll-ups only; a defensible ROI dollar figure requires real usage data this PRD's horizon doesn't yet have | Won't (MVP) |
 
 ---
 
@@ -200,3 +210,12 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 4. **Data retention policy**: resolved. 90 days raw telemetry, 2-year hourly rollups, alerts/tickets retained indefinitely (minimum 7 years).
 5. **Channel-partner depth (CH-1)**: resolved. The pool-chemical/equipment-supplier channel relationship is confirmed real and active — CH-1 bumped from Should to Must, and CH-2 (basic partner attribution reporting) added to support a manual/offline revenue-share process. Full self-service portal/automated revenue-share/white-label views (CH-3) remain deferred past MVP.
 6. **Gas-station vertical scope**: resolved. MVP stays scoped to convenience-store facility conditions only. Fuel-dispenser monitoring and underground fuel-tank leak detection (EPA UST-regulated) are confirmed **roadmap items** for this vertical specifically — not MVP, and not to be confused with the separate industrial (water/wastewater) pumping-station vertical, which happens to share the word "pumping" but is otherwise unrelated.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-04)** — forced by the User Personas artifact (#6), per this document's own rule (§9) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **§5.9 added (RP-1, RP-2, RP-3)**: the Corporate/Regional Facilities Operations Leader and Small Business Owner-Operator personas both need a multi-site roll-up view, and the Route-Based Service Technician needs a route-prioritized view of their own day's stops — neither had a home in the original §5.4, which was written at the single-device level.
+- **AI-3 reworded**: added a requirement that baseline-analytics sensitivity be configurable (at minimum per adapter/category), not a hardcoded constant — the User Personas artifact's Site-Level Facility Operator persona made explicit that alert-fatigue tolerance, not feature count, is what determines whether the product stays trusted.

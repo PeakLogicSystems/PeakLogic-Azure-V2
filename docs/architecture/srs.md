@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1)
+**Status:** Approved v1.1 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.1)
 **Last updated:** 2026-07-04
 
 ---
@@ -204,6 +204,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | MCP-2.1 | MCP tool calls shall authenticate using the same Cognito-issued tokens as the REST API, and shall enforce the same tenant scoping (`withTenant()`, MT-1.1) — no separate auth or authorization path |
 | AI-3.1 | Baseline analytics shall compute, for each device/metric pair with sufficient history, a trailing-window statistical baseline (e.g. mean/standard-deviation over a rolling period) and shall flag a reading whose deviation from that baseline exceeds a configured threshold, independent of the adapter's static threshold rules |
 | AI-3.2 | A trend/anomaly flag from AI-3.1 shall be surfaced through the existing alert pipeline (AL-1.1) as its own `type` (distinct from `threshold`), so it is visually and functionally distinguishable from a static-threshold alert |
+| AI-3.3 | The deviation threshold that triggers an AI-3.1 flag shall be configurable at minimum per adapter/category *(added — see Revision History)* — a hardcoded, one-size-fits-all sensitivity is not acceptable given how directly alert-fatigue tolerance drives whether a Site-Level Facility Operator keeps trusting the product (User Personas §6 item 3) |
 | AI-4.1 | No code path shall exist at MVP where PeakLogicSystems' AI/analytics layer initiates a call to an external MCP server — this is a hard MVP boundary, not a performance target |
 
 **Error/edge conditions:** a device/metric pair has insufficient history for a trailing-window baseline (AI-3.1 shall not fire a flag until a minimum history threshold is met — no flag is preferable to a flag computed on too little data).
@@ -232,6 +233,15 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 |---|---|
 | AUD-1 | State-changing administrative actions (device claim, tenant/user config change, channel-partner attribution change) shall be logged with actor, action, target entity, and timestamp |
 | AUD-2 | Audit log entries shall be tenant-scoped by the same RLS enforcement as MT-1.1, not application-level filtering alone |
+
+### 3.11 Portfolio & Route Reporting (→ PRD §5.9 RP-1–RP-3) *(added — see Revision History)*
+
+| ID | Requirement |
+|---|---|
+| RP-1.1 | The system shall provide a query/view returning aggregate status (site count by health state, open-alert count) across every Site a Tenant Admin or Corporate/Regional Ops Leader is authorized to see, scoped by the existing tenant/RLS model (MT-1.1) — not a per-device query repeated by the client |
+| RP-2.1 | The system shall provide a query/view returning a Service Partner's assigned sites for the current day, ordered by a defined urgency ranking (e.g. open critical alerts first, then trending-toward-threshold per AI-3.1, then healthy) |
+
+**Error/edge conditions:** a Tenant Admin/Ops Leader has zero sites, or a Service Partner has zero assigned stops for the day (RP-1.1/RP-2.1 shall return an empty, valid result — not an error state).
 
 ---
 
@@ -330,6 +340,7 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3) | 1:1 elaboration |
 | §3.9 Auth & Access Control | PRD §6 (Security baseline) | **SRS-new** — synthesized from cross-cutting PRD references |
 | §3.10 Audit Logging | PRD §6 (Security baseline), CH-2.1 | **SRS-new** |
+| §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-3) | 1:1 elaboration — added v1.1 |
 | §5 Non-Functional Requirements | PRD §6 | 1:1 elaboration per category |
 
 Where a future artifact (Domain Model, Database Schema, Security Architecture, etc.) forces a change to a requirement above, that change should be made explicitly in a revision to this document, per the governance rule carried from the Vision Document and PRD.
@@ -348,4 +359,13 @@ Where a future artifact (Domain Model, Database Schema, Security Architecture, e
 
 ## 10. Review Log
 
-Draft v0.1 — no review conducted yet.
+Approved as-is at v1; no changes requested during that review. See Revision History below for the subsequent v1.1 amendment.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-04)** — forced by the User Personas artifact (#6) and the PRD's own v1.1 amendment, per this document's rule (§8) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **§3.11 added (RP-1.1, RP-2.1)**: elaborates the PRD's new §5.9 (Portfolio & Route Reporting), itself added because the User Personas artifact surfaced two persona needs (multi-site roll-up, route-prioritized view) that had no home in the original single-device-level UX-2.
+- **AI-3.3 added**: baseline-analytics sensitivity must be configurable per adapter/category, elaborating the PRD's reworded AI-3 — the User Personas artifact made explicit that alert-fatigue tolerance drives product trust more than any single feature.
