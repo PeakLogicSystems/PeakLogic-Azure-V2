@@ -6,12 +6,16 @@ const MOCK_SITES = [
   { id: '3', name: 'Lakewood Pool Complex',   type: 'pool',            devices: 4, status: 'healthy',  location: 'Dallas, TX'  },
   { id: '4', name: 'Northside Pump Station',  type: 'pumping_station', devices: 2, status: 'critical', location: 'Houston, TX' },
   { id: '5', name: 'QSR — Airport Rd',        type: 'qsr',             devices: 1, status: 'healthy',  location: 'Dallas, TX'  },
+  { id: '6', name: 'Sunrise Nursing Home',    type: 'nursing_home',    devices: 5, status: 'warning',  location: 'San Antonio, TX' },
+  { id: '7', name: 'Maple Street Diner',      type: 'restaurant',      devices: 3, status: 'healthy',  location: 'Austin, TX'  },
 ];
 
 const TYPE_LABEL: Record<string, string> = {
   pumping_station: 'Pumping Station',
   qsr:             'Quick Service Restaurant',
   pool:            'Pool',
+  nursing_home:    'Nursing Home',
+  restaurant:      'Restaurant',
 };
 
 const STATUS_BADGE: Record<string, string> = {

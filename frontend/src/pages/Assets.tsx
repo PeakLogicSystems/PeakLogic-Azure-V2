@@ -6,6 +6,8 @@ const MOCK_ASSETS = [
   { id: '3', name: 'Fryer Unit 1',       category: 'hvac',        site: 'QSR — Downtown Branch',  make: 'Henny',    model: 'OFE',     status: 'healthy'  },
   { id: '4', name: 'Fryer Unit 2',       category: 'hvac',        site: 'QSR — Downtown Branch',  make: 'Henny',    model: 'OFE',     status: 'critical' },
   { id: '5', name: 'Pool Circulation',   category: 'pool_system', site: 'Lakewood Pool Complex',  make: 'Pentair',  model: 'SuperFlo', status: 'healthy' },
+  { id: '6', name: 'Walk-in Cooler',     category: 'refrigeration', site: 'Maple Street Diner',    make: 'True',     model: 'T-49',    status: 'healthy'  },
+  { id: '7', name: 'Basement Leak Sensor', category: 'leak_sensor', site: 'Sunrise Nursing Home',  make: 'Zircon',   model: 'LS-100',  status: 'warning'  },
 ];
 
 const STATUS_BADGE: Record<string, string> = {

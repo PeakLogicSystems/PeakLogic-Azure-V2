@@ -52,7 +52,8 @@ CREATE TABLE sites (
   tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   name       TEXT        NOT NULL,
   type       TEXT        NOT NULL
-             CHECK (type IN ('pumping_station','qsr','pool','other')),
+             CHECK (type IN ('pumping_station','qsr','restaurant','pool','nursing_home',
+                              'retail','light_industrial','multifamily_residential','other')),
   address    JSONB,                          -- {street, city, state, zip, country}
   lat        DOUBLE PRECISION,
   lng        DOUBLE PRECISION,
@@ -74,7 +75,8 @@ CREATE TABLE assets (
   tenant_id       UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
   site_id         UUID        NOT NULL REFERENCES sites(id)   ON DELETE CASCADE,
   name            TEXT        NOT NULL,
-  category        TEXT        NOT NULL,      -- 'pump','compressor','pool_system','hvac'
+  category        TEXT        NOT NULL,      -- 'pump','compressor','pool_system','hvac',
+                                              -- 'refrigeration','leak_sensor','energy_meter' (extensible — see backend/ingest/handler.ts RULES_BY_CATEGORY)
   make            TEXT,
   model           TEXT,
   serial_number   TEXT,
@@ -120,7 +122,8 @@ CREATE TABLE telemetry (
   time      TIMESTAMPTZ      NOT NULL,
   device_id UUID             NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
   tenant_id UUID             NOT NULL,       -- denormalized for fast filtering
-  metric    TEXT             NOT NULL,       -- 'power_kw','flow_lpm','pressure_psi','temp_c'
+  metric    TEXT             NOT NULL,       -- 'power_kw','flow_lpm','pressure_psi','temp_c',
+                                              -- 'product_temp_c' (probe temp of stored food/drink, not ambient air), 'leak_detected' (0/1)
   value     DOUBLE PRECISION NOT NULL,
   quality   SMALLINT         NOT NULL DEFAULT 0  -- 0=good 1=uncertain 2=bad
 );

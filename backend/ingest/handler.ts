@@ -71,6 +71,44 @@ const RULES_BY_CATEGORY: Record<string, Rule[]> = {
       message: (v, _t) => `Pool temperature ${v.toFixed(1)}°C is above safe limit (35°C)`,
     },
   ],
+  // Probe temp of the food/drink itself, not ambient air — lets the unit run warmer
+  // (saving energy) while still catching an actual food-safety violation early.
+  refrigeration: [
+    {
+      metric: 'product_temp_c', condition: 'gt',
+      threshold: (s) => s.temp_max_c ?? 4.4, // FDA cold-holding limit: 41°F / 4.4°C
+      severity: 'warning',
+      message: (v, t) => `Product temperature ${v.toFixed(1)}°C exceeds FDA safe cold-holding limit ${t.toFixed(1)}°C`,
+    },
+    {
+      metric: 'product_temp_c', condition: 'gt',
+      threshold: 7,
+      severity: 'critical',
+      message: (v, _t) => `Product temperature ${v.toFixed(1)}°C has been in the food-safety danger zone — discard-risk threshold exceeded`,
+    },
+  ],
+  leak_sensor: [
+    {
+      metric: 'leak_detected', condition: 'gt',
+      threshold: 0.5,
+      severity: 'critical',
+      message: (_v, _t) => `Leak detected — immediate shutoff/inspection required to prevent water damage`,
+    },
+  ],
+  energy_meter: [
+    {
+      metric: 'power_kw', condition: 'gt',
+      threshold: (s) => (s.power_kw ?? 10) * 1.3,
+      severity: 'warning',
+      message: (v, t) => `Power draw ${v.toFixed(1)} kW exceeds expected baseline ${t.toFixed(1)} kW`,
+    },
+    {
+      metric: 'power_kw', condition: 'gt',
+      threshold: (s) => (s.power_kw ?? 10) * 1.6,
+      severity: 'critical',
+      message: (v, t) => `Power draw ${v.toFixed(1)} kW is critically high (expected baseline: ${t.toFixed(1)} kW)`,
+    },
+  ],
 };
 
 // ── Main handler ───────────────────────────────────────────────────────────
