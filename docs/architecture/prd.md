@@ -140,7 +140,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 |---|---|---|
 | MCP-1 | PeakLogicSystems exposes an MCP server surfacing devices, alerts, and telemetry as callable tools for external AI/agent consumers | Must |
 | MCP-2 | MCP server authentication/authorization reuses existing tenant-scoped API auth (Cognito) — no parallel auth system | Must |
-| AI-3 | Baseline real-time analytics (trend/anomaly detection over telemetry beyond static thresholds) ships at MVP — see open question in §10 on scope/effort before this is finalized | Should |
+| AI-3 | Baseline real-time analytics: **rate-of-change/trend detection** (e.g. flag a refrigeration unit trending toward its limit before it crosses it) plus **simple statistical anomaly detection** (a rolling per-device/metric baseline — e.g. z-score against a trailing window) — both computed over already-stored telemetry, no ML training/model infrastructure required | Must |
 | AI-4 | PeakLogicSystems acting as an MCP *client* (consuming external MCP servers) is explicitly deferred until a specific integration need justifies it | Won't (MVP) |
 
 ### 5.8 Channel & Partner Support
@@ -156,13 +156,13 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 | Category | Requirement |
 |---|---|
-| **Performance** | A threshold-triggered alert is created within a small, defined number of seconds of the underlying telemetry ingest (exact target TBD — see §10) |
-| **Availability** | Cloud SaaS uptime target TBD against a specific SLA once a tier/pricing decision is made (see §10) |
+| **Performance** | A threshold-triggered alert is created within 30 seconds of the underlying telemetry ingest |
+| **Availability** | 99.9% platform uptime as the v1 internal engineering target (~8.7 hrs/year); this is not yet a contractual customer-facing SLA — that's a separate legal/sales decision. A higher tier (99.95%+) is expected for a future enterprise offering |
 | **Security baseline** | TLS in transit, encryption at rest (RDS, S3), Cognito-enforced API auth, RLS-enforced tenant isolation — all already implemented, reconciled |
-| **Data integrity** | Alerts are never hard-deleted (status transitions only, per existing schema); telemetry retention/partitioning policy needs to be formalized — `docs/data-model.sql` already flags "partition by month in v2" as unresolved |
+| **Data integrity** | Alerts are never hard-deleted (status transitions only, per existing schema) |
 | **Usability** | Device add/view/manage usable by a non-technical operator with no manual — restates UX-1 |
 | **Extensibility** | New sensing modality addable via the adapter contract without redeploying/forking core ingest — restates DA-1 |
-| **Data retention** | Telemetry and alert retention policy to be set explicitly (not yet defined in the existing schema) — feeds the Database Schema artifact (#10) |
+| **Data retention** | Raw telemetry retained at full resolution for 90 days, then downsampled to hourly rollups retained for 2 years (supports AI-3's trailing-window baseline without unbounded raw-data storage cost). Alerts and service tickets retained indefinitely (minimum 7 years) — they are the evidentiary record of what the customer was warned about and when, which matters for both SOC 2 and liability |
 
 ---
 
@@ -176,7 +176,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 ## 8. Assumptions & Constraints
 
-- **Beachhead vertical for the pilot**: recommend pool service and/or refrigeration/food-service — both have concrete, quantifiable value props already established in the Vision Document (chemical monitoring upsell; FDA cold-holding compliance) and both build on sensing categories that already exist in the codebase. This is a recommendation for §10 review, not yet a locked decision.
+- **Beachhead verticals for MVP demo (confirmed): pool servicing and QSR (gas station convenience stores, fast food).** Both are real, active sales opportunities, not hypothetical — both must be easily demoable at MVP. QSR/gas-station-convenience scope is the **building's facility conditions** (coolers, restroom/plumbing leaks, kitchen gas appliances, energy usage) — explicitly **not** underground fuel-tank leak detection, which is a separate, heavily regulated EPA UST compliance program and would be a materially different, larger product decision than this PRD's horizon. **Industrial pumping stations are the next vertical after MVP** (not required for the MVP demo), building on the already-existing `pump` category.
 - Existing v1.0.0 code's validated patterns (RLS tenant isolation, CDK stack structure, MQTT/IoT Core networking) are assumed sound and are being reconciled, not rebuilt from scratch, per `docs/architecture/README.md`.
 - AWS as the cloud provider (IoT Core, Lambda, RDS, Cognito) is a constraint already made by the existing implementation, not re-litigated in this PRD.
 - MVP validates the product thesis with a small number of design-partner tenants, not general availability — enterprise-grade operational tooling (billing, self-serve tenant onboarding) is intentionally not a requirement yet.
@@ -189,12 +189,11 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 
 ---
 
-## 10. Open Items for Review
+## 10. Review Resolution Log
 
-This is a first draft — nothing below is resolved yet:
-
-1. **AI-3 scope**: "baseline real-time analytics" needs a concrete definition (e.g., a specific trend/anomaly-detection method over telemetry) before it can be estimated as genuinely low-incremental-cost versus deferred. Recommend resolving this before approval, since it's the one requirement in §4 where "ship now" versus "defer" materially changes MVP effort.
-2. **Beachhead vertical**: §8 recommends pool service and/or refrigeration/food-service; needs an explicit decision.
-3. **Performance/availability targets**: §6 leaves specific numbers TBD pending a tier/SLA decision.
-4. **Data retention policy**: telemetry/alert retention needs an explicit decision, not just a flagged gap, before the Database Schema artifact can be written.
-5. **Channel-partner depth (CH-1)**: confirm "tagging only" is sufficient for MVP, or whether design-partner channel relationships already in discussion need more.
+1. **AI-3 scope**: resolved. Defined concretely as rate-of-change/trend detection plus rolling statistical anomaly detection over stored telemetry — no ML training required. Bumped from Should to Must for MVP.
+2. **Beachhead vertical**: resolved. Pool servicing and QSR (gas-station convenience/fast food) are both confirmed, active opportunities and both required/demoable at MVP; industrial pumping stations confirmed as the next vertical post-MVP, not required now.
+3. **Performance/availability targets**: resolved. 30-second alert latency, 99.9% v1 uptime target (internal engineering target, not yet a contractual SLA).
+4. **Data retention policy**: resolved. 90 days raw telemetry, 2-year hourly rollups, alerts/tickets retained indefinitely (minimum 7 years).
+5. **Channel-partner depth (CH-1)**: **still open** — need to confirm whether the pool-chemical/equipment-supplier channel conversations are real and active right now, or still hypothetical, since that changes whether "tagging only" is sufficient for MVP.
+6. **New, added during review**: confirm whether the QSR/gas-station vertical should stay scoped to convenience-store facility conditions only (current assumption, §8) or should eventually include underground fuel-tank leak detection (EPA UST-regulated, a materially larger and separate compliance product) — not required to resolve before PRD approval, but should be answered before any gas-station-specific marketing implies fuel-tank coverage.
