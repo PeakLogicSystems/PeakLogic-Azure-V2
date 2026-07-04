@@ -47,7 +47,7 @@ Six pillars define the product, and every future feature should trace back to on
 
 1. **Proactive, not reactive.** The product's job is to surface a real risk before it becomes a loss — a leak before a flood, a cooler drift before spoiled inventory, a pump anomaly before a failure — not to produce a better log of what already went wrong.
 2. **Extensible by adapter, not by fork.** A device-adapter architecture, orchestrated by an AI/MCP layer, lets the platform integrate white-label, third-party, and open-source devices — modeled on how a voice assistant "learns" a new skill rather than requiring a new hardware SKU and a new app for every monitoring category. This is what lets PeakLogic sell into new monitoring categories without doing full in-house hardware development for each one.
-3. **Measure the real thing, not the proxy.** The refrigeration example generalizes: where a proxy signal (ambient air temperature) and the real signal (the product's actual temperature) diverge in value, the platform is built to measure the real thing, even when the proxy is easier to sense.
+3. **Measure the real thing, across every condition that matters, not just the easy proxy.** Electrical draw, water (flow, *and* chemical composition/quality — not just a binary leak trigger), gas, temperature, and air quality are all first-class sensing categories, not a fixed, narrow list. The refrigeration example generalizes broadly: pool chemical levels (pH, chlorine, dissolved solids) instead of a service company's periodic manual test strip, industrial equipment current draw instead of a breaker trip after the fact. Wherever a proxy and the real signal diverge in value, the platform is built to measure the real thing.
 4. **Radically simple device management.** A deliberate reaction against the clunkiness of existing consumer smart-home device management — adding, viewing, and managing a device should be obvious to a non-technical operator, not something that requires a manual.
 5. **Outbound-only, enterprise-network-compatible from day one.** Devices call out to the cloud over a persistent, encrypted connection; commands ride back over that same connection. No inbound port, dedicated VLAN, or special firewall rule is ever required of a customer's network — designed in from the start, not retrofitted once an enterprise deal demands it.
 6. **Adjacent to fire/life-safety, never inside it.** The product deliberately does not compete in the heavily regulated, UL-certified fire alarm/life-safety space — it covers the risk surface next to it (equipment, leaks, temperature, energy) that isn't covered by fire/alarm code but still causes real, costly losses.
@@ -59,7 +59,8 @@ Six pillars define the product, and every future feature should trace back to on
 - **Not a fire alarm / life-safety system.** That is a distinct, heavily regulated, UL-certified category this product deliberately stays adjacent to, not inside.
 - **Not a single-vertical point solution.** It is not "just" pool monitoring, "just" energy metering, or "just" leak detection — it is a unified platform those are examples within.
 - **Not a closed hardware ecosystem.** Unlike a typical IoT vendor, PeakView is designed to integrate third-party and open-source devices as a first-class capability, not an afterthought integration.
-- **Not, at MVP, an autonomous-actuation system.** Remote command/control (e.g. actually shutting off a valve) is an explicit roadmap item, not part of initial scope — MVP is detection and alerting.
+- **Not, at MVP, an autonomous-actuation system.** Remote command/control (e.g. shutting off a water or gas valve) is an explicit roadmap item, not part of initial scope — MVP is detection and alerting.
+- **Not, at any near-term stage, an electrical load-control/panel product.** Actively conditioning or managing current draw (so devices don't overdraw a circuit) is a materially more regulated space — UL/NEC-adjacent electrical safety — than passive monitoring or a simple valve shutoff. It is a long-term, deliberately-scoped idea (§11), not something to back into as a side effect of energy monitoring, and the fire/life-safety adjacency principle (§4.6) applies here just as much as it does to fire alarms.
 - **Not a general home-automation platform.** No scenes, routines, or entertainment-device focus — the product's reason for existing is commercial facilities and risk management, not consumer convenience automation.
 
 ---
@@ -69,6 +70,8 @@ Six pillars define the product, and every future feature should trace back to on
 **Beachhead verticals:** pumping stations, quick-service restaurants/food service, pool service monitoring, nursing homes/senior living, cold storage/refrigeration, retail, light industrial.
 
 **Long-term expansion:** any small-to-mid-tier commercial or residential site with equipment, facility-condition, or energy risk worth monitoring. The architectural implication mirrors IronQuill's own governing rule: the core platform (device-adapter framework, AI/MCP orchestration layer, multi-tenant data model) must be **vertical-agnostic**. New verticals should be reachable primarily through new device adapters and configuration, not by forking the platform.
+
+**Pool service is a particularly strong upsell example** of the sensing breadth in §4.3: remote chemical monitoring (pH, chlorine, dissolved solids), water temperature, and pump energy management — including reducing grid-load spikes at motor startup via solar/battery buffering — let a pool service company offer remote diagnostics its customers can't get today. Industrial equipment current-draw monitoring extends the same pattern to light-industrial sites. Several of these categories are also reachable through **channel partnerships** with existing equipment and chemical suppliers, not only direct PeakLogic hardware sales — a business-model extension of the same extensibility pillar, not a separate strategy.
 
 ---
 
@@ -140,8 +143,9 @@ By year three to five, PeakView should be positioned as:
 - Running a device ecosystem broad enough, through the adapter/skills framework, that customers rarely hear "we don't support that sensor."
 - **SOC 2 Type II attested**, cited by enterprise buyers as an actual purchase factor, not a checkbox.
 - Held up internally as the **anti-example** to the Alexa/Smart Home device-management experience it took usability lessons from.
-- Shipping remote actuation (starting with leak shutoff) safely in production, with the fail-safe-locally design principle proven, not just specified.
-- Expanding into new monitoring categories primarily through third-party/open-source device integration, not new in-house hardware R&D for every category.
+- Shipping remote actuation (starting with leak and gas shutoff) safely in production, with the fail-safe-locally design principle proven, not just specified.
+- Expanding into new monitoring categories primarily through third-party/open-source device integration and channel/supplier partnerships, not new in-house hardware R&D for every category.
+- Having deliberately evaluated — not assumed — whether active electrical load conditioning (managing current draw so devices don't overdraw a circuit) belongs in the product. If pursued, the expectation is a partnership with an already-certified electrical-control hardware maker rather than in-house development, mirroring how the fire/life-safety boundary is handled in §4.6.
 
 ---
 
@@ -163,6 +167,8 @@ By year three to five, PeakView should be positioned as:
 - **Risk — a good device-adapter/skills architecture is a genuinely hard extensibility problem**, comparable to how long it took consumer home-automation platforms to mature broad integration libraries. Scope and sequencing need to be realistic, not assumed trivial because "AI" is involved.
 - **Risk — SOC 2 and an enterprise security posture add real engineering and process overhead.** Building this in now versus after a specific deal requires it is a genuine scope trade-off, not a free win.
 - **Risk — remote actuation carries real safety and liability exposure if built carelessly.** Deliberately scoped as roadmap, not MVP, with local fail-safe behavior as a non-negotiable design requirement before any actuation ships.
+- **Risk — broadening sensing scope to water chemistry, gas, and electrical draw multiplies hardware and certification complexity.** A chemical sensor, a gas detector, and an electrical monitoring device each carry their own certification and liability profile; scope and sequencing per modality should be deliberate, not assumed free just because the platform architecture is already extensible.
+- **Risk — active electrical load conditioning is meaningfully more regulated than passive monitoring or a simple valve shutoff**, and could pull the company toward the same kind of regulatory burden §4.6 deliberately avoids for fire/life-safety. Treated as a long-term, partnership-first idea (§11), not a near-term build.
 - **Assumption — the existing v1.0.0 code's validated patterns (tenant isolation via Postgres RLS, the CDK stack structure) remain sound under the architecture this document sets in motion.** Not yet verified against a PRD or SRS that don't exist yet — this is exactly what the reconciliation process in `docs/architecture/README.md` exists to check.
 
 ---
