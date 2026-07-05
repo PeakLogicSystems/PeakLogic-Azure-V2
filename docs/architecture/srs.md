@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.2 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2)
+**Status:** Approved v1.3 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.3)
 **Last updated:** 2026-07-04
 
 ---
@@ -234,14 +234,15 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | AUD-1 | State-changing administrative actions (device claim, tenant/user config change, channel-partner attribution change) shall be logged with actor, action, target entity, and timestamp |
 | AUD-2 | Audit log entries shall be tenant-scoped by the same RLS enforcement as MT-1.1, not application-level filtering alone |
 
-### 3.11 Portfolio & Route Reporting (→ PRD §5.9 RP-1–RP-3) *(added — see Revision History)*
+### 3.11 Portfolio & Route Reporting (→ PRD §5.9 RP-1–RP-4) *(added — see Revision History)*
 
 | ID | Requirement |
 |---|---|
 | RP-1.1 | The system shall provide a query/view returning aggregate status across every Site a Tenant Admin or Corporate/Regional Ops Leader is authorized to see, scoped by the existing tenant/RLS model (MT-1.1) — not a per-device query repeated by the client. The response shall separately report **sites with an open `trend`/`anomaly`-type alert** (AI-3.2) versus **sites with an open `threshold`-type alert**, so a client can render "trending toward risk" distinctly from "currently in alarm" *(added — see Revision History)* |
 | RP-2.1 | The system shall provide a query/view returning a Service Partner's assigned sites for the current day, ordered by a defined urgency ranking (e.g. open critical alerts first, then trending-toward-threshold per AI-3.1, then healthy). Each site's entry shall include its devices' current adapter-specific readings (e.g. `pool_chemistry` pH/chlorine/TDS values, `refrigeration` product temperature) — not solely a health-state/alert summary *(added — see Revision History)* |
+| RP-4.1 | The system shall provide a query/view returning every Site a Tenant Admin is authorized to see, including full address (street, city, state, zip — per the existing `sites.address` JSONB), scoped by the existing tenant/RLS model (MT-1.1). The view shall support sorting/filtering by city and state, independent of and without requiring RP-1.1's health/alert-status grouping *(added — see Revision History)* |
 
-**Error/edge conditions:** a Tenant Admin/Ops Leader has zero sites, or a Service Partner has zero assigned stops for the day (RP-1.1/RP-2.1 shall return an empty, valid result — not an error state).
+**Error/edge conditions:** a Tenant Admin/Ops Leader has zero sites, or a Service Partner has zero assigned stops for the day (RP-1.1/RP-2.1/RP-4.1 shall return an empty, valid result — not an error state).
 
 ---
 
@@ -340,7 +341,7 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3) | 1:1 elaboration |
 | §3.9 Auth & Access Control | PRD §6 (Security baseline) | **SRS-new** — synthesized from cross-cutting PRD references |
 | §3.10 Audit Logging | PRD §6 (Security baseline), CH-2.1 | **SRS-new** |
-| §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-3) | 1:1 elaboration — added v1.1 |
+| §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-4) | 1:1 elaboration — added v1.1, extended v1.3 |
 | §5 Non-Functional Requirements | PRD §6 | 1:1 elaboration per category |
 
 Where a future artifact (Domain Model, Database Schema, Security Architecture, etc.) forces a change to a requirement above, that change should be made explicitly in a revision to this document, per the governance rule carried from the Vision Document and PRD.
@@ -374,3 +375,7 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 
 - **RP-1.1 reworded**: the multi-site roll-up response must separately report `trend`/`anomaly`-type alerts from `threshold`-type alerts, not a single undifferentiated count.
 - **RP-2.1 reworded**: each site's route-view entry must include its devices' actual adapter-specific readings, not just a health/alert summary.
+
+**v1.3 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD's own v1.3 amendment, per this document's rule (§8) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **RP-4.1 added**: elaborates the PRD's new RP-4 — a plain, address-sortable site directory, independent of RP-1.1's risk/health grouping — needed once Information Architecture found no requirement backing its "Sites" navigation item.

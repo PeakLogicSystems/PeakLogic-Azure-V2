@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.2 (amended — see Revision History, end of document)
+**Status:** Approved v1.3 (amended — see Revision History, end of document)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -153,13 +153,14 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 ### 5.9 Portfolio & Route Reporting *(added v1.1 — see Revision History)*
 
-Surfaced by the User Personas artifact: both the Small Business Owner-Operator (§2.2) and the Corporate/Regional Facilities Operations Leader (§2.1) need a view across *many* sites, not one device at a time — and a Route-Based Service Technician (§2.4) needs the same idea filtered to just their own day's stops. Neither had a home in the original §5.4 (Device Management UX), which was written at the single-device level.
+Surfaced by the User Personas artifact: both the Small Business Owner-Operator (§2.2) and the Corporate/Regional Facilities Operations Leader (§2.1) need a view across *many* sites, not one device at a time — and a Route-Based Service Technician (§2.4) needs the same idea filtered to just their own day's stops. Neither had a home in the original §5.4 (Device Management UX), which was written at the single-device level. RP-4 was added later, when the Information Architecture artifact surfaced a distinct need: a plain lookup/directory of sites by location, independent of RP-1's risk-status framing.
 
 | ID | Requirement | Priority |
 |---|---|---|
 | RP-1 | A tenant-scoped, multi-site roll-up view shall exist, showing aggregate risk/health status and alert counts across every site a Tenant Admin or Corporate/Regional Ops Leader oversees — not just one site or device at a time. The view shall visually distinguish sites **trending toward risk** (AI-3 anomaly/trend flags) from sites **currently in alarm** (static-threshold alerts) — confirmed during User Stories review, not just a single undifferentiated "attention needed" count | Must |
 | RP-2 | A route-prioritized view shall exist for a Service Partner/technician's assigned sites for the current day, sorted so sites trending toward a problem are surfaced ahead of healthy ones. Per-site detail in this view shall include the actual adapter-specific readings (e.g. chemistry, temperature) driving that site's status, not just a health/alert summary — confirmed during User Stories review, since a technician needs to know *what's* wrong before arriving, not just *that* something is | Should |
 | RP-3 | Aggregate savings/avoided-loss estimates (e.g. total alerts that likely prevented a larger incident) are a **future** reporting goal, not required at MVP — RP-1/RP-2 cover presence/status roll-ups only; a defensible ROI dollar figure requires real usage data this PRD's horizon doesn't yet have | Won't (MVP) |
+| RP-4 | A tenant-scoped directory listing every site a Tenant Admin operates shall exist, sortable/filterable by street address, city, and state — a plain lookup aid, distinct from RP-1's risk/health roll-up (e.g. "which of our sites are in Austin, TX," not "which sites need attention"). Reconciles an existing reference-implementation screen (`frontend/src/pages/Sites.tsx`) that already does this in simplified form (city/state only, no street address) — added v1.3 when Information Architecture found no requirement backing the "Sites" navigation item it needed | Should |
 
 ---
 
@@ -224,3 +225,7 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 
 - **RP-1 reworded**: the multi-site roll-up view must visually distinguish trending-toward-risk sites from currently-alarmed sites, not report a single undifferentiated count.
 - **RP-2 reworded**: the route-prioritized view's per-site detail must include actual adapter-specific readings (chemistry, temperature, etc.), not just a health/alert summary.
+
+**v1.3 (2026-07-04)** — forced by the Information Architecture artifact (#9), per this document's own rule (§9) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **§5.9 added (RP-4)**: Information Architecture needed a "Sites" navigation item for the Tenant Admin persona but found no requirement backing it — RP-1 covers a risk/health roll-up, not a plain address-based directory. RP-4 adds the latter, reconciling the existing `frontend/src/pages/Sites.tsx` reference screen rather than inventing an unbacked one.
