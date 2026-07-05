@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.3 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.3)
+**Status:** Approved v1.4 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4)
 **Last updated:** 2026-07-04
 
 ---
@@ -214,6 +214,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | ID | Requirement |
 |---|---|
 | CH-1.1 | A tenant record shall support an optional channel-partner reference (identifying which reseller/supplier relationship the tenant came through) |
+| CH-1.2 | No tenant-facing API path shall allow a tenant to set or change its own channel-partner reference — assignment is performed by PeakLogic-internal operations only (mechanism deferred, analogous to CH-3.1's deferred tooling). A tenant-facing read is permitted, displaying the supplier's actual name, never the generic classification term "channel partner" *(added — see Revision History)* |
 | CH-2.1 | The system should provide a queryable report of tenants/devices grouped by channel-partner reference, for manual/offline revenue-share calculation — not an automated billing/payout feature |
 | CH-3.1 | No self-service partner portal, automated revenue-share calculation, or co-branded/white-label dashboard view shall exist at MVP |
 
@@ -338,7 +339,7 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.5 Multi-Tenancy | PRD §5.5 (MT-1–MT-3) | 1:1 elaboration |
 | §3.6 Device & Command Networking | PRD §5.6 (CC-1–CC-4) | 1:1 elaboration |
 | §3.7 AI & MCP Orchestration | PRD §5.7 (MCP-1, MCP-2, AI-3, AI-4) | 1:1 elaboration |
-| §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3) | 1:1 elaboration |
+| §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3) | 1:1 elaboration — extended v1.4 |
 | §3.9 Auth & Access Control | PRD §6 (Security baseline) | **SRS-new** — synthesized from cross-cutting PRD references |
 | §3.10 Audit Logging | PRD §6 (Security baseline), CH-2.1 | **SRS-new** |
 | §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-4) | 1:1 elaboration — added v1.1, extended v1.3 |
@@ -379,3 +380,7 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 **v1.3 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD's own v1.3 amendment, per this document's rule (§8) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
 
 - **RP-4.1 added**: elaborates the PRD's new RP-4 — a plain, address-sortable site directory, independent of RP-1.1's risk/health grouping — needed once Information Architecture found no requirement backing its "Sites" navigation item.
+
+**v1.4 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD's own v1.4 amendment.
+
+- **CH-1.2 added**: no tenant-facing path may set/change channel-partner attribution — internal-assignment only, tenant-facing read displays the supplier's actual name and never the generic term "channel partner." Corrects the approved UX Wireframes' §2.8, which showed a tenant-editable dropdown.

@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.3 (amended — see Revision History, end of document)
+**Status:** Approved v1.4 (amended — see Revision History, end of document)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -147,7 +147,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 | ID | Requirement | Priority |
 |---|---|---|
-| CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — the pool-chemical/equipment-supplier channel relationship is real and active, not hypothetical, so this is confirmed **Must**, not just a nice-to-have | Must |
+| CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — the pool-chemical/equipment-supplier channel relationship is real and active, not hypothetical, so this is confirmed **Must**, not just a nice-to-have. **Assignment is PeakLogic-internal only** — a tenant may view their current attribution (by the supplier's actual name) but has no self-service way to set or change it, and the generic classification term "channel partner" itself is internal vocabulary, never shown in tenant-facing product copy — added v1.4, correcting Information Architecture's discovery that the approved UX Wireframes let a tenant edit this via a dropdown | Must |
 | CH-2 | Basic partner attribution reporting (which tenants/devices came through which partner) — supports a manual/offline revenue-share process; not automated billing | Should |
 | CH-3 | Full self-service partner portal, automated revenue-share, and co-branded/white-label dashboard views are deferred past MVP | Won't (MVP) |
 
@@ -229,3 +229,7 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 **v1.3 (2026-07-04)** — forced by the Information Architecture artifact (#9), per this document's own rule (§9) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
 
 - **§5.9 added (RP-4)**: Information Architecture needed a "Sites" navigation item for the Tenant Admin persona but found no requirement backing it — RP-1 covers a risk/health roll-up, not a plain address-based directory. RP-4 adds the latter, reconciling the existing `frontend/src/pages/Sites.tsx` reference screen rather than inventing an unbacked one.
+
+**v1.4 (2026-07-04)** — forced by the Information Architecture artifact (#9) finding the approved UX Wireframes' Channel Partner Attribution screen (§2.8) in conflict with its own terminology rule.
+
+- **CH-1 amended**: channel-partner attribution is PeakLogic-internal-assigned, not tenant-self-service — a tenant may view (by actual supplier name) but not set or change it, and the term "channel partner" itself never appears in tenant-facing copy. This reverses the implicit assumption in the original UX Wireframes (a tenant-editable dropdown) and narrows User Personas §2.2's description of the Small Business Owner-Operator "managing" the relationship to viewing it.
