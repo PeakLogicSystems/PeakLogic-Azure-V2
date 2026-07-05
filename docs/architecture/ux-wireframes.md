@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.3), [SRS](srs.md) (approved v1.3), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1), [User Stories](user-stories.md) (approved v1)
+**Status:** Approved v1.2 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1.1), [User Stories](user-stories.md) (approved v1)
 **Last updated:** 2026-07-04
 
 ---
@@ -30,8 +30,9 @@ In scope: screen-level layout and content for every screen implied by User Stori
 | 2.5 Alert Detail | Site-Level Facility Operator, Field Service Partner | AL-1.1, AI-3.2 |
 | 2.6 Service Ticket (Field Service Partner view) | Field Service Partner | AL-2.1 |
 | 2.7 Settings — Alert Sensitivity | Small Business Owner-Operator, Tenant Admin | AI-3.3 |
-| 2.8 Settings — Channel Partner Attribution | Small Business Owner-Operator, Channel Partner | CH-1.1, CH-2.1 |
+| 2.8 Settings — Your Supplier *(revised v1.2)* | Small Business Owner-Operator | CH-1.1, CH-1.2 |
 | 2.9 Sites Directory *(added v1.1)* | Small Business Owner-Operator | RP-4.1 |
+| 2.10 Attribution Report — Channel Partner View *(added v1.2)* | Channel Partner | CH-2.1 |
 
 ---
 
@@ -174,18 +175,19 @@ Step 1 of 3            Step 2 of 3            Step 3 of 3
 - Per-adapter/category tuning (AI-3.3), not a single global slider — matches the requirement's "at minimum per adapter/category" wording exactly.
 - Gas detection is deliberately not tunable — a binary leak trigger (SN-5.1) has no "sensitivity," it's a safety signal, not a statistical baseline.
 
-### 2.8 Settings — Channel Partner Attribution (CH-1.1, CH-2.1)
+### 2.8 Settings — Your Supplier (CH-1.1, CH-1.2) *(revised v1.2)*
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Settings → Channel Partner                                   │
+│  Settings → Your Supplier                                      │
 ├─────────────────────────────────────────────────────────────┤
-│  Referred by: [AquaChem Supply Co.  ▾]                         │
-│                                                                 │
-│  [ View attribution report ]  — for AquaChem's own reconciliation│
+│  Supplier: AquaChem Supply Co.                                  │
+│  (Set by PeakLogic — contact support to change)                │
 └─────────────────────────────────────────────────────────────┘
 ```
-- Minimal by design (CH-3.1 defers anything more) — a single field and a report link, not a portal.
+- Read-only per CH-1.2 — no dropdown, no edit control. Attribution is PeakLogic-internal-assigned; this screen exists so the tenant can see who they're attributed to, not to let them change it.
+- Deliberately does not use the term "channel partner" anywhere — that classification word is internal PeakLogic vocabulary only (CH-1.2), never tenant-facing product copy. The tenant only ever sees the supplier's actual name.
+- The report-viewing button from the original v1 draft was removed from this screen — it belongs to the Channel Partner persona's own view (§2.10), not the tenant's, since a per-partner attribution report spans that partner's *other* customers too, which a single tenant has no reason to see.
 
 ### 2.9 Sites Directory (RP-4.1) *(added v1.1)*
 
@@ -207,6 +209,27 @@ Step 1 of 3            Step 2 of 3            Step 3 of 3
 ```
 - A plain, sortable/filterable **lookup** by address/city/state (RP-4.1) — deliberately not a risk/health triage view like Portfolio Roll-Up (§2.1); the two screens answer different questions ("where is our site in Austin" vs. "which sites need attention") and are not meant to be merged into one.
 - Reconciles the existing `frontend/src/pages/Sites.tsx` reference screen, which shows only a combined "city, state" string with no street address and no sort/filter — this wireframe is what that screen needs to be rebuilt toward once it's wired to the real API (RP-4.1), not new-from-nothing functionality.
+
+### 2.10 Attribution Report — Channel Partner View (CH-2.1) *(added v1.2)*
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PeakView — Partner Report: AquaChem Supply Co.                │
+├─────────────────────────────────────────────────────────────┤
+│  Attributed customers (7)                                      │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ Business                Devices    Attributed since    │  │
+│  │ Lakeside Pool Route        4        2026-02-14          │  │
+│  │ Harbor View Pool           2        2026-03-01          │  │
+│  │ Oakwood Community Pool     3        2026-04-18          │  │
+│  │ ...                                                      │  │
+│  └───────────────────────────────────────────────────────┘  │
+│  For manual revenue-share reconciliation — not a billing tool  │
+└─────────────────────────────────────────────────────────────┘
+```
+- No login/dashboard — reached via a direct link, matching the no-account pattern already established for the Field Service Partner (§2.6, AL-2.1) and consistent with User Personas §2.6 ("not a daily platform user").
+- Scoped to only this partner's own attributed tenants (CH-2.1) — even as a no-login link, the access token must not let one partner enumerate another's customer list.
+- This is the screen the "[View attribution report]" button on the original §2.8 draft was pointing at — moved here because it's the Channel Partner's own view of *their* customer list, not something a single tenant should see.
 
 ---
 
@@ -234,3 +257,8 @@ Draft v0.1 — no review conducted yet.
 **v1.1 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD/SRS's own v1.3 amendments, per this document's rule (§4) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
 
 - **§2.9 added (Sites Directory)**: elaborates the PRD/SRS's new RP-4/RP-4.1 — a plain, address-sortable site lookup, distinct from §2.1's risk/health roll-up — needed once Information Architecture found no wireframed screen backing its "Sites" navigation item.
+
+**v1.2 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD/SRS's own v1.4 amendments (CH-1.2), per this document's rule (§4) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **§2.8 revised (Your Supplier, formerly "Channel Partner")**: removed the tenant-editable dropdown and the generic "channel partner" label (CH-1.2 makes attribution PeakLogic-internal-assigned, never tenant-set, and the term itself internal-only vocabulary) and removed the attribution-report button, which didn't belong on a single tenant's screen.
+- **§2.10 added (Attribution Report — Channel Partner View)**: gives the Channel Partner persona (User Personas §2.6) their own dedicated, no-login report screen (CH-2.1) — the destination the removed §2.8 button was pointing at, now properly specified rather than an unwireframed gap.
