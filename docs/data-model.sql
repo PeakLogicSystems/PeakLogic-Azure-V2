@@ -10,20 +10,36 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "postgis";    -- lat/lng point type (optional MVP)
 
 -- ─────────────────────────────────────────────────────────────
+-- CHANNEL PARTNERS  (PeakLogic-internal reseller/supplier reference
+-- data -- NOT tenant data, so deliberately NOT RLS-enabled. Access
+-- is controlled at the application layer (AUTH-2/3), not by tenant
+-- isolation, since this table has no tenant_id to isolate by.)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE channel_partners (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name         TEXT        NOT NULL,
+  contact_info JSONB       NOT NULL DEFAULT '{}',
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────
 -- TENANTS
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE tenants (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  name       TEXT        NOT NULL,
-  slug       TEXT        NOT NULL UNIQUE,   -- URL-safe identifier e.g. "acme-water"
-  plan       TEXT        NOT NULL DEFAULT 'trial'
-             CHECK (plan IN ('trial','starter','professional','enterprise')),
-  status     TEXT        NOT NULL DEFAULT 'active'
-             CHECK (status IN ('active','suspended','trial')),
-  settings   JSONB       NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name               TEXT        NOT NULL,
+  slug               TEXT        NOT NULL UNIQUE,   -- URL-safe identifier e.g. "acme-water"
+  plan               TEXT        NOT NULL DEFAULT 'trial'
+                     CHECK (plan IN ('trial','starter','professional','enterprise')),
+  status             TEXT        NOT NULL DEFAULT 'active'
+                     CHECK (status IN ('active','suspended','trial')),
+  channel_partner_id UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,  -- CH-1.1
+  settings           JSONB       NOT NULL DEFAULT '{}',
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX tenants_channel_partner_idx ON tenants(channel_partner_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- USERS
@@ -76,7 +92,8 @@ CREATE TABLE assets (
   site_id         UUID        NOT NULL REFERENCES sites(id)   ON DELETE CASCADE,
   name            TEXT        NOT NULL,
   category        TEXT        NOT NULL,      -- 'pump','compressor','pool_system','hvac',
-                                              -- 'refrigeration','leak_sensor','energy_meter' (extensible — see backend/ingest/handler.ts RULES_BY_CATEGORY)
+                                              -- 'refrigeration','leak_sensor','energy_meter','pool_chemistry',
+                                              -- 'gas_sensor','air_quality' (extensible — see backend/ingest/handler.ts RULES_BY_CATEGORY / DA-1.1)
   make            TEXT,
   model           TEXT,
   serial_number   TEXT,
@@ -92,6 +109,8 @@ CREATE TABLE assets (
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON assets
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+CREATE INDEX assets_site_idx ON assets(site_id);  -- RP-1.1 portfolio roll-up joins sites -> assets
 
 -- ─────────────────────────────────────────────────────────────
 -- DEVICES  (physical IoT hardware)
@@ -115,6 +134,8 @@ ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON devices
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
+CREATE INDEX devices_asset_idx ON devices(asset_id);
+
 -- ─────────────────────────────────────────────────────────────
 -- TELEMETRY  (high-volume — partition by month in v2)
 -- ─────────────────────────────────────────────────────────────
@@ -129,6 +150,29 @@ CREATE TABLE telemetry (
 );
 
 CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
+
+-- ─────────────────────────────────────────────────────────────
+-- METRIC BASELINES  (maintained rolling per-device-per-metric
+-- statistics supporting AI-3.1 anomaly detection -- updated
+-- incrementally as telemetry arrives, not recomputed from scratch)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE metric_baselines (
+  tenant_id       UUID             NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  device_id       UUID             NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  metric          TEXT             NOT NULL,
+  trailing_mean   DOUBLE PRECISION NOT NULL,
+  trailing_stddev DOUBLE PRECISION NOT NULL,
+  window_start    TIMESTAMPTZ      NOT NULL,
+  window_end      TIMESTAMPTZ      NOT NULL,
+  sample_count    INTEGER          NOT NULL DEFAULT 0,  -- withhold anomaly flag until a minimum history is met (SRS §3.7)
+  PRIMARY KEY (device_id, metric)
+);
+
+ALTER TABLE metric_baselines ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON metric_baselines
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+CREATE INDEX metric_baselines_tenant_idx ON metric_baselines(tenant_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- ALERTS
@@ -179,6 +223,29 @@ CREATE TABLE service_tickets (
 ALTER TABLE service_tickets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_tickets
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+-- ─────────────────────────────────────────────────────────────
+-- AUDIT LOG ENTRIES  (AUD-1 -- record of every state-changing
+-- administrative action; AUD-2 requires the same tenant RLS
+-- enforcement as every other table)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE audit_log_entries (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id     UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  actor_id      UUID        REFERENCES users(id) ON DELETE SET NULL,
+  action        TEXT        NOT NULL,
+  target_entity TEXT        NOT NULL,
+  target_id     UUID        NOT NULL,
+  prior_value   JSONB,
+  new_value     JSONB,
+  occurred_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON audit_log_entries
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
 
 -- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction
