@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
+**Status:** Approved v1.1 (amended — see Revision History, end of document)
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.1), [SRS](srs.md) (approved v1.1), [Domain Model](domain-model.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -39,7 +39,7 @@ In scope: personas for every role named in PRD §3, plus a persona surfaced duri
 
 **Role:** Owns/operates a smaller business directly using PeakView — e.g. the owner of the pool-service company whose technicians work the confirmed beachhead vertical. The actual PeakLogic customer at this scale, and the person who evaluates, buys, and configures the product.
 
-**What they need from PeakView:** Company-wide visibility across every customer site and every technician's route, evidence the product is reducing unnecessary site visits and preventing costly emergencies (PRD §2's loss-prevention proof point, felt at a scale they can personally track), and simple enough user/device management that they aren't the bottleneck every time a new customer or device is added. They're also the person managing the relationship with a channel-partner supplier (CH-1), so partner attribution/reporting needs to make sense to them directly, not just internally to PeakLogic.
+**What they need from PeakView:** Company-wide visibility across every customer site and every technician's route, evidence the product is reducing unnecessary site visits and preventing costly emergencies (PRD §2's loss-prevention proof point, felt at a scale they can personally track), and simple enough user/device management that they aren't the bottleneck every time a new customer or device is added. They also benefit from the channel-partner relationship (CH-1) their business came through — but per CH-1.2 that attribution is PeakLogic-internal-assigned, not something they configure themselves; they see which supplier they're attributed to, by that supplier's actual name, not a "channel partner" settings panel they manage.
 
 **What makes them churn:** If the product can't clearly show ROI within a season, or if configuring new customers/devices requires calling support every time.
 
@@ -117,3 +117,11 @@ The MCP server (MCP-1.1) is queried by a customer's own AI/agent software, or by
 ## 7. Review Log
 
 Draft v0.1 — no review conducted yet.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD/SRS's own v1.4 amendments (CH-1.2).
+
+- **§2.2 corrected**: the Small Business Owner-Operator "manages" their channel-partner relationship in the sense of benefiting from it and seeing who it is — not in the sense of configuring or changing the attribution themselves, which per CH-1.2 is PeakLogic-internal-assigned only.
