@@ -7,14 +7,14 @@ Documents are produced in dependency order — each one builds on decisions lock
 | # | Artifact | Status |
 |---|----------|--------|
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
-| 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1.2 |
-| 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.2 |
+| 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1.4 |
+| 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.4 |
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1 |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
-| 6 | [User Personas](user-personas.md) | ✅ Approved v1 |
+| 6 | [User Personas](user-personas.md) | ✅ Approved v1.1 |
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
-| 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1 |
-| 9 | [Information Architecture](information-architecture.md) | 🟡 Draft v0.1 — awaiting review |
+| 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
+| 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
 | 10 | Database Schema | 🔲 Not started |
 | 11 | API Specification | 🔲 Not started |
 | 12 | Device & Command Security Architecture | 🔲 Not started |
