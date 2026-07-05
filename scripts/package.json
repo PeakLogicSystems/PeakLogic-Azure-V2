@@ -3,12 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "provision": "ts-node provision-devices.ts"
+    "provision": "ts-node provision-devices.ts",
+    "migrate:up": "ts-node migrate.ts up",
+    "migrate:down": "ts-node migrate.ts down"
   },
   "dependencies": {
     "@aws-sdk/client-iot": "^3.0.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
     "dotenv": "^16.0.0",
+    "node-pg-migrate": "^7.0.0",
     "pg": "^8.11.0"
   },
   "devDependencies": {

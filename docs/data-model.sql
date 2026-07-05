@@ -1,5 +1,11 @@
 -- PeakLogic MVP Data Model
--- Run against the peaklogic database after first deploy.
+-- Canonical, hand-maintained snapshot of the schema (Database Schema
+-- artifact, docs/architecture/database-schema.md). Do NOT run this
+-- file directly against a database that already has any of these
+-- tables -- schema changes are applied via versioned migrations in
+-- scripts/migrations/ (see scripts/migrate.ts). This file exists so
+-- the current schema can be read/reviewed in one place; every
+-- migration must be mirrored into it by hand in the same commit.
 -- All tenant-scoped tables use Row-Level Security (RLS).
 -- App sets: SET LOCAL app.current_tenant_id = '<uuid>' at transaction start.
 
@@ -152,6 +158,30 @@ CREATE TABLE telemetry (
 CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
 
 -- ─────────────────────────────────────────────────────────────
+-- TELEMETRY HOURLY ROLLUP  (Database Schema §4.1 -- PRD §6/SRS §5.4
+-- retention: 90 days raw, 2 years hourly. Populated by a scheduled
+-- downsample job -- not yet built, see Database Schema §6 Open
+-- Questions.)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE telemetry_hourly (
+  tenant_id    UUID             NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  device_id    UUID             NOT NULL REFERENCES devices(id) ON DELETE CASCADE,
+  metric       TEXT             NOT NULL,
+  hour_start   TIMESTAMPTZ      NOT NULL,   -- truncated to the hour
+  avg_value    DOUBLE PRECISION NOT NULL,
+  min_value    DOUBLE PRECISION NOT NULL,
+  max_value    DOUBLE PRECISION NOT NULL,
+  sample_count INTEGER          NOT NULL,
+  PRIMARY KEY (device_id, metric, hour_start)
+);
+
+ALTER TABLE telemetry_hourly ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON telemetry_hourly
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
+CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, hour_start DESC);
+
+-- ─────────────────────────────────────────────────────────────
 -- METRIC BASELINES  (maintained rolling per-device-per-metric
 -- statistics supporting AI-3.1 anomaly detection -- updated
 -- incrementally as telemetry arrives, not recomputed from scratch)
@@ -246,6 +276,19 @@ CREATE POLICY tenant_isolation ON audit_log_entries
   USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
 
 CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
+
+-- Append-only enforcement (Database Schema §4.3): audit_log_entries is
+-- an evidentiary record (PRD §6, AUD-1) -- no role, including the
+-- normal application role, may UPDATE or DELETE a row once written.
+CREATE OR REPLACE FUNCTION reject_audit_log_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log_entries is append-only: % not permitted', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_log_entries_append_only
+  BEFORE UPDATE OR DELETE ON audit_log_entries
+  FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
 
 -- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction

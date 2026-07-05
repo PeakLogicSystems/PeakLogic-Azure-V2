@@ -27,7 +27,7 @@ Four independent sub-packages, each with their own `package.json` and `tsconfig.
 | `infra/`    | AWS CDK v2 stacks (TypeScript)               | Node 20   |
 | `backend/`  | Lambda source (API + ingest)                 | Node 20   |
 | `frontend/` | React SPA (Vite + Tailwind)                  | Browser   |
-| `scripts/`  | Admin tooling (device provisioning)          | Node 20   |
+| `scripts/`  | Admin tooling (device provisioning, DB migrations) | Node 20   |
 
 **The backend is not deployed independently.** CDK bundles it at deploy time via esbuild. The `ApiStack` in `infra/lib/api-stack.ts` points `entry:` directly into `../../backend/`. There is no build step to run before deploying the backend.
 
@@ -57,6 +57,12 @@ npx cdk deploy PeakLogic-Api   # deploy a single stack
 cd scripts
 npm install
 npx ts-node provision-devices.ts --count 5 --db-only
+
+# Database migrations (Database Schema §4.2 — not yet run against a real DB, verify
+# node-pg-migrate's exact API/file conventions against the installed version first)
+cd scripts
+npm run migrate:up      # apply all pending migrations
+npm run migrate:down    # roll back the most recent migration
 ```
 
 There are no test suites in this codebase.
@@ -123,7 +129,8 @@ Set `VITE_PREVIEW=true` in `frontend/.env.local` to skip the Cognito `Authentica
 | `backend/api/router.ts` | Full list of registered routes |
 | `infra/lib/api-stack.ts` | Where API Gateway resources are declared — must match the router |
 | `backend/ingest/handler.ts` | `RULES_BY_CATEGORY` — edit here to change alert thresholds |
-| `docs/data-model.sql` | Canonical schema including all RLS policies — source of truth for the DB structure |
+| `docs/data-model.sql` | Canonical schema including all RLS policies — hand-maintained snapshot; actual schema changes are applied via `scripts/migrations/`, then mirrored in here by hand in the same commit |
+| `scripts/migrations/` | Versioned schema migrations (node-pg-migrate, Database Schema §4.2) — applied via `scripts/migrate.ts`, never automatically by `cdk deploy` |
 
 ## Environment Setup
 
