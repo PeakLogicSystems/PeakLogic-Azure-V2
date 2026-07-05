@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2), [SRS](srs.md) (approved v1.2), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1), [User Stories](user-stories.md) (approved v1)
+**Status:** Approved v1.1 (amended — see Revision History, end of document)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.3), [SRS](srs.md) (approved v1.3), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1), [User Stories](user-stories.md) (approved v1)
 **Last updated:** 2026-07-04
 
 ---
@@ -31,6 +31,7 @@ In scope: screen-level layout and content for every screen implied by User Stori
 | 2.6 Service Ticket (Field Service Partner view) | Field Service Partner | AL-2.1 |
 | 2.7 Settings — Alert Sensitivity | Small Business Owner-Operator, Tenant Admin | AI-3.3 |
 | 2.8 Settings — Channel Partner Attribution | Small Business Owner-Operator, Channel Partner | CH-1.1, CH-2.1 |
+| 2.9 Sites Directory *(added v1.1)* | Small Business Owner-Operator | RP-4.1 |
 
 ---
 
@@ -186,6 +187,27 @@ Step 1 of 3            Step 2 of 3            Step 3 of 3
 ```
 - Minimal by design (CH-3.1 defers anything more) — a single field and a report link, not a portal.
 
+### 2.9 Sites Directory (RP-4.1) *(added v1.1)*
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  Sites                                        [+ Add site]   │
+├─────────────────────────────────────────────────────────────┤
+│  Sort: [City ▾]      State: [All ▾]              7 sites     │
+├─────────────────────────────────────────────────────────────┤
+│  Name                     Address                    Status  │
+│  ┌───────────────────────────────────────────────────────┐  │
+│  │ Riverside Pump Station  123 Main St, Houston, TX  ✅   │  │
+│  │ QSR — Downtown Branch   45 Congress Ave, Austin, TX ⚠  │  │
+│  │ Lakewood Pool Complex   900 Lake Dr, Dallas, TX    ✅   │  │
+│  │ ...                                                      │  │
+│  └───────────────────────────────────────────────────────┘  │
+│  Row click → Site Detail (§2.4)                               │
+└─────────────────────────────────────────────────────────────┘
+```
+- A plain, sortable/filterable **lookup** by address/city/state (RP-4.1) — deliberately not a risk/health triage view like Portfolio Roll-Up (§2.1); the two screens answer different questions ("where is our site in Austin" vs. "which sites need attention") and are not meant to be merged into one.
+- Reconciles the existing `frontend/src/pages/Sites.tsx` reference screen, which shows only a combined "city, state" string with no street address and no sort/filter — this wireframe is what that screen needs to be rebuilt toward once it's wired to the real API (RP-4.1), not new-from-nothing functionality.
+
 ---
 
 ## 3. Open Questions Surfaced While Wireframing
@@ -204,3 +226,11 @@ Every wireframe above cites the requirement ID(s) it satisfies inline in its ann
 ## 5. Review Log
 
 Draft v0.1 — no review conducted yet.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD/SRS's own v1.3 amendments, per this document's rule (§4) that a downstream artifact surfacing a needed change must amend this document explicitly rather than silently diverging from it.
+
+- **§2.9 added (Sites Directory)**: elaborates the PRD/SRS's new RP-4/RP-4.1 — a plain, address-sortable site lookup, distinct from §2.1's risk/health roll-up — needed once Information Architecture found no wireframed screen backing its "Sites" navigation item.
