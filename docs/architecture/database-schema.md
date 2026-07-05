@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Domain Model](domain-model.md) (approved v1), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [User Personas](user-personas.md) (approved v1.1), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.2), [Information Architecture](information-architecture.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -17,7 +17,7 @@ The Domain Model named entities and relationships but explicitly deferred "exact
 
 ### 1.2 Scope
 
-In scope: physical schema conventions (naming, types, PK/FK strategy), the RLS multi-tenancy pattern as a mandatory template for future tables, the two new decisions the Domain Model explicitly left open (telemetry retention/rollup storage, and a migration strategy — `docs/data-model.sql` today is a "run once at first deploy" script with no versioned upgrade path), and indexing rationale. Out of scope: request/response payload shapes (→ API Specification, #11), the analytics *compute* that populates MetricBaseline and the rollup table defined here (a scheduled job, not yet designed), and the actuation/command audit schema (→ Device & Command Security Architecture, #12, though `audit_log_entries` already covers AUD-1/AUD-2 generally).
+In scope: physical schema conventions (naming, types, PK/FK strategy), the RLS multi-tenancy pattern as a mandatory template for future tables, the decisions the Domain Model explicitly left open (telemetry retention/rollup storage, and a migration strategy — `docs/data-model.sql` today is a "run once at first deploy" script with no versioned upgrade path), audit-log tamper protection, and indexing rationale. Out of scope: request/response payload shapes (→ API Specification, #11), the analytics *compute* that populates MetricBaseline and the rollup table defined here (a scheduled job, not yet designed), and the actuation/command audit schema (→ Device & Command Security Architecture, #12, though `audit_log_entries` already covers AUD-1/AUD-2 generally).
 
 ---
 
@@ -35,7 +35,7 @@ These conventions already describe the existing schema; from this document forwa
 | Enumerated values | `TEXT NOT NULL CHECK (col IN (...))`, never a native Postgres `ENUM` type | Existing pattern (`tenants.plan`, `sites.type`, `assets.health_status`, etc.). A `CHECK` constraint is added/altered with an ordinary migration; native enum types have `ALTER TYPE ... ADD VALUE` transaction restrictions that are needlessly fussy for a value list expected to grow (new site verticals, new asset categories per DA-1.1) |
 | Multi-tenancy (RLS) | Every tenant-scoped table: `tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE`, `ALTER TABLE ... ENABLE ROW LEVEL SECURITY`, and a `tenant_isolation` policy keyed on `current_setting('app.current_tenant_id')::uuid` | MT-1.1; this is the existing, load-bearing pattern (`backend/shared/db.ts`'s `withTenant()`) — formalized here as mandatory for every future table, not just today's |
 | Non-tenant tables | `channel_partners` is the one deliberate exception — no `tenant_id`, no RLS, access controlled at the application layer only | It's PeakLogic-internal reference data (CH-1.2), not tenant data; there is nothing to isolate a tenant *from* |
-| Denormalized `tenant_id` | Present even on tables reachable via a join (`telemetry`, `alerts`, `metric_baselines`, `audit_log_entries`) | Domain Model §4.1's rationale: structural tenant isolation must never depend on a join succeeding correctly |
+| Denormalized `tenant_id` | Present even on tables reachable via a join (`telemetry`, `alerts`, `metric_baselines`, `audit_log_entries`) | Domain Model §4 item 1's rationale: structural tenant isolation must never depend on a join succeeding correctly |
 
 ---
 
@@ -45,14 +45,14 @@ Full DDL lives in `docs/data-model.sql`; this table is a navigational summary, n
 
 | Domain area (Domain Model §) | Tables | RLS? |
 |---|---|---|
-| Tenancy & Partners (§2.1) | `tenants`, `channel_partners` | `tenants` yes; `channel_partners` no (§2 above) |
+| Tenancy & Identity (§2.1) | `tenants`, `channel_partners` | `tenants` yes; `channel_partners` no (§2 above) |
 | Users & Access (§2.1) | `users` | Yes |
 | Facilities & Assets (§2.2) | `sites`, `assets` | Yes |
 | Devices (§2.3) | `devices` | Yes |
 | Analytics baselines (§2.3) | `metric_baselines` | Yes |
 | Telemetry & Alerting (§2.4) | `telemetry`, `telemetry_hourly` *(new, §4.1)*, `alerts` | Yes |
 | Service (§2.4) | `service_tickets` | Yes |
-| Audit (Domain Model §2.5-equivalent) | `audit_log_entries` | Yes |
+| Audit (§2.6) | `audit_log_entries` — append-only, §4.3 | Yes |
 
 `DeviceAdapter` (Domain Model §2.3) has no table, by design (DA-3.1) — it stays a code-defined object in `backend/ingest/handler.ts`'s `RULES_BY_CATEGORY`.
 
@@ -60,7 +60,7 @@ Full DDL lives in `docs/data-model.sql`; this table is a navigational summary, n
 
 ## 4. New Decisions
 
-Two things the Domain Model explicitly deferred are decided here.
+Two things the Domain Model explicitly deferred, plus one gap this document's own review surfaced, are decided here.
 
 ### 4.1 Telemetry Retention: Hourly Rollup Table
 
@@ -103,6 +103,27 @@ CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, 
 
 **This is a recommendation, not yet implemented** — scaffolding the tool, writing the baseline migration, and adding the `telemetry_hourly` table to `docs/data-model.sql` itself are follow-up work once this draft is reviewed, the same sequencing used for every prior artifact (decide first, reconcile code after).
 
+### 4.3 Audit Log Immutability
+
+The PRD frames alerts and service tickets as "the evidentiary record of what the customer was warned about and when, which matters for both SOC 2 and liability" (PRD §6). `audit_log_entries` (AUD-1) is the same category of record — arguably more sensitive, since it's the log of every administrative action — but as originally reconciled it had no protection beyond ordinary RLS: the same application role that does everything else had full `INSERT`/`UPDATE`/`DELETE` on it, identical to any other table. A bug or a compromised code path could silently edit or delete the rows meant to prove what happened, which is exactly what a SOC 2 auditor evaluating audit logging as a control would ask about (Compliance & Certification Roadmap §4: "Audit logging | Specified, not yet implemented... needs to actually ship before an auditor can observe it operating").
+
+**Decision: enforce append-only at the database level with a trigger**, not a second, more restrictive DB role. The backend currently uses a single pooled role for everything (`backend/shared/db.ts`), and introducing role separation just for one table is disproportionate infrastructure for what a trigger solves directly — it works regardless of which connection or role touches the table, costs nothing on the normal `INSERT` path, and only fires on the mutation it exists to block.
+
+```sql
+CREATE OR REPLACE FUNCTION reject_audit_log_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log_entries is append-only: % not permitted', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_log_entries_append_only
+  BEFORE UPDATE OR DELETE ON audit_log_entries
+  FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
+```
+
+- Scoped intentionally to `audit_log_entries` only — other tables (`alerts`, `service_tickets`) already express their own lifecycle via status-transition columns rather than deletion, and don't need this.
+- Does not protect against a database superuser dropping the trigger — that's out of scope for an application-layer control; SOC 2 audit-logging controls are normally scoped to what the application's own access path can do, not superuser access.
+
 ---
 
 ## 5. Indexing Strategy
@@ -114,7 +135,7 @@ CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, 
 | `assets_site_idx` | `assets` | RP-1.1's portfolio roll-up joining sites → assets |
 | `devices_asset_idx` | `devices` | Site Detail's per-asset device lookup (UX-2.1) |
 | `tenants_channel_partner_idx` | `tenants` | CH-2.1's attribution report, joining the opposite direction (partner → its tenants) |
-| `metric_baselines_tenant_idx` | `metric_baselines` | Tenant-scoped baseline list/lookup |
+| `metric_baselines_tenant_idx` | `metric_baselines` | Tenant-scoped baseline list/lookup (AI-3.1) |
 | `audit_log_entries_lookup` | `audit_log_entries` | `(tenant_id, target_entity, target_id, occurred_at DESC)` — AUD-1's "history of actions on this entity" query |
 
 **Telemetry partitioning (the existing `-- partition by month in v2` comment): deliberately still deferred.** Not required at MVP's design-partner-tenant scale (PRD §8's assumption). Revisit trigger is a measurable one — raw table size or query latency degrading — not a calendar date.
@@ -133,13 +154,20 @@ CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, 
 
 | Section | Traces to |
 |---|---|
-| §2 Conventions | Domain Model §4.1 (denormalized tenant_id), §4.4 (adapter-agnostic category), SRS MT-1.1 |
+| §2 Conventions | Domain Model §4 item 1 (denormalized tenant_id), §4 item 4 (adapter-agnostic category), SRS MT-1.1 |
 | §4.1 Telemetry Hourly Rollup | PRD §6 / SRS §5.4 (data retention NFR) |
-| §4.2 Migration Strategy | Domain Model §5 (explicitly deferred), existing `docs/data-model.sql` header comment |
-| §5 Indexing Strategy | RP-1.1, UX-2.1, CH-2.1, AUD-1 |
+| §4.2 Migration Strategy | Existing `docs/data-model.sql` header comment (no versioned upgrade path) — Domain Model §5 defers schema *detail* generally but doesn't itself anticipate a migration-strategy gap |
+| §4.3 Audit Log Immutability | PRD §6 (evidentiary-record framing), AUD-1, Compliance & Certification Roadmap §4 |
+| §5 Indexing Strategy | RP-1.1, UX-2.1, CH-2.1, AUD-1, AI-3.1 |
 
 ---
 
 ## 8. Review Log
 
-Draft v0.1 — no review conducted yet.
+Reviewed 2026-07-04. Five issues found, all resolved.
+
+1. **Citation errors (§2, §7)**: cited "Domain Model §4.1"/"§4.4" as if §4 had subsections — it's a single section with a plain numbered list. Corrected to "§4 item 1" / "§4 item 4."
+2. **Wrong section number (§3)**: Audit was cited as "§2.5-equivalent"; Domain Model has a real §2.6 "Audit" section (§2.5 is unrelated — "AI & MCP — no new entities"). Corrected to §2.6.
+3. **Traceability overclaim (§7)**: cited Domain Model §5 as the source of the migration-strategy gap; §5 only defers column/constraint/index detail, not migration strategy. Corrected to cite the real driver — `docs/data-model.sql`'s own header comment — without overstating what Domain Model anticipated.
+4. **`audit_log_entries` had no tamper protection**: the same app role had full write access as any other table, undermining its evidentiary purpose (PRD §6, AUD-1). Resolved by §4.3 — a `BEFORE UPDATE OR DELETE` trigger enforcing append-only, chosen over DB role separation since the backend has no role-separation infrastructure today and a trigger closes the gap regardless of which connection touches the table.
+5. **Missing requirement citation (§5)**: `metric_baselines_tenant_idx` had no citation unlike its sibling rows. Added AI-3.1.

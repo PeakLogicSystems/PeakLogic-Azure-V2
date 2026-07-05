@@ -15,7 +15,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
 | 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
 | 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
-| 10 | [Database Schema](database-schema.md) | 🟡 Draft v0.1 — awaiting review |
+| 10 | [Database Schema](database-schema.md) | ✅ Approved v1 |
 | 11 | API Specification | 🔲 Not started |
 | 12 | Device & Command Security Architecture | 🔲 Not started |
 | 13 | Security Architecture | 🔲 Not started |
