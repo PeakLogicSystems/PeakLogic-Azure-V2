@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Domain Model](domain-model.md) (approved v1), [Database Schema](database-schema.md) (approved v1), [User Personas](user-personas.md) (approved v1.1), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.2), [Information Architecture](information-architecture.md) (approved v1)
 **Last updated:** 2026-07-04
 
@@ -13,7 +13,7 @@
 
 ### 1.1 Purpose
 
-SRS §4.1 deferred "detailed screen specs" and payload shapes to UX Wireframes and this document; SRS §4.4 explicitly deferred MCP's "transport and exact tool schema" here too. `backend/api/router.ts` and `backend/api/routes/*.ts` already implement 24 REST endpoints — this document formalizes their contract, decides the handful of things they leave inconsistent or unbuilt, and specifies the endpoints later artifacts (RP-1.1, RP-4.1, CH-1.2, MCP-1.1) require but that don't exist in code yet.
+Domain Model §5 deferred "request/response payload shapes, including the MCP server's exact tool schema" to this document (SRS §4.1's own deferral — "detailed screen specs" — went to UX Wireframes, a separate matter). SRS §4.4 separately deferred MCP's transport specifically here too. `backend/api/router.ts` and `backend/api/routes/*.ts` already implement 24 REST endpoints — this document formalizes their contract, decides the handful of things they leave inconsistent or unbuilt, and specifies the endpoints later artifacts (RP-1.1, RP-4.1, CH-1.2, MCP-1.1) require but that don't exist in code yet.
 
 ### 1.2 Scope
 
@@ -27,13 +27,13 @@ In scope: REST conventions (casing, pagination, error format — the existing co
 
 **Decision: request and response bodies both use `snake_case`, matching database column names 1:1.**
 
-The existing code is inconsistent: response bodies are already `snake_case` (`SELECT *` returned as-is — `site.tenant_id`, `alert.triggered_at`), but several request-body TypeScript interfaces use `camelCase` (`SiteBody.address`, `TicketBody.assetId`, `TicketBody.webhookUrl`, `DeviceBody.firmwareVersion`), manually mapped to snake_case SQL params inside each handler. Standardizing on `snake_case` throughout removes that per-field mapping entirely — a request body can be spread almost directly into a parameterized query — and costs nothing to change now, since the frontend is still on mock data and not yet wired to the real API (CLAUDE.md). Reconciling the existing route handlers to match is follow-up work (§7 Open Questions), not done in this draft.
+The existing code is inconsistent, and not in the direction a first guess would suggest. Response bodies are already `snake_case` (`SELECT *` returned as-is — `site.tenant_id`, `alert.triggered_at`), and `assets.ts`'s own `AssetBody` request interface already matches (`site_id`, `serial_number`, `install_date`) — real existing precedent for this decision. The outliers are `tickets.ts`'s `TicketBody` (`assetId`, `webhookUrl`, `dueAt`) and `devices.ts`'s inline update-body type (`assetId`, `firmwareVersion`), both `camelCase`, manually mapped to snake_case SQL params inside each handler. Query string parameters are inconsistent too — existing routes use camelCase (`?deviceId=`, `?siteId=`, `?assetId=`), while this document's own new §4.2 endpoint used snake_case (`sort_by`, `state`) before this fix. **The decision covers both bodies and query parameters**: `snake_case` throughout, matching `assets.ts`'s already-established precedent, removing the per-field mapping entirely for the two outlier routes — a request body can be spread almost directly into a parameterized query — and costing nothing to change now, since the frontend is still on mock data and not yet wired to the real API (CLAUDE.md). Reconciling the existing route handlers (and their query param names) to match is follow-up work (§7 Open Questions), not done in this draft.
 
 ### 2.2 Pagination
 
 **Decision: every list endpoint takes `?limit=&offset=`, default `limit=100`, max `limit=500`.**
 
-Today's behavior is inconsistent and, in three cases, unbounded: `alerts.list` hardcodes `LIMIT 200`, `telemetry.list` allows up to `LIMIT 5000` via a query param, but `sites.list`, `assets.list`, `devices.list`, and `tickets.list` have **no limit at all** — they return every row for the tenant. Not urgent at today's design-partner-tenant scale (PRD §8), but a real gap once a tenant has hundreds of sites or years of tickets. Retrofitting the four uncapped endpoints is follow-up work (§7).
+Today's behavior is inconsistent and, in three cases, unbounded: `alerts.list` and `tickets.list` both hardcode `LIMIT 200`, `telemetry.list` allows up to `LIMIT 5000` via a query param, but `sites.list`, `assets.list`, and `devices.list` have **no limit at all** — they return every row for the tenant. Not urgent at today's design-partner-tenant scale (PRD §8), but a real gap once a tenant has hundreds of sites or years of device history. Retrofitting the three uncapped endpoints is follow-up work (§7).
 
 ### 2.3 Versioning, Errors, Auth (existing — restated, not changed)
 
@@ -100,6 +100,7 @@ Returns the caller's own tenant row, with `channel_partner_id` resolved to the p
 ```json
 { "id": "...", "name": "...", "plan": "professional", "supplier_name": "AquaChem Supply Co." }
 ```
+`supplier_name` is `null` when `channel_partner_id` is unset — most tenants at MVP, since the channel relationship is real but not every tenant comes through it (CH-1's "optional" framing, Domain Model §2.1).
 **No `PUT`/`PATCH` exists for `channel_partner_id` on this or any endpoint.** This is CH-1.2 enforced at the API layer, not just the UI layer — the UX Wireframes' read-only screen (§2.8) is necessary but not sufficient; a tenant-editable field with no corresponding write endpoint is the actual guarantee.
 
 ### 4.4 MCP Server Tool Contract (MCP-1.1, MCP-2.1)
@@ -156,11 +157,18 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 1. **AUTH-1 vs. §5's proposed token-based access**: needs an explicit SRS amendment before §5 is authoritative — not this document's call to make silently.
 2. **RP-2.1 (Route View) has no backing data model.** "A Service Partner's assigned sites for the current day" implies some technician-to-site-for-a-day assignment concept — no such entity exists in the Domain Model or `docs/data-model.sql`. This draft deliberately does **not** invent a `GET /v1/route` endpoint or a RouteAssignment table to paper over that — it needs to go back through Domain Model / Database Schema first, the same direction every other cross-artifact gap in this project has been resolved.
 3. **MCP transport** (stdio vs. HTTP/SSE) is unsettled, per SRS §4.4's own deferral.
-4. **§2.1's casing decision and §2.2's pagination decision both require reconciling existing code** — several route handlers' request-body interfaces, and `backend/shared/types.ts`, which is already stale against the current schema (`Site.type` still lists the old 4-value enum, not the 9 values `docs/data-model.sql` has had since the verticals broadened; `Tenant` is missing `channel_partner_id` entirely). Not done in this draft.
+4. **§2.1's casing decision and §2.2's pagination decision both require reconciling existing code** — `tickets.ts`/`devices.ts`'s request-body interfaces, several routes' camelCase query param names, adding `LIMIT`/`OFFSET` to `sites.list`/`assets.list`/`devices.list`, and `backend/shared/types.ts`, which is already stale against the current schema (`Site.type` still lists the old 4-value enum, not the 9 values `docs/data-model.sql` has had since the verticals broadened; `Tenant` is missing `channel_partner_id` entirely). Not done in this draft.
 5. **§4.1's Portfolio Roll-Up has no distinct "Ops Leader" role.** Both Tenant Admin and Corporate/Regional Ops Leader currently map to the same `admin` Cognito group (AUTH-2) — fine for now since neither this document nor Information Architecture requires them to see different data, only different nav chrome, but worth confirming that stays true as more role-gated endpoints appear.
 
 ---
 
 ## 8. Review Log
 
-Draft v0.1 — no review conducted yet.
+Reviewed 2026-07-04. Four issues found and fixed; the two substantive open items from the original draft (§5's AUTH-1 conflict, §7 item 2's RP-2.1 data-model gap) remain deliberately unresolved — decisions to make later, not oversights to fix now.
+
+1. **Introduction citation error**: attributed "payload shapes... deferred to this document" to SRS §4.1, which actually only defers screen specs to UX Wireframes. The real source is Domain Model §5. Corrected to cite both deferrals accurately and separately.
+2. **Pagination finding was factually wrong**: claimed `tickets.list` was uncapped; it hardcodes `LIMIT 200`, same as `alerts.list`. Corrected the uncapped set from four endpoints to the real three (`sites.list`, `assets.list`, `devices.list`).
+3. **Casing evidence was inaccurate and missed the strongest evidence**: "SiteBody.address" doesn't demonstrate camelCase (single word), and "DeviceBody" isn't a real named type. Missed that `assets.ts`'s `AssetBody` is already snake_case — real precedent for the recommended decision, strengthening rather than weakening the case once cited correctly.
+4. **Casing decision didn't cover query parameters**, while this draft's own new §4.2 endpoint used snake_case query params inconsistent with existing camelCase ones. Extended §2.1 to cover both bodies and query strings explicitly.
+
+Also added the nullable-`supplier_name` case to §4.3's example, which the first draft omitted.

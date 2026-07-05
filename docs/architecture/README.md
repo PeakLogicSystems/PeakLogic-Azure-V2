@@ -16,7 +16,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
 | 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
 | 10 | [Database Schema](database-schema.md) | ✅ Approved v1 |
-| 11 | [API Specification](api-specification.md) | 🟡 Draft v0.1 — awaiting review |
+| 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
 | 12 | Device & Command Security Architecture | 🔲 Not started |
 | 13 | Security Architecture | 🔲 Not started |
 | 14 | Multi-Tenant Architecture | 🔲 Not started |
