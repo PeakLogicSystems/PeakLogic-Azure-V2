@@ -60,7 +60,9 @@ Everything below is a reviewed design for when actuation is actually scheduled (
 
 ### 4.1 Authorization: who may issue a command
 
-**Decision: command issuance requires the `admin` role (Tenant Admin), not `operator`.** This mirrors the existing pattern where the other consequential device action — `DELETE /v1/devices/{deviceId}` (decommission) — is already `admin`-only (API Specification §3), while lower-stakes device reads/updates allow `operator` too. A remote shutoff is at least as consequential as decommissioning a device, and there is no current requirement asking for broader access. If a real customer need for `operator`-level command issuance surfaces later, that's a deliberate role-model change to make then, not a default to assume now.
+**Decision: command issuance requires the `admin` role, not `operator`.** This mirrors the existing pattern where the other consequential device action — `DELETE /v1/devices/{deviceId}` (decommission, `backend/api/routes/devices.ts` `remove()`) — already calls `requireRole(auth, 'admin')` only, while the lower-stakes `update()` handler allows `admin`/`operator` both. A remote shutoff is at least as consequential as decommissioning a device, and there is no current requirement asking for broader access. If a real customer need for `operator`-level command issuance surfaces later, that's a deliberate role-model change to make then, not a default to assume now.
+
+**Caveat found on review: `admin` is not just Tenant Admin.** API Specification §4.1 records that both **Tenant Admin and Corporate/Regional Ops Leader** map to the same `admin` Cognito group today — API Specification §7 item 5 already flagged this as an open question worth revisiting "as more role-gated endpoints appear." This document is exactly that: as written, this decision would also let a Corporate/Regional Ops Leader (a portfolio-oversight persona, per User Personas, not an on-site operator) remotely trigger a single site's valve shutoff. That may be acceptable, but it hasn't been decided — it's inherited silently from the Cognito group collapse, not chosen deliberately. Flagged in §7 below rather than resolved here, since resolving it means either splitting the Cognito group (a change bigger than this document's scope) or accepting the overlap explicitly.
 
 ### 4.2 Fail-safe-locally (restated from CLAUDE.md, binding on future firmware/API design)
 
@@ -91,6 +93,8 @@ Sketch (for the future Database Schema amendment that would actually create this
 
 A **separate** `audit_log_entries` row (action: `issue_command`) should still be written at issuance time, alongside the new row — the two tables serve different purposes (evidentiary, append-only fact vs. operational, mutable delivery state) and shouldn't be collapsed into one to avoid touching two tables.
 
+**Caveat found on review: this piggybacks on a mechanism that doesn't exist yet.** No code anywhere in `backend/` currently writes to `audit_log_entries` — AUD-1/AUD-2 are specified (SRS §3.10) and the table+trigger exist (Database Schema §4.3), but the Compliance & Certification Roadmap §4 already lists audit logging as "specified, not yet implemented." This section's recommendation is therefore not "reuse an existing pattern" (as first drafted) but "implement AUD-1 for real, and command-issuance is one of its call sites" — AUD-1's general implementation is a prerequisite for this section, not a detail internal to it, and should land before or alongside the command channel, not be assumed already solved.
+
 ### 4.5 Timeout & failure handling
 
 If no ack arrives within a bounded window, the command transitions to `timed_out` — the API/UI can report this to the issuing admin, but per §4.2 nothing about device safety depends on this timeout resolving any particular way. Exact timeout duration is an implementation-time tuning decision, not an architectural one, and is intentionally not fixed here.
@@ -113,10 +117,10 @@ This section exists so a future reader doesn't have to reconstruct the gate from
 |---|---|
 | §2 Device Identity | CC-1.1, CC-2.1 |
 | §3.2 Decommission gap | New finding — no existing requirement covers this; recommend as follow-up, not a formal SRS amendment (it's an implementation gap in already-approved CC-1.1's network model, not a requirements gap) |
-| §4.1 Command Authorization | CC-4 (PRD), existing `admin`/`operator` role model (AUTH-2) |
+| §4.1 Command Authorization | CC-4 (PRD), existing `admin`/`operator` role model (AUTH-2); Ops Leader caveat traces to API Specification §4.1/§7 item 5 |
 | §4.2 Fail-safe-locally | CLAUDE.md → "Future: Command & Control Architecture" |
 | §4.3 Transport | CC-3.1 (topic already scoped, unused) |
-| §4.4 Audit Trail | AUD-1, AUD-2, Database Schema §4.3 |
+| §4.4 Audit Trail | AUD-1, AUD-2, Database Schema §4.3 — depends on AUD-1 actually being implemented (currently not; Compliance & Certification Roadmap §4) |
 | §5 MVP Gate | CC-3.1, CC-4.1 |
 
 ---
@@ -127,9 +131,17 @@ This section exists so a future reader doesn't have to reconstruct the gate from
 2. **§3.3 certificate rotation policy is unaddressed** — deliberately left to Security Architecture (#13).
 3. **§4.4's `device_commands` table is a sketch, not a schema.** When actuation is actually scheduled, it needs a real Database Schema amendment (indexes, exact constraints, retention policy) before implementation, the same way every other new entity in this project has gone through that artifact first.
 4. **Exact ack timeout duration (§4.5)** is deliberately left as an implementation-time decision.
+5. **§4.1's Ops Leader/Tenant Admin Cognito-group overlap is unresolved.** Whether a Corporate/Regional Ops Leader should be able to issue a single-site command is a real product decision (does portfolio-level oversight imply on-site actuation authority?), not something this document can settle by itself — it inherits API Specification §7 item 5's already-open question and sharpens it with a concrete case. Needs a decision before command issuance is actually implemented.
+6. **AUD-1/AUD-2 are unimplemented today** (Compliance & Certification Roadmap §4) — §4.4's audit-trail design assumes they exist by the time the command channel ships. If audit logging in general is still unbuilt when actuation is scheduled, implementing it (at least for command issuance) is a prerequisite, not something this document can wave through.
 
 ---
 
 ## 8. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-06. Three issues found and fixed; one substantive open item (§7 item 5) surfaced by the review is left deliberately unresolved, not papered over.
+
+1. **§4.1 citation error**: attributed the "decommission is admin-only" fact to "API Specification §3" — checked, and that table has no role column at all; role enforcement exists only in `backend/api/routes/devices.ts`. Corrected to cite the code directly.
+2. **§4.1 missed a real consequence of an already-known gap**: API Specification §7 item 5 flagged that Tenant Admin and Corporate/Regional Ops Leader share the same `admin` Cognito group, "worth confirming that stays true as more role-gated endpoints appear" — this document *is* that next role-gated endpoint, and it silently inherited the overlap (an Ops Leader could remotely trigger a site's valve shutoff, which was never a deliberate choice). Added as an explicit caveat in §4.1 and as open item §7.5, rather than either quietly accepting it or resolving it unilaterally.
+3. **§4.4 overstated an existing pattern that doesn't exist**: the first draft framed "write an audit_log_entries row at command issuance" as reusing an established mechanism. Checked `backend/` for any existing writer to `audit_log_entries` — there are none; AUD-1/AUD-2 are specified and the table exists, but Compliance & Certification Roadmap §4 already lists audit logging as unimplemented. Reframed §4.4 to say this design depends on AUD-1 actually being built, rather than implying it already works.
+
+Not changed: §2/§3.1 (device identity, provisioning) were re-checked against `iot-stack.ts`/`provision-devices.ts` and hold up as written. §3.2's decommission-revocation gap was re-verified directly against `devices.ts` — confirmed real.
