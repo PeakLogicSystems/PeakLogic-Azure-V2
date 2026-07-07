@@ -109,6 +109,8 @@ This section exists so a future reader doesn't have to reconstruct the gate from
 
 **MVP explicitly does not ship:** any part of §4 (command endpoint, `command-acks` topic/policy grant, `device_commands` table, or any code path that publishes to a `commands` topic). CC-3.1/CC-4.1 remain in force. This document becomes the starting design when a future artifact or roadmap decision explicitly schedules actuation — at that point §4 should be reviewed for staleness (AWS service offerings, e.g. Device Shadow pricing/features, may have changed) before implementation begins, not implemented verbatim without a re-check.
 
+**Pre-implementation gate — command issuance (§4.1) may not be built until §7 item 5 is explicitly decided.** Restructuring the Cognito role model now, for a feature with no ship date, would be disproportionate — so this document deliberately does not do that. But shipping command issuance by implementing this design verbatim, without anyone having consciously decided whether a Corporate/Regional Ops Leader should hold single-site actuation authority, would let that scope creep in by accident rather than by choice. Whoever picks up actuation must resolve §7 item 5 first — either by splitting the `admin` Cognito group or by explicitly accepting the overlap — before `device_commands`/`command-acks` are implemented. Same gate applies to §7 item 6 (AUD-1 must actually exist, not just be assumed).
+
 ---
 
 ## 6. Traceability
@@ -131,8 +133,8 @@ This section exists so a future reader doesn't have to reconstruct the gate from
 2. **§3.3 certificate rotation policy is unaddressed** — deliberately left to Security Architecture (#13).
 3. **§4.4's `device_commands` table is a sketch, not a schema.** When actuation is actually scheduled, it needs a real Database Schema amendment (indexes, exact constraints, retention policy) before implementation, the same way every other new entity in this project has gone through that artifact first.
 4. **Exact ack timeout duration (§4.5)** is deliberately left as an implementation-time decision.
-5. **§4.1's Ops Leader/Tenant Admin Cognito-group overlap is unresolved.** Whether a Corporate/Regional Ops Leader should be able to issue a single-site command is a real product decision (does portfolio-level oversight imply on-site actuation authority?), not something this document can settle by itself — it inherits API Specification §7 item 5's already-open question and sharpens it with a concrete case. Needs a decision before command issuance is actually implemented.
-6. **AUD-1/AUD-2 are unimplemented today** (Compliance & Certification Roadmap §4) — §4.4's audit-trail design assumes they exist by the time the command channel ships. If audit logging in general is still unbuilt when actuation is scheduled, implementing it (at least for command issuance) is a prerequisite, not something this document can wave through.
+5. **§4.1's Ops Leader/Tenant Admin Cognito-group overlap is unresolved — gated in §5.** Whether a Corporate/Regional Ops Leader should be able to issue a single-site command is a real product decision (does portfolio-level oversight imply on-site actuation authority?), not something this document can settle by itself — it inherits API Specification §7 item 5's already-open question and sharpens it with a concrete case. Not resolved now (splitting the Cognito group would be disproportionate for an unscheduled feature) — instead made a hard pre-implementation gate (§5) so it's decided deliberately when actuation is actually picked up, not inherited silently.
+6. **AUD-1/AUD-2 are unimplemented today** (Compliance & Certification Roadmap §4) — §4.4's audit-trail design assumes they exist by the time the command channel ships. Also gated in §5: implementing AUD-1 (at least for command issuance) is a prerequisite, not something this document can wave through.
 
 ---
 
