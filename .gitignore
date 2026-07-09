@@ -18,6 +18,10 @@ out/
 *.key
 *.p12
 cdk.context.json
+# AWS's public RDS CA bundle — not a secret (no private key material), and
+# needed at runtime by backend/shared/db.ts for real TLS cert validation
+# (Security Architecture §4.2) — must be committed despite the *.pem rule above.
+!backend/shared/certs/rds-global-bundle.pem
 
 # AWS CDK
 cdk.out/

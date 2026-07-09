@@ -9,6 +9,7 @@ import { Construct } from 'constructs';
 import { NetworkStack } from './network-stack';
 import { DataStack } from './data-stack';
 import { AuthStack } from './auth-stack';
+import { ALLOWED_ORIGINS } from './allowed-origins';
 
 interface ApiStackProps extends cdk.StackProps {
   network: NetworkStack;
@@ -37,7 +38,30 @@ export class ApiStack extends cdk.Stack {
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
       logRetention: logs.RetentionDays.TWO_WEEKS,
-      bundling: { minify: true, sourceMap: false, target: 'node20' },
+      // Entry files live in ../backend, outside this CDK app's own directory —
+      // NodejsFunction's default projectRoot/lockfile auto-detection can't see
+      // past infra/, so both must be pointed at backend/ explicitly, or bundling
+      // fails with "entryPath should be under projectRoot" (found while
+      // validating the Security Architecture §4.2 fix below — pre-existing and
+      // unrelated to it; cdk synth had apparently never been run successfully).
+      projectRoot: path.join(__dirname, '../../backend'),
+      depsLockFilePath: path.join(__dirname, '../../backend/package-lock.json'),
+      bundling: {
+        minify: true,
+        sourceMap: false,
+        target: 'node20',
+        // Copy the RDS CA bundle into the Lambda package so db.ts can validate
+        // the Postgres TLS cert at runtime (Security Architecture §4.2) — esbuild
+        // only bundles JS it can trace from imports, not static files like this.
+        commandHooks: {
+          beforeBundling(): string[] { return []; },
+          beforeInstall(): string[] { return []; },
+          afterBundling(_inputDir: string, outputDir: string): string[] {
+            const certSrc = path.join(__dirname, '../../backend/shared/certs/rds-global-bundle.pem');
+            return [`cp "${certSrc}" "${outputDir}"`];
+          },
+        },
+      },
     };
 
     // ── Ingest Lambda (called directly by IoT Core rule) ──────────────────
@@ -68,7 +92,7 @@ export class ApiStack extends cdk.Stack {
     const api = new apigateway.RestApi(this, 'Api', {
       restApiName: 'peaklogic-api',
       defaultCorsPreflightOptions: {
-        allowOrigins: apigateway.Cors.ALL_ORIGINS, // tighten to your domain in prod
+        allowOrigins: ALLOWED_ORIGINS, // Security Architecture §3.2 — was Cors.ALL_ORIGINS
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: ['Content-Type', 'Authorization'],
       },

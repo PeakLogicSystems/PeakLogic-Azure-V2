@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
+import { ALLOWED_ORIGINS } from './allowed-origins';
 
 export class AuthStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
@@ -34,8 +35,13 @@ export class AuthStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.RETAIN,
     });
 
-    // RBAC groups — maps to role claim in JWT
-    for (const group of ['admin', 'operator', 'service_partner']) {
+    // RBAC groups — maps to role claim in JWT.
+    // 'service_partner' removed per Security Architecture §2.3: no route ever
+    // checked for it, and because read handlers have no role check at all, a
+    // user placed in it would have gotten full tenant-data read access by
+    // accident. The Field Service Partner persona uses the no-login opaque-token
+    // pattern (API Specification §5) instead of a Cognito account.
+    for (const group of ['admin', 'operator']) {
       new cognito.CfnUserPoolGroup(this, `Group-${group}`, {
         userPoolId: this.userPool.userPoolId,
         groupName: group,
@@ -54,9 +60,8 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.PROFILE,
         ],
-        // Add your production domain when ready
-        callbackUrls: ['http://localhost:5173', 'https://app.peaklogic.io'],
-        logoutUrls:   ['http://localhost:5173', 'https://app.peaklogic.io'],
+        callbackUrls: ALLOWED_ORIGINS,
+        logoutUrls:   ALLOWED_ORIGINS,
       },
       accessTokenValidity:  cdk.Duration.hours(1),
       idTokenValidity:      cdk.Duration.hours(1),

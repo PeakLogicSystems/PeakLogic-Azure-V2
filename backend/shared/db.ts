@@ -1,5 +1,12 @@
+import * as fs from 'fs';
+import * as path from 'path';
 import { Pool, PoolClient } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+
+// AWS's published RDS CA bundle, copied alongside this file's bundled output by
+// infra/lib/api-stack.ts's `afterBundling` hook. Enables real TLS cert validation
+// instead of trusting any certificate on the network path (Security Architecture §4.2).
+const RDS_CA_BUNDLE = fs.readFileSync(path.join(__dirname, 'rds-global-bundle.pem'), 'utf-8');
 
 interface RdsSecret {
   username: string;
@@ -39,7 +46,7 @@ export async function getPool(): Promise<Pool> {
     max: 2,                           // keep connection count low per Lambda container
     idleTimeoutMillis:    60_000,
     connectionTimeoutMillis: 5_000,
-    ssl: { rejectUnauthorized: false }, // traffic stays in VPC; cert validation optional
+    ssl: { ca: RDS_CA_BUNDLE, rejectUnauthorized: true },
   });
 
   pool.on('error', (err) => {
