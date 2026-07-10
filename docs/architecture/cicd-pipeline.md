@@ -36,11 +36,9 @@ A single workflow, triggered on `pull_request` targeting `dev` or `main`, runnin
 | Job | Command | Working directory |
 |---|---|---|
 | `backend-typecheck` | `npm run typecheck` | `backend/` |
-| `frontend-build` | `npm run build` (typecheck + vite build — frontend has no separate `typecheck` script gap, `build` already runs `tsc &&`) | `frontend/` |
-| `infra-typecheck` | `npm run build` (`tsc`, infra's own compile step) | `infra/` |
-| `infra-synth` | `npm run synth:dev` — runs `cdk synth` **with `cdk-nag`'s `AwsSolutionsChecks` already wired in** (Infrastructure as Code §2), so this one job gets both "does it compile" and "does it pass every accepted best-practice check" for free | `infra/` |
-
-Also on the same trigger: `scripts/` gets its own typecheck job too. **It didn't have a `typecheck` script at all** (checked — `scripts/package.json` had only `provision`/`migrate:up`/`migrate:down`) — added one as part of this document's implementation (a one-line gap, not worth a whole finding write-up) so CI actually covers all four sub-packages, not three.
+| `frontend-build` | `npm run build` (typecheck + vite build — frontend has no separate `typecheck` script, `build` already runs `tsc &&`) | `frontend/` |
+| `scripts-typecheck` | `npm run typecheck` — **`scripts/package.json` had no `typecheck` (or any build) script at all**, the only one of the four sub-packages missing one; added as a one-line gap fix during this document's implementation, so CI actually covers all four sub-packages, not three | `scripts/` |
+| `infra-synth` | `npm run synth:dev` — runs `cdk synth` **with `cdk-nag`'s `AwsSolutionsChecks` already wired in** (Infrastructure as Code §2), so this one job gets three things for free: type-checking (`infra/cdk.json`'s `app` command runs via plain `ts-node`, not `--transpile-only`, so it fully type-checks on every invocation — no separate `infra-typecheck` job exists, deliberately; it would be redundant with this one), "does it compile," and "does it pass every accepted best-practice check" | `infra/` |
 
 **Verified, not assumed: `cdk synth` actually fails (non-zero exit) on an unsuppressed cdk-nag error, not just a warning annotation.** Tested directly — temporarily emptied `data-stack.ts`'s suppression list, re-ran `synth:dev`, got exit code 1 and `Synthesis finished with errors` in the output, then restored the file. This confirms the `infra-synth` job genuinely gates on cdk-nag findings in CI, not just prints them for a human to notice.
 
@@ -76,7 +74,8 @@ Implemented as four files: `.github/workflows/ci.yml` (this section), `deploy-de
 
 New `infra/lib/cicd-stack.ts`, one instance per stage (`PeakLogic-dev-CiCd`, `PeakLogic-staging-CiCd`, `PeakLogic-prod-CiCd`), each creating an IAM role trusted by GitHub's OIDC provider, condition-scoped to this repository and, for `prod`, to the specific GitHub Environment:
 
-- **`dev`/`staging` roles:** trust condition `token.actions.githubusercontent.com:sub` = `repo:PeakLogicSystems/PeakLogicSystems:ref:refs/heads/dev` (or the equivalent for whatever triggers staging) — only workflows running on that specific ref can assume it.
+- **`dev` role:** trust condition `token.actions.githubusercontent.com:sub` = `repo:PeakLogicSystems/PeakLogicSystems:ref:refs/heads/dev` — only workflows running on that specific ref can assume it.
+- **`staging` role:** same shape, `ref:refs/heads/main` — `workflow_dispatch` runs against whichever ref is selected (`main` by default in `deploy-staging.yml`, since there's no dedicated staging branch to point at instead).
 - **`prod` role:** trust condition scoped to `repo:PeakLogicSystems/PeakLogicSystems:environment:prod` — GitHub includes the environment name in the OIDC token's `sub` claim when a job specifies `environment:`, so this role can only be assumed by a workflow run that's actually passed through the environment's protection rules (§2.3's open item), not just any push to `main`.
 
 **Permissions granted are minimal by design:** each role only gets `sts:AssumeRole` on that stage's CDK bootstrap deploy roles (`cdk-hnb659fds-deploy-role-{account}-{region}`, `cdk-hnb659fds-file-publishing-role-{account}-{region}` — CDK's own standard bootstrap role names), not direct CloudFormation/S3/IAM permissions. This is the modern, minimal-privilege CDK CI/CD pattern: the bootstrap roles (created once per account/region by `cdk bootstrap`, an operational prerequisite — see §7) already carry the broad permissions `cdk deploy` needs; the GitHub Actions role just needs permission to become them, scoped to one stage's role ARNs so a compromised `dev` workflow token can't touch `prod`.
@@ -126,4 +125,8 @@ Deployment Architecture §4.2 already wrote the rollback procedure (`CLAUDE.md`'
 
 ## 8. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-10. One real doc/implementation drift found and fixed; every other claim re-verified directly rather than re-read for plausibility.
+
+1. **§2.2's table listed an `infra-typecheck` job that was never implemented.** `ci.yml` only has four jobs (`backend-typecheck`, `frontend-build`, `scripts-typecheck`, `infra-synth`) — checked directly against the file. The missing job wasn't an oversight to fix by adding it: `infra/cdk.json`'s `app` command runs via plain `ts-node` (not `--transpile-only`), so `infra-synth`'s `cdk synth` already fully type-checks on every run — a separate typecheck job would be redundant. Corrected the table to explain this instead of silently listing a job that doesn't exist.
+2. **Re-verified, held up:** the branch-protection 403 and Environments 200 OK claims (§2.3) by re-running both `gh api` calls; the "cdk synth fails on unsuppressed cdk-nag errors" claim by re-doing the empty-suppressions test described in §2.2 a second time, independently; all four workflow files' YAML syntax via `js-yaml`; that all four sub-packages (`backend`, `frontend`, `infra`, `scripts`) have a `package-lock.json` committed to git (`npm ci` fails hard without one); that `frontend`'s `npm run build` succeeds with zero environment variables set, matching exactly what `ci.yml`'s `frontend-build` job provides.
+3. **Sharpened, not corrected:** §4.1's role trust-condition descriptions were accurate but hedged ("or the equivalent for whatever triggers staging") in a way that undersold that this was actually implemented and verified, not just designed. Restated with the exact `ref:refs/heads/main` value now that it's a checked fact, not a placeholder.
