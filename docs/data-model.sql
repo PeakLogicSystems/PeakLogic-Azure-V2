@@ -157,6 +157,14 @@ CREATE TABLE telemetry (
 
 CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
 
+-- RLS added 2026-07-09 (migration 1783569600000_telemetry-rls) — this table
+-- was missing it while every other tenant-scoped table had it, a live
+-- cross-tenant data exposure via GET /v1/telemetry?deviceId=<any tenant's
+-- device>. See Multi-Tenant Architecture (#14) for the full writeup.
+ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON telemetry
+  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+
 -- ─────────────────────────────────────────────────────────────
 -- TELEMETRY HOURLY ROLLUP  (Database Schema §4.1 -- PRD §6/SRS §5.4
 -- retention: 90 days raw, 2 years hourly. Populated by a scheduled
