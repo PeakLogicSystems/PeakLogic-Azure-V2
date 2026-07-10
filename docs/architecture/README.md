@@ -22,7 +22,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1 (all findings fixed — commits `cf581ee`, `e2479a6`) |
 | 15 | [Deployment Architecture](deployment-architecture.md) | ✅ Approved v1 (env separation + rollback procedure shipped — commits `1ef0fdf`, `ad6203a`) |
 | 16 | [Infrastructure as Code](infrastructure-as-code.md) | ✅ Approved v1 (cdk-nag adopted, all 21 findings resolved, RDS rotation shipped) |
-| 17 | CI/CD Pipeline | 🔲 Not started |
+| 17 | [CI/CD Pipeline](cicd-pipeline.md) | 🟡 Draft v0.1 (pipeline designed + implemented from scratch — commits `c818f31` + workflows) |
 | 18 | Test Strategy | 🔲 Not started |
 | 19 | Threat Model | 🔲 Not started |
 | 20 | SOC 2 Control Mapping & Evidence Plan | 🔲 Not started |

@@ -1,0 +1,68 @@
+name: Deploy — prod
+
+# CI/CD Pipeline §3. Two triggers: (1) push to main, the normal release path
+# per CLAUDE.md's existing release process; (2) manual dispatch with a `ref`
+# input, so Deployment Architecture §4.2's rollback procedure can re-run this
+# same workflow against a previous tag instead of reconstructing the deploy
+# by hand under pressure (CI/CD Pipeline §5). Gated by the `prod` GitHub
+# Environment — required reviewers, once confirmed available on this repo's
+# tier (CI/CD Pipeline §7 item 1) — not by anything in this workflow file
+# itself; the job simply won't start running until that gate clears.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to deploy (tag, branch, or commit SHA) — defaults to main. Use this for a rollback per CLAUDE.md''s Rollback Procedure.'
+        required: false
+        default: main
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+
+      - run: npm ci
+        working-directory: infra
+      - run: npm ci
+        working-directory: backend
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/peaklogic-prod-github-actions-deploy
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+
+      # Deliberately NOT `npm run deploy:prod` — that script omits
+      # --require-approval never so a human at a terminal still gets CDK's
+      # own IAM/security-group-broadening confirmation prompt as an extra
+      # safety net (Deployment Architecture §4.1's reasoning, made before
+      # this pipeline existed). In an unattended CI job there is no TTY to
+      # answer that prompt — it would hang until the job timeout, not fail
+      # safely. The actual human-approval gate for this workflow is the
+      # `prod` Environment's required reviewers above, which runs *before*
+      # any of these steps start, not a prompt mid-deploy — so bypassing
+      # CDK's own prompt here isn't removing a safety check, it's replacing
+      # a broken one (nothing can answer it) with a working one (nothing
+      # proceeds without a human clicking approve first).
+      - run: npx cdk deploy --all -c stage=prod --require-approval never
+        working-directory: infra

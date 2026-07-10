@@ -1,0 +1,88 @@
+name: CI
+
+# CI/CD Pipeline §2.2. Runs on every PR into dev or main. Advisory, not
+# merge-blocking — this repo's tier doesn't support required status checks
+# (CI/CD Pipeline §2.3, confirmed via `gh api .../branches/main/protection`
+# returning 403). Four independent jobs, none depending on another, so one
+# broken job doesn't hide the others' results.
+
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm run typecheck
+        working-directory: backend
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      # frontend has no separate typecheck script — build already runs
+      # `tsc && vite build`, so this covers both in one step.
+      - run: npm run build
+        working-directory: frontend
+
+  scripts-typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci
+        working-directory: scripts
+      - run: npm run typecheck
+        working-directory: scripts
+
+  infra-synth:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+      - run: npm ci
+        working-directory: infra
+      # backend/ is bundled directly into the Lambda assets during synth
+      # (esbuild, via NodejsFunction) — its deps must be installed too, or
+      # bundling fails the same way it would for a real deploy.
+      - run: npm ci
+        working-directory: backend
+      # No AWS credentials needed — cdk synth only needs real AWS API access
+      # for dynamic context lookups (e.g. importing an existing VPC), and
+      # this app doesn't do any (maxAzs is a literal, the VPC is created
+      # fresh, not imported). Runs against `dev` specifically: same stage
+      # every synth in this repo's own verification history has used, and
+      # exercises the OIDC-provider-creation branch of cicd-stack.ts, the
+      # more complex of the two paths.
+      - run: npm run synth:dev
+        working-directory: infra
