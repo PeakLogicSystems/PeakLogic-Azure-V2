@@ -66,7 +66,7 @@ export class ApiStack extends cdk.Stack {
     };
 
     // Explicit LogGroup per function, not the deprecated `logRetention` prop
-    // (Infrastructure as Code §2 — cdk-nag AwsSolutions-L1/IAM5 both flagged
+    // (Infrastructure as Code §2.1 — cdk-nag AwsSolutions-L1/IAM5 both flagged
     // it: `logRetention` provisions a custom-resource Lambda with a wildcard
     // IAM policy to set retention after the fact, deprecated by CDK itself).
     const ingestLogGroup = new logs.LogGroup(this, 'IngestFnLogGroup', {
@@ -174,7 +174,7 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
 
-    // cdk-nag suppressions (Infrastructure as Code §4) — each is a reviewed,
+    // cdk-nag suppressions (Infrastructure as Code §2.2) — each is a reviewed,
     // deliberate decision, not a blanket silence. Re-litigate the reason, not
     // just the rule ID, if a finding reappears after this stack changes.
     NagSuppressions.addStackSuppressions(this, [

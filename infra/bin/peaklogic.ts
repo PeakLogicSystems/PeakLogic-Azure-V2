@@ -12,7 +12,7 @@ import { FrontendStack } from '../lib/frontend-stack';
 
 const app = new cdk.App();
 
-// Infrastructure as Code §3 — automated best-practice/compliance checking on
+// Infrastructure as Code §2 — automated best-practice/compliance checking on
 // every synth, not just manual review. Findings are annotations on the synth
 // output (or hard errors with `-c nagFail=true` — not enabled by default so
 // a first adoption pass isn't immediately blocking); see NagSuppressions

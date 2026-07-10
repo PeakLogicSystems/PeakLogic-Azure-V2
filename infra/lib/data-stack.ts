@@ -46,7 +46,8 @@ export class DataStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DbSecretArn', { value: this.dbSecret.secretArn });
     new cdk.CfnOutput(this, 'DbHost', { value: this.dbInstance.instanceEndpoint.hostname });
 
-    // cdk-nag suppressions (Infrastructure as Code §4).
+    // cdk-nag suppressions (Infrastructure as Code §2.2; SMG4 below is §2.3 —
+    // genuinely open, not accepted).
     const suppressions: { id: string; reason: string }[] = [
       {
         id: 'AwsSolutions-RDS11',
@@ -54,7 +55,7 @@ export class DataStack extends cdk.Stack {
       },
       {
         id: 'AwsSolutions-SMG4',
-        reason: 'No automatic rotation scheduled yet — real SOC 2-relevant gap, not disputed. Fixing it means provisioning a rotation Lambda (rds.DatabaseInstance#addRotationSingleUser()) inside the VPC and testing it against a real database, a bigger lift than a config flag. Tracked as an open item (Infrastructure as Code §4), not implemented reactively to this finding alone.',
+        reason: 'No automatic rotation scheduled yet — real SOC 2-relevant gap, not disputed. Fixing it means provisioning a rotation Lambda (rds.DatabaseInstance#addRotationSingleUser()) inside the VPC and testing it against a real database, a bigger lift than a config flag. Tracked as an open item (Infrastructure as Code §2.3/§6), not implemented reactively to this finding alone.',
       },
     ];
     // RDS3/RDS10 (Multi-AZ, deletion protection) are correctly ON for prod

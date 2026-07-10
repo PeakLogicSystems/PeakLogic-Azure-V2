@@ -72,7 +72,7 @@ export class IoTStack extends cdk.Stack {
     });
     props.ingestFn.grantInvoke(ruleRole);
 
-    // cdk-nag AwsSolutions-IAM5 (Infrastructure as Code §4): grantInvoke()
+    // cdk-nag AwsSolutions-IAM5 (Infrastructure as Code §2.2): grantInvoke()
     // grants lambda:InvokeFunction on both the function's base ARN and its
     // ":*" suffix (covering qualified/aliased invocations) — CDK's own
     // standard Lambda-invoke grant shape, not a hand-added wildcard.

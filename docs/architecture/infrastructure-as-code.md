@@ -98,4 +98,7 @@ Every `cdk synth` run across every prior artifact's verification carried the sam
 
 ## 7. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-09. One systematic issue found and fixed across seven files; the substantive claims (fix list, suppression list, findings count) all re-verified and held up.
+
+1. **Every in-code `// Infrastructure as Code §N` citation was wrong.** All nine were written referencing section numbers before this document's structure was finalized, and drifted once §3/§4 ended up being "cross-stack references" and "dependency pinning" rather than what the code comments assumed. Fixed all nine (`api-stack.ts` ×2, `auth-stack.ts`, `data-stack.ts` ×2, `frontend-stack.ts` ×2, `iot-stack.ts`, `bin/peaklogic.ts`) to point at the sections that actually discuss them (mostly §2.1/§2.2/§2.3). Re-ran `cdk synth` after the fix — still zero `AwsSolutions` findings, confirming the citation fix touched only comments, not behavior.
+2. **Re-verified, held up:** the SMG4 fix method name (`addRotationSingleUser`) against actual `aws-cdk-lib` RDS API surface used in the reason string; the "no `test/` directory exists" claim (§6 item 3) via a direct filesystem check; the zero-findings claim for both `dev` and `prod` via a fresh `cdk synth` re-run of each.

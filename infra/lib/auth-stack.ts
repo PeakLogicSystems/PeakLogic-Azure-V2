@@ -79,7 +79,7 @@ export class AuthStack extends cdk.Stack {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
     });
 
-    // cdk-nag suppression (Infrastructure as Code §4).
+    // cdk-nag suppression (Infrastructure as Code §2.2).
     NagSuppressions.addResourceSuppressions(this.userPool, [
       {
         id: 'AwsSolutions-COG8',

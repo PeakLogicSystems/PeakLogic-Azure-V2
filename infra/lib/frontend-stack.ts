@@ -68,7 +68,7 @@ export class FrontendStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US + Europe only — cheapest
       logBucket: accessLogsBucket,
       logFilePrefix: `cloudfront/${props.stage}/`,
-      // NOT fixed here (Infrastructure as Code §4, open item): TLSv1 remains
+      // NOT fixed here (Infrastructure as Code §2.2/§6, open item): TLSv1 remains
       // allowed because this distribution uses CloudFront's default
       // certificate — a custom minimumProtocolVersion requires a custom
       // domain + ACM certificate, which requires actually owning
@@ -84,7 +84,7 @@ export class FrontendStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'DistributionId',   { value: distribution.distributionId });
     new cdk.CfnOutput(this, 'DistributionUrl',  { value: this.distributionUrl });
 
-    // cdk-nag suppressions (Infrastructure as Code §4).
+    // cdk-nag suppressions (Infrastructure as Code §2.2).
     NagSuppressions.addResourceSuppressions(distribution, [
       {
         id: 'AwsSolutions-CFR4',
