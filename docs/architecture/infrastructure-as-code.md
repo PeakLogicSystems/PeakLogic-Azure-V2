@@ -29,7 +29,7 @@ In scope: automated best-practice/compliance checking of the CDK code (adopting 
 
 First run surfaced **21 real findings** across every stack. All were worked through — nothing left as an unexplained red mark:
 
-### 2.1 Fixed outright (5)
+### 2.1 Fixed outright (6)
 
 | Finding | Fix |
 |---|---|
@@ -38,6 +38,7 @@ First run surfaced **21 real findings** across every stack. All were worked thro
 | S1/S10 — S3 bucket logging/TLS | `enforceSSL: true` + a shared access-logs bucket for the frontend bucket |
 | CFR3 — CloudFront access logging | Same shared access-logs bucket, via `logBucket`/`logFilePrefix` |
 | VPC7 — no VPC Flow Logs | Added via `ec2.FlowLog` → a new CloudWatch Logs group |
+| SMG4 — no RDS secret rotation | `dbInstance.addRotationSingleUser()`, 30-day schedule, all stages. Real story in §2.3 — this one fought back |
 
 All four logging additions double as new forensic sources for the incident-response gap Security Architecture §6 already flagged — before this, Lambda logs and `audit_log_entries` were the only two; API Gateway access logs, CloudFront access logs, and VPC Flow Logs are all new investigative surfaces a responder didn't have.
 
@@ -58,9 +59,17 @@ Every suppression names *why*, not just the rule ID — re-litigate the reason i
 | CFR1 | No regulatory/business requirement to geo-restrict today |
 | RDS3, RDS10 (dev/staging only) | Multi-AZ and deletion protection are a deliberate MVP cost tradeoff (Deployment Architecture §3.1) — **suppressed only for non-prod**; prod actually has both enabled, so prod synths with zero findings on these rules, not a suppression |
 
-### 2.3 Flagged, genuinely open (1)
+### 2.3 SMG4 — the one that took three attempts and a real architecture fix
 
-**SMG4 — RDS secret has no automatic rotation scheduled.** Real, undisputed SOC 2-relevant gap. Fixing it means provisioning a rotation Lambda (`rds.DatabaseInstance#addRotationSingleUser()`) inside the VPC and testing it against a real database — a bigger lift than this pass, and blocked on the same "nothing has ever actually been deployed" constraint as everything else in Deployment Architecture §4.3. Tracked in §5, not implemented here.
+**RDS secret rotation is now real** (`dbInstance.addRotationSingleUser()`, 30-day schedule, all stages — commit `206902c`), but getting there surfaced a genuine, structural CDK cross-stack limitation, not just a missing config flag:
+
+1. Calling `addRotationSingleUser()` directly on `dbInstance` from `data-stack.ts` hit a CloudFormation dependency cycle. Reading CDK's own `SecretRotation` source showed why: it unconditionally calls `target.connections.allowDefaultPortFrom(securityGroup)`, which needs the DB's own endpoint port to build the ingress rule it adds — and that rule is placed in whichever stack owns the DB's security group. `rdsSg` lived in `NetworkStack`, instantiated *before* `DataStack` even exists in `bin/peaklogic.ts` — so it could never depend back on `DataStack` for that port value. Structurally unfixable via options; reproduced identically with the plainest possible call, no security-group or subnet overrides at all.
+2. Moving only the *call site* to `api-stack.ts` (which already depends on both `NetworkStack` and `DataStack` without a cycle) didn't help — `addRotationSingleUser` is a method *on* `dbInstance`, so `this` inside it is always `dbInstance`/`DataStack` regardless of which file's code invokes it. Same cycle, unchanged.
+3. Constructing `secretsmanager.SecretRotation` directly with `ApiStack` as its scope avoided *that* specific issue, but not the underlying one — the ingress-rule placement problem is independent of where `SecretRotation` itself lives.
+
+**The actual fix:** move `rdsSg`'s creation out of `NetworkStack` and into `DataStack` — the only stack that ever consumed it anyway. With the DB, its secret, and its own security group all living in one stack, every reference `addRotationSingleUser` needs is local; the only remaining cross-stack reference (`Data -> Network` for `vpc`/`lambdaSg`) is the same direction `DataStack` already needed to create the DB in the first place. Verified via `cdk synth` for both `dev` and `prod`: zero findings, zero resource-name collisions, `AWS::SecretsManager::RotationSchedule` and `AWS::Serverless::Application` both present in the synthesized template.
+
+**Why this is worth narrating, not just stating as done:** three of the four attempts looked individually reasonable and each failed for a different, non-obvious reason. A future reader hitting the same CDK error with a different resource should recognize the pattern — a convenience method's "automatic" cross-resource wiring can force a stack dependency that contradicts your instantiation order — rather than rediscovering it from scratch.
 
 ---
 
@@ -80,8 +89,9 @@ Every `cdk synth` run across every prior artifact's verification carried the sam
 
 | Section | Traces to |
 |---|---|
-| §2 cdk-nag adoption | New finding — 21 sub-findings, fixed/suppressed/flagged as itemized above |
+| §2 cdk-nag adoption | New finding — 21 sub-findings, fixed/suppressed as itemized above |
 | §2.1's logging additions | Security Architecture §6 (incident-response forensic sources) |
+| §2.3 RDS rotation + stack restructure | New finding — already fixed (commit `206902c`) |
 | §3 Cross-stack reference strength | New finding — already fixed |
 | §4 Dependency pinning | Security Architecture code reconciliation (where `package-lock.json` was first committed) |
 
@@ -89,16 +99,17 @@ Every `cdk synth` run across every prior artifact's verification carried the sam
 
 ## 6. Open Questions
 
-1. **§2.3's SMG4 (secret rotation) is a real, unresolved SOC 2-relevant gap** — needs a rotation Lambda, tested against a real database once one exists to test against (Deployment Architecture §4.3).
+1. **§2.3's rotation fix has never run against a real database** — like everything else touched by Deployment Architecture §4.3's standing caveat, this is verified only via `cdk synth`, not a real deploy. The rotation Lambda's actual behavior (can it truly reach both RDS and Secrets Manager from `PRIVATE_WITH_EGRESS`, does the single-user rotation strategy work cleanly against this schema) is unconfirmed until a real `dev`-stage deploy happens.
 2. **CFR4 (CloudFront TLS version) is blocked on a real custom domain + ACM certificate** — `app.peaklogic.io` isn't actually owned/configured anywhere yet, despite being referenced as a placeholder in `auth-stack.ts`. A real domain decision, not an infra-code fix.
-3. **No CDK unit/snapshot tests exist** (`infra/` has no `test/` directory at all) — `cdk-nag` catches best-practice/compliance drift on every synth now, but nothing catches a logic regression (e.g., an accidentally-removed security group rule, a wrong stage suffix) short of a human reading the diff. Flagged for Test Strategy (#18), not solved here.
+3. **No CDK unit/snapshot tests exist** (`infra/` has no `test/` directory at all) — `cdk-nag` catches best-practice/compliance drift on every synth now, but nothing catches a logic regression (e.g., an accidentally-removed security group rule, a wrong stage suffix) short of a human reading the diff. Flagged for Test Strategy (#18), not solved here. §2.3's saga is a concrete example of exactly the kind of regression a snapshot test would have caught immediately instead of requiring three manual synth-and-diagnose cycles.
 4. **Lambda runtime version (L1) and Cognito Plus tier (COG8) are both suppressed as "not yet," not "never."** Worth a periodic revisit rather than treating the suppression as permanent — no specific trigger defined here beyond what's already stated per-item in §2.2.
 
 ---
 
 ## 7. Review Log
 
-Reviewed 2026-07-09. One systematic issue found and fixed across seven files; the substantive claims (fix list, suppression list, findings count) all re-verified and held up.
+Reviewed 2026-07-09 (initial draft) and 2026-07-09 (post-SMG4-fix update). One systematic citation issue found and fixed in the first pass; the second pass updated §2.1/§2.3/§5/§6 to reflect SMG4 actually shipping, verified against the real commit rather than just editing prose to match intent.
 
-1. **Every in-code `// Infrastructure as Code §N` citation was wrong.** All nine were written referencing section numbers before this document's structure was finalized, and drifted once §3/§4 ended up being "cross-stack references" and "dependency pinning" rather than what the code comments assumed. Fixed all nine (`api-stack.ts` ×2, `auth-stack.ts`, `data-stack.ts` ×2, `frontend-stack.ts` ×2, `iot-stack.ts`, `bin/peaklogic.ts`) to point at the sections that actually discuss them (mostly §2.1/§2.2/§2.3). Re-ran `cdk synth` after the fix — still zero `AwsSolutions` findings, confirming the citation fix touched only comments, not behavior.
-2. **Re-verified, held up:** the SMG4 fix method name (`addRotationSingleUser`) against actual `aws-cdk-lib` RDS API surface used in the reason string; the "no `test/` directory exists" claim (§6 item 3) via a direct filesystem check; the zero-findings claim for both `dev` and `prod` via a fresh `cdk synth` re-run of each.
+1. **First pass — every in-code `// Infrastructure as Code §N` citation was wrong.** All nine were written referencing section numbers before this document's structure was finalized, and drifted once §3/§4 ended up being "cross-stack references" and "dependency pinning" rather than what the code comments assumed. Fixed all nine (`api-stack.ts` ×2, `auth-stack.ts`, `data-stack.ts` ×2, `frontend-stack.ts` ×2, `iot-stack.ts`, `bin/peaklogic.ts`) to point at the sections that actually discuss them. Re-ran `cdk synth` after the fix — still zero `AwsSolutions` findings, confirming the citation fix touched only comments, not behavior.
+2. **First pass — re-verified, held up:** the "no `test/` directory exists" claim via a direct filesystem check; the zero-findings claim for both `dev` and `prod` via a fresh `cdk synth` re-run of each.
+3. **Second pass — re-verified the SMG4 fix claims against the actual commit**, not just the intended design: confirmed `AWS::SecretsManager::RotationSchedule` and `AWS::Serverless::Application` both appear in the synthesized `dev` template, confirmed zero `AwsSolutions` findings remain on a fresh synth of both stages, confirmed zero resource-name collisions between `dev` and `prod`'s `Data` stack templates after the `rdsSg` relocation.
