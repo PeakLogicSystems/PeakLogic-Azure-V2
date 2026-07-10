@@ -68,7 +68,7 @@ RDS automated backups exist (`backupRetention: 7 days`, existing/reconciled) and
 
 ### 4.1 Release Process (existing, reconciled)
 
-`CLAUDE.md`'s release process (merge `dev` → `main`, tag `vX.Y.Z`, update CHANGELOG and sysadmin guide, deploy) is already fully documented and followed — no gap, no change here. Worth stating explicitly for the first time: this process has never actually been exercised end-to-end against real infrastructure, since (per §2) no deploy has ever succeeded — `cdk synth` itself only started working during this document's own investigation.
+`CLAUDE.md`'s release process (merge `dev` → `main`, tag `vX.Y.Z`, update CHANGELOG and sysadmin guide, deploy) is already fully documented and followed — no gap, no change here. Worth stating explicitly for the first time: this process has never actually been exercised end-to-end against real infrastructure, since (per §2) no deploy has ever succeeded — `cdk synth` itself only started working during Security Architecture's investigation (a prior artifact), not this one.
 
 ### 4.2 Real gap found: no rollback procedure exists
 
@@ -116,4 +116,7 @@ Manual `npm run build && aws s3 sync dist/ s3://BUCKET --delete && aws cloudfron
 
 ## 8. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-09. One internal inconsistency found and fixed; everything else re-verified directly against code and held up.
+
+1. **§4.1 misattributed the `cdk synth` fix to this document's own investigation** — it actually happened during Security Architecture's code-reconciliation pass (a prior artifact), as §2 itself correctly states two sections earlier. The two sections contradicted each other; corrected §4.1 to match §2.
+2. **Re-verified, held up:** the "1 NAT gateway routes every private subnet's egress through it regardless of AZ" claim (§3.1) against `network-stack.ts`'s actual CDK construct usage; the "zero CI/CD automation" claim (§1.2) by confirming no `.github/` directory exists at the repo root (only inside third-party `node_modules`, which don't count); the stage-conditional HA settings (§3.1's table) by re-running `cdk synth` for both `dev` and `prod` and diffing the actual `DBInstanceClass`/`MultiAZ`/`DeletionProtection` values and NAT gateway counts in the synthesized templates — all four differ exactly as claimed; the "no `BucketDeployment` construct" claim (§5) via a repo-wide grep.
