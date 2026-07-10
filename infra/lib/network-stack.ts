@@ -1,5 +1,6 @@
 import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
+import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
 
 interface NetworkStackProps extends cdk.StackProps {
@@ -41,5 +42,20 @@ export class NetworkStack extends cdk.Stack {
     });
 
     this.rdsSg.addIngressRule(this.lambdaSg, ec2.Port.tcp(5432), 'Lambda to Postgres');
+
+    // Flow Logs — cdk-nag AwsSolutions-VPC7; also the network-level half of
+    // the incident-response forensic sources Security Architecture §6 lists
+    // (Lambda logs, audit_log_entries) — closes "how would a responder see
+    // rejected/unusual network traffic," which neither of those cover.
+    new ec2.FlowLog(this, 'VpcFlowLog', {
+      resourceType: ec2.FlowLogResourceType.fromVpc(this.vpc),
+      destination: ec2.FlowLogDestination.toCloudWatchLogs(
+        new logs.LogGroup(this, 'VpcFlowLogGroup', {
+          logGroupName: `/peaklogic/${props.stage}/vpc/flow-logs`,
+          retention: logs.RetentionDays.TWO_WEEKS,
+          removalPolicy: cdk.RemovalPolicy.DESTROY,
+        }),
+      ),
+    });
   }
 }

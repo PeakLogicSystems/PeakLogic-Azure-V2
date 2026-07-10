@@ -4,6 +4,7 @@ import * as iot from 'aws-cdk-lib/aws-iot';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
 
 interface IoTStackProps extends cdk.StackProps {
   ingestFn: lambda.IFunction;
@@ -70,6 +71,18 @@ export class IoTStack extends cdk.Stack {
       assumedBy: new iam.ServicePrincipal('iot.amazonaws.com'),
     });
     props.ingestFn.grantInvoke(ruleRole);
+
+    // cdk-nag AwsSolutions-IAM5 (Infrastructure as Code §4): grantInvoke()
+    // grants lambda:InvokeFunction on both the function's base ARN and its
+    // ":*" suffix (covering qualified/aliased invocations) — CDK's own
+    // standard Lambda-invoke grant shape, not a hand-added wildcard.
+    NagSuppressions.addResourceSuppressions(ruleRole, [
+      {
+        id: 'AwsSolutions-IAM5',
+        reason: 'Standard CDK grantInvoke() shape: base function ARN + ":*" for qualified/aliased invocations, scoped to this one ingest function only — not an open resource grant.',
+        appliesTo: [{ regex: '/^Resource::<.+\\.Arn>:\\*$/' }],
+      },
+    ], true);
 
     // Error log group for failed rule deliveries
     const errorLogGroup = new logs.LogGroup(this, 'IoTErrorLogs', {

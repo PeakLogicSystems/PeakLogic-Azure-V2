@@ -6,6 +6,7 @@ import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
 import { NetworkStack } from './network-stack';
 import { DataStack } from './data-stack';
 import { AuthStack } from './auth-stack';
@@ -31,14 +32,13 @@ export class ApiStack extends cdk.Stack {
       NODE_ENV:      'production',
     };
 
-    const commonProps: Omit<lambdaNode.NodejsFunctionProps, 'entry'> = {
+    const commonProps: Omit<lambdaNode.NodejsFunctionProps, 'entry' | 'functionName' | 'logGroup'> = {
       runtime: lambda.Runtime.NODEJS_20_X,
       vpc: props.network.vpc,
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
       securityGroups: [props.network.lambdaSg],
       timeout: cdk.Duration.seconds(30),
       memorySize: 512,
-      logRetention: logs.RetentionDays.TWO_WEEKS,
       // Entry files live in ../backend, outside this CDK app's own directory —
       // NodejsFunction's default projectRoot/lockfile auto-detection can't see
       // past infra/, so both must be pointed at backend/ explicitly, or bundling
@@ -65,10 +65,26 @@ export class ApiStack extends cdk.Stack {
       },
     };
 
+    // Explicit LogGroup per function, not the deprecated `logRetention` prop
+    // (Infrastructure as Code §2 — cdk-nag AwsSolutions-L1/IAM5 both flagged
+    // it: `logRetention` provisions a custom-resource Lambda with a wildcard
+    // IAM policy to set retention after the fact, deprecated by CDK itself).
+    const ingestLogGroup = new logs.LogGroup(this, 'IngestFnLogGroup', {
+      logGroupName: `/aws/lambda/peaklogic-${props.stage}-ingest`,
+      retention: logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+    const apiLogGroup = new logs.LogGroup(this, 'ApiFnLogGroup', {
+      logGroupName: `/aws/lambda/peaklogic-${props.stage}-api`,
+      retention: logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // ── Ingest Lambda (called directly by IoT Core rule) ──────────────────
     const ingestFn = new lambdaNode.NodejsFunction(this, 'IngestFn', {
       ...commonProps,
       functionName: `peaklogic-${props.stage}-ingest`,
+      logGroup: ingestLogGroup,
       entry: path.join(__dirname, '../../backend/ingest/handler.ts'),
       handler: 'handler',
       environment: commonEnv,
@@ -80,6 +96,7 @@ export class ApiStack extends cdk.Stack {
     const apiFn = new lambdaNode.NodejsFunction(this, 'ApiFn', {
       ...commonProps,
       functionName: `peaklogic-${props.stage}-api`,
+      logGroup: apiLogGroup,
       entry: path.join(__dirname, '../../backend/api/handler.ts'),
       handler: 'handler',
       environment: {
@@ -88,6 +105,17 @@ export class ApiStack extends cdk.Stack {
       },
     });
     props.data.dbSecret.grantRead(apiFn);
+
+    // Structured access log — distinct from the executionLogging above
+    // (loggingLevel/dataTraceEnabled trace request handling for debugging;
+    // this is the who-called-what-when record cdk-nag's AwsSolutions-APIG1
+    // flagged as missing, and Security Architecture §6 needs as a forensic
+    // source alongside Lambda's own logs).
+    const apiAccessLogGroup = new logs.LogGroup(this, 'ApiAccessLogGroup', {
+      logGroupName: `/peaklogic/${props.stage}/api/access-logs`,
+      retention: logs.RetentionDays.TWO_WEEKS,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
 
     // ── API Gateway ────────────────────────────────────────────────────────
     const api = new apigateway.RestApi(this, 'Api', {
@@ -103,6 +131,8 @@ export class ApiStack extends cdk.Stack {
         dataTraceEnabled: false,
         throttlingBurstLimit: 200,
         throttlingRateLimit: 100,
+        accessLogDestination: new apigateway.LogGroupLogDestination(apiAccessLogGroup),
+        accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
       },
     });
 
@@ -143,5 +173,27 @@ export class ApiStack extends cdk.Stack {
     telemetry.addMethod('GET', integration, auth);
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
+
+    // cdk-nag suppressions (Infrastructure as Code §4) — each is a reviewed,
+    // deliberate decision, not a blanket silence. Re-litigate the reason, not
+    // just the rule ID, if a finding reappears after this stack changes.
+    NagSuppressions.addStackSuppressions(this, [
+      {
+        id: 'AwsSolutions-IAM4',
+        reason: 'AWS-managed execution-role policies (Lambda basic + VPC access, API Gateway push-to-CloudWatch) are standard CDK scaffolding for every VPC Lambda and every logging-enabled REST API — replacing them with hand-rolled equivalents duplicates an AWS-maintained baseline for no real security gain.',
+      },
+      {
+        id: 'AwsSolutions-APIG2',
+        reason: 'Every route already validates its own inputs in the Lambda handler (see backend/api/routes/*.ts — e.g. badRequest() calls) before touching the database. API Gateway-level request validation would be redundant defense-in-depth, not a real gap; revisit only if a specific need for earlier-stage rejection emerges.',
+      },
+      {
+        id: 'AwsSolutions-APIG3',
+        reason: 'WAF: already decided against for now in Security Architecture §3.3 — marginal benefit unclear at current design-partner-tenant scale with Cognito auth + throttling already in place. Revisit alongside Threat Model (#19) or sooner if a specific enterprise deal requires it.',
+      },
+      {
+        id: 'AwsSolutions-L1',
+        reason: 'NODEJS_20_X is still an actively supported LTS runtime. Bumping to a newer runtime is a deliberate future upgrade (also requires updating esbuild\'s bundling target in this same file) — not done reactively to a linter finding alone, tracked as an open item instead.',
+      },
+    ]);
   }
 }

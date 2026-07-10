@@ -1,6 +1,7 @@
 import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
+import { NagSuppressions } from 'cdk-nag';
 import { ALLOWED_ORIGINS } from './allowed-origins';
 
 interface AuthStackProps extends cdk.StackProps {
@@ -77,5 +78,13 @@ export class AuthStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'UserPoolDomain', {
       value: `https://cognito-idp.${this.region}.amazonaws.com/${this.userPool.userPoolId}`,
     });
+
+    // cdk-nag suppression (Infrastructure as Code §4).
+    NagSuppressions.addResourceSuppressions(this.userPool, [
+      {
+        id: 'AwsSolutions-COG8',
+        reason: 'Plus tier (compromised-credential checking, adaptive auth) is a real, paid feature-tier upgrade, not a config flag — a cost/feature tradeoff appropriate to defer at design-partner-tenant scale, same reasoning already applied to WAF (Security Architecture §3.3) and Cognito Plus is a materially bigger recurring cost than a WAF web ACL. Revisit alongside a real enterprise deal or SOC 2 Type II engagement.',
+      },
+    ]);
   }
 }

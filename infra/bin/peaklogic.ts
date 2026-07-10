@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import 'source-map-support/register';
 import * as cdk from 'aws-cdk-lib';
+import { Aspects } from 'aws-cdk-lib';
+import { AwsSolutionsChecks } from 'cdk-nag';
 import { NetworkStack }  from '../lib/network-stack';
 import { DataStack }     from '../lib/data-stack';
 import { AuthStack }     from '../lib/auth-stack';
@@ -9,6 +11,13 @@ import { IoTStack }      from '../lib/iot-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 
 const app = new cdk.App();
+
+// Infrastructure as Code §3 — automated best-practice/compliance checking on
+// every synth, not just manual review. Findings are annotations on the synth
+// output (or hard errors with `-c nagFail=true` — not enabled by default so
+// a first adoption pass isn't immediately blocking); see NagSuppressions
+// calls in each stack for findings reviewed and deliberately accepted.
+Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }));
 
 // Deployment Architecture §2 — required, no default. Every stack name and
 // every account+region-unique resource name (Lambda functions, the REST API,
@@ -38,4 +47,4 @@ const data     = new DataStack    (app, `PeakLogic-${stage}-Data`,     { env, ta
 const auth     = new AuthStack    (app, `PeakLogic-${stage}-Auth`,     { env, tags, stage });
 const api      = new ApiStack     (app, `PeakLogic-${stage}-Api`,      { env, tags, network, data, auth, stage });
                  new IoTStack     (app, `PeakLogic-${stage}-IoT`,      { env, tags, ingestFn: api.ingestFn, stage });
-                 new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags });
+                 new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags, stage });
