@@ -94,4 +94,12 @@ All tenants share one RDS instance (`db.t3.micro`, `multiAz: false` — both alr
 
 ## 7. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-09. Every factual claim re-checked directly against the code a second time; none needed correction.
+
+- §2.1's `SET LOCAL` claim re-verified in `db.ts`.
+- §2.2's "only other telemetry access is the ingest handler's unscoped pool" re-verified (`handler.ts` uses `getPool()`/`pool.connect()` directly, not `withTenant()`).
+- §2.3's fail-open role default re-verified in `auth.ts` (`groups[0] ?? 'operator'`).
+- §3.1's "no code path creates a `tenants` row" broadened from the original narrow grep to also search for `new Tenant`/`tenants (` patterns — still zero matches.
+- §3.2's "no code checks `tenants.status`" broadened from a literal `status` grep (too noisy — matches HTTP status codes, alert/device/ticket status) to a `tenant`-near-`status` proximity search — the two matches found were both false positives (an HTTP `statusCode` field, a code comment about device provisioning status), confirming the finding rather than overturning it.
+
+No changes made as a result of this pass — first artifact in this project's review history where the draft held up completely on re-check.
