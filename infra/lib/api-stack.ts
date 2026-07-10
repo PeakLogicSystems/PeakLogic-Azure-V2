@@ -174,6 +174,11 @@ export class ApiStack extends cdk.Stack {
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
 
+    // RDS secret rotation is wired up in data-stack.ts, not here — see that
+    // file for why (two failed attempts here first, both hitting a real
+    // CloudFormation cross-stack dependency cycle for structural reasons
+    // that only got fixed by moving rdsSg itself out of NetworkStack).
+
     // cdk-nag suppressions (Infrastructure as Code §2.2) — each is a reviewed,
     // deliberate decision, not a blanket silence. Re-litigate the reason, not
     // just the rule ID, if a finding reappears after this stack changes.

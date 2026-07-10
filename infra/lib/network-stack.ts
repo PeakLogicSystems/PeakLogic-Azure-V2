@@ -10,7 +10,6 @@ interface NetworkStackProps extends cdk.StackProps {
 export class NetworkStack extends cdk.Stack {
   public readonly vpc: ec2.Vpc;
   public readonly lambdaSg: ec2.SecurityGroup;
-  public readonly rdsSg: ec2.SecurityGroup;
 
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
@@ -35,13 +34,17 @@ export class NetworkStack extends cdk.Stack {
       allowAllOutbound: true,
     });
 
-    this.rdsSg = new ec2.SecurityGroup(this, 'RdsSg', {
-      vpc: this.vpc,
-      description: 'RDS Postgres — only accepts connections from Lambda',
-      allowAllOutbound: false,
-    });
-
-    this.rdsSg.addIngressRule(this.lambdaSg, ec2.Port.tcp(5432), 'Lambda to Postgres');
+    // RdsSg used to live here, but moved to DataStack (Infrastructure as
+    // Code §2.3): only DataStack ever consumed it, and Secrets Manager
+    // rotation's SecretRotation construct unconditionally calls
+    // target.connections.allowDefaultPortFrom(...) internally, which needs
+    // the DB's own endpoint port (a DataStack value) to build the ingress
+    // rule it adds to the DB's security group. With rdsSg living here in
+    // NetworkStack — created before DataStack even exists in bin/peaklogic.ts
+    // — that ingress rule would have forced NetworkStack to depend back on
+    // DataStack, a structurally unfixable cycle regardless of which stack
+    // called the rotation API or how the security group was supplied. See
+    // DataStack for the full explanation and the working fix.
 
     // Flow Logs — cdk-nag AwsSolutions-VPC7; also the network-level half of
     // the incident-response forensic sources Security Architecture §6 lists
