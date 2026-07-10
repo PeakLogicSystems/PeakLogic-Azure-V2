@@ -20,7 +20,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1 (3 code-reconciliation fixes shipped — commit `3428f80`) |
 | 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1 (all findings fixed — commits `cf581ee`, `e2479a6`) |
-| 15 | Deployment Architecture | 🔲 Not started |
+| 15 | [Deployment Architecture](deployment-architecture.md) | 🟡 Draft v0.1 (critical env-separation gap already fixed, commit `1ef0fdf`) |
 | 16 | Infrastructure as Code | 🔲 Not started |
 | 17 | CI/CD Pipeline | 🔲 Not started |
 | 18 | Test Strategy | 🔲 Not started |
