@@ -206,6 +206,26 @@ Every time a version is accepted and shipped, run through all steps:
     git push origin main
 ```
 
+### Rollback Procedure (Deployment Architecture §4.2)
+
+The release process above is forward-only — this is what to do when a deploy needs to be undone. Two distinct paths, since a bad *infrastructure* change and a bad *application code* change are different failure modes, but both use the same underlying mechanism: redeploy from a known-good tagged commit. Neither path needs new tooling — the existing tag-per-release discipline above already provides everything a rollback needs, it just wasn't written down as a procedure before now.
+
+**Infrastructure rollback** (a CDK/stack change caused the problem):
+```
+1.  Identify the last known-good tag (git tag --list, or CHANGELOG.md)
+2.  git checkout vX.Y.Z-previous-good   # detached HEAD at the target commit
+3.  cd infra && npm install
+4.  npm run diff:<stage>                # review exactly what will change back — never skip this
+5.  npm run deploy:<stage>               # re-synthesizes and applies the prior template
+6.  Verify the affected stack(s) in the AWS Console / CloudFormation events
+7.  git checkout dev                    # return to normal working state
+```
+
+**Application code rollback** (a backend/frontend code change caused the problem):
+Backend and frontend are bundled fresh at every `cdk deploy` — there is no separately-versioned deployable artifact to "roll back" independently of infrastructure. Rollback is the same mechanism as the infrastructure path above: check out the previous release tag and redeploy. `npm run deploy:<stage>` re-bundles `backend/` and re-runs the Lambda/API Gateway/frontend stacks from that tag's source, which *is* the rollback.
+
+**Not yet true, flagged in Deployment Architecture §7:** this procedure has never been exercised against a real deploy, since no environment has ever actually been deployed to AWS yet (§4.3 of that document). Treat these steps as the documented starting point, not a tested runbook, until a real `dev`-stage deploy (and ideally a rollback drill) has happened at least once.
+
 ### CHANGELOG Format
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Use these categories only: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`. Write entries in past tense, user-facing language. Always maintain an `[Unreleased]` section at the top for work in progress.
