@@ -3,15 +3,19 @@ import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { ALLOWED_ORIGINS } from './allowed-origins';
 
+interface AuthStackProps extends cdk.StackProps {
+  stage: string;
+}
+
 export class AuthStack extends cdk.Stack {
   public readonly userPool: cognito.UserPool;
   public readonly userPoolClient: cognito.UserPoolClient;
 
-  constructor(scope: Construct, id: string, props?: cdk.StackProps) {
+  constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
-      userPoolName: 'peaklogic-users',
+      userPoolName: `peaklogic-${props.stage}-users`,
       selfSignUpEnabled: false,       // admin-invited only
       signInAliases: { email: true },
       autoVerify: { email: true },
@@ -50,7 +54,7 @@ export class AuthStack extends cdk.Stack {
 
     // SPA client — no secret, PKCE flow
     this.userPoolClient = this.userPool.addClient('SpaClient', {
-      userPoolClientName: 'peaklogic-spa',
+      userPoolClientName: `peaklogic-${props.stage}-spa`,
       generateSecret: false,
       authFlows: { userSrp: true },
       oAuth: {

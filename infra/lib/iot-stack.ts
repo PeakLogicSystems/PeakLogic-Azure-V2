@@ -7,15 +7,27 @@ import { Construct } from 'constructs';
 
 interface IoTStackProps extends cdk.StackProps {
   ingestFn: lambda.IFunction;
+  stage: string;
 }
 
+// Deployment Architecture §2: IoT thing/policy/rule/log-group names are
+// suffixed by stage like every other account+region-unique resource, BUT the
+// MQTT topic namespace itself (peaklogic/{thingName}/telemetry|commands) is
+// deliberately NOT stage-scoped — that would touch device firmware/
+// provisioning config, out of proportion for this fix. Consequence: the
+// TopicRule's SQL ('peaklogic/+/telemetry', unscoped by stage) would match
+// ANY stage's devices if dev and prod IoT stacks were ever both deployed to
+// the same AWS account — both stages' ingest Lambdas would fire on the same
+// telemetry. Operational rule instead: only one stage's IoT stack may be
+// deployed per AWS account at a time, or use separate accounts per stage if
+// dev and prod need real devices reporting simultaneously.
 export class IoTStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: IoTStackProps) {
     super(scope, id, props);
 
     // Thing type shared by all PeakLogic sensors
     new iot.CfnThingType(this, 'SensorThingType', {
-      thingTypeName: 'PeakLogicSensor',
+      thingTypeName: `PeakLogicSensor-${props.stage}`,
       thingTypeProperties: {
         thingTypeDescription: 'PeakLogic IoT sensor device',
         searchableAttributes: ['tenantId', 'siteId', 'assetId'],
@@ -25,7 +37,7 @@ export class IoTStack extends cdk.Stack {
     // Device policy — each device may only publish to its own topic.
     // ${iot:Connection.Thing.ThingName} is substituted at runtime by IoT Core.
     new iot.CfnPolicy(this, 'DevicePolicy', {
-      policyName: 'PeakLogicDevicePolicy',
+      policyName: `PeakLogicDevicePolicy-${props.stage}`,
       policyDocument: {
         Version: '2012-10-17',
         Statement: [
@@ -61,7 +73,7 @@ export class IoTStack extends cdk.Stack {
 
     // Error log group for failed rule deliveries
     const errorLogGroup = new logs.LogGroup(this, 'IoTErrorLogs', {
-      logGroupName: '/peaklogic/iot/errors',
+      logGroupName: `/peaklogic/${props.stage}/iot/errors`,
       retention: logs.RetentionDays.TWO_WEEKS,
       removalPolicy: cdk.RemovalPolicy.DESTROY,
     });
@@ -70,9 +82,12 @@ export class IoTStack extends cdk.Stack {
       resources: [errorLogGroup.logGroupArn],
     }));
 
-    // Topic rule: capture all telemetry and forward to ingest Lambda
+    // Topic rule: capture all telemetry and forward to ingest Lambda.
+    // IoT rule names can't contain hyphens, so the stage is joined with an
+    // underscore here (unlike every other stage-suffixed resource name above).
+    const ruleName = `PeakLogicTelemetryIngest_${props.stage}`;
     new iot.CfnTopicRule(this, 'TelemetryRule', {
-      ruleName: 'PeakLogicTelemetryIngest',
+      ruleName,
       topicRulePayload: {
         // topic(2) extracts the thing name from peaklogic/{thingName}/telemetry
         sql: "SELECT *, topic(2) AS thingName FROM 'peaklogic/+/telemetry'",
@@ -92,7 +107,7 @@ export class IoTStack extends cdk.Stack {
     // Allow IoT Core to invoke the Lambda
     props.ingestFn.addPermission('IoTInvoke', {
       principal: new iam.ServicePrincipal('iot.amazonaws.com'),
-      sourceArn: `arn:aws:iot:${this.region}:${this.account}:rule/PeakLogicTelemetryIngest`,
+      sourceArn: `arn:aws:iot:${this.region}:${this.account}:rule/${ruleName}`,
     });
   }
 }

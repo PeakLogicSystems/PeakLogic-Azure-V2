@@ -15,6 +15,7 @@ interface ApiStackProps extends cdk.StackProps {
   network: NetworkStack;
   data: DataStack;
   auth: AuthStack;
+  stage: string;
 }
 
 export class ApiStack extends cdk.Stack {
@@ -67,7 +68,7 @@ export class ApiStack extends cdk.Stack {
     // ── Ingest Lambda (called directly by IoT Core rule) ──────────────────
     const ingestFn = new lambdaNode.NodejsFunction(this, 'IngestFn', {
       ...commonProps,
-      functionName: 'peaklogic-ingest',
+      functionName: `peaklogic-${props.stage}-ingest`,
       entry: path.join(__dirname, '../../backend/ingest/handler.ts'),
       handler: 'handler',
       environment: commonEnv,
@@ -78,7 +79,7 @@ export class ApiStack extends cdk.Stack {
     // ── API Lambda (all REST routes, path-routed internally) ──────────────
     const apiFn = new lambdaNode.NodejsFunction(this, 'ApiFn', {
       ...commonProps,
-      functionName: 'peaklogic-api',
+      functionName: `peaklogic-${props.stage}-api`,
       entry: path.join(__dirname, '../../backend/api/handler.ts'),
       handler: 'handler',
       environment: {
@@ -90,14 +91,14 @@ export class ApiStack extends cdk.Stack {
 
     // ── API Gateway ────────────────────────────────────────────────────────
     const api = new apigateway.RestApi(this, 'Api', {
-      restApiName: 'peaklogic-api',
+      restApiName: `peaklogic-${props.stage}-api`,
       defaultCorsPreflightOptions: {
         allowOrigins: ALLOWED_ORIGINS, // Security Architecture §3.2 — was Cors.ALL_ORIGINS
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: ['Content-Type', 'Authorization'],
       },
       deployOptions: {
-        stageName: 'v1',
+        stageName: 'v1', // API version prefix (/v1/...), unrelated to the dev/staging/prod deployment stage above
         loggingLevel: apigateway.MethodLoggingLevel.INFO,
         dataTraceEnabled: false,
         throttlingBurstLimit: 200,

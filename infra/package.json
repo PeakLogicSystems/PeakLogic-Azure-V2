@@ -6,10 +6,22 @@
     "build": "tsc",
     "watch": "tsc -w",
     "synth": "cdk synth",
+    "synth:dev": "cdk synth -c stage=dev",
+    "synth:staging": "cdk synth -c stage=staging",
+    "synth:prod": "cdk synth -c stage=prod",
     "diff": "cdk diff",
+    "diff:dev": "cdk diff -c stage=dev",
+    "diff:staging": "cdk diff -c stage=staging",
+    "diff:prod": "cdk diff -c stage=prod",
     "deploy": "cdk deploy --all --require-approval never",
+    "deploy:dev": "cdk deploy --all -c stage=dev --require-approval never",
+    "deploy:staging": "cdk deploy --all -c stage=staging --require-approval never",
+    "deploy:prod": "cdk deploy --all -c stage=prod",
     "deploy:stack": "cdk deploy",
-    "destroy": "cdk destroy --all"
+    "destroy": "cdk destroy --all",
+    "destroy:dev": "cdk destroy --all -c stage=dev",
+    "destroy:staging": "cdk destroy --all -c stage=staging",
+    "destroy:prod": "cdk destroy --all -c stage=prod"
   },
   "dependencies": {
     "aws-cdk-lib": "^2.140.0",

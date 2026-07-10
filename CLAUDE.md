@@ -45,13 +45,19 @@ npm run typecheck    # tsc --noEmit
 cd backend
 npm run typecheck    # tsc --noEmit (no standalone build needed)
 
-# Infrastructure
+# Infrastructure — every command requires an explicit stage; there is no
+# default (Deployment Architecture §2). Missing -c stage= fails synth outright.
 cd infra
 npm install
-npm run synth        # cdk synth — validate all stacks without deploying
-npm run diff         # cdk diff — show what would change vs deployed state
-npm run deploy       # cdk deploy --all (10–15 min)
-npx cdk deploy PeakLogic-Api   # deploy a single stack
+npm run synth:dev            # cdk synth -c stage=dev — validate without deploying
+npm run diff:dev             # cdk diff -c stage=dev — show what would change vs deployed state
+npm run deploy:dev           # cdk deploy --all -c stage=dev --require-approval never (10–15 min)
+npm run deploy:staging       # same, -c stage=staging
+npm run deploy:prod          # cdk deploy --all -c stage=prod — no --require-approval never;
+                              # CDK's default (require-approval broadening) prompts on any
+                              # IAM/security-group change, deliberately less automated than
+                              # dev/staging
+npx cdk deploy PeakLogic-dev-Api -c stage=dev   # deploy a single stack
 
 # Device provisioning
 cd scripts
@@ -98,6 +104,14 @@ The `addCrud()` helper in `api-stack.ts` generates the path parameter name by st
 ### CDK Stack Dependency Order
 
 Stacks must be deployed in order: `Network → Data → Auth → Api → IoT, Frontend`. `IoTStack` depends on `api.ingestFn` (exported from `ApiStack`) to wire the IoT topic rule directly to the Lambda ARN.
+
+### Environments / Deployment Stages (Deployment Architecture §2)
+
+Single AWS account, three stages (`dev`/`staging`/`prod`) distinguished by a required CDK context value, not separate accounts — matches this project's cost-conscious MVP posture everywhere else (t3.micro RDS, single NAT gateway, `multiAz: false`). Every stack name and every account+region-unique resource name (Lambda function names, the REST API name, the Cognito user pool/client, the IoT thing type/policy/rule/log group) is suffixed by stage so all three can coexist in one account without collision — e.g. `PeakLogic-dev-Api`, `peaklogic-prod-api` (Lambda), `PeakLogicDevicePolicy-staging`.
+
+**No default stage exists on purpose** — `infra/bin/peaklogic.ts` throws if `-c stage=` is omitted, rather than silently deploying to `dev`. A missing flag failing loudly is a much safer outcome than a mistyped one deploying to the wrong environment.
+
+**One deliberate exception to full stage isolation:** the MQTT topic namespace itself (`peaklogic/{thingName}/telemetry`, `.../commands`) is NOT stage-scoped — only the IoT Core resource *names* (thing type, policy, rule) are. Staging that too would mean touching device firmware/provisioning config, out of proportion for what this fix needed. Consequence: if `dev` and `prod` IoT stacks are ever both deployed to the same AWS account, both stages' `TelemetryRule`s match the same topic pattern (`peaklogic/+/telemetry`, unscoped by stage) and both ingest Lambdas would fire on the same device's telemetry. **Operational rule: only one stage's IoT stack may be deployed per AWS account at a time**, or use genuinely separate AWS accounts per stage if `dev` and `prod` ever need real devices reporting simultaneously.
 
 ### Alert Rules
 

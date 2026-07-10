@@ -10,16 +10,32 @@ import { FrontendStack } from '../lib/frontend-stack';
 
 const app = new cdk.App();
 
+// Deployment Architecture §2 — required, no default. Every stack name and
+// every account+region-unique resource name (Lambda functions, the REST API,
+// the Cognito user pool, IoT thing type/policy/rule/log group) is suffixed by
+// this so dev/staging/prod can coexist in one AWS account without collision.
+// Missing it fails the synth rather than silently deploying somewhere
+// unintended — the safer failure mode, given the reverse (dev config
+// deployed to what someone thought was prod) is worse.
+const stage = app.node.tryGetContext('stage') as string | undefined;
+const VALID_STAGES = ['dev', 'staging', 'prod'];
+if (!stage || !VALID_STAGES.includes(stage)) {
+  throw new Error(
+    `Missing or invalid required context "stage" (got: ${stage ?? '<none>'}). ` +
+    `Pass one of ${VALID_STAGES.join('/')} explicitly, e.g. -c stage=dev`,
+  );
+}
+
 const env: cdk.Environment = {
   account: process.env.CDK_DEFAULT_ACCOUNT,
   region:  process.env.CDK_DEFAULT_REGION ?? 'us-east-1',
 };
 
-const tags = { Project: 'PeakLogic', ManagedBy: 'CDK' };
+const tags = { Project: 'PeakLogic', ManagedBy: 'CDK', Stage: stage };
 
-const network  = new NetworkStack (app, 'PeakLogic-Network',  { env, tags });
-const data     = new DataStack    (app, 'PeakLogic-Data',     { env, tags, network });
-const auth     = new AuthStack    (app, 'PeakLogic-Auth',     { env, tags });
-const api      = new ApiStack     (app, 'PeakLogic-Api',      { env, tags, network, data, auth });
-                 new IoTStack     (app, 'PeakLogic-IoT',      { env, tags, ingestFn: api.ingestFn });
-                 new FrontendStack(app, 'PeakLogic-Frontend', { env, tags });
+const network  = new NetworkStack (app, `PeakLogic-${stage}-Network`,  { env, tags, stage });
+const data     = new DataStack    (app, `PeakLogic-${stage}-Data`,     { env, tags, network, stage });
+const auth     = new AuthStack    (app, `PeakLogic-${stage}-Auth`,     { env, tags, stage });
+const api      = new ApiStack     (app, `PeakLogic-${stage}-Api`,      { env, tags, network, data, auth, stage });
+                 new IoTStack     (app, `PeakLogic-${stage}-IoT`,      { env, tags, ingestFn: api.ingestFn, stage });
+                 new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags });
