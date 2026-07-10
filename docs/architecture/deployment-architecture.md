@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Security Architecture](security-architecture.md) (approved v1), [Multi-Tenant Architecture](multi-tenant-architecture.md) (approved v1)
 **Last updated:** 2026-07-09
 
@@ -74,11 +74,11 @@ RDS automated backups exist (`backupRetention: 7 days`, existing/reconciled) and
 
 **The gap:** `CLAUDE.md`'s release process is entirely forward-only — merge, tag, deploy. Nothing describes what to do when a deploy introduces a real production problem.
 
-**Recommendation:** two distinct rollback paths, since a bad deploy and a bad code release are different failure modes:
-- **Infrastructure rollback:** `cdk deploy` against a previous git commit/tag re-synthesizes and applies the prior CloudFormation template — this already works via normal git checkout + redeploy, no new tooling needed, just needs to be a documented, known procedure rather than something to figure out under pressure.
-- **Application code rollback:** since backend/frontend are bundled fresh at every CDK deploy (no separate artifact versioning), "rollback" means redeploying from the previous release tag on `main`, the same mechanism as a forward deploy. Worth stating explicitly in `CLAUDE.md`'s release process so it's a known, rehearsed path — not implemented as new tooling in this draft, since the existing tag-per-release discipline (`Version Control Standards` in `CLAUDE.md`) already provides everything a rollback needs; it just isn't written down as a procedure.
+**Written up, implemented (commit `ad6203a`, 2026-07-09): a new "Rollback Procedure" section in `CLAUDE.md`**, right after the Release Process it complements. Two distinct paths, since a bad deploy and a bad code release are different failure modes but share the same underlying mechanism:
+- **Infrastructure rollback:** checkout the previous known-good tag, `npm run diff:<stage>` to review exactly what reverting will change (never skipped), then `npm run deploy:<stage>` — re-synthesizes and applies the prior CloudFormation template. No new tooling; the existing tag-per-release discipline already provided everything this needs.
+- **Application code rollback:** since backend/frontend are bundled fresh at every CDK deploy (no separate artifact versioning), "rollback" *is* the infrastructure path above — redeploying from the previous release tag re-bundles the code too.
 
-Not implemented in this draft — recommended as a `CLAUDE.md` documentation addition (§7), since it requires no new code, just writing down the existing tag-based mechanism as an explicit runbook step.
+No new tooling was required — this was a documentation gap, not a capability gap, so the fix is entirely in `CLAUDE.md`. **Still true and explicitly flagged in the new section itself:** this procedure has never been exercised against a real deploy (§4.3) — it's the documented starting point, not a tested runbook, until a real rollback drill happens at least once.
 
 ### 4.3 Real gap found: no deploy has ever been drilled
 
@@ -100,14 +100,14 @@ Manual `npm run build && aws s3 sync dist/ s3://BUCKET --delete && aws cloudfron
 | §2.2 MQTT topic namespace exception | New finding — documented operational constraint, not a code fix |
 | §3.1 Stage-conditional HA | Compliance & Certification Roadmap §5 (the original "flip for prod" comments), Multi-Tenant Architecture §4 (resource-sharing posture deferred here) |
 | §3.2 RPO/RTO targets | PRD §6 (99.9% uptime, non-contractual) |
-| §4.2 Rollback procedure gap | New finding — no existing requirement covers this |
+| §4.2 Rollback procedure gap | New finding — already written up (commit `ad6203a`) — no existing requirement covers this |
 | §4.3 Undrilled deploy risk | New finding |
 
 ---
 
 ## 7. Open Questions
 
-1. **§4.2's rollback procedure is recommended but not yet written into `CLAUDE.md`** — a documentation task, not a code change; the underlying tag-based mechanism already exists.
+1. ~~§4.2's rollback procedure~~ **Done (commit `ad6203a`, 2026-07-09)** — written into `CLAUDE.md`'s new "Rollback Procedure" section, immediately after Release Process. Untested against a real deploy, per §4.3 below — that remains true regardless.
 2. **§4.3: no environment has ever actually been deployed.** Recommend a `dev`-stage deploy drill as a standing action item, independent of any further architecture work — static verification (`synth`, `typecheck`) has gone as far as it can.
 3. **§3.2's RTO (≤4 hours) is a stated target, not a tested one** — no restore-from-backup drill has ever been run. Revisit once §4.3's deploy drill establishes that a real environment exists to test against.
 4. **CI/CD Pipeline (#17) will need to know about the stage model** this document just introduced — `-c stage=` is a required parameter any future pipeline automation must pass explicitly per environment, not something to rediscover independently when that artifact is written.
