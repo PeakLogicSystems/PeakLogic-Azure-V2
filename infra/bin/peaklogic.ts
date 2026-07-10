@@ -9,6 +9,7 @@ import { AuthStack }     from '../lib/auth-stack';
 import { ApiStack }      from '../lib/api-stack';
 import { IoTStack }      from '../lib/iot-stack';
 import { FrontendStack } from '../lib/frontend-stack';
+import { CiCdStack }     from '../lib/cicd-stack';
 
 const app = new cdk.App();
 
@@ -48,3 +49,4 @@ const auth     = new AuthStack    (app, `PeakLogic-${stage}-Auth`,     { env, ta
 const api      = new ApiStack     (app, `PeakLogic-${stage}-Api`,      { env, tags, network, data, auth, stage });
                  new IoTStack     (app, `PeakLogic-${stage}-IoT`,      { env, tags, ingestFn: api.ingestFn, stage });
                  new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags, stage });
+                 new CiCdStack    (app, `PeakLogic-${stage}-CiCd`,     { env, tags, stage });

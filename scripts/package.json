@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
+    "typecheck": "tsc --noEmit",
     "provision": "ts-node provision-devices.ts",
     "migrate:up": "ts-node migrate.ts up",
     "migrate:down": "ts-node migrate.ts down"
