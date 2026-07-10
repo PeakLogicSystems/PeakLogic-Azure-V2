@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Domain Model](domain-model.md) (approved v1), [Database Schema](database-schema.md) (approved v1), [Security Architecture](security-architecture.md) (approved v1)
 **Last updated:** 2026-07-09
 
@@ -45,7 +45,7 @@ Every tenant-scoped table carries a `tenant_id` column and an identical `tenant_
 
 **Why this matters less than §2.2, but still matters:** this doesn't cross a tenant boundary — `tenantId` still comes correctly from the user's own JWT claim, so a role-less user only gets excess privilege within their *own* tenant, not access to another tenant's data. The realistic trigger is an operator mistake (an admin invites a Cognito user via the admin-invite-only flow and forgets to assign a group), not an external attack path — self-signup is disabled (`auth-stack.ts`), so there's no way for an outside party to create a role-less account themselves.
 
-**Recommendation:** make this fail closed, mirroring the `tenant_id` check immediately above it in the same function — throw a 403 (`'User has no role assigned'`) when `groups.length === 0`, instead of defaulting to `'operator'`. This is a one-line change with no architectural implications, queued as code reconciliation (§7).
+**Recommendation, implemented (commit `e2479a6`, 2026-07-09):** `getAuth()` now fails closed, mirroring the `tenant_id` check immediately above it in the same function — throws a 403 (`'User has no role assigned'`) when `groups.length === 0`, instead of defaulting to `'operator'`.
 
 ---
 
@@ -61,7 +61,7 @@ No API endpoint or code path creates a `tenants` row — tenant provisioning is 
 
 **Severity, and why this is different from §2.2:** this doesn't breach isolation either — a suspended tenant's users still only see their own tenant's data, correctly scoped. The gap is business-logic, not security-boundary: suspension (e.g., for non-payment or a ToS issue) currently has no actual effect on API access, which undermines the entire point of the `status` column existing.
 
-**Recommendation:** add a check in `getAuth()` or `withTenant()` — most naturally `withTenant()`, since it's the one function every tenant-scoped operation already goes through — that queries `tenants.status` for the resolved `tenantId` and rejects (403) if `suspended`. This does mean one extra query per request; acceptable at MVP scale, and cacheable later if it becomes a real cost. Queued as code reconciliation (§7), not fixed in this draft — unlike §2.2, this requires an actual design call (where exactly the check belongs) rather than a pure one-liner, so it's left for review rather than implemented pre-emptively.
+**Decision made and implemented (commit `e2479a6`, 2026-07-09): the check lives in `withTenant()`**, since it's the one function every tenant-scoped operation already goes through — it now queries `tenants.status` for the resolved `tenantId` and rejects (403) if `suspended` (or if the tenant row doesn't exist at all, a distinct 403). This adds one extra query per request; acceptable at MVP scale, cacheable later if it becomes a real cost. **Scoped deliberately to the human-facing API only** — `backend/ingest/handler.ts`'s telemetry writes intentionally bypass `withTenant()` via an unscoped pool connection and are unaffected, so a suspended tenant's already-connected devices keep reporting telemetry rather than losing data, and access resumes immediately on unsuspend. Blocking ingestion too would be a separate, deliberate product decision, not implied by this fix.
 
 ---
 
@@ -77,18 +77,19 @@ All tenants share one RDS instance (`db.t3.micro`, `multiAz: false` — both alr
 |---|---|
 | §2.1 RLS Pattern | MT-1.1 (SRS §3.5) |
 | §2.2 `telemetry` RLS gap | New finding — already fixed (commit `cf581ee`), corrects SRS MT-1.1 and Compliance & Certification Roadmap §4's "already reconciled" claims, which were accurate for the pattern but not for its universal application |
-| §2.3 Role fail-open gap | New finding — no existing requirement covers this |
+| §2.3 Role fail-open gap | New finding — already fixed (commit `e2479a6`) — no existing requirement covers this |
 | §3.1 Provisioning | PRD §8 (explicitly out of MVP scope) |
-| §3.2 Suspension enforcement gap | New finding — `tenants.status` (Database Schema) has no enforcing code |
+| §3.2 Suspension enforcement gap | New finding — already fixed (commit `e2479a6`) — `tenants.status` (Database Schema) had no enforcing code |
 | §4 Resource sharing | Compliance & Certification Roadmap §5 (same "flip for prod" reasoning already applied elsewhere) |
 
 ---
 
 ## 6. Open Questions
 
-1. **§2.3's role fail-open fix is recommended but not yet implemented** — a one-line code-reconciliation change (`getAuth()` throws instead of defaulting to `'operator'`).
-2. **§3.2's suspension enforcement is recommended but needs a design call** (where the check belongs — `getAuth()` vs. `withTenant()` — and whether to cache tenant status to avoid a query-per-request cost) before implementation, unlike §2.3's straightforward one-liner.
-3. **§4's resource-sharing posture is explicitly deferred, not resolved** — revisit in Deployment Architecture (#15) before onboarding a tenant with a meaningfully different usage profile than today's design partners.
+1. ~~§2.3's role fail-open fix~~ **Done (commit `e2479a6`, 2026-07-09).**
+2. ~~§3.2's suspension enforcement~~ **Done (commit `e2479a6`, 2026-07-09)** — landed in `withTenant()`, human-facing API only; ingestion is deliberately unaffected (see §3.2).
+3. **§4's resource-sharing posture remains explicitly deferred, not resolved** — revisit in Deployment Architecture (#15) before onboarding a tenant with a meaningfully different usage profile than today's design partners.
+4. **New, from implementing §3.2: no tenant-suspension trigger/workflow exists.** `tenants.status` can now actually block access, but nothing sets a tenant to `suspended` in the first place — like provisioning (§3.1), suspension itself is presumably a manual ops/SQL action today. Not a gap (matches the same "no self-serve tenant management at MVP" scoping as §3.1), but worth noting so a future reader doesn't assume a suspension workflow exists just because enforcement now does.
 
 ---
 

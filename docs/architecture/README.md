@@ -19,7 +19,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1 (3 code-reconciliation fixes shipped — commit `3428f80`) |
-| 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | 🟡 Draft v0.1 (critical telemetry RLS gap already fixed, commit `cf581ee`) |
+| 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1 (all findings fixed — commits `cf581ee`, `e2479a6`) |
 | 15 | Deployment Architecture | 🔲 Not started |
 | 16 | Infrastructure as Code | 🔲 Not started |
 | 17 | CI/CD Pipeline | 🔲 Not started |
