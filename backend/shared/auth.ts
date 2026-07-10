@@ -24,9 +24,14 @@ export function getAuth(event: APIGatewayProxyEvent): AuthContext {
     throw Object.assign(new Error('User has no tenant assigned'), { statusCode: 403 });
   }
 
-  // Cognito passes groups as a comma-separated string
+  // Cognito passes groups as a comma-separated string. Fails closed, like the
+  // tenant_id check above — a user with no group assigned gets rejected, not
+  // silently defaulted to 'operator' (Multi-Tenant Architecture §2.3).
   const groups = (claims['cognito:groups'] ?? '').split(',').filter(Boolean);
-  const role = groups[0] ?? 'operator';
+  if (groups.length === 0) {
+    throw Object.assign(new Error('User has no role assigned'), { statusCode: 403 });
+  }
+  const role = groups[0];
 
   return {
     sub:      claims.sub,

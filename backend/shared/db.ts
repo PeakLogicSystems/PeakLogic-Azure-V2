@@ -60,6 +60,15 @@ export async function getPool(): Promise<Pool> {
 /**
  * Runs fn inside a transaction with tenant RLS set.
  * Every DB operation that touches tenant data MUST go through this.
+ *
+ * Also rejects suspended tenants (Multi-Tenant Architecture §3.2) — this
+ * covers every route that reaches this function, i.e. the human-facing API.
+ * It does NOT cover backend/ingest/handler.ts's telemetry writes, which
+ * intentionally bypass withTenant() via an unscoped pool connection — a
+ * suspended tenant's already-connected devices keep reporting telemetry
+ * rather than losing data, and access resumes immediately on unsuspend.
+ * Blocking ingestion too would be a separate, deliberate product decision,
+ * not implied by this fix.
  */
 export async function withTenant<T>(
   tenantId: string,
@@ -71,6 +80,18 @@ export async function withTenant<T>(
     await client.query('BEGIN');
     // SET LOCAL scopes the variable to this transaction only — safe for connection pooling
     await client.query('SET LOCAL app.current_tenant_id = $1', [tenantId]);
+
+    const { rows: [tenant] } = await client.query<{ status: string }>(
+      'SELECT status FROM tenants WHERE id = $1',
+      [tenantId],
+    );
+    if (!tenant) {
+      throw Object.assign(new Error('Tenant not found'), { statusCode: 403 });
+    }
+    if (tenant.status === 'suspended') {
+      throw Object.assign(new Error('Tenant is suspended'), { statusCode: 403 });
+    }
+
     const result = await fn(client);
     await client.query('COMMIT');
     return result;
