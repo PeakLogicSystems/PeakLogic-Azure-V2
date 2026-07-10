@@ -1,21 +1,30 @@
 name: Deploy — prod
 
-# CI/CD Pipeline §3. Two triggers: (1) push to main, the normal release path
-# per CLAUDE.md's existing release process; (2) manual dispatch with a `ref`
-# input, so Deployment Architecture §4.2's rollback procedure can re-run this
-# same workflow against a previous tag instead of reconstructing the deploy
-# by hand under pressure (CI/CD Pipeline §5). Gated by the `prod` GitHub
-# Environment — required reviewers, once confirmed available on this repo's
-# tier (CI/CD Pipeline §7 item 1) — not by anything in this workflow file
-# itself; the job simply won't start running until that gate clears.
+# CI/CD Pipeline §3/§7. Manual dispatch only — NOT triggered by push to main.
+#
+# Originally designed with an automatic push-to-main trigger gated by the
+# `prod` GitHub Environment's required-reviewers protection rule. Tested
+# directly against this repo (PUT .../environments/prod with a reviewers
+# array) and got a real 422: "Please ensure the billing plan supports the
+# required reviewers protection rule" — this repo's tier doesn't support it,
+# the same free-tier limitation as branch protection (CI/CD Pipeline §2.3),
+# just for a different feature. An automatic trigger with no working
+# approval gate behind it would deploy to prod on every merge to main with
+# no human in the loop at all — worse than not automating this step.
+#
+# Fix: manual trigger only, same pattern as deploy-staging.yml. The human
+# who deliberately runs this workflow (a real action, not a rubber-stamped
+# auto-trigger) *is* the approval gate, standing in for the missing paid
+# GitHub feature. `environment: prod` is kept below even without protection
+# rules — it still scopes secrets/variables to this environment and gives a
+# real deployment audit trail (Settings → Environments → prod) that a bare
+# workflow run wouldn't.
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Git ref to deploy (tag, branch, or commit SHA) — defaults to main. Use this for a rollback per CLAUDE.md''s Rollback Procedure.'
+        description: 'Git ref to deploy (tag, branch, or commit SHA) — defaults to main. Also used for a rollback per CLAUDE.md''s Rollback Procedure: pass a previous release tag.'
         required: false
         default: main
 
@@ -34,7 +43,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: ${{ inputs.ref || github.ref }}
+          ref: ${{ inputs.ref || 'main' }}
 
       - uses: actions/setup-node@v4
         with:
@@ -58,11 +67,10 @@ jobs:
       # safety net (Deployment Architecture §4.1's reasoning, made before
       # this pipeline existed). In an unattended CI job there is no TTY to
       # answer that prompt — it would hang until the job timeout, not fail
-      # safely. The actual human-approval gate for this workflow is the
-      # `prod` Environment's required reviewers above, which runs *before*
-      # any of these steps start, not a prompt mid-deploy — so bypassing
-      # CDK's own prompt here isn't removing a safety check, it's replacing
-      # a broken one (nothing can answer it) with a working one (nothing
-      # proceeds without a human clicking approve first).
+      # safely. The human-approval gate for this workflow is triggering it
+      # in the first place (see the top-of-file note) — bypassing CDK's own
+      # prompt here isn't removing a safety check, it's replacing one
+      # nothing could answer with the deliberate act of running this
+      # workflow at all.
       - run: npx cdk deploy --all -c stage=prod --require-approval never
         working-directory: infra

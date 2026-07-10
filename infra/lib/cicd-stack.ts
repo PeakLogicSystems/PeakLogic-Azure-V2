@@ -50,10 +50,13 @@ export class CiCdStack extends cdk.Stack {
     //   GitHub's OIDC token represents as ref:refs/heads/main (workflow_dispatch
     //   always runs against whichever ref was selected, main by default here).
     // - prod: scoped to the GitHub *Environment* name, not a ref — only a
-    //   workflow run that has actually passed prod's environment protection
-    //   rules (required reviewers, once confirmed available — see CI/CD
-    //   Pipeline §7 item 1) presents a token with this claim, not just any
-    //   push to main.
+    //   workflow run that explicitly declared `environment: prod` in its job
+    //   presents a token with this claim. Required-reviewer protection rules
+    //   on that environment were tested directly and confirmed NOT available
+    //   on this repo's billing tier (real 422, not an assumption — CI/CD
+    //   Pipeline §2.3/§7 item 1), so this claim alone is the scoping that
+    //   exists today, not a proxy for "a human approved this" — the actual
+    //   human gate is deploy-prod.yml being workflow_dispatch-only.
     const subClaim = props.stage === 'prod'
       ? `repo:${GITHUB_ORG_REPO}:environment:prod`
       : props.stage === 'dev'
