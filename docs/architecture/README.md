@@ -21,7 +21,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1 (3 code-reconciliation fixes shipped — commit `3428f80`) |
 | 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1 (all findings fixed — commits `cf581ee`, `e2479a6`) |
 | 15 | [Deployment Architecture](deployment-architecture.md) | ✅ Approved v1 (env separation + rollback procedure shipped — commits `1ef0fdf`, `ad6203a`) |
-| 16 | Infrastructure as Code | 🔲 Not started |
+| 16 | [Infrastructure as Code](infrastructure-as-code.md) | 🟡 Draft v0.1 (cdk-nag adopted, 21 findings fixed/suppressed — commits `a89f6bf`, `81da96e`) |
 | 17 | CI/CD Pipeline | 🔲 Not started |
 | 18 | Test Strategy | 🔲 Not started |
 | 19 | Threat Model | 🔲 Not started |
