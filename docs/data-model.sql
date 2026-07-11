@@ -8,12 +8,30 @@
 -- migration must be mirrored into it by hand in the same commit.
 -- All tenant-scoped tables use Row-Level Security (RLS).
 -- App sets: SET LOCAL app.current_tenant_id = '<uuid>' at transaction start.
+--
+-- Channel-partner sessions (added v1.1, Database Schema §4.4) set a
+-- different trio instead: app.current_channel_partner_id,
+-- app.current_channel_partner_user_id, app.current_channel_partner_role
+-- ('partner_admin' or 'technician') -- and do NOT set app.current_tenant_id
+-- at all, which is exactly why every tenant_isolation policy below reads
+-- current_setting(..., true) (missing_ok) rather than erroring when that
+-- variable is unset.
+--
+-- NOTE ON ORDERING: this file is a single linear script (unlike the real
+-- migrations in scripts/migrations/, which build incrementally on an
+-- already-existing schema). The cross-tenant channel_partner_read
+-- policies on sites/assets/devices/telemetry/alerts all call
+-- channel_partner_can_read_site(), which itself depends on territories
+-- and channel_partner_users -- so that function, and every policy that
+-- calls it, is deliberately placed in one consolidated section at the
+-- END of this file, after every table it depends on already exists, not
+-- interleaved into each table's own block.
 
 -- ─────────────────────────────────────────────────────────────
 -- EXTENSIONS
 -- ─────────────────────────────────────────────────────────────
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
-CREATE EXTENSION IF NOT EXISTS "postgis";    -- lat/lng point type (optional MVP)
+CREATE EXTENSION IF NOT EXISTS "postgis";    -- GEOGRAPHY types, ST_Contains etc. (territories.boundary)
 
 -- ─────────────────────────────────────────────────────────────
 -- CHANNEL PARTNERS  (PeakLogic-internal reseller/supplier reference
@@ -67,7 +85,7 @@ CREATE TABLE users (
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- ─────────────────────────────────────────────────────────────
 -- SITES
@@ -90,7 +108,12 @@ CREATE TABLE sites (
 
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sites
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- A second, additional permissive policy granting channel-partner
+-- sessions cross-tenant read access is added at the end of this file
+-- (channel_partner_read policies section) — it needs territories and
+-- channel_partner_users to exist first, so it can't live here.
 
 -- ─────────────────────────────────────────────────────────────
 -- ASSETS  (equipment at a site)
@@ -117,7 +140,7 @@ CREATE TABLE assets (
 
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON assets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE INDEX assets_site_idx ON assets(site_id);  -- RP-1.1 portfolio roll-up joins sites -> assets
 
@@ -141,7 +164,7 @@ CREATE TABLE devices (
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON devices
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
 
@@ -166,7 +189,7 @@ CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
 -- device>. See Multi-Tenant Architecture (#14) for the full writeup.
 ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- ─────────────────────────────────────────────────────────────
 -- TELEMETRY HOURLY ROLLUP  (Database Schema §4.1 -- PRD §6/SRS §5.4
@@ -188,9 +211,13 @@ CREATE TABLE telemetry_hourly (
 
 ALTER TABLE telemetry_hourly ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry_hourly
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, hour_start DESC);
+
+-- Not extended with a channel_partner_read policy — no approved
+-- requirement (TR-1-TR-3) needs a channel-partner session to read
+-- rolled-up history yet; add if/when one does.
 
 -- ─────────────────────────────────────────────────────────────
 -- METRIC BASELINES  (maintained rolling per-device-per-metric
@@ -211,9 +238,12 @@ CREATE TABLE metric_baselines (
 
 ALTER TABLE metric_baselines ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON metric_baselines
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE INDEX metric_baselines_tenant_idx ON metric_baselines(tenant_id);
+
+-- Not extended with a channel_partner_read policy — see telemetry_hourly's
+-- note above; same reasoning.
 
 -- ─────────────────────────────────────────────────────────────
 -- ALERTS
@@ -236,7 +266,7 @@ CREATE TABLE alerts (
 
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON alerts
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- ─────────────────────────────────────────────────────────────
 -- SERVICE TICKETS
@@ -263,52 +293,26 @@ CREATE TABLE service_tickets (
 
 ALTER TABLE service_tickets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_tickets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
--- ─────────────────────────────────────────────────────────────
--- AUDIT LOG ENTRIES  (AUD-1 -- record of every state-changing
--- administrative action; AUD-2 requires the same tenant RLS
--- enforcement as every other table)
--- ─────────────────────────────────────────────────────────────
-CREATE TABLE audit_log_entries (
-  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id     UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  actor_id      UUID        REFERENCES users(id) ON DELETE SET NULL,
-  action        TEXT        NOT NULL,
-  target_entity TEXT        NOT NULL,
-  target_id     UUID        NOT NULL,
-  prior_value   JSONB,
-  new_value     JSONB,
-  occurred_at   TIMESTAMPTZ NOT NULL DEFAULT now()
-);
+-- Not extended with a channel_partner_read policy — no approved
+-- requirement (TR-1-TR-3) needs a channel-partner session to read
+-- tickets yet; add if/when one does, not preemptively.
 
-ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
-CREATE POLICY tenant_isolation ON audit_log_entries
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
-
-CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
-
--- Append-only enforcement (Database Schema §4.3): audit_log_entries is
--- an evidentiary record (PRD §6, AUD-1) -- no role, including the
--- normal application role, may UPDATE or DELETE a row once written.
-CREATE OR REPLACE FUNCTION reject_audit_log_mutation() RETURNS TRIGGER AS $$
-BEGIN
-  RAISE EXCEPTION 'audit_log_entries is append-only: % not permitted', TG_OP;
-END;
-$$ LANGUAGE plpgsql;
-
-CREATE TRIGGER audit_log_entries_append_only
-  BEFORE UPDATE OR DELETE ON audit_log_entries
-  FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
+-- Channel Partner Portal & Dispatch tables (below) are declared before
+-- Audit Log Entries (further below) so that audit_log_entries'
+-- actor_channel_partner_user_id FK can reference channel_partner_users,
+-- which must already exist.
 
 -- ─────────────────────────────────────────────────────────────
 -- CHANNEL PARTNER PORTAL & DISPATCH  (Domain Model v1.1 §2.7 —
 -- TR-1.1-TR-3.2, CH-3.1. Channel-partner-scoped, NOT tenant-scoped —
--- no tenant_id, no RLS, same reasoning as channel_partners above: this
--- is partner reference/operational data, and route_stops can span sites
--- across multiple different tenants attributed to one partner. The
--- concrete cross-tenant access-control mechanism is Multi-Tenant
--- Architecture's (#14) job, not decided here — see Database Schema §4.4.)
+-- no tenant_id, RLS keyed on app.current_channel_partner_id instead
+-- (Database Schema §4.4) — same reasoning as channel_partners above,
+-- extended: route_stops can span sites across multiple different
+-- tenants attributed to one partner, so there is no single tenant_id
+-- to scope by. Placed here (before audit_log_entries) so
+-- channel_partner_users exists before audit_log_entries references it.
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE territories (
   id                 UUID                      PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -321,15 +325,16 @@ CREATE TABLE territories (
 
 CREATE INDEX territories_channel_partner_idx ON territories(channel_partner_id);
 
+ALTER TABLE territories ENABLE ROW LEVEL SECURITY;
+CREATE POLICY channel_partner_isolation ON territories
+  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+
 -- A Territory's Site membership is DERIVED, never stored — a Site
 -- belongs to a Territory if (a) sites.tenant_id's tenant is attributed
 -- to the Territory's channel_partner_id (via tenants.channel_partner_id)
--- and (b) the Site's lat/lng fall within the Territory's boundary, e.g.:
---   SELECT s.* FROM sites s
---   JOIN tenants t ON t.id = s.tenant_id
---   JOIN territories terr ON terr.channel_partner_id = t.channel_partner_id
---   WHERE terr.id = $1
---     AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography);
+-- and (b) the Site's lat/lng fall within the Territory's boundary. See
+-- channel_partner_can_read_site(), defined at the end of this file, for
+-- the actual query shape this resolves to.
 
 CREATE TABLE channel_partner_users (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -346,14 +351,23 @@ CREATE TABLE channel_partner_users (
 CREATE INDEX channel_partner_users_partner_idx ON channel_partner_users(channel_partner_id);
 CREATE INDEX channel_partner_users_territory_idx ON channel_partner_users(territory_id);
 
--- A technician-role user's visible sites are scoped to their assigned
--- territory (their "preconfigured assets") via the same derived query
--- above; a partner_admin has no such restriction. Provisioning is
--- partner_admin-initiated — no self-service signup (Domain Model §4
--- decision 8).
+ALTER TABLE channel_partner_users ENABLE ROW LEVEL SECURITY;
+CREATE POLICY channel_partner_isolation ON channel_partner_users
+  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
 
+-- A technician-role user's visible sites are scoped to their assigned
+-- territory (their "preconfigured assets"); a partner_admin has no such
+-- restriction (channel_partner_can_read_site(), below, implements both).
+-- Provisioning is partner_admin-initiated — no self-service signup
+-- (Domain Model §4 decision 8).
+
+-- channel_partner_id is denormalized onto route_assignments (not just
+-- reachable via technician_user_id -> channel_partner_users), matching
+-- this schema's existing tenant_id-denormalization convention (§2):
+-- structural isolation must never depend on a join succeeding correctly.
 CREATE TABLE route_assignments (
   id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_partner_id UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
   technician_user_id UUID        NOT NULL REFERENCES channel_partner_users(id) ON DELETE CASCADE,
   route_date         DATE        NOT NULL,
   source             TEXT        NOT NULL
@@ -366,6 +380,26 @@ CREATE TABLE route_assignments (
   UNIQUE (technician_user_id, route_date)
 );
 
+CREATE INDEX route_assignments_partner_idx ON route_assignments(channel_partner_id);
+
+ALTER TABLE route_assignments ENABLE ROW LEVEL SECURITY;
+-- A partner_admin sees every route under their channel_partner_id; a
+-- technician sees only their own (route visibility is more sensitive
+-- than territory/user visibility — it reveals a colleague's schedule and
+-- customer visit pattern, not just their name).
+CREATE POLICY channel_partner_isolation ON route_assignments
+  USING (
+    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    AND (
+      current_setting('app.current_channel_partner_role', true) = 'partner_admin'
+      OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+    )
+  );
+
+-- route_stops has no direct channel_partner_id/technician_user_id of its
+-- own — scoped via its parent route_assignment, which already carries
+-- both (a semi-join subquery, not a denormalized copy; route_stops is
+-- always accessed through its parent, unlike route_assignments itself).
 CREATE TABLE route_stops (
   id                  UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
   route_assignment_id UUID    NOT NULL REFERENCES route_assignments(id) ON DELETE CASCADE,
@@ -376,7 +410,155 @@ CREATE TABLE route_stops (
 
 CREATE INDEX route_stops_assignment_idx ON route_stops(route_assignment_id);
 
+ALTER TABLE route_stops ENABLE ROW LEVEL SECURITY;
+CREATE POLICY channel_partner_isolation ON route_stops
+  USING (
+    route_assignment_id IN (
+      SELECT id FROM route_assignments
+      WHERE channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+        AND (
+          current_setting('app.current_channel_partner_role', true) = 'partner_admin'
+          OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+        )
+    )
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- AUDIT LOG ENTRIES  (AUD-1 -- record of every state-changing
+-- administrative action; AUD-2 requires the same tenant RLS
+-- enforcement as every other table. Extended v1.1 to also cover
+-- channel_partner_users actions -- see the scope/actor CHECK
+-- constraints below.)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE audit_log_entries (
+  id                            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id                     UUID        REFERENCES tenants(id) ON DELETE CASCADE,
+  channel_partner_id            UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,
+  actor_id                      UUID        REFERENCES users(id) ON DELETE SET NULL,
+  actor_channel_partner_user_id UUID        REFERENCES channel_partner_users(id) ON DELETE SET NULL,
+  action                        TEXT        NOT NULL,
+  target_entity                 TEXT        NOT NULL,
+  target_id                     UUID        NOT NULL,
+  prior_value                   JSONB,
+  new_value                     JSONB,
+  occurred_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT audit_log_entries_scope_check CHECK (
+    (tenant_id IS NOT NULL AND channel_partner_id IS NULL)
+    OR (tenant_id IS NULL AND channel_partner_id IS NOT NULL)
+  ),
+  -- Not "exactly one actor" -- a system-triggered entry with no human
+  -- actor (both null) is legitimate; what's invalid is claiming both a
+  -- tenant User actor AND a ChannelPartnerUser actor on the same row.
+  CONSTRAINT audit_log_entries_actor_check CHECK (
+    NOT (actor_id IS NOT NULL AND actor_channel_partner_user_id IS NOT NULL)
+  )
+);
+
+ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON audit_log_entries
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+CREATE POLICY channel_partner_isolation ON audit_log_entries
+  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+
+CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
+CREATE INDEX audit_log_entries_channel_partner_idx ON audit_log_entries(channel_partner_id);
+
+-- Append-only enforcement (Database Schema §4.3): audit_log_entries is
+-- an evidentiary record (PRD §6, AUD-1) -- no role, including the
+-- normal application role, may UPDATE or DELETE a row once written.
+CREATE OR REPLACE FUNCTION reject_audit_log_mutation() RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'audit_log_entries is append-only: % not permitted', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER audit_log_entries_append_only
+  BEFORE UPDATE OR DELETE ON audit_log_entries
+  FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
+
+-- ─────────────────────────────────────────────────────────────
+-- CROSS-TENANT READ POLICIES FOR CHANNEL-PARTNER SESSIONS
+-- (Database Schema §4.4, added v1.1) — consolidated here, after every
+-- table any of this depends on already exists (sites, tenants,
+-- territories, channel_partner_users), rather than interleaved into
+-- each table's own block above.
+-- ─────────────────────────────────────────────────────────────
+
+-- Does the current channel-partner session have read access to this
+-- site? True for a partner_admin whose partner is attributed to the
+-- site's tenant; true for a technician only if the site additionally
+-- falls within their assigned territory's boundary (their "preconfigured
+-- assets"). One function, not five duplicated subqueries.
+CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM sites s
+    JOIN tenants t ON t.id = s.tenant_id
+    WHERE s.id = p_site_id
+      AND t.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      AND (
+        current_setting('app.current_channel_partner_role', true) = 'partner_admin'
+        OR EXISTS (
+          SELECT 1 FROM channel_partner_users cpu
+          JOIN territories terr ON terr.id = cpu.territory_id
+          WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+            AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
+        )
+      )
+  );
+$$ LANGUAGE sql STABLE;
+
+-- Each policy below is a second, additional PERMISSIVE policy alongside
+-- that table's existing tenant_isolation policy — Postgres OR-combines
+-- them, so a normal tenant session (which never sets the channel-partner
+-- GUCs) is completely unaffected.
+
+CREATE POLICY channel_partner_read ON sites FOR SELECT
+  USING (channel_partner_can_read_site(id));
+
+CREATE POLICY channel_partner_read ON assets FOR SELECT
+  USING (channel_partner_can_read_site(site_id));
+
+-- A device with no asset_id has no resolvable site, so it's simply never
+-- visible to a channel-partner session (safest default: deny, not error).
+CREATE POLICY channel_partner_read ON devices FOR SELECT
+  USING (
+    asset_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM assets a WHERE a.id = devices.asset_id AND channel_partner_can_read_site(a.site_id)
+    )
+  );
+
+CREATE POLICY channel_partner_read ON telemetry FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM devices d JOIN assets a ON a.id = d.asset_id
+      WHERE d.id = telemetry.device_id AND channel_partner_can_read_site(a.site_id)
+    )
+  );
+
+-- Prefers asset_id when present (the common case); falls back to
+-- device_id -> asset_id -> site for the rare row where only device_id is
+-- set. A row with neither set is never visible to a channel-partner
+-- session (safest default: deny).
+CREATE POLICY channel_partner_read ON alerts FOR SELECT
+  USING (
+    (asset_id IS NOT NULL AND channel_partner_can_read_site(
+      (SELECT site_id FROM assets WHERE id = alerts.asset_id)
+    ))
+    OR (asset_id IS NULL AND device_id IS NOT NULL AND EXISTS (
+      SELECT 1 FROM devices d JOIN assets a ON a.id = d.asset_id
+      WHERE d.id = alerts.device_id AND channel_partner_can_read_site(a.site_id)
+    ))
+  );
+
+-- Not extended to service_tickets or metric_baselines — no approved
+-- requirement (TR-1-TR-3, CH-3.1) needs a channel-partner session to
+-- read either yet. Add if/when one does, not preemptively.
+
 -- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction
 -- ─────────────────────────────────────────────────────────────
--- SET LOCAL app.current_tenant_id = '<tenant_uuid_from_jwt>';
+-- Tenant session:          SET LOCAL app.current_tenant_id = '<tenant_uuid_from_jwt>';
+-- Channel-partner session: SET LOCAL app.current_channel_partner_id = '<...>';
+--                          SET LOCAL app.current_channel_partner_user_id = '<...>';
+--                          SET LOCAL app.current_channel_partner_role = 'partner_admin' | 'technician';
