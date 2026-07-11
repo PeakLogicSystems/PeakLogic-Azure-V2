@@ -153,4 +153,13 @@ Several CC1 (Control Environment) points-of-focus are fundamentally organization
 
 ## 12. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-11. Every checkable claim re-verified directly against the actual source rather than trusted from memory; none needed correction.
+
+- Both cited commit hashes (`11d6dba`, `993a554`) confirmed against `git log` to actually be the commits described.
+- `CLAUDE.md`'s "Version Control Standards" and "Git Discipline" section names (§7) confirmed to exist verbatim via `grep`.
+- Deployment Architecture §3.2's RPO/RTO section title confirmed to exist as cited.
+- The "billing scoped out of MVP" claim (§6, ruling out a payment-processor subprocessor) confirmed directly against PRD §8's actual text, not assumed from memory.
+- Threat Model §4.1/§4.2 section identity (telemetry validation vs. SSRF, respectively) confirmed against that document's actual headers — a citation-drift class of error found repeatedly in prior artifacts' reviews, checked specifically here and held up.
+- The zero-CloudWatch-Alarms claim (§4) was verified before writing, not after — confirmed via `grep` across every stack prior to implementing the fix, per the commit message.
+
+No corrections made — first artifact since Multi-Tenant Architecture where the draft held up completely on re-check.
