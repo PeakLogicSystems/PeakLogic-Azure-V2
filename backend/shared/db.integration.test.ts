@@ -578,9 +578,9 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
       CREATE POLICY tenant_isolation ON claim_test_devices
         USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
       CREATE POLICY unclaimed_lookup ON claim_test_devices FOR SELECT
-        USING (tenant_id IS NULL);
+        USING (tenant_id IS NULL AND current_setting('app.claim_context', true) = 'true');
       CREATE POLICY provision_unclaimed ON claim_test_devices FOR INSERT
-        WITH CHECK (tenant_id IS NULL);
+        WITH CHECK (tenant_id IS NULL AND current_setting('app.provisioning_context', true) = 'true');
       CREATE POLICY provisioning_lookup ON claim_test_devices FOR SELECT
         USING (current_setting('app.provisioning_context', true) = 'true');
       CREATE POLICY device_claim ON claim_test_devices FOR UPDATE
@@ -607,17 +607,28 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
     await setup.end();
   });
 
-  it('an unclaimed device (tenant_id IS NULL) is visible to any authenticated tenant session — regression test for backend/api/routes/devices.ts\'s claim() lookup-by-serial', async () => {
-    const rows = await withTenant(tenantB, (client) =>
-      client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-UNCLAIMED']).then(r => r.rows),
-    );
+  it('with app.claim_context set, an unclaimed device (tenant_id IS NULL) is visible to any authenticated tenant session — regression test for backend/api/routes/devices.ts\'s claim() lookup-by-serial', async () => {
+    const rows = await withTenant(tenantB, async (client) => {
+      await client.query("SET LOCAL app.claim_context = 'true'");
+      return client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-UNCLAIMED']).then(r => r.rows);
+    });
     expect(rows).toHaveLength(1);
   });
 
-  it("a tenant session cannot see another tenant's already-claimed device by serial — unclaimed_lookup doesn't leak claimed rows", async () => {
+  it("a tenant session cannot see another tenant's already-claimed device by serial, even with app.claim_context set — unclaimed_lookup doesn't leak claimed rows", async () => {
+    const rows = await withTenant(tenantB, async (client) => {
+      await client.query("SET LOCAL app.claim_context = 'true'");
+      return client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-CLAIMED']).then(r => r.rows);
+    });
+    expect(rows).toHaveLength(0);
+  });
+
+  it('WITHOUT app.claim_context set, a plain tenant session (the shape of list()/getOne()) does NOT see the unclaimed device — the actual leak this pass found and fixed, not assumed closed', async () => {
     const rows = await withTenant(tenantB, (client) =>
-      client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-CLAIMED']).then(r => r.rows),
+      client.query('SELECT * FROM claim_test_devices ORDER BY serial').then(r => r.rows),
     );
+    // tenantB owns neither device — a plain list() call must return zero
+    // rows, not the unclaimed device leaking in via a marker-less policy.
     expect(rows).toHaveLength(0);
   });
 
@@ -659,12 +670,16 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
     }
   });
 
-  it('without app.provisioning_context, only the unclaimed device is visible — proves the exact undercounting risk found while designing this fix', async () => {
+  it('without app.provisioning_context, no devices are visible at all — proves the exact undercounting risk found while designing this fix, and that unclaimed_lookup no longer leaks unclaimed rows to a marker-less connection either (corrected on the follow-up pass)', async () => {
     const client = await getPool().then(p => p.connect());
     try {
       await client.query('BEGIN');
       const { rows } = await client.query('SELECT serial FROM claim_test_devices');
-      expect(rows.map(r => r.serial)).toEqual(['PLG-UNCLAIMED']);
+      // Neither app.provisioning_context nor app.claim_context is set here
+      // — with the corrected policies, this must return nothing, not the
+      // unclaimed device. An earlier draft's marker-less unclaimed_lookup
+      // would have wrongly returned ['PLG-UNCLAIMED'] here.
+      expect(rows).toEqual([]);
     } finally {
       await client.query('ROLLBACK');
       client.release();

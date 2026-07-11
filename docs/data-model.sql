@@ -218,19 +218,19 @@ CREATE POLICY ingest_lookup ON devices FOR SELECT
 
 -- v1.1 — device claim/provisioning flow (a device has tenant_id = NULL
 -- until a customer claims it). Layered by how much access each caller
--- needs: any authenticated session may look up an unclaimed device
--- (needed by backend/api/routes/devices.ts's claim(), reachable by any
--- tenant user, but only ever sees tenant_id IS NULL rows — never another
--- tenant's already-claimed devices); only the trusted, offline
--- scripts/provision-devices.ts script (no REST route creates devices)
--- inserts new unclaimed rows, or needs the broader app.provisioning_context
--- SELECT to safely generate a collision-free next serial number across
--- every device ever provisioned, claimed or not; the claim UPDATE itself
--- ties the new tenant_id to the caller's own app.current_tenant_id.
+-- needs. unclaimed_lookup and provision_unclaimed are BOTH gated on their
+-- own session marker (app.claim_context / app.provisioning_context) —
+-- corrected after an initial draft used a marker-less `tenant_id IS NULL`
+-- condition alone, which (since permissive policies OR-combine across
+-- EVERY query on a table, not just the one call site they were meant for)
+-- would have leaked every unclaimed device into any tenant's plain
+-- list()/getOne() calls, not just claim()'s own lookup-by-serial. Found on
+-- a dedicated third pass explicitly checking for over-broad grants, not
+-- just "does this still work."
 CREATE POLICY unclaimed_lookup ON devices FOR SELECT
-  USING (tenant_id IS NULL);
+  USING (tenant_id IS NULL AND current_setting('app.claim_context', true) = 'true');
 CREATE POLICY provision_unclaimed ON devices FOR INSERT
-  WITH CHECK (tenant_id IS NULL);
+  WITH CHECK (tenant_id IS NULL AND current_setting('app.provisioning_context', true) = 'true');
 CREATE POLICY provisioning_lookup ON devices FOR SELECT
   USING (current_setting('app.provisioning_context', true) = 'true');
 CREATE POLICY device_claim ON devices FOR UPDATE

@@ -29,22 +29,44 @@
 --    needs a broader, dedicated trusted-script marker (app.provisioning_
 --    context), not the same narrow "unclaimed only" policy claim() uses.
 --
--- Design: three new policies, layered by how much access each caller
--- actually needs -- not one broad exemption reused everywhere.
---   - unclaimed_lookup: any session may SELECT a device with tenant_id IS
---     NULL. Reachable by any authenticated tenant user (claim() runs inside
---     withTenant(), same as every other route) -- deliberately does NOT let
---     a tenant enumerate or see any OTHER tenant's already-claimed devices,
---     only ones with no tenant at all.
---   - provision_unclaimed: INSERT of a new device row is only permitted
---     when tenant_id IS NULL. No REST API route creates devices at all
---     (confirmed directly -- devices.ts has no create()), so this is only
---     reachable via the trusted provisioning script.
---   - provisioning_lookup: a broader SELECT, gated on a new
---     app.provisioning_context session marker (mirrors app.ingest_context's
---     pattern exactly) -- sees every device regardless of tenant, needed
---     specifically for collision-safe serial-number generation. Only ever
---     set by scripts/provision-devices.ts, a trusted, offline, operator-run
+-- Design: policies layered by how much access each caller actually needs
+-- -- not one broad exemption reused everywhere.
+--
+-- CORRECTED before this migration was ever deployed anywhere, found on a
+-- third full-repo pass the user explicitly asked for ("do one more full
+-- pass"): the first draft of unclaimed_lookup was `USING (tenant_id IS
+-- NULL)` with NO session marker at all -- a real, unintended leak.
+-- Permissive RLS policies OR-combine across EVERY query on a table, not
+-- just the one line of application code that "meant" to use them -- a
+-- marker-less policy scoped only by a WHERE-style condition (`tenant_id IS
+-- NULL`) doesn't restrict WHICH query can see those rows, only WHICH rows
+-- a query that already runs can see. That meant devices.ts's list() and
+-- getOne() (plain withTenant(), no special marker) would have silently
+-- started returning every unclaimed device in the whole system to every
+-- tenant, alongside their own claimed ones -- discovering that a device
+-- with a given serial/thing_name exists in the provisioning pool, before
+-- anyone had claimed it. Not the ingest/provisioning-style "would break
+-- and return nothing" failure mode this whole sweep had been looking for
+-- until now -- the opposite: would have silently returned MORE than
+-- intended. Caught by re-auditing with that specific question ("could a
+-- new permissive policy leak into a query it wasn't meant for") rather
+-- than re-running the same "does this still work" check a third time.
+--
+--   - unclaimed_lookup: SELECT a device with tenant_id IS NULL, gated on a
+--     new app.claim_context session marker -- set ONLY by claim()'s own
+--     lookup-by-serial query, not by list()/getOne(). A tenant can still
+--     only discover an unclaimed device by already knowing its serial
+--     (the claim() flow), never by browsing their own device list.
+--   - provision_unclaimed: INSERT of a new device row, gated on
+--     app.provisioning_context (already set by provision-devices.ts for
+--     its other queries -- extended to cover this one too, for the same
+--     narrow-marker consistency, even though no REST route reaches this
+--     INSERT today either way).
+--   - provisioning_lookup: a broader SELECT, also gated on
+--     app.provisioning_context (mirrors app.ingest_context's pattern) --
+--     sees every device regardless of tenant, needed specifically for
+--     collision-safe serial-number generation. Only ever set by
+--     scripts/provision-devices.ts, a trusted, offline, operator-run
 --     script with direct DB credentials -- same trust level already
 --     extended to migrations and to the ingest Lambda.
 --
@@ -53,7 +75,13 @@
 -- withTenant() call) -- real defense-in-depth, not just a workaround: even
 -- a future bug that tried to claim a device into an arbitrary tenant would
 -- be rejected at the database layer, not just trusted at the application
--- layer.
+-- layer. Left USING (tenant_id IS NULL) with no additional marker
+-- deliberately, not an oversight: the SELECT-side fix above already closes
+-- the actual discovery/enumeration vector (a tenant can no longer find an
+-- unclaimed device's id via list()/getOne()), so reaching this UPDATE at
+-- all already requires already knowing a specific unclaimed device's id --
+-- and the WITH CHECK still only allows claiming it into the caller's own
+-- tenant, never anyone else's.
 
 -- A third, separate bug found while designing this fix, unrelated to RLS:
 -- devices.tenant_id is declared NOT NULL in the schema, but claim() and
@@ -72,10 +100,10 @@
 ALTER TABLE devices ALTER COLUMN tenant_id DROP NOT NULL;
 
 CREATE POLICY unclaimed_lookup ON devices FOR SELECT
-  USING (tenant_id IS NULL);
+  USING (tenant_id IS NULL AND current_setting('app.claim_context', true) = 'true');
 
 CREATE POLICY provision_unclaimed ON devices FOR INSERT
-  WITH CHECK (tenant_id IS NULL);
+  WITH CHECK (tenant_id IS NULL AND current_setting('app.provisioning_context', true) = 'true');
 
 CREATE POLICY provisioning_lookup ON devices FOR SELECT
   USING (current_setting('app.provisioning_context', true) = 'true');

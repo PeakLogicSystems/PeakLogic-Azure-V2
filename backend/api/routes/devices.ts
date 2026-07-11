@@ -46,17 +46,20 @@ export async function claim(event: APIGatewayProxyEvent, auth: AuthContext): Pro
   return withTenant(auth.tenantId, async (client) => {
     // Multi-Tenant Architecture v1.1 — devices' unclaimed_lookup RLS policy
     // (docs/data-model.sql) permits seeing an unclaimed (tenant_id IS NULL)
-    // device regardless of the caller's own tenant, since by definition an
-    // unclaimed device isn't scoped to any tenant yet — that's the point of
-    // a claim flow. This used to run on an unscoped pool connection under
-    // the (accidentally true, for the wrong reason) assumption that RLS
-    // never applied anyway; now that FORCE ROW LEVEL SECURITY actually
-    // takes effect, this needed a real, narrowly-scoped policy instead. The
-    // claim transition below is still tenant-scoped: device_claim's WITH
-    // CHECK ties the new tenant_id to app.current_tenant_id (set by
-    // withTenant() above) — real defense-in-depth, not just a workaround —
-    // a caller can only claim a device into their own tenant, enforced at
-    // the database layer, not just trusted from auth.tenantId.
+    // device, gated on app.claim_context — set ONLY for this specific
+    // lookup, deliberately not left as a marker-less `tenant_id IS NULL`
+    // condition (an earlier draft did that, and a permissive policy with no
+    // marker OR-combines into EVERY select on the table, not just this
+    // call site — would have leaked every unclaimed device into list()/
+    // getOne() too; caught on a dedicated pass, fixed before ever
+    // deployed). The claim transition below is still tenant-scoped:
+    // device_claim's WITH CHECK ties the new tenant_id to
+    // app.current_tenant_id (set by withTenant() above) — real
+    // defense-in-depth, not just a workaround — a caller can only claim a
+    // device into their own tenant, enforced at the database layer, not
+    // just trusted from auth.tenantId.
+    await client.query("SET LOCAL app.claim_context = 'true'");
+
     const { rows: [existing] } = await client.query<Device>(
       'SELECT * FROM devices WHERE serial = $1',
       [body.serial.trim().toUpperCase()],
