@@ -2,6 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Pool, PoolClient } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
+import type { PartnerAuthContext } from './auth';
 
 // AWS's published RDS CA bundle, copied into a certs/ subdirectory alongside
 // this file's bundled output by infra/lib/api-stack.ts's `afterBundling` hook
@@ -80,6 +81,77 @@ export async function getPool(): Promise<Pool> {
   });
 
   return pool;
+}
+
+// ── Channel Partner Portal (Security Architecture §2.4, added v1.1) ──
+
+export type ChannelPartnerRole = 'partner_admin' | 'technician';
+
+export interface ChannelPartnerSession {
+  channelPartnerUserId: string;
+  role: ChannelPartnerRole;
+}
+
+/**
+ * Runs fn inside a transaction with channel-partner RLS set (Database
+ * Schema §4.4's channel_partner_isolation policies + channel_partner_read
+ * policies on sites/assets/devices/telemetry/alerts). Mirrors withTenant()
+ * above, but the identity resolved here comes from a DB lookup, not
+ * directly off the JWT (see getPartnerAuth()'s doc comment for why).
+ *
+ * Ordering matters: app.current_channel_partner_id must be set BEFORE the
+ * channel_partner_users lookup below, since that table's own RLS policy
+ * requires it — querying it first, with nothing set yet, would silently
+ * return zero rows (not an error) and this function would incorrectly
+ * reject a valid partner user as "not found." Caught while designing this
+ * function, not found empirically after shipping a bug.
+ */
+export async function withChannelPartner<T>(
+  auth: PartnerAuthContext,
+  fn: (client: PoolClient, session: ChannelPartnerSession) => Promise<T>,
+): Promise<T> {
+  const p = await getPool();
+  const client = await p.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL app.current_channel_partner_id = $1', [auth.channelPartnerId]);
+
+    const { rows: [cpu] } = await client.query<{ id: string; role: ChannelPartnerRole }>(
+      'SELECT id, role FROM channel_partner_users WHERE cognito_sub = $1',
+      [auth.sub],
+    );
+    if (!cpu) {
+      throw Object.assign(new Error('Channel partner user not found'), { statusCode: 403 });
+    }
+
+    await client.query('SET LOCAL app.current_channel_partner_user_id = $1', [cpu.id]);
+    await client.query('SET LOCAL app.current_channel_partner_role = $1', [cpu.role]);
+
+    const result = await fn(client, { channelPartnerUserId: cpu.id, role: cpu.role });
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * RLS (channel_partner_isolation) enforces data isolation between
+ * partners, not role-based write authorization within one partner — a
+ * technician's session can data-isolate fine but still needs an explicit
+ * check before, say, confirming a route (TR-3.1), the same reason
+ * requireRole() exists alongside withTenant() for the tenant side.
+ */
+export function requirePartnerRole(session: ChannelPartnerSession, ...roles: ChannelPartnerRole[]): void {
+  if (!roles.includes(session.role)) {
+    throw Object.assign(
+      new Error(`Role '${session.role}' is not permitted — requires: ${roles.join(' | ')}`),
+      { statusCode: 403 },
+    );
+  }
 }
 
 /** Test-only: forces a fresh Pool on the next getPool() call. Vitest runs

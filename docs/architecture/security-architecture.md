@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1)
-**Last updated:** 2026-07-09
+**Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 until v1.1 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [Domain Model](domain-model.md) (approved v1.1), [Database Schema](database-schema.md) (approved v1.1)
+**Last updated:** 2026-07-11
 
 ---
 
@@ -49,6 +49,53 @@ Cognito User Pool (`infra/lib/auth-stack.ts`): admin-invited only (no self-signu
 
 **Recommendation, implemented (commit `3428f80`, 2026-07-09): removed the `service_partner` group.** API Specification §5's design doesn't need it (the Channel Partner's Attribution Report is also no-login, per the same section), and given the corrected finding above, leaving it costs more than "unused infrastructure" — it's a dormant path to unintended full tenant-data read access. If a genuine in-app, authenticated Service Partner experience is ever scheduled (a real product change, not implied by anything currently approved), re-provisioning the group at that time is trivial and should be paired with deliberate read scoping, not the default-allow pattern this closed.
 
+### 2.4 Channel Partner Portal Authentication *(new — added v1.1, see Revision History)*
+
+Database Schema §4.4 built the real cross-tenant RLS mechanism (`channel_partner_isolation`/`channel_partner_read` policies, keyed on `app.current_channel_partner_id`/`app.current_channel_partner_user_id`/`app.current_channel_partner_role`) but explicitly left the auth/API-layer wiring open — "the application code that actually sets [those session variables] per request... doesn't exist yet." This section resolves that, and ships the code, not just the design.
+
+**Decision: a genuinely separate Cognito User Pool (`PartnerPool`), not a second set of groups in the tenant pool.** A `ChannelPartnerUser` is not a `User` (Domain Model §2.7) — no `tenant_id`, a different table entirely. Mixing a `custom:channel_partner_id` claim into the same JWT shape `getAuth()` already parses for tenant sessions would either require `getAuth()` to branch on which kind of identity it received (fragile, easy to get wrong) or a second claims contract living inside the same pool (confusing). A separate pool keeps the two identity spaces as clearly apart in infrastructure as they already are in the data model. Implemented in `infra/lib/auth-stack.ts` (`AuthStack.partnerPool`/`partnerPoolClient`), verified via `cdk synth`.
+
+**Decision: no Cognito groups in the partner pool — role is resolved from `channel_partner_users.role` at request time, not from a Cognito claim.** This is a deliberate difference from the tenant pool's pattern (role from `cognito:groups`), not an inconsistency: `withChannelPartner()` (below) already has to query `channel_partner_users` to resolve `channel_partner_user_id`, which has no Cognito equivalent at all — so the "avoid an extra DB round-trip" rationale that justifies the tenant pool's groups-based approach doesn't apply here, the round-trip is already happening. Deriving role from the same query avoids a second, independently-driftable source of truth (a Cognito group and a DB column that could disagree) for no cost. `channel_partner_users.role` was already the authorization-relevant source of truth for territory/route scoping (Database Schema §4.4); this just makes it authoritative for role too.
+
+**Same security baseline as the tenant pool, not a lighter one**: pool-wide `Mfa.REQUIRED` (§2.2's reasoning applies identically — no reason a second pool gets weaker protection), 12-character password policy, admin-invited only (`selfSignUpEnabled: false`) — mirrors Domain Model §4 decision 8's "provisioning is `partner_admin`-initiated" requirement structurally, not just by convention.
+
+**`backend/shared/auth.ts` gains `getPartnerAuth()`**, mirroring `getAuth()`'s shape and fail-closed discipline (missing `sub` → 401; missing `custom:channel_partner_id` → 403) but returning only `{ sub, email, channelPartnerId }` — no role, no `channel_partner_user_id`, since those are resolved from the DB, not the token.
+
+**`backend/shared/db.ts` gains `withChannelPartner()`**, mirroring `withTenant()`'s transaction-scoped-session-variable pattern:
+```ts
+export async function withChannelPartner<T>(
+  auth: PartnerAuthContext,
+  fn: (client: PoolClient, session: ChannelPartnerSession) => Promise<T>,
+): Promise<T> {
+  const client = await (await getPool()).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL app.current_channel_partner_id = $1', [auth.channelPartnerId]);
+
+    const { rows: [cpu] } = await client.query(
+      'SELECT id, role FROM channel_partner_users WHERE cognito_sub = $1', [auth.sub],
+    );
+    if (!cpu) throw Object.assign(new Error('Channel partner user not found'), { statusCode: 403 });
+
+    await client.query('SET LOCAL app.current_channel_partner_user_id = $1', [cpu.id]);
+    await client.query('SET LOCAL app.current_channel_partner_role = $1', [cpu.role]);
+
+    const result = await fn(client, { channelPartnerUserId: cpu.id, role: cpu.role });
+    await client.query('COMMIT');
+    return result;
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+  finally { client.release(); }
+}
+```
+
+**A real ordering bug caught while designing this, not found empirically after shipping it**: `app.current_channel_partner_id` must be set **before** the `channel_partner_users` lookup, not after — that table's own `channel_partner_isolation` policy (Database Schema §4.4) requires it to already be set, or the lookup silently returns zero rows (RLS-filtered, not an error) and this function would incorrectly reject a valid partner user as "not found." This is the same category of subtle RLS-bootstrapping issue as the `missing_ok` bug Database Schema's review pass found — caught here by tracing the actual evaluation order before writing the test, not discovered by a failing test after the fact.
+
+**`requirePartnerRole()` added alongside `withChannelPartner()`, mirroring `requireRole()`** — RLS enforces cross-partner data isolation, not within-partner role authorization (a technician's session is already correctly territory-scoped by RLS, but nothing stops it from attempting to confirm a route, which TR-3.1 reserves for a `partner_admin`). Same reason `requireRole()` exists alongside `withTenant()` on the tenant side.
+
+**Real gap found while designing this section, fixed rather than compounded**: `writeAuditLog()` (§5) was **designed** in the original v1 of this document but **never actually implemented** — no `backend/shared/audit.ts` file existed, confirmed by direct search, despite §5's own text claiming "real gap closed here." Building the channel-partner audit extension required the base function to exist first, so it's implemented now, for both scope dimensions `audit_log_entries` supports (Database Schema §4.4's `tenant`/`channel_partner` split) — see the updated §5 below.
+
+**Verified, not assumed**: `cdk synth -c stage=dev` succeeds with the new `PartnerPool` construct; `npm run typecheck` passes in `backend/` with the new `auth.ts`/`db.ts`/`audit.ts` code; 8 new unit tests (`db.test.ts`, `audit.test.ts`) and 7 new integration tests (`db.integration.test.ts`, gated on `TEST_DATABASE_URL` per Test Strategy §4 — self-skips cleanly here, same disclosed limitation as every other DB-dependent test this project has, since no AWS account/Postgres instance exists yet) all pass or skip as expected. The integration tests specifically exercise: a `partner_admin` reading across every tenant attributed to their partner; a technician correctly restricted to sites within their assigned territory via a real `ST_Contains()` check (not just unit-tested logic); a technician correctly denied a site outside their territory; a tenant belonging to a *different* channel partner (or none) staying invisible even to a `partner_admin`; the bootstrapping-order fix itself; and that a normal tenant session's behavior is provably unaffected by any of this.
+
 ---
 
 ## 3. Network Security
@@ -91,15 +138,19 @@ DB credentials are Secrets-Manager-generated at RDS creation (`rds.Credentials.f
 
 ---
 
-## 5. Audit Logging — implementing AUD-1/AUD-2 (real gap closed here)
+## 5. Audit Logging — implementing AUD-1/AUD-2
 
-**The gap, previously flagged but not resolved:** Compliance & Certification Roadmap §4 already listed audit logging as "specified, not yet implemented," and Device & Command Security Architecture §7 item 6 restated it as a pre-implementation gate on command issuance specifically. Checking again while writing this document confirms the gap is total, not partial: `audit_log_entries` (Database Schema §4.3) has its table and its append-only trigger, and AUD-1/AUD-2 (SRS §3.10) specify what must be logged — but no code anywhere in `backend/` writes to it. This document is where "someone has to actually build this" stops being deferred.
+**The gap, previously flagged but not resolved:** Compliance & Certification Roadmap §4 already listed audit logging as "specified, not yet implemented," and Device & Command Security Architecture §7 item 6 restated it as a pre-implementation gate on command issuance specifically. Checking again while writing this document (2026-07-09) confirmed the gap was total, not partial: `audit_log_entries` (Database Schema §4.3) had its table and its append-only trigger, and AUD-1/AUD-2 (SRS §3.10) specify what must be logged — but no code anywhere in `backend/` wrote to it.
 
-**Decision: a single `writeAuditLog()` helper in `backend/shared/audit.ts`, called explicitly at each state-changing handler** — not a generic Express-style middleware/interceptor that fires on every request. Reasoning: AUD-1 only requires logging *specific* state-changing administrative actions (device claim, tenant/user config change, channel-partner attribution change — its own examples), not every read or every write; a blanket interceptor would either over-log (every GET) or need its own exclusion list, which is more complexity than explicit call sites at the handful of routes that actually qualify. This mirrors `withTenant()`'s own pattern — a small shared helper, called explicitly where it applies, not injected globally.
+**Design decision (2026-07-09): a single `writeAuditLog()` helper in `backend/shared/audit.ts`, called explicitly at each state-changing handler** — not a generic Express-style middleware/interceptor that fires on every request. Reasoning: AUD-1 only requires logging *specific* state-changing administrative actions (device claim, tenant/user config change, channel-partner attribution change — its own examples), not every read or every write; a blanket interceptor would either over-log (every GET) or need its own exclusion list, which is more complexity than explicit call sites at the handful of routes that actually qualify. This mirrors `withTenant()`'s own pattern — a small shared helper, called explicitly where it applies, not injected globally.
 
-**Call sites required at MVP** (derived from AUD-1's own examples plus what's already shipped): `devices.claim` (device claim — AUD-1's named example), `devices.remove` (decommission — arguably the same class of action as claim, and the more consequential of the two), and the future `channel_partners` attribution-assignment path (CH-1.2 — internal-only today, so this call site activates whenever that internal tooling is actually built, not at MVP). **Not required:** ordinary CRUD on sites/assets/tickets — AUD-1's own wording is "state-changing *administrative* actions," and those are routine tenant-operational data, not administrative/security-relevant events.
+**Correction, v1.1 (2026-07-11): the design above was never actually built.** This document's v1 text said "real gap closed here" and cited the design as the closure — but `backend/shared/audit.ts` never existed, confirmed by direct search while designing §2.4's channel-partner audit extension, which needed the base function to build on. **Implemented for real now**, not left as a second unshipped promise: `writeAuditLog()` exists, takes a discriminated-union `AuditEntry` (`scope: 'tenant'` or `scope: 'channel_partner'`, matching Database Schema §4.4's dual-scope `audit_log_entries` shape), and is covered by 4 unit tests (`audit.test.ts`) verifying the correct `INSERT` shape per scope, JSON serialization of `prior_value`/`new_value`, and that a null actor (system-triggered entry) is accepted on either scope.
 
-**Traces forward:** this closes Device & Command Security Architecture §5's audit-logging half of its pre-implementation gate — once `writeAuditLog()` exists and covers device claim/decommission, adding a `issue_command` call site (per that document's §4.4) is a one-line addition to an already-working mechanism, not new infrastructure.
+**Call sites required at MVP** (derived from AUD-1's own examples plus what's already shipped): `devices.claim` (device claim — AUD-1's named example), `devices.remove` (decommission — arguably the same class of action as claim, and the more consequential of the two), the future `channel_partners` attribution-assignment path (CH-1.2 — internal-only today), and — **added v1.1** — the channel-partner-scoped equivalents: a `partner_admin` creating a technician's credential (Domain Model §4 decision 8's "provisioning is admin-initiated"), and route confirmation (TR-3.1). **Not required:** ordinary CRUD on sites/assets/tickets, or an AI-suggested route's *generation* (only its *confirmation* is an administrative action — the suggestion itself is closer to a computed value than an action someone took).
+
+**Still not wired into any actual route handler** — `writeAuditLog()` exists and is tested in isolation, but no `devices.claim`/`devices.remove`/route-confirmation handler calls it yet. This is real, disclosed scope: this document specifies the mechanism and the call-site list; wiring each call site into its handler is Implementation-phase work (project memory), the same deferral this document already applied to itself once and is not repeating silently this time.
+
+**Traces forward:** this closes Device & Command Security Architecture §5's audit-logging half of its pre-implementation gate — once call sites exist for device claim/decommission, adding a `issue_command` call site (per that document's §4.4) is a one-line addition to an already-working, already-tested mechanism, not new infrastructure.
 
 ---
 
@@ -109,7 +160,7 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 
 - **Revoke a compromised device:** today, nothing — this is exactly the §3.2 finding already raised in Device & Command Security Architecture ("decommission doesn't revoke the IoT cert"). That fix is a prerequisite for any credible device-incident response, not just a hygiene nit.
 - **Revoke a compromised user session:** Cognito supports global sign-out / token revocation per user; not currently wired into any admin-facing tooling (no "force logout" action exists in the API or frontend). Flagged as a real gap (§7).
-- **Investigate what happened:** once §5's audit logging ships, `audit_log_entries` becomes the first place a responder looks for admin-action history; CloudWatch Logs (already retained 2 weeks per Lambda, `logs.RetentionDays.TWO_WEEKS` in `api-stack.ts`) is the only other existing forensic source. Two weeks is short for a real investigation window — flagged as a decision to revisit (§7), not changed unilaterally here.
+- **Investigate what happened:** `writeAuditLog()` exists now (§5), but with no call sites wired in yet, `audit_log_entries` won't actually have rows to investigate until that follow-up work lands — the mechanism shipped, the coverage didn't. CloudWatch Logs (already retained 2 weeks per Lambda, `logs.RetentionDays.TWO_WEEKS` in `api-stack.ts`) is the only currently-populated forensic source. Two weeks is short for a real investigation window — flagged as a decision to revisit (§7), not changed unilaterally here.
 
 ---
 
@@ -121,8 +172,9 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 | §2.3 Orphaned RBAC group | New finding — no existing requirement covers this |
 | §3.2 CORS gap | New finding — infra's own TODO comment |
 | §4.2 TLS cert validation gap | New finding, in tension with SRS §5.2 / PRD §6's "reconciled" claim |
-| §5 Audit Logging implementation | AUD-1, AUD-2 (SRS §3.10), Database Schema §4.3, Device & Command Security Architecture §7 item 6 |
+| §5 Audit Logging implementation | AUD-1, AUD-2 (SRS §3.10), Database Schema §4.3/§4.4, Device & Command Security Architecture §7 item 6 |
 | §6 Incident Response skeleton | Compliance & Certification Roadmap §4 (open item) |
+| §2.4 Channel Partner Portal Authentication *(added v1.1)* | Domain Model §2.7/§4 decision 8, Database Schema §4.4, PRD §5.10/SRS §3.12 (TR-1–TR-3) |
 
 ---
 
@@ -132,6 +184,10 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 2. **No "force logout" / session-revocation tooling exists** — Cognito supports it at the API level; nothing in `backend/`/frontend exposes it to an admin. Real gap, not yet scheduled.
 3. ~~§2.3's `service_partner` group removal and §3.2's CORS fix and §4.2's TLS cert-validation fix are all recommended but not yet implemented~~ **Done (commit `3428f80`, 2026-07-09).** All three reconciled in code and verified via a real `cdk synth` — which also surfaced and fixed an unrelated pre-existing bug: `NodejsFunction` couldn't resolve its bundling root against entry files in the sibling `backend/` directory (`projectRoot`/`depsLockFilePath` now pinned explicitly in `api-stack.ts`, `esbuild` added as a `backend/` devDependency). The RDS CA bundle (`backend/shared/certs/rds-global-bundle.pem`) required a `.gitignore` exception, since it collided with the blanket `*.pem` secrets rule despite containing no private key material.
 4. **§5's audit-logging call sites are MVP-scoped, not exhaustive.** As more admin-facing config/settings screens ship, each new state-changing administrative action needs an explicit `writeAuditLog()` call site added — this document doesn't attempt to enumerate every future one.
+5. **§5's audit-logging call sites are not wired into any handler yet, added v1.1.** `writeAuditLog()` exists and is unit-tested, but `devices.claim`/`devices.remove`/the future channel-partner call sites don't call it. Real, disclosed follow-up work, not assumed done because the helper exists.
+6. **The partner portal frontend doesn't exist yet, added v1.1.** `PartnerPool`'s client reuses the tenant SPA's `ALLOWED_ORIGINS` (§2.4) since there's no separate partner-portal URL to point at — revisit once that frontend is actually built (project memory, sequenced after API Specification).
+7. **No API Gateway routes or Cognito authorizer exist yet for the partner pool, added v1.1.** This document resolves the identity/session mechanism (`getPartnerAuth()`, `withChannelPartner()`); wiring an authorizer to actual REST endpoints is API Specification's (#11) job, the next artifact in this amendment's sequence — there's nothing to attach an authorizer to until routes are defined.
+8. **None of §2.4's new code has run against a real database or a real Cognito pool, added v1.1.** `cdk synth` succeeded and unit tests pass, but the integration tests exercising real RLS behavior (`db.integration.test.ts`) self-skip here (no `TEST_DATABASE_URL`) — same standing, disclosed limitation as every other DB-dependent test in this project (no AWS account exists yet, `mvp-roadmap.md` Blocker #1).
 
 ---
 
@@ -141,3 +197,21 @@ Reviewed 2026-07-09. One substantive factual error found and fixed — worse tha
 
 1. **§2.3 was factually wrong about the orphaned `service_partner` group's actual impact.** The first draft claimed a user in that group would be blocked ("403 on every endpoint") because no `requireRole()` call lists it. Re-checking every route handler (`sites.ts`, `assets.ts`, `devices.ts`, `alerts.ts`, `tickets.ts`, `telemetry.ts`) shows `list`/`getOne` handlers never call `requireRole()` at all — role is only checked on writes. So a `service_partner`-group user would actually get full read access to every tenant-scoped resource, not a wall of 403s. Corrected §2.3, and added the general pattern this reveals (default-allow on reads, not default-deny) as an explicit nuance in §2.1 rather than letting §2.1 keep claiming AUTH-3 is fully "reconciled, no gap."
 2. **Re-verified, held up:** the CORS `ALL_ORIGINS` finding (§3.2), the `rejectUnauthorized: false` TLS finding (§4.2), and the zero-call-sites audit-logging gap (§5) were all re-checked directly against the cited files during this pass and are accurate as originally written.
+
+**v1.1, reviewed 2026-07-11.** One real discrepancy found in this document's own prior claims, not a new external finding — worse in kind than a citation nit, since it's this document contradicting itself.
+
+3. **§5's original "real gap closed here" claim was false — the design was never implemented.** Direct search for `writeAuditLog`/`backend/shared/audit.ts` while designing §2.4's channel-partner audit extension found neither existed. The v1 text should have said "designed here," not "closed here." Fixed by actually implementing `writeAuditLog()` now (with real unit tests), and by rewording §5 to distinguish "the mechanism exists" from "call sites are wired in" — the former is now true, the latter still isn't (§8 item 5), and the rewrite makes sure that distinction survives instead of being flattened back into an overclaim a second time.
+4. **Verified, not assumed:** `cdk synth -c stage=dev` succeeds with the new `PartnerPool` construct (checked directly, not inferred from the CDK code reading correctly); `backend/`'s full test suite (65 tests) and typecheck pass with the new `auth.ts`/`db.ts`/`audit.ts` additions; the integration test file (11 tests total, 7 new) loads and self-skips cleanly under `npm run test:integration` without `TEST_DATABASE_URL` set, confirming the new test code is structurally valid even though it can't run against a real Postgres in this environment.
+5. **A real ordering bug caught while designing `withChannelPartner()`, not found by a failing test after the fact**: the first mental draft queried `channel_partner_users` before setting `app.current_channel_partner_id`, which would have silently returned zero rows (RLS-filtered) rather than erroring — incorrectly rejecting every valid partner user as "not found." Caught by tracing the RLS evaluation order against Database Schema §4.4's actual policy definitions before writing any code, and specifically regression-tested (`db.integration.test.ts`'s "bootstrapping-order fix" test).
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-11)** — forced by the PRD v1.5/SRS v1.5/Domain Model v1.1/Database Schema v1.1 amendment (channel-partner portal), per this document's own governing pattern (every prior artifact this session amends explicitly rather than silently diverging) — Database Schema §4.4 explicitly left the auth/API-layer mechanism open for this document to resolve.
+
+- **§2.4 added**: a separate Cognito `PartnerPool` (`infra/lib/auth-stack.ts`), `getPartnerAuth()` (`backend/shared/auth.ts`), `withChannelPartner()` + `requirePartnerRole()` (`backend/shared/db.ts`) — real, tested code, not just a design narrative. Deliberately no Cognito groups in the new pool; role is resolved from `channel_partner_users.role` at request time instead, a documented divergence from the tenant pool's groups-based pattern, not an inconsistency.
+- **§5 corrected, not just extended**: found that v1's "real gap closed here" claim for `writeAuditLog()` was false — the design existed, the code never did. Implemented for real now, extended to `audit_log_entries`' new dual-scope shape (Database Schema §4.4), with the call-site list extended for the two new channel-partner administrative actions (credential creation, route confirmation).
+- **A real RLS-bootstrapping ordering bug caught and fixed during design** (§2.4, §9 item 5): `app.current_channel_partner_id` must be set before the `channel_partner_users` lookup, or that lookup is silently RLS-filtered to zero rows.
+- **Verified via `cdk synth`, `npm run typecheck`, and the full backend test suite** (65 unit tests + 11 integration tests, the latter self-skipping cleanly without a real database) — not merely written and assumed correct.
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-channel-partner-portal` memory): no API Gateway routes or Cognito authorizer exist yet for the partner pool (nothing to attach one to until API Specification defines routes); `writeAuditLog()`'s new call sites aren't wired into any handler yet; none of this has run against a real database or Cognito pool (no AWS account exists yet).
