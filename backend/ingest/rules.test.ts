@@ -87,6 +87,67 @@ describe('evaluateRules', () => {
     });
   });
 
+  describe('pool_chemistry — CDC MAHC-sourced pH/chlorine thresholds, TDS industry guideline (SN-4.1)', () => {
+    it('does not fire for a healthy reading within CDC-recommended ranges', () => {
+      const fired = evaluateRules(
+        'pool_chemistry',
+        { ph: 7.4, free_chlorine_ppm: 2.1, tds_ppm: 800 },
+        null,
+      );
+      expect(fired).toEqual([]);
+    });
+
+    it('fires a warning when pH drops below the CDC minimum (7.0)', () => {
+      const fired = evaluateRules('pool_chemistry', { ph: 6.8 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('warning');
+      expect(fired[0].message).toContain('below the CDC-recommended range');
+    });
+
+    it('fires only the warning tier when pH is above 7.8 but not yet above the critical 8.0 tier', () => {
+      const fired = evaluateRules('pool_chemistry', { ph: 7.9 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('warning');
+    });
+
+    it('fires BOTH the 7.8 warning and the 8.0 critical tier once pH clears both', () => {
+      const fired = evaluateRules('pool_chemistry', { ph: 8.2 }, null);
+      expect(fired).toHaveLength(2);
+      expect(fired.map(f => f.rule.severity).sort()).toEqual(['critical', 'warning']);
+    });
+
+    it('fires a warning when free chlorine is below the CDC minimum (2 ppm)', () => {
+      const fired = evaluateRules('pool_chemistry', { free_chlorine_ppm: 1.2 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('warning');
+    });
+
+    it('fires critical when free chlorine exceeds the CDC bather-safety limit (10 ppm)', () => {
+      const fired = evaluateRules('pool_chemistry', { free_chlorine_ppm: 12 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('critical');
+    });
+
+    it('fires a warning when TDS exceeds the industry-standard guideline (1,500 ppm)', () => {
+      const fired = evaluateRules('pool_chemistry', { tds_ppm: 1800 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('warning');
+      expect(fired[0].message).toContain('industry-standard guideline');
+    });
+  });
+
+  describe('gas_sensor — binary critical alert, same structure as leak_sensor (SN-5.1)', () => {
+    it('fires critical when gas_leak_detected is truthy (>0.5)', () => {
+      const fired = evaluateRules('gas_sensor', { gas_leak_detected: 1 }, null);
+      expect(fired).toHaveLength(1);
+      expect(fired[0].rule.severity).toBe('critical');
+    });
+
+    it('does not fire when gas_leak_detected is 0', () => {
+      expect(evaluateRules('gas_sensor', { gas_leak_detected: 0 }, null)).toEqual([]);
+    });
+  });
+
   describe('hvac — static (non-spec) thresholds', () => {
     it('fires the low-temperature warning using a hardcoded threshold, independent of specs', () => {
       const fired = evaluateRules('hvac', { temp_c: 55 }, { temp_max_c: 200 });

@@ -72,6 +72,78 @@ export const RULES_BY_CATEGORY: Record<string, Rule[]> = {
       message: (v, _t) => `Pool temperature ${v.toFixed(1)}°C is above safe limit (35°C)`,
     },
   ],
+  // SN-4.1 — separate adapter from pool_system (SRS §3.2, Domain Model §2.3),
+  // since a pool can have a flow/temp sensor without a chemistry probe or
+  // vice versa. Thresholds sourced from CDC's Model Aquatic Health Code, 5th
+  // Ed. (Dec 2024) for pH and free chlorine; TDS has no CDC-published figure,
+  // so it's sourced from pool-industry consensus (AQUA Magazine/APSP-style
+  // guidance: max 1,500 ppm above a pool's fill/startup TDS) and flagged as
+  // an industry-standard citation, not a CDC one — resolves SRS Open Issue
+  // #1's "placeholder pending real verified pool-safety standards" for this
+  // adapter specifically.
+  pool_chemistry: [
+    {
+      // CDC MAHC: pH should be maintained at 7.0-7.8; below 7.0 water becomes
+      // corrosive/irritating and chlorine over-reacts, breaking down faster.
+      metric: 'ph', condition: 'lt',
+      threshold: 7.0,
+      severity: 'warning',
+      message: (v, _t) => `Pool pH ${v.toFixed(1)} is below the CDC-recommended range (7.0-7.8) — water may be corrosive and irritating to swimmers`,
+    },
+    {
+      metric: 'ph', condition: 'gt',
+      threshold: 7.8,
+      severity: 'warning',
+      message: (v, _t) => `Pool pH ${v.toFixed(1)} is above the CDC-recommended range (7.0-7.8) — chlorine's ability to kill germs is reduced`,
+    },
+    {
+      // CDC MAHC: chlorine's disinfecting power drops sharply above pH 8.0 —
+      // called out specifically in CDC's own rationale, so it's a distinct,
+      // more severe tier rather than folded into the 7.8 warning above.
+      metric: 'ph', condition: 'gt',
+      threshold: 8.0,
+      severity: 'critical',
+      message: (v, _t) => `Pool pH ${v.toFixed(1)} is critically high — chlorine's disinfecting effectiveness is significantly impaired above pH 8.0 (CDC MAHC)`,
+    },
+    {
+      // CDC MAHC: at least 2 ppm free chlorine required.
+      metric: 'free_chlorine_ppm', condition: 'lt',
+      threshold: 2,
+      severity: 'warning',
+      message: (v, _t) => `Free chlorine ${v.toFixed(1)} ppm is below the CDC-recommended minimum (2 ppm) — water may not be adequately disinfected`,
+    },
+    {
+      // CDC MAHC: free chlorine should not exceed 10 ppm while bathers are
+      // present — a bather-safety limit, not just a water-quality one, so
+      // this is critical rather than warning.
+      metric: 'free_chlorine_ppm', condition: 'gt',
+      threshold: 10,
+      severity: 'critical',
+      message: (v, _t) => `Free chlorine ${v.toFixed(1)} ppm exceeds the CDC bather-safety limit (10 ppm)`,
+    },
+    {
+      // Industry-standard guidance (not CDC-published): max 1,500 ppm TDS
+      // above a pool's startup level; using 1,500 ppm as an absolute
+      // threshold since this adapter has no per-pool startup baseline yet.
+      metric: 'tds_ppm', condition: 'gt',
+      threshold: 1500,
+      severity: 'warning',
+      message: (v, t) => `Total dissolved solids ${v.toFixed(0)} ppm exceeds the industry-standard guideline (${t.toFixed(0)} ppm) — water clarity and chemical efficiency may degrade`,
+    },
+  ],
+  // SN-5.1 — identical structure to leak_sensor (SRS §3.2): a binary
+  // detected/not-detected signal, immediate critical alert, no warning tier.
+  // No concentration threshold (e.g. LEL%, ppm) at MVP — that's a distinct,
+  // future content addition, not a re-architecture (matches SN-7.1's framing
+  // for air_quality).
+  gas_sensor: [
+    {
+      metric: 'gas_leak_detected', condition: 'gt',
+      threshold: 0.5,
+      severity: 'critical',
+      message: (_v, _t) => `Gas leak detected — immediate shutoff/inspection required`,
+    },
+  ],
   // Probe temp of the food/drink itself, not ambient air — lets the unit run warmer
   // (saving energy) while still catching an actual food-safety violation early.
   refrigeration: [
