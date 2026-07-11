@@ -5,6 +5,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as lambdaNode from 'aws-cdk-lib/aws-lambda-nodejs';
 import * as logs from 'aws-cdk-lib/aws-logs';
 import * as apigateway from 'aws-cdk-lib/aws-apigateway';
+import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 import { NetworkStack } from './network-stack';
@@ -128,10 +129,20 @@ export class ApiStack extends cdk.Stack {
       environment: {
         ...commonEnv,
         USER_POOL_ID: props.auth.userPool.userPoolId,
+        PARTNER_POOL_ID: props.auth.partnerPool.userPoolId,
       },
     });
     props.data.dbSecret.grantRead(apiFn);
     this.apiFn = apiFn;
+
+    // API Specification §4.5 — POST /v1/partner/users provisions a real
+    // Cognito account (AdminCreateUserCommand), not just a database row.
+    // Scoped to exactly the one admin action this route needs, not a
+    // blanket Cognito grant.
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cognito-idp:AdminCreateUser'],
+      resources: [props.auth.partnerPool.userPoolArn],
+    }));
 
     // Structured access log — distinct from the executionLogging above
     // (loggingLevel/dataTraceEnabled trace request handling for debugging;
@@ -200,7 +211,47 @@ export class ApiStack extends cdk.Stack {
     const telemetry = v1.addResource('telemetry');
     telemetry.addMethod('GET', integration, auth);
 
+    // ── Channel Partner Portal routes (API Specification §4.5, added v1.1) ──
+    // A second, separate Cognito authorizer bound to PartnerPool, not the
+    // tenant userPool authorizer above — Security Architecture §2.4 built
+    // the pool but deliberately left it unattached to any route, since none
+    // existed yet. Same apiFn Lambda handles both — backend/api/handler.ts
+    // branches on event.resource to pick getAuth()/route() (tenant) vs.
+    // getPartnerAuth()/partnerRoute() (partner), the same single-Lambda,
+    // internally-routed pattern already used for every other endpoint.
+    const partnerAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'PartnerAuthorizer', {
+      cognitoUserPools: [props.auth.partnerPool],
+      authorizerName: 'PartnerCognitoAuthorizer',
+    });
+    const partnerAuth: apigateway.MethodOptions = {
+      authorizer: partnerAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    };
+
+    const partner = v1.addResource('partner');
+    partner.addMethod('GET', integration, partnerAuth);
+
+    const partnerBranding = partner.addResource('branding');
+    partnerBranding.addMethod('PUT', integration, partnerAuth);
+
+    const addPartnerCrud = (name: string) => {
+      const r = partner.addResource(name);
+      r.addMethod('GET',  integration, partnerAuth);
+      r.addMethod('POST', integration, partnerAuth);
+      const detail = r.addResource(`{${name.replace(/s$/, '')}Id}`);
+      detail.addMethod('GET',    integration, partnerAuth);
+      detail.addMethod('PUT',    integration, partnerAuth);
+      detail.addMethod('DELETE', integration, partnerAuth);
+      return { resource: r, detail };
+    };
+
+    addPartnerCrud('territories');
+    addPartnerCrud('users');
+    const { detail: routeDetail } = addPartnerCrud('routes');
+    routeDetail.addResource('confirm').addMethod('POST', integration, partnerAuth);
+
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
+    new cdk.CfnOutput(this, 'PartnerAuthorizerId', { value: partnerAuthorizer.authorizerId });
 
     // RDS secret rotation is wired up in data-stack.ts, not here — see that
     // file for why (two failed attempts here first, both hitting a real

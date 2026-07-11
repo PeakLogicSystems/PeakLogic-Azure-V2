@@ -10,6 +10,7 @@
     "test:integration": "vitest run --config vitest.integration.config.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-cognito-identity-provider": "^3.1085.0",
     "@aws-sdk/client-secrets-manager": "^3.0.0",
     "pg": "^8.11.0"
   },

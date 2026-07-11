@@ -16,7 +16,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
 | 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
 | 10 | [Database Schema](database-schema.md) | ✅ Approved v1.1 (new §4.4 Channel Partner Portal & Dispatch Schema — real cross-tenant RLS + audit logging) |
-| 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
+| 11 | [API Specification](api-specification.md) | 🟡 Draft v1.1 (base Approved v1; new §4.5/§4.6 Channel Partner Portal endpoints pending approval — real infra + 4 route handler files shipped and typechecked) |
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1.1 (new §2.4 Channel Partner Portal Authentication — real Cognito pool + `withChannelPartner()` shipped and tested) |
 | 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1.1 (**critical finding, fixed**: RLS was never enforced against the app's own DB role — table-owner bypass, fixed via `FORCE ROW LEVEL SECURITY` across all 14 tables + device claim/provisioning + channel-partner suspension; a separate `devices.tenant_id` `NOT NULL` bug also found and fixed; three full audit passes) |
