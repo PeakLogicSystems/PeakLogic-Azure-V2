@@ -24,7 +24,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 16 | [Infrastructure as Code](infrastructure-as-code.md) | ✅ Approved v1 (cdk-nag adopted, all 21 findings resolved, RDS rotation shipped) |
 | 17 | [CI/CD Pipeline](cicd-pipeline.md) | 🟡 Draft v0.1 (pipeline designed + implemented from scratch — commits `c818f31` + workflows) |
 | 18 | [Test Strategy](test-strategy.md) | ✅ Approved v1 (Vitest stood up, 21 real tests written + verified — commit `f6da207`) |
-| 19 | [Threat Model](threat-model.md) | 🟡 Draft v0.1 (live SSRF found + fixed — commit `11d6dba`) |
+| 19 | [Threat Model](threat-model.md) | ✅ Approved v1 (2 real findings, both fixed — commits `11d6dba`, `ea394ad`) |
 | 20 | SOC 2 Control Mapping & Evidence Plan | 🔲 Not started |
 | 21 | Patent Opportunity Analysis | 🔲 Not started |
 | 22 | MVP Roadmap | 🔲 Not started |

@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1
 **Depends on:** [Security Architecture](security-architecture.md) (approved v1), [Multi-Tenant Architecture](multi-tenant-architecture.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [CI/CD Pipeline](cicd-pipeline.md) (draft v0.1)
 
 **Last updated:** 2026-07-11
