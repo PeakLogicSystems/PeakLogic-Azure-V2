@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [SRS](srs.md) (approved v1.4), [Domain Model](domain-model.md) (approved v1), [Database Schema](database-schema.md) (approved v1), [Security Architecture](security-architecture.md) (approved v1)
-**Last updated:** 2026-07-09
+**Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 until v1.1 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Domain Model](domain-model.md) (approved v1.1), [Database Schema](database-schema.md) (approved v1.1), [Security Architecture](security-architecture.md) (approved v1.1)
+**Last updated:** 2026-07-11
 
 ---
 
@@ -47,6 +47,30 @@ Every tenant-scoped table carries a `tenant_id` column and an identical `tenant_
 
 **Recommendation, implemented (commit `e2479a6`, 2026-07-09):** `getAuth()` now fails closed, mirroring the `tenant_id` check immediately above it in the same function — throws a 403 (`'User has no role assigned'`) when `groups.length === 0`, instead of defaulting to `'operator'`.
 
+### 2.5 Critical finding (added v1.1): RLS has never actually been enforced against the application's own DB role
+
+**This is the single most severe finding in this document's history — bigger than §2.2, because it means §2.2's own fix, and every other RLS policy in this schema, has been inert against the only role that ever queries these tables.** Found while auditing RLS coverage for the channel-partner amendment (Database Schema §4.4), using this document's own established methodology (§2.2's "enumerate and verify, don't trust the pattern's presence") — just applied one level deeper than table-by-table policy existence.
+
+**The gap:** `infra/lib/data-stack.ts` provisions the application's only DB credential via `rds.Credentials.fromGeneratedSecret('peaklogic_admin')`. `scripts/migrate.ts` — which runs every schema migration, i.e. creates every table — defaults to the identical `peaklogic_admin` user (`DB_USER ?? 'peaklogic_admin'`). There is no second, separate role anywhere in this codebase. **This means the application's runtime DB role is also the owner of every table it queries.**
+
+**Verified, not assumed, via direct research (not general recollection):** PostgreSQL's documented behavior is that a table's owner bypasses Row-Level Security by default — regardless of how many policies exist or how correctly they're written — unless the table is additionally altered with `FORCE ROW LEVEL SECURITY`. No table in this schema, at any point in this project's history, has ever had that applied. Separately confirmed that AWS RDS PostgreSQL specifically blocks granting the `BYPASSRLS` attribute to any role (so that particular mechanism isn't in play) — but table ownership is a completely different, easier-to-miss PostgreSQL mechanism that RDS does nothing to prevent.
+
+**Practical consequence:** every `tenant_isolation` policy in this schema — the original telemetry cross-tenant fix (§2.2, commit `cf581ee`), the suspension check (§3.2), and everything Database Schema v1.1 just built for channel-partner isolation — has been silently ineffective against `peaklogic_admin`, the only role that has ever existed in this application. This is a **latent** bug, not a live exploit today (nothing has ever been deployed against a real database — `mvp-roadmap.md` Blocker #1), but it would have been the instant a real deploy happened, and every prior "RLS fixes this" claim in this project's architecture docs (PRD §6, SRS MT-1.1, this document's own §2.1/§2.2, Database Schema, Security Architecture) has been describing a mechanism that would not have actually worked as designed.
+
+**Fixed 2026-07-11 (migration `1783728060000_force-row-level-security.sql`):** `FORCE ROW LEVEL SECURITY` applied to all 14 RLS-enabled tables. A related gap found in the same pass: `tenants` itself had **no RLS at all** — not missing `FORCE`, missing entirely (§2.5.1 below). And a third, directly-caused consequence: forcing RLS everywhere breaks `backend/ingest/handler.ts`'s telemetry-write path, which connected with no RLS session variable set at all under the (accidentally true, for the wrong reason) assumption that this was a deliberate "trusted system bypass" — fixed in the same migration and in `handler.ts` itself (§2.5.2 below).
+
+**Not fixed, and deliberately not attempted here — a real, larger option flagged for later:** introducing a genuinely separate, non-owning application DB role (the security best practice AWS's own RDS documentation recommends — "have your application connect... as a user other than the owner of the database objects") would be more robust than `FORCE ROW LEVEL SECURITY` alone in one respect (a compromised app credential with `CREATE`/`ALTER` privileges could in principle disable `FORCE` itself, whereas a non-owning role structurally cannot). `FORCE ROW LEVEL SECURITY` is a complete, correct fix for the actual problem this section found — a separate role is additional defense-in-depth, not required to close this gap, and is a materially bigger infrastructure change (new role, new Secrets Manager secret, `getPool()`/`db.ts` changes to support per-Lambda credential resolution, migration re-plumbing). Flagged in §6, not silently deferred.
+
+#### 2.5.1 `tenants` had no RLS at all — found and fixed in the same pass
+
+Every other tenant-scoped table has an identical `tenant_isolation` policy; `tenants` had none — confirmed by direct enumeration, not assumed. This didn't matter in practice today (the only two existing queries against it, `backend/ingest/handler.ts` and `withTenant()`'s own status check, both already filter by an explicit, trusted `WHERE id = $1`), but leaving the one table every other isolation decision is *about* completely unrestricted, while forcing RLS everywhere else, would be inconsistent — and concretely, Database Schema §4.4's `channel_partner_can_read_site()` function `JOIN`s into `tenants` to resolve `channel_partner_id`; without a policy permitting that read, forcing RLS on `sites`/`assets`/etc. would have silently broken every channel-partner read this session just built, since the `JOIN` would see zero tenant rows. Fixed with two policies (`tenant_isolation`: a tenant reads its own row; `channel_partner_read`: a channel-partner session reads any tenant attributed to their partner) — see `docs/data-model.sql`.
+
+#### 2.5.2 Ingest telemetry writes would have broken entirely — found and fixed in the same pass
+
+`backend/ingest/handler.ts` connects via `pool.connect()` with **no** RLS session variable set, and its first operation looks up a device by `thing_name` — before it even knows which tenant that device belongs to. The handler's own comment called this "no RLS — ingest is a system operation," treating the omission as deliberate. It wasn't a deliberate exemption; it was the same table-owner bug as everywhere else, just manifesting as "nothing was ever blocked" instead of "nothing was ever isolated." Once `FORCE ROW LEVEL SECURITY` actually takes effect, an ingest connection with zero session variables set would be blocked from reading `devices` at all — silently breaking telemetry ingestion, the single most important data path in the product, not just tightening its isolation.
+
+**Fixed with a narrowly-scoped, explicit exemption, not a broad bypass**: a new `app.ingest_context = 'true'` session marker, checked by a new `ingest_lookup` policy on `devices` and `assets` **(SELECT only)** — permitting exactly the one operation that has to run before a tenant is known. The instant `handler.ts` resolves `device.tenant_id` from that lookup, it sets `app.current_tenant_id` for the rest of the transaction (wrapped in an explicit `BEGIN`/`COMMIT`, which the handler didn't have before — `SET LOCAL` requires one) — every subsequent operation (heartbeat update, telemetry insert, alert evaluation, ticket creation, tenant-settings read) is now properly tenant-scoped, the same as any human-facing API request. **This ends up more correctly isolated than the old framing implied, not a weaker version of it** — regression-tested directly (`db.integration.test.ts`, 5 new tests): the owner-bypass bug reproduced before the fix, blocked after; `app.ingest_context` proven to permit the lookup but not grant write access; `app.current_tenant_id` proven to correctly separate two tenants' devices after the handoff.
+
 ---
 
 ## 3. Tenant Lifecycle
@@ -63,11 +87,19 @@ No API endpoint or code path creates a `tenants` row — tenant provisioning is 
 
 **Decision made and implemented (commit `e2479a6`, 2026-07-09): the check lives in `withTenant()`**, since it's the one function every tenant-scoped operation already goes through — it now queries `tenants.status` for the resolved `tenantId` and rejects (403) if `suspended` (or if the tenant row doesn't exist at all, a distinct 403). This adds one extra query per request; acceptable at MVP scale, cacheable later if it becomes a real cost. **Scoped deliberately to the human-facing API only** — `backend/ingest/handler.ts`'s telemetry writes intentionally bypass `withTenant()` via an unscoped pool connection and are unaffected, so a suspended tenant's already-connected devices keep reporting telemetry rather than losing data, and access resumes immediately on unsuspend. Blocking ingestion too would be a separate, deliberate product decision, not implied by this fix.
 
+### 3.3 Channel-partner suspension — same gap found and fixed, one level up *(new — added v1.1)*
+
+**The gap, found during the same v1.1 review that found §2.5:** `channel_partners` had no `status` column at all, and no code path could have enforced a suspension even if one existed — unlike `tenants`, this isn't "schema exists, enforcement doesn't" (§3.2's original finding), it's "neither exists." If a channel-partner relationship needs to be suspended (a contract dispute, portal-abuse concern), there was no way to do that short of deleting the row outright.
+
+**Fixed (migration `1783728120000_channel-partner-suspension.sql`): `channel_partners.status` (`active`/`suspended`), enforced in `withChannelPartner()`**, mirroring §3.2's exact pattern — queries `channel_partners.status` for the resolved `channelPartnerId` and rejects (403) if `suspended` or not found. **Scoped deliberately to the partner portal only, mirroring §3.2's own tenant-suspension scoping**: suspending a channel partner has zero effect on the tenants attributed to them — `withTenant()` never checks `channel_partners.status` at all, since it's a completely separate code path. A pool-service company's own software keeps working regardless of a dispute between PeakLogic and their channel-partner relationship; only that partner's own portal users (`partner_admin`, `technician`) are locked out. Regression-tested directly (`db.integration.test.ts`): a suspended partner's `partner_admin` is rejected; a tenant attributed to a suspended partner still reads its own data fine via `withTenant()`.
+
 ---
 
 ## 4. Resource Sharing & Noisy-Neighbor Posture (MVP-acceptable, flagged for later)
 
 All tenants share one RDS instance (`db.t3.micro`, `multiAz: false` — both already have "flip for prod" comments in `data-stack.ts`), and each Lambda container's connection pool caps at 2 connections (`db.ts`, `max: 2`). There's no per-tenant resource quota, query timeout, or rate limit beyond the platform-wide API Gateway throttling (Security Architecture §3.4, 200 burst/100 rate, shared across all tenants). At the current design-partner-tenant scale (PRD §8) this is a reasonable MVP posture — the same reasoning Compliance & Certification Roadmap §5 already applied to `multiAz`/`deletionProtection`. **Not a gap to fix now**, but a real constraint to revisit before onboarding a tenant whose usage pattern could meaningfully starve others (e.g., a very high telemetry-ingest volume vertical) — most naturally as part of Deployment Architecture (#15), which owns infrastructure sizing.
+
+**Channel-partner sessions share this exact same posture, added v1.1** — same RDS instance, same connection pool, no separate quota. `withChannelPartner()`'s extra queries (partner status check, `channel_partner_users` lookup) are the same order of magnitude as `withTenant()`'s own suspension check (§3.2) — not a meaningfully different load profile. No new resource-sharing concern introduced by this amendment.
 
 ---
 
@@ -81,6 +113,8 @@ All tenants share one RDS instance (`db.t3.micro`, `multiAz: false` — both alr
 | §3.1 Provisioning | PRD §8 (explicitly out of MVP scope) |
 | §3.2 Suspension enforcement gap | New finding — already fixed (commit `e2479a6`) — `tenants.status` (Database Schema) had no enforcing code |
 | §4 Resource sharing | Compliance & Certification Roadmap §5 (same "flip for prod" reasoning already applied elsewhere) |
+| §2.5 Table-owner RLS bypass *(added v1.1)* | New finding — no existing requirement covers this; corrects every prior "RLS enforces isolation" claim in this project (PRD §6, SRS MT-1.1, this document's own §2.1/§2.2) |
+| §3.3 Channel-partner suspension gap *(added v1.1)* | Database Schema §4.4 (`channel_partners`), same class of gap as §3.2 |
 
 ---
 
@@ -90,12 +124,16 @@ All tenants share one RDS instance (`db.t3.micro`, `multiAz: false` — both alr
 2. ~~§3.2's suspension enforcement~~ **Done (commit `e2479a6`, 2026-07-09)** — landed in `withTenant()`, human-facing API only; ingestion is deliberately unaffected (see §3.2).
 3. **§4's resource-sharing posture remains explicitly deferred, not resolved** — revisit in Deployment Architecture (#15) before onboarding a tenant with a meaningfully different usage profile than today's design partners.
 4. **New, from implementing §3.2: no tenant-suspension trigger/workflow exists.** `tenants.status` can now actually block access, but nothing sets a tenant to `suspended` in the first place — like provisioning (§3.1), suspension itself is presumably a manual ops/SQL action today. Not a gap (matches the same "no self-serve tenant management at MVP" scoping as §3.1), but worth noting so a future reader doesn't assume a suspension workflow exists just because enforcement now does.
+5. ~~§2.5's table-owner RLS bypass~~ **Done (migration `1783728060000_force-row-level-security.sql`, 2026-07-11).** `FORCE ROW LEVEL SECURITY` applied to all 14 RLS-enabled tables; `tenants` given RLS for the first time; `backend/ingest/handler.ts` fixed to use `app.ingest_context` + a post-lookup `app.current_tenant_id` handoff instead of relying on an accidental bypass.
+6. **A genuinely separate, non-owning application DB role remains a real, unresolved option, added v1.1.** `FORCE ROW LEVEL SECURITY` is a complete, correct fix for §2.5's actual problem, but AWS's own RDS security guidance recommends the application connect as a role other than the table owner as additional defense-in-depth (a compromised credential with `ALTER TABLE` privileges could in principle remove `FORCE`, which a non-owning role structurally could not do). Not attempted here — a materially bigger infrastructure change (new role, new Secrets Manager secret, `getPool()` changes for per-Lambda credential resolution, migration re-plumbing) than this gap required to close. Revisit if a SOC 2 Type II auditor or a specific enterprise security review asks for it, the same proportionality judgment this project applies elsewhere (WAF, Cognito Plus tier).
+7. ~~§3.3's channel-partner suspension gap~~ **Done (migration `1783728120000_channel-partner-suspension.sql`, 2026-07-11).** `channel_partners.status`, enforced in `withChannelPartner()`, portal-only.
+8. **New, mirroring §6 item 4: no channel-partner-suspension trigger/workflow exists either, added v1.1.** Same reasoning, same non-gap — suspension itself is presumably a manual ops/SQL action, matching how channel-partner attribution assignment (CH-1.2) already works.
 
 ---
 
 ## 7. Review Log
 
-Reviewed 2026-07-09. Every factual claim re-checked directly against the code a second time; none needed correction.
+**v1 (2026-07-09):** every factual claim re-checked directly against the code a second time; none needed correction.
 
 - §2.1's `SET LOCAL` claim re-verified in `db.ts`.
 - §2.2's "only other telemetry access is the ingest handler's unscoped pool" re-verified (`handler.ts` uses `getPool()`/`pool.connect()` directly, not `withTenant()`).
@@ -103,4 +141,25 @@ Reviewed 2026-07-09. Every factual claim re-checked directly against the code a 
 - §3.1's "no code path creates a `tenants` row" broadened from the original narrow grep to also search for `new Tenant`/`tenants (` patterns — still zero matches.
 - §3.2's "no code checks `tenants.status`" broadened from a literal `status` grep (too noisy — matches HTTP status codes, alert/device/ticket status) to a `tenant`-near-`status` proximity search — the two matches found were both false positives (an HTTP `statusCode` field, a code comment about device provisioning status), confirming the finding rather than overturning it.
 
-No changes made as a result of this pass — first artifact in this project's review history where the draft held up completely on re-check.
+No changes made as a result of that pass — first artifact in this project's review history where the draft held up completely on re-check.
+
+**v1.1 (2026-07-11), reviewed 2026-07-11.** The single most consequential finding in this document's history, found by applying its own established methodology one level deeper than ever before.
+
+1. **§2.5's table-owner bypass was verified via direct research, not asserted from general recollection** — two separate `WebSearch` queries confirmed (a) AWS RDS PostgreSQL specifically blocks granting `BYPASSRLS` to any role, and (b) PostgreSQL's *separate* table-owner-bypass mechanism is unaffected by that RDS restriction and requires its own explicit `FORCE ROW LEVEL SECURITY` opt-out, which this schema never had. Cross-checked against this project's actual code (`infra/lib/data-stack.ts`, `scripts/migrate.ts`) to confirm — not assumed — that the app's runtime DB role and the migration-running (table-owning) role really are the same `peaklogic_admin` credential.
+2. **Two direct consequences of the fix were traced through and caught before shipping, not discovered by a failing test afterward**: `tenants` itself had no RLS at all (§2.5.1), which would have broken `channel_partner_can_read_site()`'s own `JOIN`; and `backend/ingest/handler.ts`'s telemetry-write path had no RLS session variable set at all (§2.5.2), which would have broken telemetry ingestion entirely the moment `FORCE` actually took effect. Both fixed in the same pass, not left as follow-up surprises.
+3. **§3.3 (channel-partner suspension) re-verified as a real, distinct gap**, not assumed analogous to §3.2 without checking — confirmed directly that `channel_partners` had no `status` column at all (not just missing enforcement, the schema itself was absent).
+4. **Re-verified, held up:** that `scripts/migrate.ts` really does default to the same `peaklogic_admin` user as the application's runtime credential (re-checked both files side by side); that the existing `missing_ok` fix (Database Schema §4.4) and this document's `FORCE ROW LEVEL SECURITY` fix are complementary, not redundant — one makes `current_setting()` fail safely, the other makes the resulting policies actually apply to the only role that exists.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-11)** — triggered by the channel-partner amendment (PRD v1.5/SRS v1.5/Domain Model v1.1/Database Schema v1.1/Security Architecture v1.1), but the most important finding it produced (§2.5) predates that work entirely and would have been found by any sufficiently thorough re-audit of this document's own §2.2 methodology.
+
+- **§2.5 added — the most severe finding in this project's history**: RLS has never actually been enforced against the application's own DB role, since it owns every table it queries and `FORCE ROW LEVEL SECURITY` was never applied anywhere. Fixed (migration `1783728060000_force-row-level-security.sql`) across all 14 RLS-enabled tables.
+- **§2.5.1 added**: `tenants` had no RLS at all — found as a direct dependency of §2.5's fix (Database Schema's `channel_partner_can_read_site()` needed it), fixed in the same migration.
+- **§2.5.2 added**: `backend/ingest/handler.ts`'s telemetry-write path had no RLS session variable set at all, which would have broken entirely once §2.5's fix took effect — fixed with a new `app.ingest_context` marker (narrowly scoped, SELECT-only, two tables) plus a post-lookup handoff to normal `app.current_tenant_id` scoping. The handler gained an explicit transaction (`BEGIN`/`COMMIT`) it didn't have before, since `SET LOCAL` requires one.
+- **§3.3 added**: `channel_partners` had no suspension concept at all (schema and enforcement both absent, unlike §3.2's "schema exists, enforcement doesn't"). Fixed (migration `1783728120000_channel-partner-suspension.sql`) with the same portal-only scoping principle §3.2 already established.
+- **§4 amended**: a brief note that channel-partner sessions share the existing resource-sharing posture, no new concern introduced.
+- **5 new regression tests added** (`db.integration.test.ts`): the table-owner bypass reproduced pre-fix and proven blocked post-fix (using a dedicated, non-superuser test role that mirrors the real bug exactly, not a role that would falsely pass either way); `app.ingest_context` proven to permit exactly one operation and nothing else; the channel-partner suspension check and its portal-only scoping.
+- **Explicitly not resolved in this pass** (§6 item 6, tracked in project memory): a genuinely separate, non-owning application DB role — real defense-in-depth, not required to close the actual gap `FORCE ROW LEVEL SECURITY` already closes.

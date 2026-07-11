@@ -17,6 +17,18 @@
 -- current_setting(..., true) (missing_ok) rather than erroring when that
 -- variable is unset.
 --
+-- CRITICAL, added v1.1 (Multi-Tenant Architecture §2.5): every RLS-enabled
+-- table below also has FORCE ROW LEVEL SECURITY. Without it, the app's DB
+-- role (peaklogic_admin) -- which owns every table it queries, since it's
+-- also the role every migration runs as -- silently bypasses RLS entirely
+-- by default, regardless of how many policies exist. This was true for
+-- every table in this schema from the very first migration until this fix;
+-- never caught because nothing has ever been deployed against a real
+-- database. backend/ingest/handler.ts sets one more session variable,
+-- app.ingest_context = 'true', for the one read (device/asset lookup by
+-- thing_name) that must happen before that device's tenant is even known
+-- -- see devices'/assets' ingest_lookup policies.
+--
 -- NOTE ON ORDERING: this file is a single linear script (unlike the real
 -- migrations in scripts/migrations/, which build incrementally on an
 -- already-existing schema). The cross-tenant channel_partner_read
@@ -46,6 +58,10 @@ CREATE TABLE channel_partners (
   branding     JSONB,                        -- {logo_url, primary_color, secondary_color} for the
                                                -- white-label portal login (CH-3.1); null until a
                                                -- partner is onboarded to the portal
+  status       TEXT        NOT NULL DEFAULT 'active'
+               CHECK (status IN ('active', 'suspended')),  -- v1.1, Multi-Tenant Architecture §3.3 —
+                                                            -- portal-only enforcement, does not affect
+                                                            -- this partner's attributed tenants' own service
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -68,6 +84,20 @@ CREATE TABLE tenants (
 
 CREATE INDEX tenants_channel_partner_idx ON tenants(channel_partner_id);
 
+-- RLS added v1.1, found missing entirely (not just missing FORCE) during
+-- the same audit that found every other table's RLS was inert against the
+-- table-owning application role (see the FORCE ROW LEVEL SECURITY note
+-- below). Two policies: a tenant reads its own row; a channel-partner
+-- session reads any tenant attributed to their partner (needed for
+-- channel_partner_can_read_site()'s JOIN into this table to work at all
+-- once FORCE is applied everywhere).
+ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON tenants
+  USING (id = current_setting('app.current_tenant_id', true)::uuid);
+CREATE POLICY channel_partner_read ON tenants FOR SELECT
+  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+
 -- ─────────────────────────────────────────────────────────────
 -- USERS
 -- ─────────────────────────────────────────────────────────────
@@ -84,6 +114,7 @@ CREATE TABLE users (
 );
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -107,6 +138,7 @@ CREATE TABLE sites (
 );
 
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
+ALTER TABLE sites FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sites
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -139,8 +171,17 @@ CREATE TABLE assets (
 );
 
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE assets FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON assets
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- v1.1: permits backend/ingest/handler.ts's initial device/asset lookup by
+-- thing_name, before that device's tenant is known — narrowly scoped
+-- (SELECT only) to the app.ingest_context session marker, not a general
+-- exemption. See devices' matching ingest_lookup policy below and Multi-
+-- Tenant Architecture §2.5 for the full reasoning.
+CREATE POLICY ingest_lookup ON assets FOR SELECT
+  USING (current_setting('app.ingest_context', true) = 'true');
 
 CREATE INDEX assets_site_idx ON assets(site_id);  -- RP-1.1 portfolio roll-up joins sites -> assets
 
@@ -163,8 +204,14 @@ CREATE TABLE devices (
 );
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
+ALTER TABLE devices FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON devices
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- v1.1: see assets' matching ingest_lookup policy above — same reasoning,
+-- this is the table the ingest handler actually looks up by thing_name.
+CREATE POLICY ingest_lookup ON devices FOR SELECT
+  USING (current_setting('app.ingest_context', true) = 'true');
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
 
@@ -188,6 +235,7 @@ CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
 -- cross-tenant data exposure via GET /v1/telemetry?deviceId=<any tenant's
 -- device>. See Multi-Tenant Architecture (#14) for the full writeup.
 ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
+ALTER TABLE telemetry FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -210,6 +258,7 @@ CREATE TABLE telemetry_hourly (
 );
 
 ALTER TABLE telemetry_hourly ENABLE ROW LEVEL SECURITY;
+ALTER TABLE telemetry_hourly FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry_hourly
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -237,6 +286,7 @@ CREATE TABLE metric_baselines (
 );
 
 ALTER TABLE metric_baselines ENABLE ROW LEVEL SECURITY;
+ALTER TABLE metric_baselines FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON metric_baselines
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -265,6 +315,7 @@ CREATE TABLE alerts (
 );
 
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
+ALTER TABLE alerts FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON alerts
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -292,6 +343,7 @@ CREATE TABLE service_tickets (
 );
 
 ALTER TABLE service_tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_tickets FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_tickets
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
@@ -326,6 +378,7 @@ CREATE TABLE territories (
 CREATE INDEX territories_channel_partner_idx ON territories(channel_partner_id);
 
 ALTER TABLE territories ENABLE ROW LEVEL SECURITY;
+ALTER TABLE territories FORCE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON territories
   USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
 
@@ -352,6 +405,7 @@ CREATE INDEX channel_partner_users_partner_idx ON channel_partner_users(channel_
 CREATE INDEX channel_partner_users_territory_idx ON channel_partner_users(territory_id);
 
 ALTER TABLE channel_partner_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channel_partner_users FORCE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON channel_partner_users
   USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
 
@@ -383,6 +437,7 @@ CREATE TABLE route_assignments (
 CREATE INDEX route_assignments_partner_idx ON route_assignments(channel_partner_id);
 
 ALTER TABLE route_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_assignments FORCE ROW LEVEL SECURITY;
 -- A partner_admin sees every route under their channel_partner_id; a
 -- technician sees only their own (route visibility is more sensitive
 -- than territory/user visibility — it reveals a colleague's schedule and
@@ -411,6 +466,7 @@ CREATE TABLE route_stops (
 CREATE INDEX route_stops_assignment_idx ON route_stops(route_assignment_id);
 
 ALTER TABLE route_stops ENABLE ROW LEVEL SECURITY;
+ALTER TABLE route_stops FORCE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON route_stops
   USING (
     route_assignment_id IN (
@@ -455,6 +511,7 @@ CREATE TABLE audit_log_entries (
 );
 
 ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE audit_log_entries FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON audit_log_entries
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 CREATE POLICY channel_partner_isolation ON audit_log_entries

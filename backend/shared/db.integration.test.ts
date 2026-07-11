@@ -163,6 +163,8 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
   let tenantIn: string;   // attributed to the partner
   let tenantOut: string;  // NOT attributed to the partner — must stay invisible
   let partnerId: string;
+  let suspendedPartnerId: string;
+  let suspendedPartnerAdminCognitoSub: string;
   let territoryId: string;   // covers siteIn's coordinates
   let otherTerritoryId: string; // does NOT cover siteIn's coordinates
   let adminCognitoSub: string;
@@ -179,8 +181,9 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
 
     await setup.query(`
       CREATE TABLE channel_partners (
-        id   UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        name TEXT NOT NULL
+        id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        name   TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended'))
       );
       CREATE TABLE tenants (
         id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -241,9 +244,19 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
     `);
 
     const { rows: [p] } = await setup.query(
-      `INSERT INTO channel_partners (name) VALUES ('Pinch-A-Penny Test') RETURNING id`,
+      `INSERT INTO channel_partners (name, status) VALUES ('Pinch-A-Penny Test', 'active') RETURNING id`,
     );
     partnerId = p.id;
+
+    const { rows: [sp] } = await setup.query(
+      `INSERT INTO channel_partners (name, status) VALUES ('Suspended Partner Test', 'suspended') RETURNING id`,
+    );
+    suspendedPartnerId = sp.id;
+    suspendedPartnerAdminCognitoSub = 'cognito-sub-suspended-admin';
+    await setup.query(
+      `INSERT INTO channel_partner_users (channel_partner_id, cognito_sub, role) VALUES ($1, $2, 'partner_admin')`,
+      [suspendedPartnerId, suspendedPartnerAdminCognitoSub],
+    );
 
     const { rows: [tIn] } = await setup.query(
       `INSERT INTO tenants (name, slug, channel_partner_id) VALUES ('In-Network Pool Co', 'in-network', $1) RETURNING id`,
@@ -360,11 +373,174 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
     ).rejects.toThrow('Channel partner user not found');
   });
 
+  it('rejects a suspended channel partner before the wrapped operation runs — regression test for Multi-Tenant Architecture §3.3, mirrors §3.2\'s tenant-suspension enforcement', async () => {
+    await expect(
+      withChannelPartner(
+        { sub: suspendedPartnerAdminCognitoSub, email: '', channelPartnerId: suspendedPartnerId },
+        (client) => client.query('SELECT 1'),
+      ),
+    ).rejects.toThrow('Channel partner is suspended');
+  });
+
+  it('suspending a channel partner does not affect a tenant session for a tenant attributed to that partner — portal-only enforcement, not a service-wide one', async () => {
+    // Attribute tenantIn to the suspended partner temporarily, prove
+    // withTenant() still works fine regardless.
+    await setup.query('UPDATE tenants SET channel_partner_id = $1 WHERE id = $2', [suspendedPartnerId, tenantIn]);
+    try {
+      const rows = await withTenant(tenantIn, (client) =>
+        client.query('SELECT * FROM sites WHERE id = $1', [siteIn]).then(r => r.rows),
+      );
+      expect(rows).toHaveLength(1);
+    } finally {
+      await setup.query('UPDATE tenants SET channel_partner_id = $1 WHERE id = $2', [partnerId, tenantIn]);
+    }
+  });
+
   it("a tenant session (withTenant) is completely unaffected by the channel_partner_read policy's existence", async () => {
     const rows = await withTenant(tenantIn, (client) =>
       client.query('SELECT * FROM sites WHERE id = $1', [siteIn]).then(r => r.rows),
     );
     expect(rows).toHaveLength(1);
+  });
+});
+
+// Multi-Tenant Architecture §2.5 (added v1.1) — regression coverage for the
+// FORCE ROW LEVEL SECURITY fix itself, and the app.ingest_context marker
+// backend/ingest/handler.ts now depends on. Uses the RDS-equivalent setup
+// deliberately: a non-superuser role that OWNS the tables it queries,
+// mirroring the real bug exactly (peaklogic_admin runs migrations AND app
+// queries) — a superuser or a separate non-owning role would silently pass
+// this test even with FORCE missing, which is exactly the blind spot that
+// let this bug ship unnoticed in the first place.
+describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres)', () => {
+  let setup: Client;
+  let ownerClient: Client;
+  let tenantA: string;
+  let tenantB: string;
+  let deviceA: string;
+
+  beforeAll(async () => {
+    setup = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await setup.connect();
+
+    // A dedicated, non-superuser owner role — deliberately not reusing
+    // whatever role TEST_DATABASE_URL's own connection string already uses,
+    // since that might itself be a superuser in a local/CI Postgres image
+    // (which would bypass RLS regardless of FORCE, for an unrelated reason,
+    // and falsely "pass" this test either way).
+    await setup.query(`
+      DO $$ BEGIN
+        IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'rls_test_owner') THEN
+          CREATE ROLE rls_test_owner LOGIN PASSWORD 'test' NOSUPERUSER NOBYPASSRLS;
+        END IF;
+      END $$;
+    `);
+    await setup.query('GRANT CREATE ON SCHEMA public TO rls_test_owner');
+
+    const ownerUrl = new URL(process.env.TEST_DATABASE_URL!);
+    ownerUrl.username = 'rls_test_owner';
+    ownerUrl.password = 'test';
+    ownerClient = new Client({ connectionString: ownerUrl.toString() });
+    await ownerClient.connect();
+
+    // Tables created AS rls_test_owner, exactly like scripts/migrate.ts
+    // running as peaklogic_admin in production — this role is the owner.
+    await ownerClient.query(`
+      CREATE TABLE rls_test_tenants (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+      );
+      CREATE TABLE rls_test_devices (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id   UUID NOT NULL REFERENCES rls_test_tenants(id),
+        thing_name  TEXT NOT NULL UNIQUE
+      );
+      ALTER TABLE rls_test_devices ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY tenant_isolation ON rls_test_devices
+        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+      CREATE POLICY ingest_lookup ON rls_test_devices FOR SELECT
+        USING (current_setting('app.ingest_context', true) = 'true');
+    `);
+
+    const { rows: [a] } = await ownerClient.query('INSERT INTO rls_test_tenants DEFAULT VALUES RETURNING id');
+    const { rows: [b] } = await ownerClient.query('INSERT INTO rls_test_tenants DEFAULT VALUES RETURNING id');
+    tenantA = a.id;
+    tenantB = b.id;
+
+    const { rows: [d] } = await ownerClient.query(
+      `INSERT INTO rls_test_devices (tenant_id, thing_name) VALUES ($1, 'thing-a') RETURNING id`,
+      [tenantA],
+    );
+    deviceA = d.id;
+  });
+
+  afterAll(async () => {
+    await ownerClient.query('DROP TABLE IF EXISTS rls_test_devices, rls_test_tenants CASCADE');
+    await ownerClient.end();
+    await setup.query('DROP ROLE IF EXISTS rls_test_owner');
+    await setup.end();
+  });
+
+  it('WITHOUT FORCE ROW LEVEL SECURITY, the owning role sees every row regardless of any policy — reproduces the exact bug found in Multi-Tenant Architecture §2.5', async () => {
+    // No FORCE applied yet — this is the pre-fix state every table in this
+    // schema was actually in, from the very first migration.
+    const rows = await ownerClient.query('SELECT * FROM rls_test_devices').then(r => r.rows);
+    // If this ever returns 0, something about the test setup changed and
+    // the premise of the whole regression test is wrong — fail loudly.
+    expect(rows.length).toBeGreaterThan(0);
+  });
+
+  it('WITH FORCE ROW LEVEL SECURITY, the same owning role is correctly blocked without app.ingest_context or a matching app.current_tenant_id', async () => {
+    await ownerClient.query('ALTER TABLE rls_test_devices FORCE ROW LEVEL SECURITY');
+
+    await ownerClient.query('BEGIN');
+    try {
+      const rows = await ownerClient.query('SELECT * FROM rls_test_devices WHERE id = $1', [deviceA]).then(r => r.rows);
+      expect(rows).toHaveLength(0); // this is the bug this migration fixes — proven fixed, not assumed
+    } finally {
+      await ownerClient.query('ROLLBACK');
+    }
+  });
+
+  it('app.ingest_context permits the device lookup even though the tenant is not yet known — the exact operation backend/ingest/handler.ts performs first', async () => {
+    await ownerClient.query('BEGIN');
+    try {
+      await ownerClient.query("SET LOCAL app.ingest_context = 'true'");
+      const rows = await ownerClient.query('SELECT * FROM rls_test_devices WHERE thing_name = $1', ['thing-a']).then(r => r.rows);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].tenant_id).toBe(tenantA);
+    } finally {
+      await ownerClient.query('ROLLBACK');
+    }
+  });
+
+  it('app.ingest_context does NOT grant write access — narrowly scoped to SELECT only, not a general bypass', async () => {
+    await ownerClient.query('BEGIN');
+    try {
+      await ownerClient.query("SET LOCAL app.ingest_context = 'true'");
+      await expect(
+        ownerClient.query(
+          `INSERT INTO rls_test_devices (tenant_id, thing_name) VALUES ($1, 'thing-should-fail')`,
+          [tenantB],
+        ),
+      ).rejects.toThrow();
+    } finally {
+      await ownerClient.query('ROLLBACK');
+    }
+  });
+
+  it('after app.current_tenant_id is set (the handler.ts pattern, post-lookup), the same session correctly reads only that tenant\'s rows', async () => {
+    await ownerClient.query('BEGIN');
+    try {
+      await ownerClient.query('SET LOCAL app.current_tenant_id = $1', [tenantA]);
+      const own = await ownerClient.query('SELECT * FROM rls_test_devices WHERE id = $1', [deviceA]).then(r => r.rows);
+      expect(own).toHaveLength(1);
+
+      await ownerClient.query('SET LOCAL app.current_tenant_id = $1', [tenantB]);
+      const other = await ownerClient.query('SELECT * FROM rls_test_devices WHERE id = $1', [deviceA]).then(r => r.rows);
+      expect(other).toHaveLength(0);
+    } finally {
+      await ownerClient.query('ROLLBACK');
+    }
   });
 });
 

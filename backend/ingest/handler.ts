@@ -39,7 +39,32 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
   const client = await pool.connect();
 
   try {
-    // 1. Look up device + linked asset (no RLS — ingest is a system operation)
+    await client.query('BEGIN');
+
+    // Multi-Tenant Architecture v1.1 — every table now has FORCE ROW LEVEL
+    // SECURITY (migration 1783728060000), closing a foundational bug: the
+    // app's DB role owns every table it queries, and an owner silently
+    // bypasses RLS by default regardless of how many policies exist, unless
+    // FORCE is set. That means this handler's old comment ("no RLS — ingest
+    // is a system operation") was describing an accident, not a deliberate
+    // exemption — once FORCE actually takes effect, an ingest connection
+    // that never sets any RLS session variable would be blocked from
+    // reading/writing anything at all, silently breaking telemetry
+    // ingestion entirely, not just tightening it.
+    //
+    // app.ingest_context marks this specific, narrowly-scoped read — a
+    // device looking itself up by its own unique, certificate-authenticated
+    // thing_name, before its tenant is even known — as trusted (devices'
+    // and assets' ingest_lookup policies, docs/data-model.sql). It grants
+    // SELECT only, nothing else, and only on these two tables. The instant
+    // the device's tenant_id is resolved below, every remaining operation
+    // in this transaction switches to normal app.current_tenant_id scoping
+    // — this ends up MORE correctly isolated than the old framing, not a
+    // weaker version of it.
+    await client.query("SET LOCAL app.ingest_context = 'true'");
+
+    // 1. Look up device + linked asset by thing_name — the one read that
+    // must run before any tenant is known.
     const { rows: [device] } = await client.query<Device & { category: string; specs: AssetSpecs | null }>(
       `SELECT d.*, a.category, a.specs
        FROM devices d
@@ -50,8 +75,13 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
 
     if (!device) {
       console.warn(`Received telemetry from unknown device: ${thingName}`);
+      await client.query('ROLLBACK');
       return;
     }
+
+    // Tenant now known — every remaining query in this transaction is
+    // properly tenant-scoped, same as any human-facing API request.
+    await client.query('SET LOCAL app.current_tenant_id = $1', [device.tenant_id]);
 
     const time = ts ? new Date(ts) : new Date();
 
@@ -76,6 +106,11 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
         await maybeCreateAlert(client, device, f, time);
       }
     }
+
+    await client.query('COMMIT');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     client.release();
   }

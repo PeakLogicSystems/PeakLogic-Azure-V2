@@ -99,6 +99,12 @@ export interface ChannelPartnerSession {
  * above, but the identity resolved here comes from a DB lookup, not
  * directly off the JWT (see getPartnerAuth()'s doc comment for why).
  *
+ * Also rejects a suspended channel partner (Multi-Tenant Architecture
+ * §3.3) — portal-only enforcement, mirroring §3.2's tenant-suspension
+ * scoping: this has no effect on the partner's attributed tenants' own
+ * service, since withTenant() is a completely separate code path that
+ * never checks channel_partners.status.
+ *
  * Ordering matters: app.current_channel_partner_id must be set BEFORE the
  * channel_partner_users lookup below, since that table's own RLS policy
  * requires it — querying it first, with nothing set yet, would silently
@@ -115,6 +121,17 @@ export async function withChannelPartner<T>(
   try {
     await client.query('BEGIN');
     await client.query('SET LOCAL app.current_channel_partner_id = $1', [auth.channelPartnerId]);
+
+    const { rows: [partner] } = await client.query<{ status: string }>(
+      'SELECT status FROM channel_partners WHERE id = $1',
+      [auth.channelPartnerId],
+    );
+    if (!partner) {
+      throw Object.assign(new Error('Channel partner not found'), { statusCode: 403 });
+    }
+    if (partner.status === 'suspended') {
+      throw Object.assign(new Error('Channel partner is suspended'), { statusCode: 403 });
+    }
 
     const { rows: [cpu] } = await client.query<{ id: string; role: ChannelPartnerRole }>(
       'SELECT id, role FROM channel_partner_users WHERE cognito_sub = $1',
