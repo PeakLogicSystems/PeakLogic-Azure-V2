@@ -19,7 +19,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1.1 (new §2.4 Channel Partner Portal Authentication — real Cognito pool + `withChannelPartner()` shipped and tested) |
-| 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | 🟡 Draft v1.1 (**critical finding pending approval**: RLS was never enforced against the app's own DB role — table-owner bypass, now fixed via `FORCE ROW LEVEL SECURITY` across all 14 tables + device claim/provisioning + channel-partner suspension; a separate `devices.tenant_id` `NOT NULL` bug found and fixed too) |
+| 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1.1 (**critical finding, fixed**: RLS was never enforced against the app's own DB role — table-owner bypass, fixed via `FORCE ROW LEVEL SECURITY` across all 14 tables + device claim/provisioning + channel-partner suspension; a separate `devices.tenant_id` `NOT NULL` bug also found and fixed; three full audit passes) |
 | 15 | [Deployment Architecture](deployment-architecture.md) | ✅ Approved v1 (env separation + rollback procedure shipped — commits `1ef0fdf`, `ad6203a`) |
 | 16 | [Infrastructure as Code](infrastructure-as-code.md) | ✅ Approved v1 (cdk-nag adopted, all 21 findings resolved, RDS rotation shipped) |
 | 17 | [CI/CD Pipeline](cicd-pipeline.md) | 🟡 Draft v0.1 (pipeline designed + implemented from scratch — commits `c818f31` + workflows) |
