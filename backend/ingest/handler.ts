@@ -1,7 +1,7 @@
 import type { Context } from 'aws-lambda';
 import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
-import { evaluateRules, type FiredRule } from './rules';
+import { evaluateRules, sanitizeMetrics, type FiredRule } from './rules';
 import { postWebhook } from '../shared/webhook';
 import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared/types';
 
@@ -11,10 +11,27 @@ import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared
 // ── Main handler ───────────────────────────────────────────────────────────
 
 export const handler = async (event: IoTIngestEvent, _context: Context): Promise<void> => {
-  const { thingName, ts, metrics } = event;
+  const { thingName, ts, metrics: rawMetrics } = event;
 
-  if (!thingName || !metrics || Object.keys(metrics).length === 0) {
+  if (!thingName || !rawMetrics || Object.keys(rawMetrics).length === 0) {
     console.warn('Invalid ingest payload', JSON.stringify(event));
+    return;
+  }
+
+  // Threat Model §4.1 — drop any metric whose value isn't actually a finite
+  // number before it can reach either the SQL insert (DOUBLE PRECISION NOT
+  // NULL — a non-numeric value throws there, and since this Lambda is
+  // invoked asynchronously by the IoT rule, a thrown exception here means
+  // AWS Lambda's own default async retry silently retries the same bad
+  // value 2 more times before giving up with no DLQ to catch it — see
+  // Threat Model §4.1's review log for how that failure mode was confirmed)
+  // or rule evaluation.
+  const { clean: metrics, dropped } = sanitizeMetrics(rawMetrics);
+  if (dropped.length > 0) {
+    console.warn(`Dropped ${dropped.length} non-numeric metric(s) from ${thingName}: ${dropped.join(', ')}`);
+  }
+  if (Object.keys(metrics).length === 0) {
+    console.warn(`All metrics from ${thingName} were invalid — nothing to ingest`, JSON.stringify(event));
     return;
   }
 

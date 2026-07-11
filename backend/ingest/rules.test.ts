@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { evaluateRules } from './rules';
+import { evaluateRules, sanitizeMetrics } from './rules';
 
 describe('evaluateRules', () => {
   describe('unknown/missing data', () => {
@@ -93,5 +93,46 @@ describe('evaluateRules', () => {
       expect(fired).toHaveLength(1);
       expect(fired[0].threshold).toBe(60);
     });
+  });
+});
+
+describe('sanitizeMetrics — Threat Model §4.1', () => {
+  it('passes through valid finite numbers unchanged', () => {
+    const result = sanitizeMetrics({ power_kw: 12.5, pressure_psi: 80 });
+    expect(result.clean).toEqual({ power_kw: 12.5, pressure_psi: 80 });
+    expect(result.dropped).toEqual([]);
+  });
+
+  it('drops a null value', () => {
+    const result = sanitizeMetrics({ power_kw: 12.5, flow_lpm: null as unknown as number });
+    expect(result.clean).toEqual({ power_kw: 12.5 });
+    expect(result.dropped).toEqual(['flow_lpm']);
+  });
+
+  it('drops a non-numeric string value', () => {
+    const result = sanitizeMetrics({ power_kw: 'not a number' as unknown as number });
+    expect(result.clean).toEqual({});
+    expect(result.dropped).toEqual(['power_kw']);
+  });
+
+  it('drops NaN and Infinity, even though they cannot actually arrive via a real JSON payload', () => {
+    const result = sanitizeMetrics({ a: NaN, b: Infinity, c: -Infinity, d: 5 });
+    expect(result.clean).toEqual({ d: 5 });
+    expect(result.dropped.sort()).toEqual(['a', 'b', 'c']);
+  });
+
+  it('drops only the invalid entries, keeping every valid one, in a mixed payload', () => {
+    const result = sanitizeMetrics({
+      power_kw: 12.5,
+      flow_lpm: 'bad' as unknown as number,
+      pressure_psi: 80,
+      leak_detected: null as unknown as number,
+    });
+    expect(result.clean).toEqual({ power_kw: 12.5, pressure_psi: 80 });
+    expect(result.dropped.sort()).toEqual(['flow_lpm', 'leak_detected']);
+  });
+
+  it('returns empty clean/dropped for an empty payload', () => {
+    expect(sanitizeMetrics({})).toEqual({ clean: {}, dropped: [] });
   });
 });

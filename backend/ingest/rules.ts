@@ -119,6 +119,42 @@ export interface FiredRule {
   message: string;
 }
 
+export interface SanitizeMetricsResult {
+  clean: Record<string, number>;
+  dropped: string[]; // metric names removed for having a non-finite-number value
+}
+
+/**
+ * Threat Model §4.1 — a device's telemetry payload arrives with no runtime
+ * type checking (the Record<string, number> annotation is compile-time
+ * only). A malformed value (null, a non-numeric string) previously reached
+ * both the telemetry INSERT (DOUBLE PRECISION NOT NULL — fails at the SQL
+ * layer) and evaluateRules() unchecked. Pure — no I/O, no console output;
+ * the caller (handler.ts) decides what to log for `dropped`, keeping this
+ * function's behavior fully deterministic and testable like the rest of
+ * this module.
+ *
+ * Deliberately does NOT range-check plausibility per metric (e.g. rejecting
+ * a physically-impossible pressure_psi value) — that needs real,
+ * domain-sourced bounds per metric this document doesn't have authority to
+ * invent, and isn't required to close the actual bug (a malformed value
+ * crashing the SQL insert), only "is this actually a usable number."
+ */
+export function sanitizeMetrics(raw: Record<string, number>): SanitizeMetricsResult {
+  const clean: Record<string, number> = {};
+  const dropped: string[] = [];
+
+  for (const [metric, value] of Object.entries(raw)) {
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      clean[metric] = value;
+    } else {
+      dropped.push(metric);
+    }
+  }
+
+  return { clean, dropped };
+}
+
 /**
  * Evaluates every rule for a device's category against a single telemetry
  * reading. Pure — no DB access, no side effects. Rules whose metric isn't
