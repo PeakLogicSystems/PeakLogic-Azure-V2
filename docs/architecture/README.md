@@ -7,8 +7,8 @@ Documents are produced in dependency order — each one builds on decisions lock
 | # | Artifact | Status |
 |---|----------|--------|
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
-| 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1.4 |
-| 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.4 |
+| 2 | [Product Requirements Document (PRD)](prd.md) | 🟡 Draft v1.5 (base Approved v1.4; CH-3 revision pending approval — scoped channel-partner portal) |
+| 3 | [Software Requirements Specification (SRS)](srs.md) | 🟡 Draft v1.5 (base Approved v1.4; new §3.12 Partner Territory & Dispatch pending approval; SN-4.1/SN-5.1 thresholds resolved) |
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1 |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1.1 |

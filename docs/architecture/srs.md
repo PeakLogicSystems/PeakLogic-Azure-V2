@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.4 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4)
-**Last updated:** 2026-07-04
+**Status:** Draft v1.5 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.4 until v1.5 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.5, pending approval)
+**Last updated:** 2026-07-11
 
 ---
 
@@ -19,7 +19,7 @@ This SRS covers the **MVP** horizon only, matching the PRD's horizon. Enterprise
 
 ### 1.2 Scope
 
-In scope: the device-adapter framework, the sensing modalities and alerting pipeline, device-management UX, multi-tenancy, device/command networking (outbound-only, no actuation), the MCP server and baseline analytics, and lightweight channel-partner attribution — as bounded by PRD §4.
+In scope: the device-adapter framework, the sensing modalities and alerting pipeline, device-management UX, multi-tenancy, device/command networking (outbound-only, no actuation), the MCP server and baseline analytics, channel-partner attribution, and — for the pool-servicing vertical specifically, added v1.5 — a scoped partner operational-dispatch portal (territory/route management, AI-assisted dispatch suggestions) — as bounded by PRD §4.
 
 Out of scope (deferred to later artifacts per PRD §9): exact domain entities/relationships (→ **Domain Model**, #4), SOC 2 control-level detail (→ **Compliance & Certification Roadmap**, **SOC 2 Control Mapping & Evidence Plan**, #5/#20), screen-level UX (→ **UX Wireframes**/**Information Architecture**, #8–9), schema/API contracts (→ **Database Schema**/**API Specification**, #10–11), and the actuation/command security model (→ **Device & Command Security Architecture**, #12).
 
@@ -33,9 +33,10 @@ Out of scope (deferred to later artifacts per PRD §9): exact domain entities/re
 | **Tenant** | An isolated customer organization; all data and auth are tenant-scoped |
 | **MCP server / MCP tool** | The Model Context Protocol server PeakLogicSystems exposes; a "tool" is one callable capability it offers (e.g. "list open alerts for a site") |
 | **Trailing window** | The rolling historical period (§3.7, AI-3) a baseline-analytics computation compares a new reading against |
-| **Channel partner** | A reseller/supplier (e.g. a pool-chemical supplier) whose customers' tenants/devices are attributed to them for revenue-share purposes |
+| **Channel partner** | A reseller/supplier (e.g. a pool-chemical supplier) whose customers' tenants/devices are attributed to them for revenue-share purposes. **For the pool-servicing vertical**, also the entity that logs into the scoped operational-dispatch portal (§3.12) *(added v1.5)* |
+| **Territory** | A named geographic boundary (drawn on a map) a channel partner defines to group their attributed tenants' sites for technician assignment purposes *(added v1.5)* |
 | **Commands topic** | The per-device MQTT topic already scoped in the IoT device policy for future actuation; unused at MVP (CC-3) |
-| MVP requirement IDs (`DA-`, `SN-`, `AL-`, `UX-`, `MT-`, `CC-`, `MCP-`, `AI-`, `CH-`) | Defined in [PRD](prd.md) §5; reused verbatim in this SRS as the traceability key |
+| MVP requirement IDs (`DA-`, `SN-`, `AL-`, `UX-`, `MT-`, `CC-`, `MCP-`, `AI-`, `CH-`, `TR-`) | Defined in [PRD](prd.md) §5; reused verbatim in this SRS as the traceability key. `TR-` (Partner Territory & Dispatch) added v1.5 |
 
 ### 1.4 References
 
@@ -97,6 +98,7 @@ This is a system-context sketch, not a final architecture decision — final com
 7. Expose an MCP server surfacing devices, alerts, and telemetry as tools for external AI/agent consumers.
 8. Compute baseline real-time analytics (trend/anomaly detection) over telemetry, beyond static thresholds.
 9. Attribute tenants/devices to channel partners for revenue-share reporting.
+10. **For the pool-servicing vertical**, let a channel partner log into a scoped operational-dispatch portal, define technician territories on a map, and receive an AI-generated advisory daily route suggestion per technician *(added v1.5)*.
 
 ### 2.3 User Classes and Characteristics
 
@@ -107,7 +109,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | Facility Operator | Low; time-pressured, non-technical | Web dashboard, on-site |
 | Tenant Admin | Moderate-to-high (configures sites/devices/users) | Web dashboard, office |
 | Service Partner | Moderate | Web dashboard, on-site/mobile browser |
-| Channel Partner / Reseller | Low-to-moderate (attribution only at MVP) | N/A — no dedicated UI at MVP |
+| Channel Partner / Reseller | Low-to-moderate | N/A for most verticals (attribution only). **For the pool-servicing vertical**, a dedicated web portal — territory/route management, dispatch view *(added v1.5)* |
 | External AI/Agent Consumer *(system actor, not a login role)* | N/A | Queries MCP server programmatically |
 
 ### 2.4 Operating Environment
@@ -122,12 +124,15 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 - Multi-tenant isolation must remain structural (Postgres RLS via `withTenant()`), not an application-level filter alone — new modalities inherit this automatically via the existing `assets`/`devices` foreign-key model (MT-3).
 - The per-device `commands` MQTT topic, already scoped in the IoT device policy, must remain unpublished-to at MVP (CC-3) — no code path may send a command to a device.
 - The MCP server must authenticate through the existing Cognito-issued tokens — no parallel auth system (MCP-2).
+- **Channel-partner portal login (§3.12, added v1.5) is a genuinely new identity surface** — channel partners have had no login/auth concept of any kind before this amendment (no Cognito group, no `users` table relationship). This constraint is flagged, not resolved, here: the concrete mechanism (new Cognito group vs. new user pool, partner-scoped JWT claims) is Security Architecture's (#13) job to amend, not this SRS's.
+- **TR-3's external AI agent consuming the MCP server does not conflict with AI-4.1.** AI-4.1 forbids PeakLogic's own AI/analytics layer from *calling out* to an external MCP server; TR-3 is the opposite direction — an external agent calls *into* PeakLogic's own MCP server, the same access pattern any other MCP client already uses (§3.7). Noted explicitly so a future reader doesn't misread these as contradictory.
 
 ### 2.6 Assumptions and Dependencies
 
 - Domain Model (#4) will formalize entity/relationship structure this SRS refers to loosely (Device, Asset, Adapter, Telemetry, Alert, Tenant, etc.); where this SRS names an entity, it is a placeholder pending that artifact.
-- **Threshold/reference values for new sensing modalities are placeholders pending real verified input.** Pool-chemistry safe ranges (pH, chlorine, TDS) and gas-detection thresholds need real, verified safety-standard citations before production use — this SRS specifies the *mechanism* (adapter contract, alert pipeline), not authoritative threshold content, the same way IronQuill's SRS separates mechanism from the Regulatory Requirements Matrix's content. Flagged as Open Issue #1, §9.
+- ~~Threshold/reference values for new sensing modalities are placeholders pending real verified input~~ — **resolved 2026-07-11** (was Open Issue #1, §9): pool-chemistry (pH, free chlorine) and gas-detection thresholds are now real, cited values (SN-4.1, SN-5.1). This SRS still specifies the *mechanism* (adapter contract, alert pipeline) as its primary job — the same way IronQuill's SRS separates mechanism from the Regulatory Requirements Matrix's content — but the specific content gap this bullet flagged no longer exists for the two modalities named here.
 - Device & Command Security Architecture (#12) will define the actuation/command model when that work is scheduled; this SRS only guarantees the `commands` topic exists and stays unused (CC-3/CC-4).
+- **Territory/technician/route-assignment entities (§3.12, added v1.5) have no formal data model yet** — Domain Model (#4) will need its own amendment, the same as every other entity this SRS names loosely pending that artifact.
 
 ---
 
@@ -154,12 +159,12 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | SN-1.1 | Electrical power draw (`power_kw`) shall be evaluated against spec-derived warning/critical thresholds, extending the existing `energy_meter`/`pump` adapters |
 | SN-2.1 | Water flow rate (`flow_lpm`) shall be evaluated against spec-derived minimum-flow thresholds, extending the existing `pump`/`pool_system` adapters |
 | SN-3.1 | A binary leak-detected signal shall produce an immediate critical alert with no warning tier, per the existing `leak_sensor` adapter |
-| SN-4.1 | A new `pool_chemistry` adapter shall evaluate pH, free/total chlorine, and dissolved solids (TDS) against threshold rules — **threshold values are placeholders pending real verified pool-safety standards** (Open Issue #1, §9), not to be treated as production-ready as first implemented |
-| SN-5.1 | A new `gas_sensor` adapter shall evaluate a binary gas-leak-detected signal identically in structure to SN-3.1 (immediate critical alert, no warning tier) |
+| SN-4.1 | A new `pool_chemistry` adapter shall evaluate pH and free chlorine against thresholds sourced from CDC's Model Aquatic Health Code (5th Ed., Dec 2024), and TDS against an industry-standard (non-CDC) threshold — **resolved 2026-07-11, no longer placeholders** (was Open Issue #1, §9). Total chlorine is not yet implemented — a disclosed, real gap, not a silent omission |
+| SN-5.1 | A new `gas_sensor` adapter shall evaluate a binary gas-leak-detected signal identically in structure to SN-3.1 (immediate critical alert, no warning tier) — **resolved 2026-07-11**, no concentration/PPM threshold needed at MVP given this binary structure |
 | SN-6.1 | Ambient and product-probe temperature shall continue to be evaluated per the existing `hvac`/`refrigeration`/`pool_system` adapters, unchanged |
 | SN-7.1 | A new `air_quality` adapter shall evaluate at least one representative metric (e.g. CO2 ppm) against a threshold rule; additional pollutant metrics are a content addition to this adapter later, not a re-architecture |
 
-**Error/edge conditions:** a `pool_chemistry` or `gas_sensor` reading arrives before verified threshold values are available (system shall still store telemetry and may evaluate against placeholder thresholds, but any alert produced shall be understood as provisional until Open Issue #1 is resolved — this is a content-accuracy caveat, not a system defect).
+**Error/edge conditions:** a `pool_chemistry` or `gas_sensor` reading arrives for a metric not yet implemented (e.g. total chlorine) — system shall still store the telemetry (unaffected by rule evaluation) and simply not evaluate a rule against it, per DA-1.1's existing "no adapter for this category" behavior extended to "no rule for this metric."
 
 ### 3.3 Alerting & Service Tickets (→ PRD §5.3 AL-1–AL-3)
 
@@ -200,7 +205,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 | ID | Requirement |
 |---|---|
-| MCP-1.1 | The system shall expose an MCP server offering, at minimum, tools to: list devices/alerts for a tenant, fetch telemetry for a device within a time range, and fetch alert detail — read-only at MVP, no tool shall mutate state |
+| MCP-1.1 | The system shall expose an MCP server offering, at minimum, tools to: list devices/alerts for a tenant, fetch telemetry for a device within a time range, and fetch alert detail — read-only at MVP, no tool shall mutate state. **Extended v1.5**: for the pool-servicing vertical, additionally list a channel partner's territories/technicians and fetch a territory's sites with current status — the read tools TR-3.1's external dispatch agent depends on |
 | MCP-2.1 | MCP tool calls shall authenticate using the same Cognito-issued tokens as the REST API, and shall enforce the same tenant scoping (`withTenant()`, MT-1.1) — no separate auth or authorization path |
 | AI-3.1 | Baseline analytics shall compute, for each device/metric pair with sufficient history, a trailing-window statistical baseline (e.g. mean/standard-deviation over a rolling period) and shall flag a reading whose deviation from that baseline exceeds a configured threshold, independent of the adapter's static threshold rules |
 | AI-3.2 | A trend/anomaly flag from AI-3.1 shall be surfaced through the existing alert pipeline (AL-1.1) as its own `type` (distinct from `threshold`), so it is visually and functionally distinguishable from a static-threshold alert |
@@ -216,7 +221,8 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | CH-1.1 | A tenant record shall support an optional channel-partner reference (identifying which reseller/supplier relationship the tenant came through) |
 | CH-1.2 | No tenant-facing API path shall allow a tenant to set or change its own channel-partner reference — assignment is performed by PeakLogic-internal operations only (mechanism deferred, analogous to CH-3.1's deferred tooling). A tenant-facing read is permitted, displaying the supplier's actual name, never the generic classification term "channel partner" *(added — see Revision History)* |
 | CH-2.1 | The system should provide a queryable report of tenants/devices grouped by channel-partner reference, for manual/offline revenue-share calculation — not an automated billing/payout feature |
-| CH-3.1 | No self-service partner portal, automated revenue-share calculation, or co-branded/white-label dashboard view shall exist at MVP |
+| CH-3.1 | A scoped, operational-only partner portal — white-label branded login, dispatch-focused view (territories, routes, site chemistry/status) — shall exist at MVP **for the pool-servicing vertical**, elaborating PRD CH-3 (revised v1.5). The portal shall grant no access to a tenant's own settings, billing, or user management |
+| CH-3a.1 | Full tenant-management access for partners, automated revenue-share/billing calculation, and any proprietary AI-routing/optimization engine shall not exist at MVP, elaborating PRD CH-3a *(added v1.5)* |
 
 ### 3.9 Authentication & Access Control — **(SRS-new)** (implied by PRD §6 Security baseline)
 
@@ -244,6 +250,19 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | RP-4.1 | The system shall provide a query/view returning every Site a Tenant Admin is authorized to see, including full address (street, city, state, zip — per the existing `sites.address` JSONB), scoped by the existing tenant/RLS model (MT-1.1). The view shall support sorting/filtering by city and state, independent of and without requiring RP-1.1's health/alert-status grouping *(added — see Revision History)* |
 
 **Error/edge conditions:** a Tenant Admin/Ops Leader has zero sites, or a Service Partner has zero assigned stops for the day (RP-1.1/RP-2.1/RP-4.1 shall return an empty, valid result — not an error state).
+
+### 3.12 Partner Territory & Dispatch (→ PRD §5.10 TR-1–TR-3) *(added v1.5 — see Revision History)*
+
+**Description:** For the pool-servicing beachhead vertical specifically — a channel partner's operational-dispatch portal (CH-3.1), letting them define technician territories, assign technicians, and receive an AI-generated advisory daily route. Reuses RP-2.1's existing urgency-ranking and per-site reading logic rather than a parallel implementation.
+
+| ID | Requirement |
+|---|---|
+| TR-1.1 | A channel partner shall be able to define a named territory — a geographic boundary — that groups a subset of their attributed tenants' sites. A site's membership in a territory shall be derived from whether its coordinates (`sites.lat`/`sites.lng`, already existing) fall within the territory's boundary |
+| TR-2.1 | A channel partner shall be able to assign one or more technicians to a territory. A technician's daily stop list shall be the set of sites within their assigned territory(ies) that meet RP-2.1's existing urgency criteria (open critical alert, trending-toward-threshold, then healthy) — no separate urgency logic is introduced |
+| TR-3.1 | The system shall provide an AI-generated suggested daily route ordering per technician, produced by an external AI agent calling PeakLogic's MCP server (MCP-1.1, extended) — **advisory only**; the system shall require explicit partner confirmation before a suggested route is treated as a technician's final assignment |
+| TR-3.2 | No PeakLogic-built route-optimization or scheduling algorithm shall exist at MVP — TR-3.1's ordering is produced entirely by the external agent consuming MCP-1.1's read tools, not by PeakLogic-side logic |
+
+**Error/edge conditions:** a partner has zero territories or zero technicians assigned (TR-2.1 shall return an empty, valid result, not an error state); a technician has zero stops for the day (same, consistent with RP-2.1's existing empty-result behavior); the external dispatch agent is unreachable or returns no suggestion (system shall fall back to RP-2.1's existing urgency-ranked list, unordered by route — a missing AI suggestion degrades to the pre-TR-3 experience, not an error state).
 
 ---
 
@@ -339,10 +358,11 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.5 Multi-Tenancy | PRD §5.5 (MT-1–MT-3) | 1:1 elaboration |
 | §3.6 Device & Command Networking | PRD §5.6 (CC-1–CC-4) | 1:1 elaboration |
 | §3.7 AI & MCP Orchestration | PRD §5.7 (MCP-1, MCP-2, AI-3, AI-4) | 1:1 elaboration |
-| §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3) | 1:1 elaboration — extended v1.4 |
+| §3.8 Channel & Partner Support | PRD §5.8 (CH-1–CH-3, CH-3a) | 1:1 elaboration — extended v1.4, v1.5 |
 | §3.9 Auth & Access Control | PRD §6 (Security baseline) | **SRS-new** — synthesized from cross-cutting PRD references |
 | §3.10 Audit Logging | PRD §6 (Security baseline), CH-2.1 | **SRS-new** |
 | §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-4) | 1:1 elaboration — added v1.1, extended v1.3 |
+| §3.12 Partner Territory & Dispatch | PRD §5.10 (TR-1–TR-3) | 1:1 elaboration — added v1.5 |
 | §5 Non-Functional Requirements | PRD §6 | 1:1 elaboration per category |
 
 Where a future artifact (Domain Model, Database Schema, Security Architecture, etc.) forces a change to a requirement above, that change should be made explicitly in a revision to this document, per the governance rule carried from the Vision Document and PRD.
@@ -351,11 +371,12 @@ Where a future artifact (Domain Model, Database Schema, Security Architecture, e
 
 ## 9. Open Issues Deferred to Later Artifacts
 
-1. **Threshold/reference values for new modalities** (SN-4.1 pool chemistry, SN-5.1 gas) are placeholders pending real, verified safety-standard citations — needs domain-expert or regulatory-source input before production use. This is analogous to IronQuill's separation of mechanism (this SRS) from authoritative content (a future reference-data task).
+1. ~~**Threshold/reference values for new modalities** (SN-4.1 pool chemistry, SN-5.1 gas)~~ **Resolved 2026-07-11** — see SN-4.1/SN-5.1. Total chlorine (part of SN-4's original PRD wording) remains unimplemented, a disclosed gap, not a new open issue.
 2. **Actuation/command security model** — CC-3/CC-4 establish that nothing ships at MVP; the full design (authorization, audit trail, fail-safe-locally behavior) is Device & Command Security Architecture's (#12) job.
-3. **Entity/relationship formalization** — flagged throughout as the Domain Model's (#4) job.
+3. **Entity/relationship formalization** — flagged throughout as the Domain Model's (#4) job. **Now includes, added v1.5:** Territory, technician, and route-assignment entities backing §3.12 — none exist yet in the Domain Model or `docs/data-model.sql`.
 4. **SOC 2 control-level detail** — this SRS's Security baseline (§5.2) is a floor, not a control mapping; that's the Compliance & Certification Roadmap and SOC 2 Control Mapping & Evidence Plan's (#5/#20) job.
 5. **Exact MCP tool schema and transport** — MCP-1.1/MCP-2.1 specify observable behavior only; the API Specification (#11) owns the exact contract.
+6. **Channel-partner portal auth mechanism** (§2.5, added v1.5) — a new Cognito group vs. a new user pool, partner-scoped JWT claims, and how a partner-scoped cross-tenant read differs from today's single-tenant RLS model are all open, deferred to Security Architecture (#13) and Multi-Tenant Architecture (#14) amendments.
 
 ---
 
@@ -384,3 +405,12 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 **v1.4 (2026-07-04)** — forced by the Information Architecture artifact (#9) and the PRD's own v1.4 amendment.
 
 - **CH-1.2 added**: no tenant-facing path may set/change channel-partner attribution — internal-assignment only, tenant-facing read displays the supplier's actual name and never the generic term "channel partner." Corrects the approved UX Wireframes' §2.8, which showed a tenant-editable dropdown.
+
+**v1.5 (2026-07-11)** — forced by a real business conversation about the pool-servicing channel-partner sales motion, and the PRD's own v1.5 amendment, per this document's rule (§8) that a downstream (here: business-context) finding forcing a change must amend this document explicitly rather than silently diverging from it.
+
+- **SN-4.1/SN-5.1 resolved**: real, cited thresholds (CDC Model Aquatic Health Code for pH/free chlorine, industry-standard guidance for TDS) implemented in `backend/ingest/rules.ts`'s new `pool_chemistry` adapter; `gas_sensor` adapter implemented as a binary signal, structurally identical to `leak_sensor`. Closes Open Issue #1. Total chlorine remains unimplemented — a disclosed gap.
+- **CH-3.1 revised, CH-3a.1 added**: elaborates the PRD's CH-3/CH-3a split — a scoped, operational-only partner portal for the pool-servicing vertical is now required at MVP; full tenant-management access, billing automation, and an in-house AI-routing engine remain explicitly out of scope.
+- **§3.12 added (TR-1.1, TR-2.1, TR-3.1, TR-3.2)**: elaborates the PRD's new §5.10 — territory definition, technician assignment (reusing RP-2.1's urgency ranking), and an advisory AI-generated daily route suggestion via an external agent consuming the MCP server. TR-3.2 makes explicit that no in-house routing algorithm is built.
+- **MCP-1.1 extended**: added territory/technician/site-status read tools needed for TR-3.1's external agent to have anything to consume.
+- **§2.5 (Design/Implementation Constraints) amended**: flagged the channel-partner portal login as a genuinely new identity surface (deferred to Security Architecture), and clarified TR-3's external-agent-calls-in direction does not conflict with AI-4.1's external-call-out prohibition.
+- **Explicitly not resolved in this pass** (§9 item 6, tracked in `mvp-roadmap.md` and project memory): the concrete partner-auth mechanism, the new cross-tenant read pattern a partner's portal requires, and the Territory/Technician/RouteAssignment entities' formal data model — all deferred to their respective downstream artifacts' own amendments.

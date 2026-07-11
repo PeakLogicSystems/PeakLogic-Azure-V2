@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.4 (amended — see Revision History, end of document)
+**Status:** Draft v1.5 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.4 until v1.5 is approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-11
 
 ---
 
@@ -45,7 +45,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 | **Facility Operator** | Day-to-day, non-technical staff at a site (restaurant manager, nursing home facilities lead, pool service tech) | Radically simple device add/view/manage, clear alerts, no manual required |
 | **Tenant Admin** | Manages sites, assets, devices, users, tenant settings, webhook/integration config | Full CRUD, tenant-level configuration, oversight across all sites |
 | **Service Partner** | Resolves auto-generated service tickets on-site | Ticket queue, asset/alert context, status updates (existing `service_partner` role/`service_tickets` table) |
-| **Channel Partner / Reseller** | Sells or provisions devices under a co-branded or white-label arrangement | Attribution for devices/tenants sold through them — lightweight at MVP, not a full portal |
+| **Channel Partner / Reseller** | Sells or provisions devices under a co-branded or white-label arrangement | Attribution for devices/tenants sold through them (all verticals). **For the pool-servicing vertical specifically**, also a scoped operational dispatch portal — branded login, technician territory/route management, AI-assisted daily dispatch suggestions (§5.10) — not full self-service tenant administration or billing *(added v1.5)* |
 | **External AI/Agent Consumer** *(system actor via MCP, not a login role)* | A customer's own AI/agent stack, or PeakLogic's own analytics | Query device/alert/telemetry data as a tool through the MCP server |
 
 ---
@@ -61,7 +61,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - An **MCP server** exposing devices, alerts, and telemetry as tools, authenticated through existing tenant-scoped auth
 - Baseline real-time analytics (trend/anomaly detection over telemetry beyond static thresholds) — included at MVP per Vision §10's guidance to ship it now rather than defer if it isn't meaningfully harder than the alternative (see AI-3, and the open question in §10)
 - Reconciling the existing frontend (currently mock data per `CLAUDE.md`) onto the real API, with device management UX redesigned against the "simpler than Alexa/Smart Home" bar
-- Lightweight channel-partner attribution (tagging, not a portal)
+- Channel-partner attribution (tagging) for all verticals; **for the pool-servicing vertical**, additionally a scoped operational dispatch portal — white-label branded partner login, technician territory management (map-drawn boundaries), AI-assisted daily dispatch suggestions (§5.10) *(added v1.5 — see Out of Scope for what remains excluded)*
 - Architecture that does not preclude SOC 2 certification later (not certified at MVP)
 
 ### Explicitly out of scope for MVP
@@ -71,7 +71,8 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - **Dynamic, self-service third-party device marketplace** — MVP adapters are added by PeakLogic engineering through the adapter contract; a true runtime plugin/marketplace model (arbitrary third parties registering adapters without PeakLogic code changes) is post-MVP
 - **PeakLogicSystems acting as an MCP client** (consuming external MCP servers) — deferred until a specific integration need justifies it, per Vision §10
 - **Formal compliance certification** (SOC 2 Type II, ISO 27001) — architected to not preclude these later, not achieved now
-- **Full channel-partner self-service portal / co-branding tooling**
+- **Full channel-partner tenant-management portal** — a partner managing a tenant's own settings, billing, or users — and **automated revenue-share/billing calculation**. The pool-servicing vertical's scoped operational dispatch portal (§5.10) is now in scope (v1.5), but full self-service tenant administration and billing automation are not *(narrowed v1.5 — previously excluded the whole portal concept; see Revision History)*
+- **A proprietary/in-house AI route-optimization engine** — the AI-assisted dispatch suggestion (TR-3) consumes the existing MCP server through an external agent; PeakLogic does not build its own routing/optimization algorithm at MVP
 - **Native mobile app** — MVP is a responsive web dashboard; a native Android/iOS app is not required to prove the product thesis
 - **Predictive/ML-trained analytics models** — baseline trend/anomaly detection is in scope (AI-3); custom-trained predictive maintenance models are not
 
@@ -149,7 +150,8 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 |---|---|---|
 | CH-1 | A tenant/device can be tagged with a channel-partner/reseller reference for attribution — the pool-chemical/equipment-supplier channel relationship is real and active, not hypothetical, so this is confirmed **Must**, not just a nice-to-have. **Assignment is PeakLogic-internal only** — a tenant may view their current attribution (by the supplier's actual name) but has no self-service way to set or change it, and the generic classification term "channel partner" itself is internal vocabulary, never shown in tenant-facing product copy — added v1.4, correcting Information Architecture's discovery that the approved UX Wireframes let a tenant edit this via a dropdown | Must |
 | CH-2 | Basic partner attribution reporting (which tenants/devices came through which partner) — supports a manual/offline revenue-share process; not automated billing | Should |
-| CH-3 | Full self-service partner portal, automated revenue-share, and co-branded/white-label dashboard views are deferred past MVP | Won't (MVP) |
+| CH-3 | A scoped, **operational-only** partner portal — white-label branded login (the partner's own logo/brand colors) and a dispatch-focused view (technician territories, daily route assignments, per-site chemistry/status readings) — for the pool-servicing beachhead vertical. Justified the same way CH-1 was bumped: a real, active channel-partner sales motion (pool-service companies reselling/installing sensors), not speculative demand. Read-only/operational scope only — no tenant settings, billing, or user-management access for the partner *(revised v1.5 — previously blanket-deferred; see Revision History)* | Must |
+| CH-3a | Full tenant-management access for partners (managing a tenant's own settings/billing/users), automated revenue-share/billing calculation, and any proprietary AI-routing/optimization engine remain deferred past MVP — the scoped dispatch portal (CH-3) proves the channel relationship's value without taking on full self-service administration or billing automation *(added v1.5)* | Won't (MVP) |
 
 ### 5.9 Portfolio & Route Reporting *(added v1.1 — see Revision History)*
 
@@ -161,6 +163,18 @@ Surfaced by the User Personas artifact: both the Small Business Owner-Operator (
 | RP-2 | A route-prioritized view shall exist for a Service Partner/technician's assigned sites for the current day, sorted so sites trending toward a problem are surfaced ahead of healthy ones. Per-site detail in this view shall include the actual adapter-specific readings (e.g. chemistry, temperature) driving that site's status, not just a health/alert summary — confirmed during User Stories review, since a technician needs to know *what's* wrong before arriving, not just *that* something is | Should |
 | RP-3 | Aggregate savings/avoided-loss estimates (e.g. total alerts that likely prevented a larger incident) are a **future** reporting goal, not required at MVP — RP-1/RP-2 cover presence/status roll-ups only; a defensible ROI dollar figure requires real usage data this PRD's horizon doesn't yet have | Won't (MVP) |
 | RP-4 | A tenant-scoped directory listing every site a Tenant Admin operates shall exist, sortable/filterable by street address, city, and state — a plain lookup aid, distinct from RP-1's risk/health roll-up (e.g. "which of our sites are in Austin, TX," not "which sites need attention"). Reconciles an existing reference-implementation screen (`frontend/src/pages/Sites.tsx`) that already does this in simplified form (city/state only, no street address) — added v1.3 when Information Architecture found no requirement backing the "Sites" navigation item it needed | Should |
+
+### 5.10 Partner Territory & Dispatch *(added v1.5 — see Revision History)*
+
+Surfaced by a real business conversation about the pool-servicing channel-partner motion (§3, CH-3): a channel partner (e.g. a pool-chemical/equipment supplier or pool-service franchise) needs more than attribution reporting — they need to run their own field-service operation against PeakView's telemetry, using the chemistry/status data CH-3's portal now surfaces to decide where a technician actually needs to go, and to justify billable chemical dispensing with real readings instead of a weekly manual test strip (Vision Document §3's core differentiator).
+
+| ID | Requirement | Priority |
+|---|---|---|
+| TR-1 | A channel partner can define named service territories — a geographic boundary drawn on a map — that group their attributed tenants' sites for technician assignment purposes | Must |
+| TR-2 | A channel partner can assign technicians to a territory; a technician's daily view is the set of sites within their assigned territory(ies) that need attention (open ticket or trending alert per AI-3), reusing RP-2's existing urgency-ranking logic rather than a separate one | Must |
+| TR-3 | The system provides an AI-generated suggested daily route ordering per technician, produced by an external AI agent consuming PeakLogic's existing MCP server (MCP-1) — **advisory only**, requiring the partner's confirmation before a technician's day is treated as final. No in-house route-optimization algorithm is built at MVP (see Out of Scope) | Should |
+
+**Error/edge conditions:** a partner has zero territories or zero technicians assigned (TR-2 shall return an empty, valid result, not an error state); a technician has zero stops for the day (same).
 
 ---
 
@@ -211,6 +225,7 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 4. **Data retention policy**: resolved. 90 days raw telemetry, 2-year hourly rollups, alerts/tickets retained indefinitely (minimum 7 years).
 5. **Channel-partner depth (CH-1)**: resolved. The pool-chemical/equipment-supplier channel relationship is confirmed real and active — CH-1 bumped from Should to Must, and CH-2 (basic partner attribution reporting) added to support a manual/offline revenue-share process. Full self-service portal/automated revenue-share/white-label views (CH-3) remain deferred past MVP.
 6. **Gas-station vertical scope**: resolved. MVP stays scoped to convenience-store facility conditions only. Fuel-dispenser monitoring and underground fuel-tank leak detection (EPA UST-regulated) are confirmed **roadmap items** for this vertical specifically — not MVP, and not to be confused with the separate industrial (water/wastewater) pumping-station vertical, which happens to share the word "pumping" but is otherwise unrelated.
+7. **Channel-partner portal scope (CH-3/§5.10)**: resolved. A real, active pool-servicing channel-partner sales motion justifies a scoped operational dispatch portal (branded login, territory/route management, AI-assisted dispatch suggestions) at MVP — reversing the prior blanket "no portal" decision, but narrowly: no full tenant-management access, no automated billing, no in-house AI routing engine (CH-3a). These narrower exclusions are explicitly noted as desired future improvements, not ruled out permanently.
 
 ---
 
@@ -233,3 +248,12 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 **v1.4 (2026-07-04)** — forced by the Information Architecture artifact (#9) finding the approved UX Wireframes' Channel Partner Attribution screen (§2.8) in conflict with its own terminology rule.
 
 - **CH-1 amended**: channel-partner attribution is PeakLogic-internal-assigned, not tenant-self-service — a tenant may view (by actual supplier name) but not set or change it, and the term "channel partner" itself never appears in tenant-facing copy. This reverses the implicit assumption in the original UX Wireframes (a tenant-editable dropdown) and narrows User Personas §2.2's description of the Small Business Owner-Operator "managing" the relationship to viewing it.
+
+**v1.5 (2026-07-11)** — forced by a real business conversation about the pool-servicing channel-partner sales motion (selling to pool-service companies who install sensors and need chemistry data to justify billable service), which directly reverses CH-3's prior blanket "no self-service partner portal... deferred past MVP" decision. Handled as an explicit, non-silent amendment per this document's own governing rule (§9), not a silent scope change — the same rule that produced v1.1–v1.4.
+
+- **CH-3 revised, no longer blanket-deferred**: a scoped, operational-only partner portal (white-label branded login, territory/route dispatch view) is now **Must** for the pool-servicing vertical specifically — narrower than a full self-service portal, but real, justified by an active sales relationship the same way CH-1 was bumped from Should to Must.
+- **CH-3a added**: full tenant-management access for partners, automated revenue-share/billing, and an in-house AI-routing engine remain explicitly deferred — carrying forward what CH-3 originally excluded, just narrowed instead of blocking the whole portal concept. Recorded as desired future product improvements, not permanently ruled out.
+- **§5.10 added (TR-1, TR-2, TR-3)**: territory definition (map-drawn boundaries), technician-to-territory assignment (reusing RP-2's existing urgency ranking, not a new one), and an AI-generated advisory daily route suggestion consuming the existing MCP server (MCP-1) through an external agent — explicitly not a proprietary routing algorithm, and explicitly advisory, not authoritative, at MVP.
+- **§3 role table, §4 In/Out of Scope updated** to reflect the above — narrowing rather than reversing the prior "no portal" exclusion.
+- **Three implementation decisions locked** alongside this amendment (recorded in project memory, not requirements text): partner portal access is operational/dispatch-scoped only (not full tenant management); Mapbox is the map technology for territory drawing; the AI dispatch agent is external, consuming PeakLogic's MCP server, not an in-house engine.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass — tracked in `mvp-roadmap.md` and project memory): Domain Model, Database Schema, Security Architecture (new partner-login auth surface — channel partners have had zero login concept until now), Multi-Tenant Architecture (a genuinely new cross-tenant read pattern), API Specification, User Personas, and UX Wireframes.
