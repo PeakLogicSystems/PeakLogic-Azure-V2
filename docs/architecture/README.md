@@ -15,7 +15,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
 | 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
 | 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
-| 10 | [Database Schema](database-schema.md) | 🟡 Draft v1.1 (base Approved v1; new §4.4 Channel Partner Portal & Dispatch Schema pending approval) |
+| 10 | [Database Schema](database-schema.md) | ✅ Approved v1.1 (new §4.4 Channel Partner Portal & Dispatch Schema — real cross-tenant RLS + audit logging) |
 | 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
 | 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1 (3 code-reconciliation fixes shipped — commit `3428f80`) |
