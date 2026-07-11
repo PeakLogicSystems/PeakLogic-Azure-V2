@@ -25,7 +25,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 17 | [CI/CD Pipeline](cicd-pipeline.md) | 🟡 Draft v0.1 (pipeline designed + implemented from scratch — commits `c818f31` + workflows) |
 | 18 | [Test Strategy](test-strategy.md) | ✅ Approved v1 (Vitest stood up, 21 real tests written + verified — commit `f6da207`) |
 | 19 | [Threat Model](threat-model.md) | ✅ Approved v1 (2 real findings, both fixed — commits `11d6dba`, `ea394ad`) |
-| 20 | SOC 2 Control Mapping & Evidence Plan | 🔲 Not started |
+| 20 | [SOC 2 Control Mapping & Evidence Plan](soc2-control-mapping.md) | 🟡 Draft v0.1 (real CC4 monitoring gap found + fixed — commit `993a554`) |
 | 21 | Patent Opportunity Analysis | 🔲 Not started |
 | 22 | MVP Roadmap | 🔲 Not started |
 | 23 | Enterprise Roadmap | 🔲 Not started |
