@@ -2,6 +2,7 @@ import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { postWebhook } from '../../shared/webhook';
 import type { AuthContext } from '../../shared/auth';
 import type { ServiceTicket } from '../../shared/types';
 
@@ -66,9 +67,22 @@ export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Pr
       ],
     );
 
-    // Fire-and-forget webhook — do not block the response
+    // Fire-and-forget webhook — do not block the response. postWebhook
+    // validates the URL (Threat Model §4 — SSRF guard, rejects anything but
+    // https:// resolving to a public address) before ever calling fetch().
     if (ticket.webhook_url) {
-      postWebhook(ticket.webhook_url, ticket).catch((err: unknown) =>
+      postWebhook(ticket.webhook_url, {
+        event: 'ticket.created',
+        ticket: {
+          id:          ticket.id,
+          title:       ticket.title,
+          description: ticket.description,
+          priority:    ticket.priority,
+          assetId:     ticket.asset_id,
+          alertId:     ticket.alert_id,
+          createdAt:   ticket.created_at,
+        },
+      }).catch((err: unknown) =>
         console.error('Webhook delivery failed', ticket.id, err),
       );
     }
@@ -113,22 +127,3 @@ export async function remove(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-async function postWebhook(url: string, ticket: ServiceTicket): Promise<void> {
-  await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      event: 'ticket.created',
-      ticket: {
-        id:          ticket.id,
-        title:       ticket.title,
-        description: ticket.description,
-        priority:    ticket.priority,
-        assetId:     ticket.asset_id,
-        alertId:     ticket.alert_id,
-        createdAt:   ticket.created_at,
-      },
-    }),
-    signal: AbortSignal.timeout(8_000),
-  });
-}

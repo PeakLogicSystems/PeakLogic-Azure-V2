@@ -2,6 +2,7 @@ import type { Context } from 'aws-lambda';
 import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
 import { evaluateRules, type FiredRule } from './rules';
+import { postWebhook } from '../shared/webhook';
 import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared/types';
 
 // Alert rule definitions moved to rules.ts (Test Strategy §3) — pure logic,
@@ -138,12 +139,14 @@ async function createTicketForAlert(
     ],
   );
 
+  // postWebhook validates the URL (Threat Model §4 — SSRF guard) before ever
+  // calling fetch(). Not directly reachable via any API today (nothing sets
+  // tenants.settings.webhook_url yet — Multi-Tenant Architecture found no
+  // tenant-settings endpoint exists), but the same unguarded pattern as
+  // tickets.ts's POST /v1/tickets webhookUrl, closed here too so it doesn't
+  // become live the moment a settings endpoint is built.
   if (webhookUrl && ticket) {
-    fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event: 'ticket.created', ticket }),
-      signal: AbortSignal.timeout(8_000),
-    }).catch((err: unknown) => console.error('Webhook delivery failed', err));
+    postWebhook(webhookUrl, { event: 'ticket.created', ticket })
+      .catch((err: unknown) => console.error('Webhook delivery failed', err));
   }
 }
