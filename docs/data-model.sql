@@ -25,6 +25,9 @@ CREATE TABLE channel_partners (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT        NOT NULL,
   contact_info JSONB       NOT NULL DEFAULT '{}',
+  branding     JSONB,                        -- {logo_url, primary_color, secondary_color} for the
+                                               -- white-label portal login (CH-3.1); null until a
+                                               -- partner is onboarded to the portal
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -297,6 +300,81 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER audit_log_entries_append_only
   BEFORE UPDATE OR DELETE ON audit_log_entries
   FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
+
+-- ─────────────────────────────────────────────────────────────
+-- CHANNEL PARTNER PORTAL & DISPATCH  (Domain Model v1.1 §2.7 —
+-- TR-1.1-TR-3.2, CH-3.1. Channel-partner-scoped, NOT tenant-scoped —
+-- no tenant_id, no RLS, same reasoning as channel_partners above: this
+-- is partner reference/operational data, and route_stops can span sites
+-- across multiple different tenants attributed to one partner. The
+-- concrete cross-tenant access-control mechanism is Multi-Tenant
+-- Architecture's (#14) job, not decided here — see Database Schema §4.4.)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE territories (
+  id                 UUID                      PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_partner_id UUID                      NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
+  name               TEXT                      NOT NULL,
+  boundary           GEOGRAPHY(POLYGON, 4326)  NOT NULL,  -- map-drawn territory boundary (TR-1.1)
+  created_at         TIMESTAMPTZ               NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ               NOT NULL DEFAULT now()
+);
+
+CREATE INDEX territories_channel_partner_idx ON territories(channel_partner_id);
+
+-- A Territory's Site membership is DERIVED, never stored — a Site
+-- belongs to a Territory if (a) sites.tenant_id's tenant is attributed
+-- to the Territory's channel_partner_id (via tenants.channel_partner_id)
+-- and (b) the Site's lat/lng fall within the Territory's boundary, e.g.:
+--   SELECT s.* FROM sites s
+--   JOIN tenants t ON t.id = s.tenant_id
+--   JOIN territories terr ON terr.channel_partner_id = t.channel_partner_id
+--   WHERE terr.id = $1
+--     AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography);
+
+CREATE TABLE channel_partner_users (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_partner_id UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
+  cognito_sub        TEXT        NOT NULL UNIQUE,
+  email              TEXT        NOT NULL,
+  display_name       TEXT,
+  role               TEXT        NOT NULL
+                     CHECK (role IN ('partner_admin','technician')),
+  territory_id       UUID        REFERENCES territories(id) ON DELETE SET NULL,  -- 0..1, technician only
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX channel_partner_users_partner_idx ON channel_partner_users(channel_partner_id);
+CREATE INDEX channel_partner_users_territory_idx ON channel_partner_users(territory_id);
+
+-- A technician-role user's visible sites are scoped to their assigned
+-- territory (their "preconfigured assets") via the same derived query
+-- above; a partner_admin has no such restriction. Provisioning is
+-- partner_admin-initiated — no self-service signup (Domain Model §4
+-- decision 8).
+
+CREATE TABLE route_assignments (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  technician_user_id UUID        NOT NULL REFERENCES channel_partner_users(id) ON DELETE CASCADE,
+  route_date         DATE        NOT NULL,
+  source             TEXT        NOT NULL
+                     CHECK (source IN ('ai_suggested','manual')),   -- TR-3.1/TR-3.2
+  status             TEXT        NOT NULL DEFAULT 'suggested'
+                     CHECK (status IN ('suggested','confirmed')),   -- advisory-only confirmation gate
+  confirmed_by       UUID        REFERENCES channel_partner_users(id) ON DELETE SET NULL,
+  confirmed_at       TIMESTAMPTZ,
+  generated_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (technician_user_id, route_date)
+);
+
+CREATE TABLE route_stops (
+  id                  UUID    PRIMARY KEY DEFAULT gen_random_uuid(),
+  route_assignment_id UUID    NOT NULL REFERENCES route_assignments(id) ON DELETE CASCADE,
+  site_id             UUID    NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  sequence_number     INTEGER NOT NULL,
+  UNIQUE (route_assignment_id, sequence_number)
+);
+
+CREATE INDEX route_stops_assignment_idx ON route_stops(route_assignment_id);
 
 -- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction
