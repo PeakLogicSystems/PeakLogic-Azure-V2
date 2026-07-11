@@ -79,6 +79,17 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
       return;
     }
 
+    // devices.tenant_id is nullable (Multi-Tenant Architecture v1.1) — a
+    // device reports telemetry before ever being claimed only in an
+    // unexpected/misconfigured scenario (normal onboarding claims it before
+    // it's installed and powered on), but there's no tenant to scope this
+    // reading to either way, so drop it rather than guess.
+    if (!device.tenant_id) {
+      console.warn(`Received telemetry from an unclaimed device: ${thingName}`);
+      await client.query('ROLLBACK');
+      return;
+    }
+
     // Tenant now known — every remaining query in this transaction is
     // properly tenant-scoped, same as any human-facing API request.
     await client.query('SET LOCAL app.current_tenant_id = $1', [device.tenant_id]);

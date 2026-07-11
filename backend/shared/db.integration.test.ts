@@ -544,6 +544,134 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
   });
 });
 
+// Multi-Tenant Architecture §2.5 (extended) — regression coverage for the
+// device claim/provisioning RLS policies (migration
+// 1783728180000_device-claim-provisioning-rls.sql), found by directly
+// asking "does anything else break under FORCE ROW LEVEL SECURITY" and
+// auditing every DB-touching code path, not assumed complete after fixing
+// ingest. Two real, live bugs in the same class as the ingest one:
+// backend/api/routes/devices.ts's claim() and scripts/provision-devices.ts
+// both connected with no RLS session variable set at all, performing real
+// data operations on devices rows with tenant_id IS NULL (unclaimed).
+describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
+  let setup: Client;
+  let tenantA: string;
+  let tenantB: string;
+  let unclaimedDeviceId: string;
+
+  beforeAll(async () => {
+    setup = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await setup.connect();
+
+    await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    await setup.query(`
+      CREATE TABLE claim_test_tenants (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+      );
+      CREATE TABLE claim_test_devices (
+        id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID REFERENCES claim_test_tenants(id),
+        serial    TEXT NOT NULL UNIQUE
+      );
+      ALTER TABLE claim_test_devices ENABLE ROW LEVEL SECURITY;
+      ALTER TABLE claim_test_devices FORCE ROW LEVEL SECURITY;
+      CREATE POLICY tenant_isolation ON claim_test_devices
+        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+      CREATE POLICY unclaimed_lookup ON claim_test_devices FOR SELECT
+        USING (tenant_id IS NULL);
+      CREATE POLICY provision_unclaimed ON claim_test_devices FOR INSERT
+        WITH CHECK (tenant_id IS NULL);
+      CREATE POLICY provisioning_lookup ON claim_test_devices FOR SELECT
+        USING (current_setting('app.provisioning_context', true) = 'true');
+      CREATE POLICY device_claim ON claim_test_devices FOR UPDATE
+        USING (tenant_id IS NULL)
+        WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+    `);
+
+    const { rows: [a] } = await setup.query('INSERT INTO claim_test_tenants DEFAULT VALUES RETURNING id');
+    const { rows: [b] } = await setup.query('INSERT INTO claim_test_tenants DEFAULT VALUES RETURNING id');
+    tenantA = a.id;
+    tenantB = b.id;
+
+    // One already-claimed device (tenantA) and one unclaimed device.
+    await setup.query('INSERT INTO claim_test_devices (tenant_id, serial) VALUES ($1, $2)', [tenantA, 'PLG-CLAIMED']);
+    const { rows: [d] } = await setup.query(
+      'INSERT INTO claim_test_devices (tenant_id, serial) VALUES (NULL, $1) RETURNING id',
+      ['PLG-UNCLAIMED'],
+    );
+    unclaimedDeviceId = d.id;
+  });
+
+  afterAll(async () => {
+    await setup.query('DROP TABLE IF EXISTS claim_test_devices, claim_test_tenants CASCADE');
+    await setup.end();
+  });
+
+  it('an unclaimed device (tenant_id IS NULL) is visible to any authenticated tenant session — regression test for backend/api/routes/devices.ts\'s claim() lookup-by-serial', async () => {
+    const rows = await withTenant(tenantB, (client) =>
+      client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-UNCLAIMED']).then(r => r.rows),
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it("a tenant session cannot see another tenant's already-claimed device by serial — unclaimed_lookup doesn't leak claimed rows", async () => {
+    const rows = await withTenant(tenantB, (client) =>
+      client.query('SELECT * FROM claim_test_devices WHERE serial = $1', ['PLG-CLAIMED']).then(r => r.rows),
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('the claim transition succeeds when the new tenant_id matches the caller\'s own app.current_tenant_id', async () => {
+    await setup.query('BEGIN');
+    try {
+      await withTenant(tenantA, async (client) => {
+        const { rows } = await client.query(
+          'UPDATE claim_test_devices SET tenant_id = $2 WHERE id = $1 RETURNING *',
+          [unclaimedDeviceId, tenantA],
+        );
+        expect(rows).toHaveLength(1);
+      });
+    } finally {
+      // Revert for the next test — direct owner update, not through RLS.
+      await setup.query('UPDATE claim_test_devices SET tenant_id = NULL WHERE id = $1', [unclaimedDeviceId]);
+      await setup.query('COMMIT');
+    }
+  });
+
+  it('device_claim\'s WITH CHECK rejects claiming a device into a DIFFERENT tenant than the session\'s own — real defense-in-depth, not just trusted application logic', async () => {
+    await expect(
+      withTenant(tenantA, (client) =>
+        client.query('UPDATE claim_test_devices SET tenant_id = $2 WHERE id = $1 RETURNING *', [unclaimedDeviceId, tenantB]),
+      ),
+    ).rejects.toThrow(/row-level security/i);
+  });
+
+  it('app.provisioning_context sees every device regardless of tenant — needed for collision-safe serial generation (scripts/provision-devices.ts)', async () => {
+    const client = await getPool().then(p => p.connect());
+    try {
+      await client.query('BEGIN');
+      await client.query("SET LOCAL app.provisioning_context = 'true'");
+      const { rows } = await client.query('SELECT serial FROM claim_test_devices ORDER BY serial');
+      expect(rows.map(r => r.serial).sort()).toEqual(['PLG-CLAIMED', 'PLG-UNCLAIMED']);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+
+  it('without app.provisioning_context, only the unclaimed device is visible — proves the exact undercounting risk found while designing this fix', async () => {
+    const client = await getPool().then(p => p.connect());
+    try {
+      await client.query('BEGIN');
+      const { rows } = await client.query('SELECT serial FROM claim_test_devices');
+      expect(rows.map(r => r.serial)).toEqual(['PLG-UNCLAIMED']);
+    } finally {
+      await client.query('ROLLBACK');
+      client.release();
+    }
+  });
+});
+
 if (!RUN) {
   // eslint-disable-next-line no-console
   console.log('db.integration.test.ts skipped — TEST_DATABASE_URL not set. See Test Strategy §4.');

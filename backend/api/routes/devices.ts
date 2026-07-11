@@ -1,5 +1,5 @@
 import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import { withTenant, getPool } from '../../shared/db';
+import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, conflict, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
 import type { AuthContext } from '../../shared/auth';
@@ -43,35 +43,47 @@ export async function claim(event: APIGatewayProxyEvent, auth: AuthContext): Pro
 
   if (!body.serial?.trim()) return badRequest('serial is required');
 
-  // Use unscoped pool to find the device before it's claimed (has no tenant_id yet)
-  const pool = await getPool();
+  return withTenant(auth.tenantId, async (client) => {
+    // Multi-Tenant Architecture v1.1 — devices' unclaimed_lookup RLS policy
+    // (docs/data-model.sql) permits seeing an unclaimed (tenant_id IS NULL)
+    // device regardless of the caller's own tenant, since by definition an
+    // unclaimed device isn't scoped to any tenant yet — that's the point of
+    // a claim flow. This used to run on an unscoped pool connection under
+    // the (accidentally true, for the wrong reason) assumption that RLS
+    // never applied anyway; now that FORCE ROW LEVEL SECURITY actually
+    // takes effect, this needed a real, narrowly-scoped policy instead. The
+    // claim transition below is still tenant-scoped: device_claim's WITH
+    // CHECK ties the new tenant_id to app.current_tenant_id (set by
+    // withTenant() above) — real defense-in-depth, not just a workaround —
+    // a caller can only claim a device into their own tenant, enforced at
+    // the database layer, not just trusted from auth.tenantId.
+    const { rows: [existing] } = await client.query<Device>(
+      'SELECT * FROM devices WHERE serial = $1',
+      [body.serial.trim().toUpperCase()],
+    );
 
-  const { rows: [existing] } = await pool.query<Device>(
-    'SELECT * FROM devices WHERE serial = $1',
-    [body.serial.trim().toUpperCase()],
-  );
+    if (!existing) return notFound(`No device found with serial ${body.serial}`);
+    if (existing.status !== 'provisioning') {
+      return conflict(`Device ${body.serial} is already claimed (status: ${existing.status})`);
+    }
+    if (existing.tenant_id) {
+      return conflict(`Device ${body.serial} is already assigned to another tenant`);
+    }
 
-  if (!existing) return notFound(`No device found with serial ${body.serial}`);
-  if (existing.status !== 'provisioning') {
-    return conflict(`Device ${body.serial} is already claimed (status: ${existing.status})`);
-  }
-  if (existing.tenant_id) {
-    return conflict(`Device ${body.serial} is already assigned to another tenant`);
-  }
+    const { rows: [device] } = await client.query<Device>(
+      `UPDATE devices
+       SET tenant_id     = $2,
+           asset_id      = $3,
+           status        = 'online',
+           provisioned_at = now(),
+           updated_at    = now()
+       WHERE id = $1
+       RETURNING *`,
+      [existing.id, auth.tenantId, body.assetId ?? null],
+    );
 
-  const { rows: [device] } = await pool.query<Device>(
-    `UPDATE devices
-     SET tenant_id     = $2,
-         asset_id      = $3,
-         status        = 'online',
-         provisioned_at = now(),
-         updated_at    = now()
-     WHERE id = $1
-     RETURNING *`,
-    [existing.id, auth.tenantId, body.assetId ?? null],
-  );
-
-  return created(device);
+    return created(device);
+  });
 }
 
 export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {

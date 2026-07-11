@@ -53,7 +53,7 @@ export interface AssetSpecs {
 
 export interface Device {
   id: string;
-  tenant_id: string;
+  tenant_id: string | null;  // null until a customer claims it (backend/api/routes/devices.ts's claim())
   asset_id: string | null;
   serial: string;
   thing_name: string;

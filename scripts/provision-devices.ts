@@ -47,7 +47,7 @@ import {
   SecretsManagerClient,
   GetSecretValueCommand,
 } from '@aws-sdk/client-secrets-manager';
-import { Pool } from 'pg';
+import { Pool, PoolClient } from 'pg';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
 
@@ -132,8 +132,13 @@ async function buildPool(): Promise<Pool> {
 
 // ── Serial generation ─────────────────────────────────────────────────────────
 
-async function nextSerials(pool: Pool, count: number): Promise<string[]> {
-  const { rows } = await pool.query<{ serial: string }>(
+async function nextSerials(client: PoolClient, count: number): Promise<string[]> {
+  // Multi-Tenant Architecture v1.1 — must see EVERY device ever
+  // provisioned, claimed or not, to avoid generating a duplicate serial.
+  // Relies on app.provisioning_context being set on this client (main())
+  // — a narrower "unclaimed only" policy would silently undercount
+  // already-claimed devices and risk a real collision.
+  const { rows } = await client.query<{ serial: string }>(
     `SELECT serial FROM devices WHERE serial LIKE $1 ORDER BY serial DESC LIMIT 1`,
     [`${SERIAL_PREFIX}-%`],
   );
@@ -257,8 +262,21 @@ async function main() {
     process.exit(1);
   });
 
+  // Multi-Tenant Architecture v1.1 — a single, dedicated client for this
+  // script's whole run, not pool.query() per call. Needed for two reasons:
+  // (1) app.provisioning_context (set below) is session-scoped (plain SET,
+  // not SET LOCAL — there's no per-request transaction here to scope it
+  // to), so every query in this script must reuse the SAME underlying
+  // connection or the setting wouldn't apply; pool.query() may check out a
+  // different connection per call. (2) devices now has FORCE ROW LEVEL
+  // SECURITY — this script's SELECTs/INSERT would be silently blocked
+  // without this marker (see the new provisioning_lookup/
+  // provision_unclaimed policies, docs/data-model.sql).
+  const client = await pool.connect();
+  await client.query("SET app.provisioning_context = 'true'");
+
   // Resolve serial list
-  const serials = args.serials ?? await nextSerials(pool, args.count!);
+  const serials = args.serials ?? await nextSerials(client, args.count!);
   console.log(`Provisioning ${C.bold}${serials.length}${C.reset} device(s): ${serials.join(', ')}\n`);
 
   // Resolve IoT endpoint once (reused per device to avoid quota on DescribeEndpoint)
@@ -277,8 +295,9 @@ async function main() {
   for (const serial of serials) {
     const name = thingName(serial);
 
-    // Idempotency — skip if DB record already exists
-    const { rows } = await pool.query('SELECT id FROM devices WHERE serial = $1', [serial]);
+    // Idempotency — skip if DB record already exists (claimed or not —
+    // relies on app.provisioning_context, same reasoning as nextSerials())
+    const { rows } = await client.query('SELECT id FROM devices WHERE serial = $1', [serial]);
     if (rows.length > 0) {
       console.log(`  ${sym.skip} ${serial.padEnd(12)} already exists — skipped`);
       results.push({ serial, state: 'skipped' });
@@ -294,7 +313,11 @@ async function main() {
         certNote    = path.relative(process.cwd(), dir);
       }
 
-      await pool.query(
+      // provision_unclaimed's WITH CHECK (tenant_id IS NULL) permits this
+      // insert regardless of app.provisioning_context — no REST API route
+      // creates devices, so this INSERT is only ever reachable from this
+      // trusted, offline script in the first place.
+      await client.query(
         `INSERT INTO devices (serial, thing_name, status, tenant_id)
          VALUES ($1, $2, 'provisioning', NULL)
          ON CONFLICT (serial) DO NOTHING`,
@@ -311,6 +334,7 @@ async function main() {
     }
   }
 
+  client.release();
   await pool.end();
   printSummary(results, args.dbOnly);
 }

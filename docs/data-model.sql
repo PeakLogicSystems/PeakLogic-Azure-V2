@@ -190,7 +190,10 @@ CREATE INDEX assets_site_idx ON assets(site_id);  -- RP-1.1 portfolio roll-up jo
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE devices (
   id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id        UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  tenant_id        UUID        REFERENCES tenants(id) ON DELETE CASCADE,  -- nullable v1.1 —
+                                -- null until a customer claims it (backend/api/routes/devices.ts's
+                                -- claim()); was incorrectly NOT NULL before, a real bug independent
+                                -- of RLS that would have failed provisioning outright
   asset_id         UUID        REFERENCES assets(id) ON DELETE SET NULL,
   serial           TEXT        NOT NULL UNIQUE,   -- printed on hardware label
   thing_name       TEXT        NOT NULL UNIQUE,   -- AWS IoT Core thing name
@@ -212,6 +215,27 @@ CREATE POLICY tenant_isolation ON devices
 -- this is the table the ingest handler actually looks up by thing_name.
 CREATE POLICY ingest_lookup ON devices FOR SELECT
   USING (current_setting('app.ingest_context', true) = 'true');
+
+-- v1.1 — device claim/provisioning flow (a device has tenant_id = NULL
+-- until a customer claims it). Layered by how much access each caller
+-- needs: any authenticated session may look up an unclaimed device
+-- (needed by backend/api/routes/devices.ts's claim(), reachable by any
+-- tenant user, but only ever sees tenant_id IS NULL rows — never another
+-- tenant's already-claimed devices); only the trusted, offline
+-- scripts/provision-devices.ts script (no REST route creates devices)
+-- inserts new unclaimed rows, or needs the broader app.provisioning_context
+-- SELECT to safely generate a collision-free next serial number across
+-- every device ever provisioned, claimed or not; the claim UPDATE itself
+-- ties the new tenant_id to the caller's own app.current_tenant_id.
+CREATE POLICY unclaimed_lookup ON devices FOR SELECT
+  USING (tenant_id IS NULL);
+CREATE POLICY provision_unclaimed ON devices FOR INSERT
+  WITH CHECK (tenant_id IS NULL);
+CREATE POLICY provisioning_lookup ON devices FOR SELECT
+  USING (current_setting('app.provisioning_context', true) = 'true');
+CREATE POLICY device_claim ON devices FOR UPDATE
+  USING (tenant_id IS NULL)
+  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
 
