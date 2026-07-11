@@ -59,12 +59,12 @@ A reseller/attribution tracking model (Domain Model, CH-1/CH-2) is a business pr
 
 ## 3. Business Judgment: Is Pursuing Any of This Proportionate Right Now?
 
-**Recommendation: not a full utility patent right now, for anyone, absent a specific external reason to move (an investor requiring IP protection, a specific competitive threat).** Real utility patent prosecution is a multi-year, $10,000–$20,000+-per-patent undertaking (attorney fees, USPTO fees, office-action responses) — disproportionate for a team still validating the product thesis with a small number of design-partner tenants (PRD §8), the same proportionality judgment this project has applied to nearly everything else (WAF, SOC 2 Type II timing, multi-account AWS isolation).
+**Recommendation: not a full utility patent right now, for anyone, absent a specific external reason to move (an investor requiring IP protection, a specific competitive threat).** Checked directly, not estimated from memory: real utility patent prosecution runs roughly **$9,000–$16,000 in attorney fees alone** for preparation and filing, before USPTO fees or the cost of responding to office actions over a multi-year prosecution — disproportionate for a team still validating the product thesis with a small number of design-partner tenants (PRD §8), the same proportionality judgment this project has applied to nearly everything else (WAF, SOC 2 Type II timing, multi-account AWS isolation).
 
 **Cheaper options that preserve the option to move later, if §2.1's candidate specifically warrants it:**
 
 - **Do nothing now, revisit if the refrigeration vertical becomes a larger, funded priority** — costs nothing, loses only the filing-date priority a competitor might claim first. Given §2.1's own research found an adjacent-but-different existing patent already active in this space, the "someone else claims it first" risk is real, not hypothetical, but the direct-probe mechanism itself doesn't yet appear separately claimed.
-- **A provisional patent application** — roughly $1,000–$3,000 with an attorney, establishes a priority date, gives 12 months of "patent pending" status to decide whether to pursue the full utility application. The proportionate middle ground if the refrigeration vertical's competitive urgency justifies locking in a filing date without committing to full prosecution costs yet.
+- **A provisional patent application** — roughly $2,000–$6,000 in attorney fees plus a small USPTO filing fee ($65–$260 depending on entity size), establishes a priority date, gives 12 months of "patent pending" status to decide whether to pursue the full utility application. The proportionate middle ground if the refrigeration vertical's competitive urgency justifies locking in a filing date without committing to full prosecution costs yet.
 - **Defensive publication** — cheapest option; publishing the specific mechanism publicly prevents anyone else from patenting it, at the cost of giving up any offensive patent rights PeakLogic itself might have claimed. Worth considering only if the business conclusion is "we don't want to spend on this, but we also don't want a competitor to lock us out."
 
 ---
@@ -99,4 +99,7 @@ A reseller/attribution tracking model (Domain Model, CH-1/CH-2) is a business pr
 
 ## 7. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-11. One real inaccuracy found and corrected via verification, not left as an estimate.
+
+1. **§3's provisional patent attorney-fee estimate was too low.** First draft said "$1,000–$3,000"; checked directly via web research and found the real range is $2,000–$6,000 in attorney fees, plus a separate $65–$260 USPTO filing fee depending on entity size. Corrected. The utility-patent figure ($10,000–$20,000+) was re-verified against the same research and found reasonably accurate (attorney fees alone typically $9,000–$16,000, with the "+" appropriately accounting for USPTO fees and office-action costs over a multi-year prosecution not included in that base figure) — tightened slightly for precision rather than left as a round estimate.
+2. **Re-verified, held up:** the "two anchor product pitches" framing (§2.1, §2.2) against the actual Vision Document text (line 19) — confirmed both the leak-sensor and refrigeration-probe language exist there nearly verbatim, not just in session memory. USPTO patent 12532211 and the leak-detection prior-art findings (§2.1, §2.2) were re-checked against the original search results and accurately represented, not overstated.
