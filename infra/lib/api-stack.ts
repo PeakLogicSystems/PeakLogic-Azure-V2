@@ -54,12 +54,36 @@ export class ApiStack extends cdk.Stack {
         // Copy the RDS CA bundle into the Lambda package so db.ts can validate
         // the Postgres TLS cert at runtime (Security Architecture §4.2) — esbuild
         // only bundles JS it can trace from imports, not static files like this.
+        // Preserves the certs/ subdirectory (mkdir -p, not a flat copy) so the
+        // relative path db.ts reads from is identical whether it's running
+        // bundled here or unbundled from source (Vitest, ts-node) — a flat
+        // copy previously meant db.ts could never be imported outside a full
+        // CDK bundle, found while writing an integration test (Test Strategy §4).
+        // commandHooks run through the OS's native shell (cmd.exe on Windows,
+        // not Git Bash) — two real, sequential failures found by actually
+        // running this on this Windows dev machine, not assumed:
+        // (1) `mkdir -p`/`cp` aren't portable — cmd.exe's own mkdir doesn't
+        //     understand -p at all, so a plain POSIX command string fails.
+        // (2) A `node -e "..."` one-liner using JSON.stringify'd (i.e.
+        //     double-quoted) path literals then broke too — cmd.exe doesn't
+        //     support nested double quotes the way a POSIX shell does, so
+        //     the inner quotes terminated the outer -e "..." string early.
+        // Fixed by using single-quoted JS string literals with forward
+        // slashes (Node's fs/path accept them on Windows too) instead of
+        // JSON.stringify's double-quoted output — avoids the nested-quote
+        // collision entirely rather than trying to escape around it.
         commandHooks: {
           beforeBundling(): string[] { return []; },
           beforeInstall(): string[] { return []; },
           afterBundling(_inputDir: string, outputDir: string): string[] {
-            const certSrc = path.join(__dirname, '../../backend/shared/certs/rds-global-bundle.pem');
-            return [`cp "${certSrc}" "${outputDir}"`];
+            const toPosix = (p: string) => p.split(path.sep).join('/');
+            const certSrc = toPosix(path.join(__dirname, '../../backend/shared/certs/rds-global-bundle.pem'));
+            const certDest = toPosix(path.join(outputDir, 'certs', 'rds-global-bundle.pem'));
+            const script =
+              `const fs=require('fs'),path=require('path');` +
+              `fs.mkdirSync(path.dirname('${certDest}'),{recursive:true});` +
+              `fs.copyFileSync('${certSrc}','${certDest}');`;
+            return [`node -e "${script}"`];
           },
         },
       },

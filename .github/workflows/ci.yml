@@ -3,8 +3,8 @@ name: CI
 # CI/CD Pipeline §2.2. Runs on every PR into dev or main. Advisory, not
 # merge-blocking — this repo's tier doesn't support required status checks
 # (CI/CD Pipeline §2.3, confirmed via `gh api .../branches/main/protection`
-# returning 403). Four independent jobs, none depending on another, so one
-# broken job doesn't hide the others' results.
+# returning 403). Independent jobs, none depending on another, so one broken
+# job doesn't hide the others' results. Test jobs added per Test Strategy §5.
 
 on:
   pull_request:
@@ -30,6 +30,60 @@ jobs:
         working-directory: backend
       - run: npm run typecheck
         working-directory: backend
+
+  backend-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      # Pure-function tests only (rules.test.ts) — no database, runs
+      # everywhere. Integration tests (real RLS enforcement) are the
+      # separate backend-integration-tests job below, which needs Postgres.
+      - run: npm test
+        working-directory: backend
+
+  backend-integration-tests:
+    runs-on: ubuntu-latest
+    # Test Strategy §4 — RLS/tenant-isolation regression tests need a real
+    # Postgres; mocking pg would just return whatever the mock says, the
+    # exact blind spot that let the telemetry table ship without RLS in the
+    # first place (Multi-Tenant Architecture §2.2). GitHub Actions service
+    # containers, not Testcontainers — this repo has no Docker-in-Docker
+    # setup, and a service container is the simpler, more idiomatic fit for
+    # a single ephemeral Postgres per job.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: peaklogic_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: backend
+      - run: npm run test:integration
+        working-directory: backend
+        env:
+          TEST_DATABASE_URL: postgresql://test:test@localhost:5432/peaklogic_test
 
   frontend-build:
     runs-on: ubuntu-latest
@@ -85,4 +139,24 @@ jobs:
       # exercises the OIDC-provider-creation branch of cicd-stack.ts, the
       # more complex of the two paths.
       - run: npm run synth:dev
+        working-directory: infra
+
+  infra-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: infra/package-lock.json
+      - run: npm ci
+        working-directory: infra
+      # CDK assertion tests (aws-cdk-lib/assertions) — checks that specific,
+      # deliberately-made decisions (e.g. MFA required, stage-conditional
+      # Multi-AZ) are actually present in the synthesized template, not just
+      # that it synthesizes at all (infra-synth's job) or passes best-practice
+      # checks (cdk-nag, also in infra-synth) — neither would catch a decision
+      # silently reverting to a non-best-practice-violating default.
+      - run: npm test
         working-directory: infra

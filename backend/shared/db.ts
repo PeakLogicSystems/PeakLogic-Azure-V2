@@ -3,10 +3,15 @@ import * as path from 'path';
 import { Pool, PoolClient } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 
-// AWS's published RDS CA bundle, copied alongside this file's bundled output by
-// infra/lib/api-stack.ts's `afterBundling` hook. Enables real TLS cert validation
-// instead of trusting any certificate on the network path (Security Architecture §4.2).
-const RDS_CA_BUNDLE = fs.readFileSync(path.join(__dirname, 'rds-global-bundle.pem'), 'utf-8');
+// AWS's published RDS CA bundle, copied into a certs/ subdirectory alongside
+// this file's bundled output by infra/lib/api-stack.ts's `afterBundling` hook
+// (mirroring this same certs/ relative path so it resolves identically
+// whether this module is running bundled in Lambda or unbundled from source
+// — e.g. Vitest, ts-node — a real gap found while writing db.integration.test.ts:
+// a flat path only worked post-bundling, so importing db.ts directly for a
+// test threw ENOENT). Enables real TLS cert validation instead of trusting
+// any certificate on the network path (Security Architecture §4.2).
+const RDS_CA_BUNDLE = fs.readFileSync(path.join(__dirname, 'certs', 'rds-global-bundle.pem'), 'utf-8');
 
 interface RdsSecret {
   username: string;
@@ -35,6 +40,26 @@ async function getSecret(): Promise<RdsSecret> {
 export async function getPool(): Promise<Pool> {
   if (pool) return pool;
 
+  // Test Strategy §4 — integration tests need a real Postgres to verify RLS
+  // (a mock would just return whatever the mock says, the exact blind spot
+  // that let the telemetry table ship without RLS in the first place —
+  // Multi-Tenant Architecture §2.2). The normal path below is hardcoded to
+  // AWS RDS's TLS setup (ssl.ca: RDS_CA_BUNDLE) and would fail outright
+  // against a local/CI ephemeral Postgres container, which doesn't present
+  // that certificate — bypasses Secrets Manager and TLS entirely, connecting
+  // via a plain connection string instead. Gated on a variable no real
+  // Lambda deployment ever sets (DB_SECRET_ARN is what production uses,
+  // TEST_DATABASE_URL only exists in a test runner's environment) — there is
+  // no code path by which this branch can activate in a real deployment.
+  if (process.env.TEST_DATABASE_URL) {
+    pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 2, ssl: false });
+    pool.on('error', (err) => {
+      console.error('PG pool error', err);
+      pool = null;
+    });
+    return pool;
+  }
+
   const secret = await getSecret();
 
   pool = new Pool({
@@ -55,6 +80,14 @@ export async function getPool(): Promise<Pool> {
   });
 
   return pool;
+}
+
+/** Test-only: forces a fresh Pool on the next getPool() call. Vitest runs
+ * every integration test file in the same process (fileParallelism: false,
+ * vitest.integration.config.ts), so the module-level singleton would
+ * otherwise leak a closed/stale connection across test files. */
+export function __resetPoolForTests(): void {
+  pool = null;
 }
 
 /**

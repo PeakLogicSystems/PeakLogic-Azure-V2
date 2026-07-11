@@ -1,0 +1,17 @@
+services:
+  # Test Strategy §4 — a real, disposable Postgres 16 for integration tests
+  # (RLS enforcement can't be verified against a mock — see
+  # db.integration.test.ts for why). Matches the major version this project
+  # actually runs (infra/lib/data-stack.ts's PostgresEngineVersion.VER_16).
+  # NOT used by production or by `npm test` (unit tests only, no DB needed) —
+  # only `npm run test:integration` with TEST_DATABASE_URL pointed at this.
+  postgres-test:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: test
+      POSTGRES_PASSWORD: test
+      POSTGRES_DB: peaklogic_test
+    ports:
+      - '5433:5432' # non-default host port — avoids colliding with a real local Postgres on 5432
+    tmpfs:
+      - /var/lib/postgresql/data # ephemeral — no data persists between runs, matches "disposable"
