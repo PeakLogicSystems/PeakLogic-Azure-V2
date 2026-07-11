@@ -12,7 +12,7 @@ describe('isPrivateOrReservedIp — pure range checks', () => {
     ['192.168.1.1', true],
     ['127.0.0.1', true],
     ['169.254.169.254', true], // the cloud-metadata address specifically
-    ['169.254.170.2', true],   // Lambda's own credential-vending address
+    ['169.254.170.2', true],   // ECS/Fargate task-metadata credential endpoint (not Lambda's — Lambda's own metadata endpoint is 169.254.100.1, a different address in the same /16; both are covered by this blanket link-local rule regardless)
     ['0.0.0.0', true],
     ['100.64.0.1', true],
     ['224.0.0.1', true],       // multicast
