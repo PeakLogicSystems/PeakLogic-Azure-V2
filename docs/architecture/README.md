@@ -9,7 +9,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
 | 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1.5 (CH-3 revised — scoped channel-partner portal now in MVP scope, see Revision History) |
 | 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.5 (new §3.12 Partner Territory & Dispatch; SN-4.1/SN-5.1 thresholds resolved) |
-| 4 | [Domain Model](domain-model.md) | 🟡 Draft v1.1 (base Approved v1; new §2.7 Channel Partner Portal & Dispatch pending approval) |
+| 4 | [Domain Model](domain-model.md) | ✅ Approved v1.1 (new §2.7 Channel Partner Portal & Dispatch — technicians get scoped logins) |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1.1 |
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
