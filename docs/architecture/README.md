@@ -18,7 +18,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 10 | [Database Schema](database-schema.md) | ✅ Approved v1.1 (new §4.4 Channel Partner Portal & Dispatch Schema — real cross-tenant RLS + audit logging) |
 | 11 | [API Specification](api-specification.md) | ✅ Approved v1 (2 open items carried forward — see doc §5/§7) |
 | 12 | [Device & Command Security Architecture](device-command-security-architecture.md) | ✅ Approved v1 (implementation gated — see doc §5) |
-| 13 | [Security Architecture](security-architecture.md) | 🟡 Draft v1.1 (base Approved v1; new §2.4 Channel Partner Portal Authentication pending approval — real Cognito pool + `withChannelPartner()` shipped and tested) |
+| 13 | [Security Architecture](security-architecture.md) | ✅ Approved v1.1 (new §2.4 Channel Partner Portal Authentication — real Cognito pool + `withChannelPartner()` shipped and tested) |
 | 14 | [Multi-Tenant Architecture](multi-tenant-architecture.md) | ✅ Approved v1 (all findings fixed — commits `cf581ee`, `e2479a6`) |
 | 15 | [Deployment Architecture](deployment-architecture.md) | ✅ Approved v1 (env separation + rollback procedure shipped — commits `1ef0fdf`, `ad6203a`) |
 | 16 | [Infrastructure as Code](infrastructure-as-code.md) | ✅ Approved v1 (cdk-nag adopted, all 21 findings resolved, RDS rotation shipped) |
