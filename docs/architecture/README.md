@@ -26,7 +26,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 18 | [Test Strategy](test-strategy.md) | ✅ Approved v1 (Vitest stood up, 21 real tests written + verified — commit `f6da207`) |
 | 19 | [Threat Model](threat-model.md) | ✅ Approved v1 (2 real findings, both fixed — commits `11d6dba`, `ea394ad`) |
 | 20 | [SOC 2 Control Mapping & Evidence Plan](soc2-control-mapping.md) | ✅ Approved v1 (CC4 monitoring gap fixed, IR plan/vendor mgmt/change mgmt formalized) |
-| 21 | [Patent Opportunity Analysis](patent-opportunity-analysis.md) | 🟡 Draft v0.1 (not legal advice — see doc header) |
+| 21 | [Patent Opportunity Analysis](patent-opportunity-analysis.md) | ✅ Approved v1 (not legal advice — see doc header; no filing action recommended now) |
 | 22 | MVP Roadmap | 🔲 Not started |
 | 23 | Enterprise Roadmap | 🔲 Not started |
 | 24 | Technical Debt Register | 🔲 Not started |
