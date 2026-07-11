@@ -4,6 +4,8 @@ import { Template } from 'aws-cdk-lib/assertions';
 import { AuthStack } from '../lib/auth-stack';
 import { NetworkStack } from '../lib/network-stack';
 import { DataStack } from '../lib/data-stack';
+import { ApiStack } from '../lib/api-stack';
+import { MonitoringStack } from '../lib/monitoring-stack';
 
 // Test Strategy §5 — CDK assertion tests. Not "does it synth" (cdk-nag +
 // ci.yml's infra-synth job already gates that on every PR); these check
@@ -72,5 +74,22 @@ describe('DataStack — stage-conditional HA settings (Deployment Architecture �
     const prodApp = new cdk.App();
     const prodNetwork = new NetworkStack(prodApp, 'TestNetworkProdNat', { env, tags: {}, stage: 'prod' });
     Template.fromStack(prodNetwork).resourceCountIs('AWS::EC2::NatGateway', 2);
+  });
+});
+
+describe('MonitoringStack — real alarms exist (SOC 2 Control Mapping §4, CC4)', () => {
+  it('creates 5 CloudWatch alarms and an SNS topic with no email subscription by default', () => {
+    const app = new cdk.App();
+    const env = { account: '123456789012', region: 'us-east-1' };
+    const network = new NetworkStack(app, 'TestMonNetwork', { env, tags: {}, stage: 'dev' });
+    const data = new DataStack(app, 'TestMonData', { env, tags: {}, network, stage: 'dev' });
+    const auth = new AuthStack(app, 'TestMonAuth', { env, tags: {}, stage: 'dev' });
+    const api = new ApiStack(app, 'TestMonApi', { env, tags: {}, network, data, auth, stage: 'dev' });
+    const monitoring = new MonitoringStack(app, 'TestMonitoring', { env, tags: {}, api, data, stage: 'dev' });
+
+    const template = Template.fromStack(monitoring);
+    template.resourceCountIs('AWS::CloudWatch::Alarm', 5);
+    template.resourceCountIs('AWS::SNS::Topic', 1);
+    template.resourceCountIs('AWS::SNS::Subscription', 0); // no alarmEmail context set in this test
   });
 });

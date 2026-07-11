@@ -21,6 +21,8 @@ interface ApiStackProps extends cdk.StackProps {
 
 export class ApiStack extends cdk.Stack {
   public readonly ingestFn: lambda.IFunction;
+  public readonly apiFn: lambda.IFunction;
+  public readonly api: apigateway.RestApi;
 
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
@@ -129,6 +131,7 @@ export class ApiStack extends cdk.Stack {
       },
     });
     props.data.dbSecret.grantRead(apiFn);
+    this.apiFn = apiFn;
 
     // Structured access log — distinct from the executionLogging above
     // (loggingLevel/dataTraceEnabled trace request handling for debugging;
@@ -159,6 +162,7 @@ export class ApiStack extends cdk.Stack {
         accessLogFormat: apigateway.AccessLogFormat.jsonWithStandardFields(),
       },
     });
+    this.api = api;
 
     const authorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'Authorizer', {
       cognitoUserPools: [props.auth.userPool],

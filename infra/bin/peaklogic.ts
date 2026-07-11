@@ -10,6 +10,7 @@ import { ApiStack }      from '../lib/api-stack';
 import { IoTStack }      from '../lib/iot-stack';
 import { FrontendStack } from '../lib/frontend-stack';
 import { CiCdStack }     from '../lib/cicd-stack';
+import { MonitoringStack } from '../lib/monitoring-stack';
 
 const app = new cdk.App();
 
@@ -50,3 +51,4 @@ const api      = new ApiStack     (app, `PeakLogic-${stage}-Api`,      { env, ta
                  new IoTStack     (app, `PeakLogic-${stage}-IoT`,      { env, tags, ingestFn: api.ingestFn, stage });
                  new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags, stage });
                  new CiCdStack    (app, `PeakLogic-${stage}-CiCd`,     { env, tags, stage });
+                 new MonitoringStack(app, `PeakLogic-${stage}-Monitoring`, { env, tags, api, data, stage });
