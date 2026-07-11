@@ -62,7 +62,7 @@ The single fact repeated across more prior artifacts than anything else in this 
 |---|---|---|---|
 | 1 | §3 — AWS account, bootstrap, first real deploy | Everything downstream needs a real running system to test against | **Yes** — nothing else can be verified end-to-end without it |
 | 2 | §4 — Real pool-chemistry and gas-sensor rules | Both confirmed beachhead verticals' core differentiator is unbuilt | **Yes**, for whichever vertical is demoed first |
-| 3 | Frontend wired to the real API | Checked directly: only `DeviceOnboard.tsx` imports the real API client (`frontend/src/lib/api.ts`) — the other 5 main pages (Alerts, Assets, Devices, Sites, Tickets) still import mock data. A demo of live device data needs this | **Yes** — a mock-data demo undercuts the entire "real sensor data" pitch |
+| 3 | Frontend wired to the real API | Checked directly, corrected on review: only `DeviceOnboard.tsx` imports the real API client (`frontend/src/lib/api.ts`) — the other 5 main pages (Alerts, Assets, Devices, Sites, Tickets) each define their own hardcoded mock data inline (e.g. `Alerts.tsx`'s `const MOCK_ALERTS = [...]`) rather than importing a shared mock module or the real API client. Same substance, more precise: not one shared mock data source to swap out, five separate hardcoded arrays to replace. A demo of live device data needs this | **Yes** — a mock-data demo undercuts the entire "real sensor data" pitch |
 | 4 | AUTH-1 (no-login screens) + RP-2.1 (Route View) — the two standing cross-artifact decisions | Real gaps (API Specification §5/§7), but tied to Field Service Partner and Channel Partner personas, not the Tenant Admin/Operator experience a first sales demo most likely centers on | **Probably not** for an initial demo — recommend deferring past the first prospect meetings unless the demo audience specifically includes a design-partner's field technician or the channel partner itself, a judgment call only the user can make (§7) |
 | 5 | Device decommission doesn't revoke IoT cert (Device & Command Security Architecture §3.2) | Real, still-open security gap, but requires an actual decommissioned device to matter — low likelihood during early demos with a handful of design-partner devices | No |
 | 6 | `IngestFn` has no DLQ (Threat Model §4.1's residual finding) | Real reliability gap, low probability event | No |
@@ -99,4 +99,7 @@ Actuation/command issuance (Device & Command Security Architecture §5's pre-imp
 
 ## 9. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-11. One real imprecision found and corrected; every other claim re-verified directly.
+
+1. **§5 item 3 said the 5 mock-data pages "import mock data."** Checked the actual source and found each page defines its own hardcoded mock array inline (e.g. `Alerts.tsx`'s `const MOCK_ALERTS = [...]`) rather than importing from any shared module. Same underlying fact (not wired to the real API) but a more useful correction than it sounds: whoever picks up this work is replacing five separate hardcoded arrays, not swapping out one shared mock data source — a real difference in scope, not just phrasing.
+2. **Re-verified, held up:** the Vision Document §3 "measure the real thing... pool chemical levels (pH, chlorine, dissolved solids)" citation; PRD's "CH-1 bumped from Should to Must" language (§4); the six `RULES_BY_CATEGORY` keys and the absence of a `gas_sensor` category or any pH/chlorine metric in `pool_system`, all re-grepped directly against `rules.ts` a second time.
