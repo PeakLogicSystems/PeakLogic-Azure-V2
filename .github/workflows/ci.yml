@@ -4,7 +4,9 @@ name: CI
 # merge-blocking — this repo's tier doesn't support required status checks
 # (CI/CD Pipeline §2.3, confirmed via `gh api .../branches/main/protection`
 # returning 403). Independent jobs, none depending on another, so one broken
-# job doesn't hide the others' results. Test jobs added per Test Strategy §5.
+# job doesn't hide the others' results. Test jobs (backend-unit-tests,
+# backend-integration-tests, infra-tests) added per Test Strategy §7 —
+# §3/§4/§5 of that document explain what each one actually covers.
 
 on:
   pull_request:

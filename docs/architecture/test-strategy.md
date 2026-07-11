@@ -69,7 +69,7 @@ Three real layers, weighted by where a bug is most likely and most expensive if 
 - A suspended tenant is rejected before the wrapped operation runs — regression test for Multi-Tenant Architecture §3.2's suspension-enforcement fix.
 - An unknown tenant ID is rejected with a distinct error.
 
-Schema setup mirrors `docs/data-model.sql`'s real `tenants`/`devices`/`telemetry` table definitions (columns, constraints, RLS policies) exactly, scoped to just these three tables — not a full migration-runner integration (`scripts/migrate.ts` is separate, its own artifact, and itself not yet run against a real database per Infrastructure as Code's standing caveat).
+Schema setup is a deliberately reduced subset of `docs/data-model.sql`'s real `tenants`/`devices`/`telemetry` tables — the RLS policies are copied verbatim (the actual thing under test), but columns with defaults not relevant to isolation (`tenants.plan`, `channel_partner_id`, `settings`; `devices.firmware_version`, etc.) are omitted rather than reproduced exactly, to keep the fixture legible. Not a full migration-runner integration either (`scripts/migrate.ts` is separate, its own artifact, and itself not yet run against a real database per Infrastructure as Code's standing caveat).
 
 ### 4.3 Real gap found while writing this: `db.ts` couldn't be imported outside a bundled Lambda at all
 
@@ -141,4 +141,8 @@ Already implemented, not just planned — `ci.yml` gained three jobs alongside t
 
 ## 10. Review Log
 
-Not yet reviewed — draft v0.1.
+Reviewed 2026-07-11. Two inaccuracies found and fixed; every numeric claim recounted directly against the actual test files rather than trusted from memory.
+
+1. **`ci.yml`'s top-of-file comment cited "Test Strategy §5" for all three new test jobs**, but the jobs collectively map to §3 (unit), §4 (integration), and §5 (CDK assertion) — only one of the three actually traces to §5. Corrected to cite §7 (CI Integration) for the jobs themselves, pointing to §3/§4/§5 for what each one covers.
+2. **§4.2 claimed the integration test's schema setup "mirrors... exactly"** when it's actually a deliberately reduced subset (RLS policies copied verbatim; columns with irrelevant defaults omitted, e.g. `tenants.plan`, `settings`). Corrected to describe what's actually there instead of overstating fidelity to the real schema.
+3. **Re-verified, held up:** the "21 real tests" count (13+4+4, recounted via `grep -c "  it("` across all three files, matching the commit message and README status line); the `npm audit` wording about `vitest@4.1.10` resolving the transitive esbuild vulnerability; the "no Docker available" claim (re-ran `docker --version`, still `command not found`); every in-code `Test Strategy §N` citation except the one fixed in item 1.
