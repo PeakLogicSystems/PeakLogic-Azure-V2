@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.5 (amended — see Revision History, end of document)
+**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6 is approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
 **Last updated:** 2026-07-11
 
@@ -47,6 +47,8 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 | **Service Partner** | Resolves auto-generated service tickets on-site | Ticket queue, asset/alert context, status updates (existing `service_partner` role/`service_tickets` table) |
 | **Channel Partner / Reseller** | Sells or provisions devices under a co-branded or white-label arrangement | Attribution for devices/tenants sold through them (all verticals). **For the pool-servicing vertical specifically**, also a scoped operational dispatch portal — branded login, technician territory/route management, AI-assisted daily dispatch suggestions (§5.10) — not full self-service tenant administration or billing *(added v1.5)* |
 | **External AI/Agent Consumer** *(system actor via MCP, not a login role)* | A customer's own AI/agent stack, or PeakLogic's own analytics | Query device/alert/telemetry data as a tool through the MCP server |
+| **PeakLogic Superadmin** *(added v1.6)* | Internal PeakLogic staff, not a customer or partner | The only role able to create a new Tenant (customer) or Channel Partner — top-level business-entity provisioning (§5.11) |
+| **PeakLogic Account Manager** *(added v1.6)* | Internal PeakLogic staff, assigned to a specific subset of tenants/partners (a "book of business") | Sets up user access, onboards devices, configures preliminary alert baselines, and manages alerts on behalf of their assigned accounts — cannot create new tenants or partners (§5.11) |
 
 ---
 
@@ -62,6 +64,8 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - Baseline real-time analytics (trend/anomaly detection over telemetry beyond static thresholds) — included at MVP per Vision §10's guidance to ship it now rather than defer if it isn't meaningfully harder than the alternative (see AI-3, and the open question in §10)
 - Reconciling the existing frontend (currently mock data per `CLAUDE.md`) onto the real API, with device management UX redesigned against the "simpler than Alexa/Smart Home" bar
 - Channel-partner attribution (tagging) for all verticals; **for the pool-servicing vertical**, additionally a scoped operational dispatch portal — white-label branded partner login, technician territory management (map-drawn boundaries), AI-assisted daily dispatch suggestions (§5.10) *(added v1.5 — see Out of Scope for what remains excluded)*
+- **An internal PeakLogic Administration Console** *(added v1.6)* — a genuinely new, PeakLogic-staff-only identity surface with two roles (Superadmin, Account Manager) for creating and operating tenant/channel-partner accounts (§5.11). This is **not** customer or partner self-service signup — see the narrowed Out of Scope item below.
+- **A Settings & Preferences area in the main web application** *(added v1.6)* — a standard, discoverable location for profile, security, display (clock format, timezone, light/dark theme), and (for Tenant Admins) team/user management (§5.12)
 - Architecture that does not preclude SOC 2 certification later (not certified at MVP)
 
 ### Explicitly out of scope for MVP
@@ -71,10 +75,12 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - **Dynamic, self-service third-party device marketplace** — MVP adapters are added by PeakLogic engineering through the adapter contract; a true runtime plugin/marketplace model (arbitrary third parties registering adapters without PeakLogic code changes) is post-MVP
 - **PeakLogicSystems acting as an MCP client** (consuming external MCP servers) — deferred until a specific integration need justifies it, per Vision §10
 - **Formal compliance certification** (SOC 2 Type II, ISO 27001) — architected to not preclude these later, not achieved now
-- **Full channel-partner tenant-management portal** — a partner managing a tenant's own settings, billing, or users — and **automated revenue-share/billing calculation**. The pool-servicing vertical's scoped operational dispatch portal (§5.10) is now in scope (v1.5), but full self-service tenant administration and billing automation are not *(narrowed v1.5 — previously excluded the whole portal concept; see Revision History)*
+- **Full channel-partner tenant-management portal** — a *partner* managing a tenant's own settings, billing, or users (this is distinct from §5.11's *PeakLogic-internal* Administration Console added v1.6 — a partner still cannot manage a tenant directly at MVP) — and **automated revenue-share/billing calculation**. The pool-servicing vertical's scoped operational dispatch portal (§5.10) is now in scope (v1.5), but full self-service tenant administration and billing automation are not *(narrowed v1.5 — previously excluded the whole portal concept; see Revision History)*
+- **Customer or channel-partner self-service signup** *(added v1.6)* — the new Administration Console (§5.11) is PeakLogic-staff-only; it does not open a public "create your own account" path for tenants or partners, and does not relax AUTH-1's no-unauthenticated-access boundary. Tenant/partner provisioning remains a deliberate, staff-initiated action — just through a console instead of manual SQL/AWS CLI now
 - **A proprietary/in-house AI route-optimization engine** — the AI-assisted dispatch suggestion (TR-3) consumes the existing MCP server through an external agent; PeakLogic does not build its own routing/optimization algorithm at MVP
 - **Native mobile app** — MVP is a responsive web dashboard; a native Android/iOS app is not required to prove the product thesis
 - **Predictive/ML-trained analytics models** — baseline trend/anomaly detection is in scope (AI-3); custom-trained predictive maintenance models are not
+- **Per-tenant custom branding/theming of the main tenant web app** *(added v1.6)* — the light/dark mode toggle (§5.12, SET-5) is a personal display preference available to every user, not a white-label branding system; that concept is already scoped narrowly to the channel-partner portal's own branding (CH-3, §5.10) and is not being extended to the tenant-side app here
 
 ---
 
@@ -176,6 +182,54 @@ Surfaced by a real business conversation about the pool-servicing channel-partne
 
 **Error/edge conditions:** a partner has zero territories or zero technicians assigned (TR-2 shall return an empty, valid result, not an error state); a technician has zero stops for the day (same).
 
+### 5.11 Internal Administration Console *(added v1.6 — see Revision History)*
+
+Surfaced by direct, hands-on use of the platform: today, creating a new Tenant or Channel Partner is a manual SQL `INSERT` plus a hand-run AWS CLI/Console step (documented as the real procedure in the System Administrator Guide, §5.1/§5.6) — workable for a handful of design-partner accounts, but not something that scales past that, and not something that should require direct database/AWS access for routine account setup. This is a genuinely new, third identity/access surface — distinct from the tenant pool (§3.5) and the channel-partner pool (§5.10) — for PeakLogic's own staff, not a customer- or partner-facing feature.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| IA-1 | A PeakLogic-internal identity surface shall exist, separate from the tenant and channel-partner login pools, with exactly two roles: **Superadmin** and **Account Manager** | Must |
+| IA-2 | Only a Superadmin can create a new Tenant (customer) record | Must |
+| IA-3 | Only a Superadmin can create a new Channel Partner record | Must |
+| IA-4 | An Account Manager's access shall be scoped to an explicitly assigned subset of tenants/partners (a "book of business") — not universal access to every account by default | Must |
+| IA-5 | Within their assigned accounts, an Account Manager can: create/manage that tenant's own user accounts (the tenant's `admin`/`operator` logins), onboard devices on the tenant's behalf, set preliminary per-asset alert baselines/thresholds, and manage that tenant's alerts | Must |
+| IA-6 | A Superadmin has every Account Manager capability (IA-5) across every account, in addition to IA-2/IA-3 — Superadmin is a strict superset, not a parallel, disjoint role | Must |
+| IA-7 | Every action taken through the console shall be attributed to the specific staff member who took it and to the account it was taken on, and logged via the existing audit-log mechanism (AUD-1/AUD-2, extended to a third actor type) | Must |
+| IA-8 | The console does not accept unauthenticated requests and does not provide any customer- or partner-facing self-registration path — see Out of Scope (§4) | Won't (self-service) |
+
+**Error/edge conditions:** an Account Manager with zero assigned accounts (console shall show an empty, valid state, not an error); an attempt to create a tenant/partner by a non-Superadmin (shall be rejected server-side, not merely hidden in the UI, per AUTH-3's existing principle).
+
+### 5.12 Settings & Preferences *(added v1.6 — see Revision History)*
+
+A standard, discoverable settings area for the main tenant-side web application — every enterprise SaaS product has one, and PeakView currently has none (confirmed: no Settings/Profile/Account page exists anywhere in the current frontend).
+
+| ID | Requirement | Priority |
+|---|---|---|
+| SET-1 | A Settings area shall be reachable from a consistent, conventional location in the navigation on every page | Must |
+| SET-2 | Profile settings: display name, email (read-only, tied to the Cognito identity), and a password-change flow | Must |
+| SET-3 | Display preference: a 12-hour/24-hour clock format toggle, applied to every timestamp shown in the application | Must |
+| SET-4 | Display preference: a timezone selector; every displayed timestamp (alerts, telemetry, tickets) shall render in the user's selected timezone. This is a distinct concept from a **Site's own** timezone (`sites.timezone`, already existing) — a user viewing data may not be in the same timezone as the site itself, and both pieces of information matter | Must |
+| SET-5 | Display preference: a light/dark theme toggle, applied consistently across every page of the application | Must |
+| SET-6 | Security: a view of the user's enrolled MFA method with a re-enrollment flow | Should |
+| SET-7 | For Tenant Admins: a Team/Users panel to view and manage the tenant's own `admin`/`operator` users, reconciling the AWS-Console-only process documented today (System Administrator Guide §5.2) into the product itself | Should |
+| SET-8 | For Tenant Admins: notification preferences (which alert severities trigger an email) — **flagged, not committed**: depends on whether a real outbound email-notification mechanism exists beyond Cognito's own transactional emails and the existing webhook-on-critical-alert path; needs verification before this is scheduled, not assumed already backed | Could |
+
+**Error/edge conditions:** none of SET-1–SET-7 depend on any other tenant data existing (a brand-new user with zero sites/devices still has a fully functional Settings page).
+
+### 5.13 Site → Asset → Device Drill-Down & Device Telemetry Detail *(added v1.6 — see Revision History)*
+
+Surfaced by direct product use: the existing Sites/Assets/Devices pages (§5.4) are three flat, disconnected lists — there's no way to click from a Site into *its* Assets, or from an Asset into *its* Devices, or from a Device into *its own* telemetry. This matters because the Asset/Device relationship is genuinely one-to-many, not one-to-one: a single physical Asset (e.g. a pool pump) is commonly monitored/controlled by **multiple separate Devices** — a flow sensor, an energy monitor, a leak-detection sensor, a power actuator — each reporting its own metrics. **Checked directly against the schema, not assumed: this many-devices-per-asset relationship already works today** (`devices.asset_id` is a plain foreign key with no uniqueness constraint) — the gap is entirely in navigation and API surfacing, not the data model. This applies on both the tenant-side app and the channel-partner portal (§5.10) — a channel partner drilling from one of their attributed customer's sites down to a specific device's live readings (e.g. a Pentair IntelliChlor salt system's temperature, salt level, and flow rate) is the same underlying capability, not a separate feature.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| NAV-1 | From the Sites list, a user can open a Site Detail view showing every Asset at that site | Must |
+| NAV-2 | From a Site Detail view (or the Assets list), a user can open an Asset Detail view showing every Device that monitors or controls that asset — explicitly supporting more than one Device per Asset | Must |
+| NAV-3 | From an Asset Detail view (or the Devices list), a user can open a Device Detail view showing that specific device's own current reading(s) and recent telemetry history, per metric it actually reports — not a generic health badge only. (e.g. a chemistry-adapter device shows pH/chlorine/TDS; a flow-sensor device shows flow rate; they are not the same view just because they share an asset) | Must |
+| NAV-4 | The same Site → Asset → Device drill-down pattern is available within the channel-partner portal (§5.10) for a partner viewing their attributed tenants' sites, as ad hoc browsing distinct from and in addition to the daily dispatch route view (RP-2, TR-2) | Must |
+| NAV-5 | **Real, verified gap, not hypothetical**: `GET /v1/devices` today ignores all query parameters and always returns every device for the tenant — there is no way to ask for just one asset's devices. This endpoint shall accept an `assetId` filter (and a `siteId` filter, for a site-level device view without an intermediate asset click) before NAV-2/NAV-3 can be built without over-fetching the entire device list client-side | Must |
+
+**Error/edge conditions:** a Site with zero Assets, or an Asset with zero Devices (NAV-1/NAV-2 shall render an empty, valid state, not an error — a newly-added site legitimately has nothing yet); a Device with zero telemetry history yet (NAV-3 shall show "no data yet," not an error).
+
 ---
 
 ## 6. Non-Functional Requirements
@@ -207,7 +261,7 @@ Surfaced by a real business conversation about the pool-servicing channel-partne
 - **Industrial (water/wastewater) pumping stations are the next vertical after MVP** (not required for the MVP demo), building on the already-existing `pump` category.
 - Existing v1.0.0 code's validated patterns (RLS tenant isolation, CDK stack structure, MQTT/IoT Core networking) are assumed sound and are being reconciled, not rebuilt from scratch, per `docs/architecture/README.md`.
 - AWS as the cloud provider (IoT Core, Lambda, RDS, Cognito) is a constraint already made by the existing implementation, not re-litigated in this PRD.
-- MVP validates the product thesis with a small number of design-partner tenants, not general availability — enterprise-grade operational tooling (billing, self-serve tenant onboarding) is intentionally not a requirement yet.
+- MVP validates the product thesis with a small number of design-partner tenants, not general availability — billing automation remains intentionally out of scope. **Narrowed v1.6**: "self-serve tenant onboarding" is no longer blanket out-of-scope — §5.11's Administration Console brings PeakLogic-*staff*-operated tenant/partner provisioning into MVP scope, replacing the manual SQL/AWS-CLI process. What remains explicitly out of scope is *customer or partner* self-service signup (see §4) — that boundary is unchanged.
 
 ---
 
@@ -225,6 +279,8 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 4. **Data retention policy**: resolved. 90 days raw telemetry, 2-year hourly rollups, alerts/tickets retained indefinitely (minimum 7 years).
 5. **Channel-partner depth (CH-1)**: resolved. The pool-chemical/equipment-supplier channel relationship is confirmed real and active — CH-1 bumped from Should to Must, and CH-2 (basic partner attribution reporting) added to support a manual/offline revenue-share process. Full self-service portal/automated revenue-share/white-label views (CH-3) remain deferred past MVP.
 6. **Gas-station vertical scope**: resolved. MVP stays scoped to convenience-store facility conditions only. Fuel-dispenser monitoring and underground fuel-tank leak detection (EPA UST-regulated) are confirmed **roadmap items** for this vertical specifically — not MVP, and not to be confused with the separate industrial (water/wastewater) pumping-station vertical, which happens to share the word "pumping" but is otherwise unrelated.
+8. **Account Manager tenant scoping (§5.11, added v1.6)**: resolved. Explicitly-assigned subset ("book of business"), not universal cross-tenant access — a deliberate least-privilege choice over the simpler-to-build "any Account Manager can act on any tenant" alternative, matching the least-privilege posture already applied everywhere else in this project (RLS, per-technician territory scoping in §5.10).
+9. **Administration Console timing (§5.11, added v1.6)**: resolved. Pulled into active MVP scope now, not scoped as a designed-later Enterprise Roadmap initiative — the same treatment the channel-partner portal (§5.10) got, on the basis that the gap it closes (manual SQL/CLI tenant provisioning) is a real, currently-felt limitation, not a hypothetical future one.
 7. **Channel-partner portal scope (CH-3/§5.10)**: resolved. A real, active pool-servicing channel-partner sales motion justifies a scoped operational dispatch portal (branded login, territory/route management, AI-assisted dispatch suggestions) at MVP — reversing the prior blanket "no portal" decision, but narrowly: no full tenant-management access, no automated billing, no in-house AI routing engine (CH-3a). These narrower exclusions are explicitly noted as desired future improvements, not ruled out permanently.
 
 ---
@@ -257,3 +313,13 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 - **§3 role table, §4 In/Out of Scope updated** to reflect the above — narrowing rather than reversing the prior "no portal" exclusion.
 - **Three implementation decisions locked** alongside this amendment (recorded in project memory, not requirements text): partner portal access is operational/dispatch-scoped only (not full tenant management); Mapbox is the map technology for territory drawing; the AI dispatch agent is external, consuming PeakLogic's MCP server, not an in-house engine.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass — tracked in `mvp-roadmap.md` and project memory): Domain Model, Database Schema, Security Architecture (new partner-login auth surface — channel partners have had zero login concept until now), Multi-Tenant Architecture (a genuinely new cross-tenant read pattern), API Specification, User Personas, and UX Wireframes.
+
+**v1.6 (2026-07-12)** — forced by direct, hands-on use of the platform surfacing two real gaps: (1) tenant/channel-partner creation has no path except manual SQL + AWS CLI, which doesn't scale past a handful of design-partner accounts and shouldn't require database access for routine setup; (2) the main web application has no Settings area of any kind — not even a password-change flow — despite this being baseline-expected in any enterprise SaaS product. Both scoped into MVP now, not deferred to the Enterprise Roadmap, per explicit direction.
+
+- **§3 role table extended**: two new internal-only roles, **PeakLogic Superadmin** (creates tenants/partners) and **PeakLogic Account Manager** (operates an assigned subset of accounts — cannot create new ones).
+- **§5.11 added (IA-1–IA-8)**: a third identity/access surface, PeakLogic-staff-only, distinct from the tenant pool and the channel-partner pool. Superadmin-only tenant/partner creation; Account Manager access is scoped to an **explicitly assigned subset of accounts** (a "book of business"), not universal — a deliberate least-privilege choice, not a default. Superadmin is a strict superset of Account Manager capability, not a parallel role. Every action audit-logged (extends AUD-1/AUD-2 to a third actor type).
+- **§5.12 added (SET-1–SET-8)**: a standard Settings area — profile, password change, 12/24-hour clock format, timezone (distinct from a Site's own `sites.timezone`), light/dark theme, MFA management, and (Tenant-Admin-only) a Team/Users panel reconciling the AWS-Console-only user-management process into the product itself. One item (SET-8, notification preferences) flagged **Could** rather than committed — depends on unverified email-notification infrastructure, not assumed already backed.
+- **§4 In/Out of Scope updated**: the Administration Console and Settings area added as in-scope; a new explicit non-goal added — the console is **not** customer/partner self-service signup, and does **not** relax AUTH-1's no-unauthenticated-access boundary. Also clarified that §5.12's theme toggle is a personal display preference, not an extension of the channel-partner portal's white-label branding system.
+- **§8 narrowed, not reversed**: "self-serve tenant onboarding" is no longer blanket out-of-scope — it's now in scope specifically as *PeakLogic-staff-operated* provisioning through §5.11's console. *Customer/partner* self-service signup remains exactly as out-of-scope as before; this amendment does not touch that boundary.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass, same sequenced pattern as v1.5's channel-partner-portal amendment): SRS (this document's own pass, done alongside), Domain Model (new entities: PeakLogicStaffUser or equivalent, account-manager-to-tenant/partner assignment), Database Schema (a third RLS-scoping dimension — staff sessions need cross-tenant read/**write** access, a materially harder problem than the channel-partner portal's read-mostly pattern, and directly intersects the already-flagged TD-7 gap — no non-owning application DB role exists yet), Security Architecture (a third Cognito pool or equivalent), Multi-Tenant Architecture, API Specification, User Personas, UX Wireframes.
+- **§5.13 added (NAV-1–NAV-5), same v1.6 pass**: full Site → Asset → Device drill-down, plus per-device telemetry detail — surfaced by direct product use finding the three existing list pages (Sites/Assets/Devices) have no navigation between them at all. Explicitly documents that an Asset can have multiple Devices (verified against the schema, not assumed — no uniqueness constraint on `devices.asset_id`), and that the same drill-down applies inside the channel-partner portal, not just the tenant-side app. **A real, verified API gap found in the same pass, not hypothetical**: `GET /v1/devices` currently ignores all query parameters and always returns the tenant's entire device list — NAV-5 requires adding `assetId`/`siteId` filters before the drill-down UI can be built without over-fetching.

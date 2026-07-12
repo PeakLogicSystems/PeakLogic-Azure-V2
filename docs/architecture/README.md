@@ -7,8 +7,8 @@ Documents are produced in dependency order — each one builds on decisions lock
 | # | Artifact | Status |
 |---|----------|--------|
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
-| 2 | [Product Requirements Document (PRD)](prd.md) | ✅ Approved v1.5 (CH-3 revised — scoped channel-partner portal now in MVP scope, see Revision History) |
-| 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.5 (new §3.12 Partner Territory & Dispatch; SN-4.1/SN-5.1 thresholds resolved) |
+| 2 | [Product Requirements Document (PRD)](prd.md) | 🟡 Draft v1.6 (amendment pending — new §5.11 Internal Administration Console, §5.12 Settings & Preferences, §5.13 Site→Asset→Device Drill-Down; base doc remains Approved v1.5 until v1.6 approved) |
+| 3 | [Software Requirements Specification (SRS)](srs.md) | 🟡 Draft v1.6 (amendment pending — new §3.13/§3.14/§3.15 mirroring PRD v1.6; base doc remains Approved v1.5 until v1.6 approved) |
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1.1 (new §2.7 Channel Partner Portal & Dispatch — technicians get scoped logins) |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1.2 (new §2.7 Channel Partner Portal Dispatcher; §2.2 corrected — pool-service companies are Channel Partners, not Tenants) |

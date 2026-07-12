@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.5 (amended — see Revision History, end of document)
+**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6 is approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5)
 **Last updated:** 2026-07-11
 
@@ -111,6 +111,8 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | Service Partner | Moderate | Web dashboard, on-site/mobile browser |
 | Channel Partner / Reseller | Low-to-moderate | N/A for most verticals (attribution only). **For the pool-servicing vertical**, a dedicated web portal — territory/route management, dispatch view *(added v1.5)* |
 | External AI/Agent Consumer *(system actor, not a login role)* | N/A | Queries MCP server programmatically |
+| PeakLogic Superadmin *(added v1.6)* | High — internal PeakLogic staff | Administration Console (§3.13), full internal tooling access |
+| PeakLogic Account Manager *(added v1.6)* | Moderate-to-high — internal PeakLogic staff | Administration Console (§3.13), scoped to an assigned subset of accounts |
 
 ### 2.4 Operating Environment
 
@@ -125,6 +127,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 - The per-device `commands` MQTT topic, already scoped in the IoT device policy, must remain unpublished-to at MVP (CC-3) — no code path may send a command to a device.
 - The MCP server must authenticate through the existing Cognito-issued tokens — no parallel auth system (MCP-2).
 - **Channel-partner portal login (§3.12, added v1.5) is a genuinely new identity surface** — channel partners have had no login/auth concept of any kind before this amendment (no Cognito group, no `users` table relationship). This constraint is flagged, not resolved, here: the concrete mechanism (new Cognito group vs. new user pool, partner-scoped JWT claims) is Security Architecture's (#13) job to amend, not this SRS's.
+- **The Administration Console (§3.13, added v1.6) is a *third* genuinely new identity surface, and a materially harder one than the channel-partner portal's.** The channel-partner portal's cross-tenant access is read-mostly and narrowly scoped (a technician's own territory). Account Manager access (IA-4/IA-5) needs cross-tenant **read and write** — creating tenant users, onboarding devices, setting baselines — across an *assigned subset* of accounts. This is flagged, not resolved, here: the concrete mechanism (a third Cognito pool vs. an extension of an existing one; how "assigned subset" is enforced at the RLS layer, not just the UI layer) is Security Architecture's and Multi-Tenant Architecture's job to amend. It directly intersects an already-known gap: no non-owning application database role exists yet (Technical Debt Register TD-7) — an console with real cross-tenant write access sharpens why that gap matters, it doesn't yet close it.
 - **TR-3's external AI agent consuming the MCP server does not conflict with AI-4.1.** AI-4.1 forbids PeakLogic's own AI/analytics layer from *calling out* to an external MCP server; TR-3 is the opposite direction — an external agent calls *into* PeakLogic's own MCP server, the same access pattern any other MCP client already uses (§3.7). Noted explicitly so a future reader doesn't misread these as contradictory.
 
 ### 2.6 Assumptions and Dependencies
@@ -133,6 +136,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 - ~~Threshold/reference values for new sensing modalities are placeholders pending real verified input~~ — **resolved 2026-07-11** (was Open Issue #1, §9): pool-chemistry (pH, free chlorine) and gas-detection thresholds are now real, cited values (SN-4.1, SN-5.1). This SRS still specifies the *mechanism* (adapter contract, alert pipeline) as its primary job — the same way IronQuill's SRS separates mechanism from the Regulatory Requirements Matrix's content — but the specific content gap this bullet flagged no longer exists for the two modalities named here.
 - Device & Command Security Architecture (#12) will define the actuation/command model when that work is scheduled; this SRS only guarantees the `commands` topic exists and stays unused (CC-3/CC-4).
 - **Territory/technician/route-assignment entities (§3.12, added v1.5) have no formal data model yet** — Domain Model (#4) will need its own amendment, the same as every other entity this SRS names loosely pending that artifact.
+- **PeakLogic staff users and account-manager-to-account assignments (§3.13, added v1.6) have no formal data model yet** — same pattern, Domain Model (#4) needs its own amendment for these too, including the "book of business" assignment relationship (IA-4) that doesn't map onto any existing entity.
 
 ---
 
@@ -263,6 +267,54 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | TR-3.2 | No PeakLogic-built route-optimization or scheduling algorithm shall exist at MVP — TR-3.1's ordering is produced entirely by the external agent consuming MCP-1.1's read tools, not by PeakLogic-side logic |
 
 **Error/edge conditions:** a partner has zero territories or zero technicians assigned (TR-2.1 shall return an empty, valid result, not an error state); a technician has zero stops for the day (same, consistent with RP-2.1's existing empty-result behavior); the external dispatch agent is unreachable or returns no suggestion (system shall fall back to RP-2.1's existing urgency-ranked list, unordered by route — a missing AI suggestion degrades to the pre-TR-3 experience, not an error state).
+
+### 3.13 Internal Administration Console (→ PRD §5.11 IA-1–IA-8) *(added v1.6 — see Revision History)*
+
+**Description:** A third identity/access surface, PeakLogic-staff-only, for provisioning and operating tenant/channel-partner accounts. Replaces the manual SQL + AWS CLI process documented today in the System Administrator Guide with a real, in-product tool — while deliberately not opening any customer- or partner-facing self-registration path (AUTH-1 is unchanged for tenant/partner users).
+
+| ID | Requirement |
+|---|---|
+| IA-1.1 | The system shall provide a PeakLogic-internal identity surface, distinct from the tenant Cognito pool (§3.9) and the channel-partner Cognito pool (§2.5), with exactly two roles: `superadmin` and `account_manager` |
+| IA-2.1 | Only a session with role `superadmin` shall be permitted to create a new `tenants` row |
+| IA-3.1 | Only a session with role `superadmin` shall be permitted to create a new `channel_partners` row |
+| IA-4.1 | An `account_manager` session shall only be able to read or write data belonging to tenants/partners explicitly assigned to that account manager — enforced structurally (RLS or equivalent), not by application-layer filtering alone, consistent with MT-1.1's existing principle for tenant isolation |
+| IA-5.1 | Within an assigned account, an `account_manager` session shall be permitted to: create tenant `admin`/`operator` users, claim/assign devices on the tenant's behalf (reusing the existing device-claim flow), set an asset's `specs` (baseline threshold inputs), and update alert status/configuration for that tenant |
+| IA-6.1 | A `superadmin` session shall be permitted every action IA-5.1 permits an `account_manager`, for every tenant/partner, without requiring an explicit assignment record — `superadmin` access is not itself an "assignment," it is unconditional |
+| IA-7.1 | Every write performed through the console shall be recorded via the existing audit-log mechanism (AUD-1/AUD-2), with the acting staff member's identity and the target tenant/partner recorded — extending the existing dual-scope (tenant/channel-partner) audit model to a third actor type rather than inventing a parallel logging mechanism |
+| IA-8.1 | No endpoint under this identity surface shall accept an unauthenticated request, and no endpoint shall permit a tenant or channel-partner user to create a `tenants` or `channel_partners` row — that capability is exclusive to `superadmin` |
+
+**Error/edge conditions:** an `account_manager` session with zero assigned accounts (IA-4.1 shall produce an empty, valid result, not an error); a `superadmin` action targets a tenant/partner that doesn't exist (shall be rejected with a real error, not silently create a duplicate).
+
+### 3.14 Settings & Preferences (→ PRD §5.12 SET-1–SET-8) *(added v1.6 — see Revision History)*
+
+**Description:** A conventional settings area for the tenant-side web application. Distinct from §3.13 — this is tenant/operator-facing, not internal-staff-facing.
+
+| ID | Requirement |
+|---|---|
+| SET-1.1 | The system shall expose a Settings page reachable from the same location in the navigation on every authenticated page |
+| SET-2.1 | The system shall allow a user to change their own password through the Settings page, using Cognito's existing change-password capability — no parallel credential store |
+| SET-3.1 | The system shall allow a user to select a 12-hour or 24-hour clock format; every timestamp rendered anywhere in the application shall respect this preference |
+| SET-4.1 | The system shall allow a user to select a display timezone; every timestamp rendered anywhere in the application shall be converted to and displayed in that timezone. This preference is independent of `sites.timezone` (an existing, separate field describing a Site's own local timezone, not the viewing user's) |
+| SET-5.1 | The system shall allow a user to select a light or dark visual theme; the selection shall apply consistently across every page, not per-page |
+| SET-6.1 | The system shall allow a user to view their enrolled MFA method and re-enroll (e.g. after a lost device), reusing Cognito's existing MFA management capability |
+| SET-7.1 | For a `tenant_admin`-role session, the system shall provide a Team/Users panel listing the tenant's own users with their role, and shall permit creating/updating/removing those users — a product-facing equivalent of the AWS-Console process documented in the System Administrator Guide §5.2, not a new access model |
+| SET-8.1 | *(Could, not committed — see PRD SET-8)* If a real outbound email-notification mechanism exists, the system shall allow a user to select which alert severities trigger an email; if no such mechanism exists yet, this requirement is deferred, not silently dropped |
+
+**Error/edge conditions:** none of SET-1.1–SET-7.1 depend on the user having any sites, assets, or devices — a newly-created user with an empty tenant still gets a fully functional Settings page.
+
+### 3.15 Site → Asset → Device Drill-Down & Device Telemetry Detail (→ PRD §5.13 NAV-1–NAV-5) *(added v1.6 — see Revision History)*
+
+**Description:** The Sites, Assets, and Devices pages (§3.4) exist today as three independent, unlinked list views. This section specifies real navigation between them, and clarifies — checked directly against `docs/data-model.sql`, not assumed — that `devices.asset_id` carries no uniqueness constraint, so the one-Asset-to-many-Devices relationship (e.g. a pump asset monitored by a separate flow sensor, energy monitor, leak sensor, and power actuator, each its own `devices` row) is already structurally correct and requires no schema change, only UI and API work.
+
+| ID | Requirement |
+|---|---|
+| NAV-1.1 | The system shall provide a Site Detail view, reachable from the Sites list, returning every Asset where `assets.site_id` matches the selected site |
+| NAV-2.1 | The system shall provide an Asset Detail view, reachable from the Site Detail view or the Assets list, returning every Device where `devices.asset_id` matches the selected asset — the response shall not assume or enforce a maximum of one device |
+| NAV-3.1 | The system shall provide a Device Detail view, reachable from the Asset Detail view or the Devices list, returning that device's current/most-recent telemetry reading(s) and a recent history window, using the existing `GET /v1/telemetry?deviceId=` endpoint (already implemented) — this view shall render whichever metrics that device's adapter category actually reports (§3.2), not a fixed generic set |
+| NAV-4.1 | The channel-partner portal (§3.12) shall provide the same Site → Asset → Device drill-down for a partner's attributed tenant sites, as a browsing capability independent of and in addition to the route/dispatch view (RP-2.1, TR-2.1) |
+| NAV-5.1 | **Verified defect, not a hypothetical requirement**: `GET /v1/devices` (`backend/api/routes/devices.ts`) currently takes an `_event` parameter it never reads — no query-string filtering exists at all, and the handler always returns the full tenant device list. This endpoint shall accept optional `assetId` and `siteId` query parameters, filtering server-side, before NAV-2.1/NAV-3.1 are implemented client-side |
+
+**Error/edge conditions:** a Site with zero Assets, or an Asset with zero Devices (NAV-1.1/NAV-2.1 shall return an empty, valid result, not an error); a Device with no telemetry rows yet (NAV-3.1 shall render a "no data yet" state, not an error — consistent with how a newly-claimed, not-yet-reporting device already behaves elsewhere in the system).
 
 ---
 
@@ -414,3 +466,13 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 - **MCP-1.1 extended**: added territory/technician/site-status read tools needed for TR-3.1's external agent to have anything to consume.
 - **§2.5 (Design/Implementation Constraints) amended**: flagged the channel-partner portal login as a genuinely new identity surface (deferred to Security Architecture), and clarified TR-3's external-agent-calls-in direction does not conflict with AI-4.1's external-call-out prohibition.
 - **Explicitly not resolved in this pass** (§9 item 6, tracked in `mvp-roadmap.md` and project memory): the concrete partner-auth mechanism, the new cross-tenant read pattern a partner's portal requires, and the Territory/Technician/RouteAssignment entities' formal data model — all deferred to their respective downstream artifacts' own amendments.
+
+**v1.6 (2026-07-12)** — forced by direct, hands-on product use surfacing three real gaps in the same sitting, and the PRD's own v1.6 amendment, per this document's rule (§8).
+
+- **§2.3 (User Classes) extended**: two new internal-only roles, PeakLogic Superadmin and PeakLogic Account Manager.
+- **§2.5 (Design/Implementation Constraints) amended again**: the Administration Console (§3.13) is flagged as a *third* new identity surface, materially harder than the channel-partner portal's — it needs cross-tenant **write**, not just read, across an explicitly assigned subset of accounts, and directly intersects the already-known gap that no non-owning application database role exists yet (Technical Debt Register TD-7).
+- **§2.6 (Assumptions and Dependencies) extended**: PeakLogic staff users and account-manager-to-account assignments have no formal data model yet — Domain Model (#4) needs its own amendment, same pattern as every other entity this SRS has named loosely pending that artifact.
+- **§3.13 added (IA-1.1–IA-8.1)**: a PeakLogic-staff-only identity surface — Superadmin-only tenant/channel-partner creation; Account Manager access structurally scoped (RLS or equivalent, not application-filtering alone) to an explicitly assigned subset of accounts; Superadmin as a strict superset, not a parallel role; every write audit-logged via a third actor type extending the existing dual-scope (AUD-1/AUD-2) model.
+- **§3.14 added (SET-1.1–SET-8.1)**: a standard Settings page for the tenant-side app — password change, 12/24-hour clock format, a display-timezone preference kept explicitly distinct from `sites.timezone`, light/dark theme, MFA re-enrollment, and a Tenant-Admin Team/Users panel. SET-8.1 (notification preferences) explicitly conditioned on verifying real email-notification infrastructure exists, not assumed.
+- **§3.15 added (NAV-1.1–NAV-5.1)**: Site → Asset → Device drill-down navigation and per-device telemetry detail. Confirms directly against `docs/data-model.sql` that `devices.asset_id` already permits multiple devices per asset (no schema change needed) and applies the same drill-down to the channel-partner portal. **NAV-5.1 documents a verified live defect**: `GET /v1/devices` reads its `_event` parameter as unused and returns every device unfiltered — real code, checked directly, not inferred.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass, same sequenced pattern as v1.5): Domain Model, Database Schema (the new cross-tenant-write RLS pattern for §3.13, and the `assetId`/`siteId` filter for §3.15), Security Architecture, Multi-Tenant Architecture, API Specification, User Personas, UX Wireframes.
