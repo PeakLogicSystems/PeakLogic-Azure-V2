@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.0 — specification only, no code shipped
+**Status:** Draft v1.1 — specification only, no code shipped
 **Depends on:** [Device & Command Security Architecture](device-command-security-architecture.md) (Approved v1), [Security Architecture](security-architecture.md) (Approved v1.2), [API Specification](api-specification.md) (Approved v1.2), [Database Schema](database-schema.md) (Approved v1.2), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Approved v1.1)
-**Last updated:** 2026-07-12
+**Last updated:** 2026-07-12 (v1.1 — added §1.5 dual telemetry path clarification, §10 Hub Fleet Management/Patch Governance/VPN)
 
 ---
 
@@ -114,6 +114,21 @@ The alternative design — the Windows box authenticates as *itself* (one Thing,
 | **Configuration Layer** | Site identity, device inventory, network endpoints, UI layout — local JSON, remotely updatable |
 | **Security Layer** | DPAPI-protected secret storage, Windows Certificate Store integration, process isolation, local audit log |
 | **Update/Deployment Layer** | MSIX packaging, background update agent, staged rollout, rollback |
+
+---
+
+### 1.5 This document covers one of two telemetry paths — added v1.1
+
+PeakLogicSystems ingests device telemetry two structurally different ways, and a device is provisioned onto exactly one of them, chosen per manufacturer/device capability:
+
+| Path | How it works | Who builds it |
+|---|---|---|
+| **A — Hub-relayed** (this document) | A locally-attached device with no native cloud stack (USB/RS-485 sensor, LAN device behind a local-only API) is bridged through PeakLogic Edge, which holds that device's own IoT Core identity and publishes on its behalf (§1.2). | This document, in full. |
+| **B — Direct OEM cloud-to-cloud** | A device already reports into its manufacturer's own cloud platform (a smart chlorinator's OEM app backend, a BMS vendor's cloud API, etc.), and that OEM exposes a public API. PeakLogicSystems' backend polls or subscribes to the OEM's API directly and normalizes the result into the same telemetry shape the ingest Lambda already produces from MQTT. The physical device needs only outbound internet to reach its own OEM cloud — **no PeakLogic Edge hub, no local presence at all.** | **Not this document — a backend-side integration, out of scope here per §0's "do not redesign backend logic" constraint.** |
+
+**Why this split matters for this document specifically:** every design decision in §1–§10 (device identity model, cert bundling, ingestion/normalization/caching/publishing) assumes Path A. A site can legitimately run **zero** PeakLogic Edge hubs if every device present is Path B — the hub is not a mandatory piece of infrastructure per site, it exists only where Path A devices are present. The Configuration Layer's `devices[]` array (§8.1) only ever lists Path A devices; Path B devices never appear in a hub's config at all, since the hub has no relationship to them.
+
+**Real, disclosed gap: Path B has no backend design yet.** Nothing in `backend/` today polls or subscribes to any third-party OEM API. Building it is a real, separate piece of work — most naturally a new scheduled Lambda (or one per OEM integration, given each OEM's API shape differs) that authenticates to the OEM's API, normalizes into `IoTIngestEvent`'s exact shape, and either invokes the existing ingest Lambda's logic directly or publishes onto the same `peaklogic/{thingName}/telemetry` topic pattern so it flows through the one, unmodified ingestion pipeline either way. Recommend this become its own architecture artifact (e.g. "OEM Cloud-to-Cloud Integration Architecture") before implementation, following the same discipline as every other artifact in this sequence — not designed here, since it has zero surface area on the Windows endpoint app.
 
 ---
 
@@ -824,10 +839,112 @@ A local, append-only SQLite table (`local_audit_log`) — **distinct from and co
 - [ ] Local firewall: outbound-only egress rules matching exactly what the app needs (API Gateway host, IoT Core endpoint, MSIX update feed host, config S3/CloudFront host) — no general outbound allow
 - [ ] RDP disabled; remote management, if needed, via the same MDM channel used for provisioning, not ad hoc RDP
 - [ ] Physical: device in a locked enclosure/mount where site conditions warrant it (matches the "no-login opaque-token" Field Service Partner physical-security posture already assumed elsewhere in this platform's design)
+- [ ] Outbound firewall allowlist updated to also include the VPN concentrator host (§10.1) alongside the API Gateway/IoT Core/MSIX-feed/config hosts already listed above
 
 ---
 
-## 10. Implementation Blueprint
+## 10. Hub Fleet Management, Patch Governance & VPN — added v1.1
+
+Everything in §8 (MSIX packaging, background update agent) governs **PeakLogic Edge, the app itself.** This section covers the layer above it: managing the **Windows OS** across a fleet of unattended, physically remote machines — patch visibility, staged rollout, targeted push, and the private management channel that makes direct device reachability possible without opening any inbound port on a customer's network.
+
+### 10.1 Outbound VPN — management plane only, not the data plane
+
+**Decision: each hub establishes a persistent outbound WireGuard tunnel to a central VPN concentrator, used exclusively for management traffic.** Telemetry (§5.1, per-device MQTT) and kiosk REST calls (§5.2) are explicitly **not** routed through the VPN — they keep using their existing public HTTPS/MQTT-TLS paths unchanged. Splitting the two matters for blast radius: a VPN outage never affects telemetry uplink or the kiosk UI, and a telemetry/API outage never affects the ability to reach a hub for patching.
+
+```
+┌──────────────┐  outbound WireGuard, always-on   ┌───────────────────────────┐
+│ PeakLogic Edge │──────────────────────────────────▶│ VPN Concentrator (AWS)     │
+│ (per site)      │◀──────────────────────────────────│ - assigns stable private   │
+│                  │        UDP/51820                  │   IP per hub (by pubkey)    │
+│ Local Management │                                    │ - WireGuard server on a     │
+│ API (§10.3),      │                                    │   small EC2/Fargate task,   │
+│ bound ONLY to the  │                                    │   or a managed offering     │
+│ WireGuard interface,│                                   │   if available at the time  │
+│ never the public NIC │                                  └───────────┬───────────────┘
+└──────────────────┘                                                  │
+                                                                        ▼
+                                                          ┌───────────────────────────┐
+                                                          │ Fleet Management Plane      │
+                                                          │ (super-admin console, §10.4)│
+                                                          │ reaches hubs by their stable │
+                                                          │ private VPN IP — no NAT      │
+                                                          │ traversal, no inbound port    │
+                                                          │ ever opened on-site           │
+                                                          └───────────────────────────┘
+```
+
+**Why WireGuard, not a full AWS Client VPN / Site-to-Site setup:** those are built for routing an entire customer network into AWS, which is far more than one small hub process needs and would require customer network changes this project has no standing to request. A per-device WireGuard tunnel is device-initiated, needs zero customer-side network configuration (it's outbound UDP, same firewall-friendliness posture as the port-443 preference elsewhere in this document), and each hub's tunnel is independently revocable (delete its peer entry) without touching any other hub — a clean match for the decommissioning discipline Device & Command Security Architecture §3.2 already established for device certs.
+
+**Authentication:** WireGuard's own keypair, generated at commissioning, private key DPAPI/Cert-Store-protected exactly like the device certs (§9.3) — a second, independent credential from the Cognito/IoT identities, so compromising one doesn't imply compromising the others.
+
+### 10.2 Two distinct patch surfaces
+
+| Surface | What it covers | Governed by |
+|---|---|---|
+| **App-level** | PeakLogic Edge's own MSIX package | §8.3's update agent (already specified) |
+| **OS-level** | Windows security/feature updates (KBs) | This section, new |
+
+They are deliberately kept as two separate approval/rollout tracks — a critical Windows security patch and a routine app feature release have completely different urgency profiles and should never be forced through the same staging pipeline.
+
+### 10.3 Local Patch Reporting Agent
+
+Part of the existing Watchdog service (§7.3), not a new process — it already runs elevated-enough and already exists on every hub. Adds:
+
+- **Enumeration:** queries the Windows Update Agent (WUA) COM API (`Microsoft.Update.Session`) on a schedule (default every 6h) for pending updates, their KB IDs, and Microsoft's own classification (`Critical`, `Security`, `Important`, `Feature`, etc.) — this classification is what drives the "critical patch" flagging the super-admin console surfaces, not a locally-invented severity scheme.
+- **Reporting:** posts a compact status document over the VPN-bound Local Management API's outbound leg (or, simpler and equally valid, over the existing REST API client's connection — patch status is not sensitive control-plane data, no VPN requirement for the *reporting* direction, only for direct *reach-in* actions in §10.4) to a new fleet-management endpoint (not yet built — see §12 Open Questions).
+- **Enforcement:** does **not** decide what to install. Installation is driven entirely by **Windows Update for Business (WUfB) deferral policy**, configured per-hub via the existing Group Policy/MDM CSP mechanism Windows already provides — the agent's job is visibility and a narrow "install this approved-and-promoted set now" trigger (`usoclient StartInstall` scoped to specific KBs), not reimplementing what WUfB already does well.
+
+```csharp
+public sealed class PatchReportingAgent
+{
+    public async Task<PatchStatusReport> ScanAsync()
+    {
+        using var updateSession = new UpdateSession(); // Microsoft.Update.Session COM interop
+        var searcher = updateSession.CreateUpdateSearcher();
+        var result = searcher.Search("IsInstalled=0 or IsInstalled=1");
+
+        var pending = result.Updates.Cast<IUpdate>()
+            .Where(u => !u.IsInstalled)
+            .Select(u => new PendingPatch(u.Identity.UpdateID, u.Title, ClassifyFrom(u.MsrcSeverity), u.KBArticleIDs.Cast<string>()))
+            .ToList();
+
+        return new PatchStatusReport(HubId: _cfg.SiteIdentity.SiteId, ScannedAt: DateTimeOffset.UtcNow, Pending: pending, InstalledOsBuild: Environment.OSVersion.VersionString);
+    }
+}
+```
+
+### 10.4 Super-admin console: review, ring, and targeted rollout
+
+**Update rings, driven by the existing `EdgeConfig` model (§8.1), one new field:**
+
+```json
+{
+  "patchGovernance": {
+    "updateRing": "canary",   // "canary" | "broad" | "production" — assigned per hub, super-admin-editable
+    "wufbDeferDaysFeature": 14,
+    "wufbDeferDaysQuality": 3
+  }
+}
+```
+
+Workflow, mirroring the same "draft → review → approve → promote" discipline this project already applies to its own architecture docs, applied here to patches instead:
+
+1. Every reporting hub's pending-KB list rolls up into the super-admin console's **Patch Review** screen — grouped by KB, showing how many hubs (and which rings) it's pending on, and Microsoft's own severity classification surfaced directly (a `Critical`/`Security` KB gets a visible badge, matching this project's existing badge-driven UI language).
+2. An admin explicitly **approves a KB for the `canary` ring** — a small, deliberately-chosen subset of hubs (a handful of low-risk sites, configured via `updateRing: "canary"` in each hub's config). This does not install anything by itself; it flips those hubs' WUfB deferral window down to zero for that specific KB (or, for out-of-band critical patches WUfB's normal cadence is too slow for, triggers the agent's narrow `usoclient StartInstall` path directly).
+3. After a configurable bake period (default 72h) with no regression signal (hub still reporting normal heartbeat/telemetry — regression detection here is intentionally simple: "did the hub go dark," not a sophisticated health-scoring system), the admin **promotes the KB to `broad`**, then eventually **`production`** — each promotion is a deliberate console action, never automatic, and every promotion is written to the local audit log (§9.4) on the affected hubs plus a corresponding fleet-level audit record.
+4. **Targeted push** outside the ring model — e.g. "patch only the 12 hubs in Texas" — is just a saved filter over the same hub inventory (by `siteId`/region metadata already in `EdgeConfig.siteIdentity`), not a separate mechanism.
+
+**Critical-patch notification:** the moment the Patch Reporting Agent reports a new `Critical`/`Security`-classified KB from *any* hub, the fleet-management plane fires a notification to whoever holds the compliance/monitoring-owner role (reuses the same SNS-topic-plus-owner-email pattern the platform's own CloudWatch alarms already use, §12 Monitoring & Logging of the SysAdmin Guide) — this is the "direct connections and notifications... so these can be flagged and tested in dev" requirement: the flag is automatic and immediate, the dev-ring rollout is a deliberate human action taken in response to it, not automated.
+
+### 10.5 What this section does *not* solve (real, disclosed gaps)
+
+- **The fleet-management backend (hub inventory, patch-status ingestion endpoint, ring/promotion API, VPN concentrator infrastructure) does not exist yet.** Everything in §10.1–§10.4 is a design, the same "specified, not shipped" status as the rest of this document (§0) — but worth restating here specifically because this section, unlike most of the rest of the document, **does** require new backend/infra work (a small new API surface + the VPN concentrator stack), not a zero-backend-change bridge like the telemetry design in §1–§9. Scope it as its own implementation phase, likely its own CDK stack (`FleetManagementStack`) and a handful of new `/v1/admin/hubs/*`-style endpoints under the existing Internal Administration Console surface (`/v1/admin/*`, Security Architecture §2.5) — reusing StaffPool auth, not inventing a fourth identity surface.
+- **WireGuard concentrator sizing/HA** is not specified — a single small instance is fine for a pilot fleet, but this needs real capacity planning once hub count is nontrivial.
+- **Rollback of an already-installed OS patch** (vs. simply not promoting a pending one) is out of scope here — Windows' own patch-uninstall mechanics apply, but there's no fleet-orchestrated "revert this KB across the canary ring" flow designed yet.
+
+---
+
+## 11. Implementation Blueprint
 
 ### 10.1 Build sequence
 
@@ -919,17 +1036,20 @@ PeakLogicEdge/
 
 ---
 
-## 11. Open Questions
+## 12. Open Questions
 
 1. **Certificate delivery mechanism at scale** — this document assumes commissioning-time bundling via provisioning package for known devices and normal claim-flow provisioning for devices added later, but doesn't specify the operational tooling for *bulk* pre-provisioning many kiosks' worth of device certs before truck-roll. Worth a follow-up operational runbook, not an architecture change.
 2. **`s3://peaklogic-{stage}-edge-config/` is a new bucket** — real infra, not yet created. Small (`FrontendStack`-adjacent) CDK addition when implementation begins; flagged here so it isn't assumed to already exist.
 3. **Command Dispatch Layer's actual activation path** is intentionally undesigned beyond "subscribe, currently inert" — when Device & Command Security Architecture §5's gate lifts, this document needs a corresponding amendment to specify how the endpoint app's UI (§6.4) goes from disabled to live, not just how the backend does.
 4. **Kiosk-per-site Cognito account provisioning is manual today** (via `POST /v1/settings/team`, same as any team invite) — at fleet scale this likely wants a dedicated admin-console flow (`/v1/admin/tenants/{tenantId}/users`, already real per the Internal Administration Console) rather than a tenant admin doing it by hand per site; worth revisiting once kiosk deployment count is nontrivial.
 5. **Local Rule Engine / fail-safe-locally scope** — §0/§4.2 of Device & Command Security Architecture establishes the principle that safety-critical actuation must trip locally, not depend on cloud round-trips. This document doesn't yet specify whether/how PeakLogic Edge itself would host such local logic (e.g. a direct relay wired to the Windows box) versus that always living in device-native firmware — real product scoping needed before this is architected, not assumed here.
+6. **Path B (direct OEM cloud-to-cloud, §1.5) has no backend design at all** — flagged, not designed, and explicitly out of this document's scope. Needs its own architecture artifact before any OEM integration work starts.
+7. **§10's fleet-management backend is entirely new work** — hub inventory, patch-status ingestion, ring/promotion API, and the VPN concentrator infrastructure don't exist. Unlike the rest of this document (a zero-backend-change bridge), §10 is a real, separate implementation phase with its own CDK stack and API surface — do not assume it ships alongside §1–§9.
+8. **WireGuard concentrator capacity/HA planning (§10.1)** is unaddressed — fine for a pilot fleet, needs real sizing work before broad rollout.
 
 ---
 
-## 12. Traceability
+## 13. Traceability
 
 | Section | Traces to |
 |---|---|
@@ -945,6 +1065,6 @@ PeakLogicEdge/
 
 ---
 
-## 13. Review Log
+## 14. Review Log
 
 Not yet reviewed — Draft v1.0, first pass. Recommend a dedicated review pass before implementation begins, focused on: (1) confirming the "N concurrent per-device MQTT identities" design (§1.2) is acceptable from an ops/commissioning-burden standpoint versus its architectural cleanliness, since it does mean every locally-bridged sensor needs its own real cert bundle physically delivered to the site; (2) re-verifying §0's CC-3.1/CC-4.1 gate against Device & Command Security Architecture at the time implementation actually starts, in case that document's own §5 gate has since been lifted by a roadmap decision.
