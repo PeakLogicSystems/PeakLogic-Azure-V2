@@ -6,6 +6,7 @@ import {
   Cpu,
   Bell,
   Ticket,
+  Settings as SettingsIcon,
   LogOut,
 } from 'lucide-react';
 import type { AuthUser } from 'aws-amplify/auth';
@@ -23,6 +24,11 @@ const NAV = [
   { to: '/alerts',    label: 'Alerts',    Icon: Bell             },
   { to: '/tickets',   label: 'Tickets',   Icon: Ticket           },
 ];
+
+// Kept separate from NAV above rather than appended to it — SET-1 (PRD/SRS
+// v1.6) puts Settings in its own conventional spot, directly above the
+// user/sign-out block, not mixed into the primary feature nav list.
+const SETTINGS_NAV = { to: '/settings', label: 'Settings', Icon: SettingsIcon };
 
 export function Sidebar({ user, onSignOut }: SidebarProps) {
   return (
@@ -78,6 +84,24 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           </NavLink>
         ))}
       </nav>
+
+      {/* Settings */}
+      <div className="px-4 pb-1">
+        <NavLink
+          to={SETTINGS_NAV.to}
+          className={({ isActive }) =>
+            [
+              'flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors',
+              isActive
+                ? 'bg-brand-purple text-white'
+                : 'text-gray-400 hover:bg-white/8 hover:text-white',
+            ].join(' ')
+          }
+        >
+          <SETTINGS_NAV.Icon size={17} />
+          {SETTINGS_NAV.label}
+        </NavLink>
+      </div>
 
       {/* User + sign out */}
       <div className="px-4 py-4 border-t border-white/10">

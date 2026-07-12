@@ -24,39 +24,39 @@ const STATS = [
 ];
 
 const SEVERITY_BADGE: Record<string, string> = {
-  warning:  'bg-amber-100 text-amber-700',
-  critical: 'bg-red-100 text-red-700',
-  info:     'bg-blue-100 text-blue-700',
+  warning:  'bg-amber-100 text-amber-700 dark:bg-amber-500/15 dark:text-amber-400',
+  critical: 'bg-red-100 text-red-700 dark:bg-red-500/15 dark:text-red-400',
+  info:     'bg-blue-100 text-blue-700 dark:bg-blue-500/15 dark:text-blue-400',
 };
 
 export function Dashboard() {
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
       <div>
-        <h1 className="text-2xl font-semibold text-gray-900">Dashboard</h1>
-        <p className="text-sm text-gray-500 mt-1">Overview of your estate</p>
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Overview of your estate</p>
       </div>
 
       {/* Stat cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {STATS.map(({ label, value, sub, Icon, color }) => (
-          <div key={label} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm">
+          <div key={label} className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-5 shadow-sm">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-xs font-medium text-gray-500 uppercase tracking-wide">{label}</span>
+              <span className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide">{label}</span>
               <Icon size={16} className={color} />
             </div>
-            <p className="text-2xl font-bold text-gray-900">{value}</p>
-            <p className="text-xs text-gray-400 mt-1">{sub}</p>
+            <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">{sub}</p>
           </div>
         ))}
       </div>
 
       {/* Telemetry chart */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">Power draw — last 24 h (kW)</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm">
+        <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Power draw — last 24 h (kW)</h2>
         <ResponsiveContainer width="100%" height={220}>
           <LineChart data={TELEMETRY} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" />
+            <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" className="dark:opacity-10" />
             <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#9ca3af' }} interval={3} />
             <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />
             <Tooltip
@@ -76,23 +76,23 @@ export function Dashboard() {
       </div>
 
       {/* Recent alerts */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm">
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">Recent alerts</h2>
+      <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 shadow-sm">
+        <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300">Recent alerts</h2>
           <a href="/alerts" className="text-xs text-brand-purple hover:underline">View all</a>
         </div>
-        <ul className="divide-y divide-gray-100">
+        <ul className="divide-y divide-gray-100 dark:divide-gray-800">
           {RECENT_ALERTS.map(alert => (
             <li key={alert.id} className="px-6 py-4 flex items-center justify-between">
               <div>
-                <p className="text-sm font-medium text-gray-900">{alert.asset}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{alert.message}</p>
+                <p className="text-sm font-medium text-gray-900 dark:text-gray-100">{alert.asset}</p>
+                <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">{alert.message}</p>
               </div>
               <div className="flex items-center gap-3 ml-4 flex-shrink-0">
                 <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${SEVERITY_BADGE[alert.severity]}`}>
                   {alert.severity}
                 </span>
-                <span className="text-xs text-gray-400">{alert.time}</span>
+                <span className="text-xs text-gray-400 dark:text-gray-500">{alert.time}</span>
               </div>
             </li>
           ))}

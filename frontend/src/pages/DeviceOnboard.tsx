@@ -37,11 +37,11 @@ function Stepper({ current }: { current: 1 | 2 }) {
                 'w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-colors',
                 done   ? 'bg-brand-green text-white'  : '',
                 active ? 'bg-brand-purple text-white' : '',
-                !done && !active ? 'bg-gray-100 text-gray-400' : '',
+                !done && !active ? 'bg-gray-100 dark:bg-gray-800 text-gray-400 dark:text-gray-500' : '',
               ].join(' ')}>
                 {done ? <CheckCircle2 size={14} /> : n}
               </div>
-              <span className={`text-sm font-medium ${active ? 'text-gray-900' : 'text-gray-400'}`}>
+              <span className={`text-sm font-medium ${active ? 'text-gray-900 dark:text-gray-100' : 'text-gray-400 dark:text-gray-500'}`}>
                 {label}
               </span>
             </div>
@@ -170,14 +170,14 @@ export function DeviceOnboard() {
       {/* Header */}
       <Link
         to="/devices"
-        className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 mb-6 transition-colors"
+        className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 mb-6 transition-colors"
       >
         <ArrowLeft size={14} /> Back to devices
       </Link>
 
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-gray-900">Onboard a device</h1>
-        <p className="text-sm text-gray-500 mt-1">
+        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Onboard a device</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
           Connect a PeakLogic sensor to your account in two steps.
         </p>
       </div>
@@ -187,20 +187,20 @@ export function DeviceOnboard() {
 
       {/* ── Step 1 ────────────────────────────────────────────────── */}
       {step === 1 && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-8">
           <div className="flex items-center gap-3 mb-6">
             <div className="w-10 h-10 rounded-xl bg-brand-purple-soft flex items-center justify-center">
               <Cpu size={20} className="text-brand-purple" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900">Enter the device serial</h2>
-              <p className="text-xs text-gray-500">Found on the label on the back of your sensor</p>
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Enter the device serial</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">Found on the label on the back of your sensor</p>
             </div>
           </div>
 
           {claimError && <ErrorBanner message={claimError} />}
 
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">
+          <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
             Serial number
           </label>
           <input
@@ -209,13 +209,13 @@ export function DeviceOnboard() {
             onChange={e => { setSerial(e.target.value.toUpperCase()); setClaimError(''); }}
             onKeyDown={e => e.key === 'Enter' && handleClaim()}
             placeholder="PLG-0000"
-            className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm font-mono
+            className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2.5 text-sm font-mono
                        focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
-                       placeholder:text-gray-300"
+                       placeholder:text-gray-300 dark:text-gray-700"
             autoFocus
             disabled={claiming}
           />
-          <p className="text-xs text-gray-400 mt-2">Format: PLG-XXXX (case-insensitive)</p>
+          <p className="text-xs text-gray-400 dark:text-gray-500 mt-2">Format: PLG-XXXX (case-insensitive)</p>
 
           <div className="mt-8 flex justify-end">
             <button
@@ -237,7 +237,7 @@ export function DeviceOnboard() {
 
       {/* ── Step 2 ────────────────────────────────────────────────── */}
       {step === 2 && device && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-8">
           {/* Claimed badge */}
           <div className="flex items-center gap-2 bg-brand-green-soft border border-green-200 rounded-lg px-3 py-2 mb-6">
             <CheckCircle2 size={14} className="text-brand-green" />
@@ -251,8 +251,8 @@ export function DeviceOnboard() {
               <Layers size={20} className="text-brand-purple" />
             </div>
             <div>
-              <h2 className="font-semibold text-gray-900">Assign to a location</h2>
-              <p className="text-xs text-gray-500">You can change this at any time</p>
+              <h2 className="font-semibold text-gray-900 dark:text-gray-100">Assign to a location</h2>
+              <p className="text-xs text-gray-500 dark:text-gray-400">You can change this at any time</p>
             </div>
           </div>
 
@@ -260,20 +260,20 @@ export function DeviceOnboard() {
 
           {/* Site selector */}
           <div className="mb-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
               Site
             </label>
             {loadingSites ? (
-              <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+              <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 py-2">
                 <Loader2 size={14} className="animate-spin" /> Loading sites…
               </div>
             ) : (
               <select
                 value={siteId}
                 onChange={e => setSiteId(e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2.5 text-sm
                            focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
-                           bg-white"
+                           bg-white dark:bg-gray-900"
                 disabled={assigning}
               >
                 <option value="">— Select a site —</option>
@@ -287,22 +287,22 @@ export function DeviceOnboard() {
           {/* Asset selector — only shows when site is selected */}
           {siteId && (
             <div className="mb-6">
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Asset <span className="font-normal text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                Asset <span className="font-normal text-gray-400 dark:text-gray-500">(optional)</span>
               </label>
               {loadingAssets ? (
-                <div className="flex items-center gap-2 text-sm text-gray-400 py-2">
+                <div className="flex items-center gap-2 text-sm text-gray-400 dark:text-gray-500 py-2">
                   <Loader2 size={14} className="animate-spin" /> Loading assets…
                 </div>
               ) : assets.length === 0 ? (
-                <p className="text-sm text-gray-400 py-2">No assets at this site yet.</p>
+                <p className="text-sm text-gray-400 dark:text-gray-500 py-2">No assets at this site yet.</p>
               ) : (
                 <select
                   value={assetId}
                   onChange={e => setAssetId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-4 py-2.5 text-sm
+                  className="w-full border border-gray-300 dark:border-gray-700 rounded-lg px-4 py-2.5 text-sm
                              focus:outline-none focus:ring-2 focus:ring-brand-purple focus:border-transparent
-                             bg-white"
+                             bg-white dark:bg-gray-900"
                   disabled={assigning}
                 >
                   <option value="">— Select an asset —</option>
@@ -317,7 +317,7 @@ export function DeviceOnboard() {
           <div className="flex items-center justify-between">
             <button
               onClick={() => setStep(1)}
-              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1.5 transition-colors"
+              className="text-sm text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:text-gray-300 flex items-center gap-1.5 transition-colors"
               disabled={assigning}
             >
               <ArrowLeft size={14} /> Back
@@ -325,7 +325,7 @@ export function DeviceOnboard() {
             <div className="flex items-center gap-3">
               <button
                 onClick={() => handleAssign(true)}
-                className="text-sm text-gray-500 hover:text-brand-purple transition-colors"
+                className="text-sm text-gray-500 dark:text-gray-400 hover:text-brand-purple transition-colors"
                 disabled={assigning}
               >
                 Skip for now
@@ -350,17 +350,17 @@ export function DeviceOnboard() {
 
       {/* ── Success ───────────────────────────────────────────────── */}
       {step === 'success' && device && (
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-8 text-center">
+        <div className="bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-sm p-8 text-center">
           <div className="w-16 h-16 rounded-full bg-brand-green-soft flex items-center justify-center mx-auto mb-4">
             <CheckCircle2 size={32} className="text-brand-green" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900 mb-1">Device activated!</h2>
-          <p className="text-sm text-gray-500 mb-8">
+          <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 mb-1">Device activated!</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-8">
             Your sensor is now registered and ready to send data.
           </p>
 
           {/* Device summary */}
-          <div className="bg-gray-50 rounded-xl border border-gray-100 text-left divide-y divide-gray-100 mb-8">
+          <div className="bg-gray-50 dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-800 text-left divide-y divide-gray-100 mb-8">
             {[
               { label: 'Serial',   value: device.serial,                  mono: true  },
               { label: 'Thing',    value: device.thing_name,              mono: true  },
@@ -369,8 +369,8 @@ export function DeviceOnboard() {
               { label: 'Asset',    value: assetName ?? '—  (not assigned)', mono: false },
             ].map(({ label, value, mono }) => (
               <div key={label} className="flex items-center justify-between px-4 py-3">
-                <span className="text-xs text-gray-500 font-medium">{label}</span>
-                <span className={`text-sm text-gray-900 ${mono ? 'font-mono' : ''}`}>{value}</span>
+                <span className="text-xs text-gray-500 dark:text-gray-400 font-medium">{label}</span>
+                <span className={`text-sm text-gray-900 dark:text-gray-100 ${mono ? 'font-mono' : ''}`}>{value}</span>
               </div>
             ))}
           </div>
@@ -378,8 +378,8 @@ export function DeviceOnboard() {
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <button
               onClick={reset}
-              className="flex items-center justify-center gap-2 border border-gray-200 text-gray-700
-                         text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-gray-50 transition-colors"
+              className="flex items-center justify-center gap-2 border border-gray-200 dark:border-gray-800 text-gray-700 dark:text-gray-300
+                         text-sm font-medium px-5 py-2.5 rounded-lg hover:bg-gray-50 dark:bg-gray-800 transition-colors"
             >
               <RotateCcw size={14} /> Onboard another
             </button>

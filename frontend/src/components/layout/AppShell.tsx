@@ -10,7 +10,7 @@ interface AppShellProps {
 
 export function AppShell({ children, user, onSignOut }: AppShellProps) {
   return (
-    <div className="flex min-h-screen bg-gray-50">
+    <div className="flex min-h-screen bg-gray-50 dark:bg-gray-950">
       <Sidebar user={user} onSignOut={onSignOut} />
       <main className="flex-1 overflow-y-auto">
         {children}

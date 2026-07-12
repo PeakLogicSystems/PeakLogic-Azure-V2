@@ -2,6 +2,7 @@ import type { Config } from 'tailwindcss';
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class', // SET-4 — user-toggled (ThemeContext), not the OS media-query strategy
   theme: {
     extend: {
       colors: {
