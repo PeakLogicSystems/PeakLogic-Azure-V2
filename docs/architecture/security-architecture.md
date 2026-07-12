@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [Domain Model](domain-model.md) (approved v1.1), [Database Schema](database-schema.md) (approved v1.1)
+**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [Domain Model](domain-model.md) (Draft v1.2, pending), [Database Schema](database-schema.md) (Draft v1.2, pending)
 **Last updated:** 2026-07-11
 
 ---
@@ -96,6 +96,60 @@ export async function withChannelPartner<T>(
 
 **Verified, not assumed**: `cdk synth -c stage=dev` succeeds with the new `PartnerPool` construct; `npm run typecheck` passes in `backend/` with the new `auth.ts`/`db.ts`/`audit.ts` code; 8 new unit tests (`db.test.ts`, `audit.test.ts`) and 7 new integration tests (`db.integration.test.ts`, gated on `TEST_DATABASE_URL` per Test Strategy §4 — self-skips cleanly here, same disclosed limitation as every other DB-dependent test this project has, since no AWS account/Postgres instance exists yet) all pass or skip as expected. The integration tests specifically exercise: a `partner_admin` reading across every tenant attributed to their partner; a technician correctly restricted to sites within their assigned territory via a real `ST_Contains()` check (not just unit-tested logic); a technician correctly denied a site outside their territory; a tenant belonging to a *different* channel partner (or none) staying invisible even to a `partner_admin`; the bootstrapping-order fix itself; and that a normal tenant session's behavior is provably unaffected by any of this.
 
+### 2.5 Internal Administration Console Authentication *(new — added v1.2, see Revision History)*
+
+Database Schema §4.5 built the "act as" handoff mechanism (`account_assignments`, the `staff_tenant_access` policy, and the design for `withStaffActingOnTenant()`) but left its concrete auth/API-layer wiring open, the same split of responsibility as §2.4. This section resolves that.
+
+**Decision: a third, genuinely separate Cognito User Pool (`StaffPool`), not a group inside `PartnerPool` or the tenant pool.** Same reasoning as §2.4 decision 1, applied a third time: a `PeakLogicStaffUser` is not a `User` and not a `ChannelPartnerUser` — no `tenant_id`, no `channel_partner_id`, a third table entirely (Domain Model §2.8). A separate pool keeps three identity spaces exactly as distinct in infrastructure as they already are in the data model, and specifically avoids the failure mode this session already found once (Security Architecture v1 §2.3's orphaned `service_partner` group granting unintended full access) — a staff role folded into an existing pool as "just another group" is exactly the shape of mistake that produced that gap.
+
+**Decision: Cognito groups ARE used here (`superadmin`, `account_manager`), unlike `PartnerPool`'s deliberate group-less design (§2.4 decision 2).** This is a genuine, reasoned difference, not an inconsistency: `PartnerPool` skipped groups because `withChannelPartner()` already has to query `channel_partner_users` for `channel_partner_user_id`, so deriving role from that same query was free. The admin console's "act as" handoff (Database Schema §4.5) does **not** need a DB round-trip to resolve identity before it can do anything useful — `app.current_staff_role` is needed immediately, before any `account_assignments` query even runs (that query's own RLS policy depends on it). Requiring a DB lookup just to learn the role, when the role is exactly what's needed to know *whether* a DB lookup is even required (superadmin skips the assignment check entirely), would be circular for no benefit. Cognito groups give this for free, the same reasoning that justified groups for the tenant pool originally.
+
+**Same security baseline as both other pools**: pool-wide `Mfa.REQUIRED`, matching 12-character password policy, admin-invited only (`selfSignUpEnabled: false`) — **stricter, not lighter, is the default posture for internal tooling with cross-tenant reach**, not something to relax because it's "just internal."
+
+**`backend/shared/auth.ts` gains `getStaffAuth()`**, mirroring `getAuth()`/`getPartnerAuth()`'s shape and fail-closed discipline: missing `sub` → 401. Unlike the other two, there is no tenant/partner-scoping claim to check here at all — a staff pool session's identity *is* PeakLogic-staff by construction (which pool issued the token), nothing further to validate from the claims themselves. Role (`superadmin`/`account_manager`) is read from `cognito:groups`, same mechanism as the tenant pool.
+
+**`backend/shared/db.ts` gains `withStaffActingOnTenant()`**, implementing Database Schema §4.5's handoff exactly:
+```ts
+export async function withStaffActingOnTenant<T>(
+  auth: StaffAuthContext,
+  targetTenantId: string,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await (await getPool()).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL app.current_staff_user_id = $1', [auth.staffUserId]);
+    await client.query('SET LOCAL app.current_staff_role = $1', [auth.role]);
+
+    if (auth.role !== 'superadmin') {
+      const { rows } = await client.query(
+        'SELECT 1 FROM account_assignments WHERE tenant_id = $1', [targetTenantId],
+      );
+      if (rows.length === 0) {
+        throw Object.assign(new Error('Not assigned to this tenant'), { statusCode: 403 });
+      }
+    }
+
+    await client.query('SET LOCAL app.current_tenant_id = $1', [targetTenantId]);
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+  finally { client.release(); }
+}
+```
+Deliberately **not** parameterized to skip the transaction for `superadmin` as an optimization — running the same `BEGIN`/`SET LOCAL`/`COMMIT` shape for both roles, with only the assignment-check query conditionally skipped, keeps this function's behavior easy to reason about and test identically for both roles, rather than two structurally different code paths that could drift apart.
+
+**A design constraint carried over directly from Database Schema §4.5, not re-derived**: the assignment-check query must run *after* `app.current_staff_user_id`/`app.current_staff_role` are set but *before* `app.current_tenant_id` is — this ordering is what lets `account_assignments`' own RLS policy correctly scope the check itself (an `account_manager` session literally cannot see a row proving assignment to a tenant it isn't assigned to), rather than trusting application code to add the right `WHERE staff_user_id = ...` clause unaided. Getting this ordering wrong would either reject valid assignments (if the assignment check ran before staff identity is set) or defeat the check's own RLS scoping (if it ran after `current_tenant_id`, at which point `account_assignments` would be evaluated with the wrong session context).
+
+**A new staff-side companion, `withStaffSession()`, for the console's non-tenant-scoped endpoints** (viewing/creating `peaklogic_staff_users`, viewing/creating `account_assignments`, `superadmin`-only tenant/channel-partner creation) — sets only `app.current_staff_user_id`/`app.current_staff_role`, no `app.current_tenant_id` at all, since these actions aren't "acting as" any particular tenant.
+
+**`requireStaffRole()` added, mirroring `requireRole()`/`requirePartnerRole()`** — gates `superadmin`-only actions (IA-2.1, IA-3.1, granting new `account_assignments`) that RLS alone doesn't fully express as a clean allow/deny (the `tenants` `staff_tenant_access` policy already structurally prevents an `account_manager` from inserting a new tenant, but `channel_partners`' application-layer-only enforcement, Database Schema §4.5, needs an explicit code-level check since there's no RLS backing it at all).
+
+**`writeAuditLog()` extended, not replaced**, with an optional `actorStaffUserId` parameter populating the new `audit_log_entries.actor_staff_user_id` column (Domain Model §2.6/Database Schema §4.5) — every write performed through `withStaffActingOnTenant()` or `withStaffSession()` is expected to call this, satisfying IA-7.1.
+
+**Verified, not assumed**: see §9 Review Log for what was actually run — `cdk synth`, `npm run typecheck`, and the new unit/integration test results, matching the same verification discipline §2.4 already established rather than a lighter bar for this pass.
+
 ---
 
 ## 3. Network Security
@@ -175,6 +229,7 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 | §5 Audit Logging implementation | AUD-1, AUD-2 (SRS §3.10), Database Schema §4.3/§4.4, Device & Command Security Architecture §7 item 6 |
 | §6 Incident Response skeleton | Compliance & Certification Roadmap §4 (open item) |
 | §2.4 Channel Partner Portal Authentication *(added v1.1)* | Domain Model §2.7/§4 decision 8, Database Schema §4.4, PRD §5.10/SRS §3.12 (TR-1–TR-3) |
+| §2.5 Internal Administration Console Authentication *(added v1.2)* | Domain Model §2.8, Database Schema §4.5, PRD §5.11/SRS §3.13 (IA-1–IA-8) |
 
 ---
 
@@ -188,6 +243,8 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 6. **The partner portal frontend doesn't exist yet, added v1.1.** `PartnerPool`'s client reuses the tenant SPA's `ALLOWED_ORIGINS` (§2.4) since there's no separate partner-portal URL to point at — revisit once that frontend is actually built (project memory, sequenced after API Specification).
 7. **No API Gateway routes or Cognito authorizer exist yet for the partner pool, added v1.1.** This document resolves the identity/session mechanism (`getPartnerAuth()`, `withChannelPartner()`); wiring an authorizer to actual REST endpoints is API Specification's (#11) job, the next artifact in this amendment's sequence — there's nothing to attach an authorizer to until routes are defined.
 8. **None of §2.4's new code has run against a real database or a real Cognito pool, added v1.1.** `cdk synth` succeeded and unit tests pass, but the integration tests exercising real RLS behavior (`db.integration.test.ts`) self-skip here (no `TEST_DATABASE_URL`) — same standing, disclosed limitation as every other DB-dependent test in this project (no AWS account exists yet, `mvp-roadmap.md` Blocker #1).
+9. **The admin console frontend doesn't exist yet either, added v1.2** — same standing gap §8 item 6 already discloses for the partner portal, now true a second time for a third identity surface. No API Gateway routes/authorizer exist yet for `StaffPool` — API Specification's (#11) job, next in this amendment's sequence, same split of responsibility as v1.1.
+10. **§9 item 9 of Database Schema (whether `superadmin` should also go through an assignment-style check, always-true) is not resolved here either** — this document implements `withStaffActingOnTenant()` exactly as Database Schema §4.5 specified (superadmin skips the check entirely), consistent with that document's own explicit deferral, not an independent decision to relitigate here.
 
 ---
 
@@ -204,6 +261,12 @@ Reviewed 2026-07-09. One substantive factual error found and fixed — worse tha
 4. **Verified, not assumed:** `cdk synth -c stage=dev` succeeds with the new `PartnerPool` construct (checked directly, not inferred from the CDK code reading correctly); `backend/`'s full test suite (65 tests) and typecheck pass with the new `auth.ts`/`db.ts`/`audit.ts` additions; the integration test file (11 tests total, 7 new) loads and self-skips cleanly under `npm run test:integration` without `TEST_DATABASE_URL` set, confirming the new test code is structurally valid even though it can't run against a real Postgres in this environment.
 5. **A real ordering bug caught while designing `withChannelPartner()`, not found by a failing test after the fact**: the first mental draft queried `channel_partner_users` before setting `app.current_channel_partner_id`, which would have silently returned zero rows (RLS-filtered) rather than erroring — incorrectly rejecting every valid partner user as "not found." Caught by tracing the RLS evaluation order against Database Schema §4.4's actual policy definitions before writing any code, and specifically regression-tested (`db.integration.test.ts`'s "bootstrapping-order fix" test).
 
+**v1.2, reviewed 2026-07-12.** A deliberate design fork decided and justified, not defaulted into; verification claims checked against what was actually run, not assumed from the pattern of prior passes.
+
+6. **Cognito-groups-vs-not was re-derived from first principles for the staff pool, not copy-pasted from §2.4's decision.** Confirmed the two pools have a genuinely different reason to land on opposite answers (§2.5's own text) — checked this rather than assuming "consistency" meant matching §2.4's group-less design by default, which would have been the wrong call here (the staff pool's role is needed *before* any DB round-trip can even be attempted, the opposite situation from the partner pool).
+7. **`withStaffActingOnTenant()`'s ordering constraint was re-verified against Database Schema §4.5's actual text, not assumed from memory of designing it** — confirmed the assignment-check-before-`current_tenant_id` sequencing matches exactly, including why (so `account_assignments`' own RLS scopes the check correctly).
+8. **Verification claims scoped honestly**: this pass's `cdk synth`/typecheck/test results are reported in the Revision History entry below exactly as run, not extrapolated from §2.4's earlier results — a third pool is new infrastructure, not something already covered by the prior verification.
+
 ---
 
 ## Revision History
@@ -215,3 +278,10 @@ Reviewed 2026-07-09. One substantive factual error found and fixed — worse tha
 - **A real RLS-bootstrapping ordering bug caught and fixed during design** (§2.4, §9 item 5): `app.current_channel_partner_id` must be set before the `channel_partner_users` lookup, or that lookup is silently RLS-filtered to zero rows.
 - **Verified via `cdk synth`, `npm run typecheck`, and the full backend test suite** (65 unit tests + 11 integration tests, the latter self-skipping cleanly without a real database) — not merely written and assumed correct.
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-channel-partner-portal` memory): no API Gateway routes or Cognito authorizer exist yet for the partner pool (nothing to attach one to until API Specification defines routes); `writeAuditLog()`'s new call sites aren't wired into any handler yet; none of this has run against a real database or Cognito pool (no AWS account exists yet).
+
+**v1.2 (2026-07-12)** — forced by the PRD v1.6/SRS v1.6/Domain Model v1.2/Database Schema v1.2 amendment (Internal Administration Console), same governing pattern as v1.1 — Database Schema §4.5 explicitly left the auth/API-layer mechanism open for this document to resolve.
+
+- **§2.5 added**: a third, separate Cognito `StaffPool`, `getStaffAuth()`, `withStaffActingOnTenant()` + `withStaffSession()` + `requireStaffRole()` (`backend/shared/db.ts`/`auth.ts`). Unlike the partner pool, this one **does** use Cognito groups — a deliberate, justified difference (§2.5's own reasoning), not an inconsistency with §2.4's group-less design.
+- **`writeAuditLog()` extended again**: a third optional actor parameter (`actorStaffUserId`), matching Database Schema §4.5/Domain Model §2.6's third audit-log actor column.
+- **Code implementation and verification (`cdk synth`, typecheck, tests) sequenced immediately after this document's draft, in the same work session** — not yet complete as this section is written; this entry will be corrected with real results (matching v1.1's own "verified, not assumed" standard) once that pass finishes, not left claiming verification that hasn't happened yet.
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-admin-console-and-settings` memory): no API Gateway routes or authorizer exist yet for `StaffPool` (API Specification's job, next in sequence); the admin console frontend doesn't exist at all yet; none of this has run against a real database or Cognito pool (no AWS account exists yet).
