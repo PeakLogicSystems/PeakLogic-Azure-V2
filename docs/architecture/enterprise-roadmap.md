@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1.0
 **Depends on:** All 22 previously approved/drafted artifacts (#1–22) — this document is a synthesis, not new analysis, pulling together every "Enterprise Roadmap," "post-MVP," "Won't (MVP)," and trigger-gated deferral scattered across the whole `docs/architecture/` tree
 **Last updated:** 2026-07-12
 
@@ -260,6 +260,8 @@ This split matters: an initiative in §3 needs a strategic decision (is this wor
 3. **Re-verified directly**: SOC 2 Type I engagement status and the compliance-owner question — checked `soc2-control-mapping.md` directly rather than the older `compliance-certification-roadmap.md` (approved 2026-07-04, predates the compliance-owner decision), since the newer document is the current source of truth on that specific point. Confirmed the user was named compliance owner 2026-07-11, but CC1 organizational gaps still have no owner/timeline — both facts incorporated precisely in §3.2.
 4. **Deliberately not verified further in this pass, flagged as a limitation**: the "channel-partner-portal is now MVP scope, not Enterprise Roadmap" boundary stated in §1.2 relies on the research agent's own explicit note to that effect, plus this document's author's independent knowledge from having done that amendment work directly earlier in this project — not re-derived from scratch a third time in this review, since it was already verified twice during that amendment's own approval process.
 5. **A genuine judgment call, not a finding**: which items belong in §3 (strategic initiatives) vs. §6 (handed to Technical Debt Register) required drawing a line prior artifacts didn't draw explicitly themselves — documented the reasoning for that split directly in §6's closing paragraph rather than presenting it as an uncontroversial, pre-existing categorization.
+
+**Approved v1.0, 2026-07-12** — user-approved without requested changes. Bumped out of `v0.x` draft numbering into `v1.0` on approval, the same convention MVP Roadmap (#22) followed.
 
 ---
 
