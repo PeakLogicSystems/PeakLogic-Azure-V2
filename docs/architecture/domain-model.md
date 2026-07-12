@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5)
+**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending)
 **Last updated:** 2026-07-11
 
 ---
@@ -46,12 +46,13 @@ Out of scope: exact column types/constraints (→ Database Schema, #10), API req
 | settings (JSONB) | Includes `webhook_url` (existing) |
 | **channel_partner_id (nullable)** | **New** — attributes this tenant to a reseller relationship (CH-1.1) |
 
-**User** *(existing)* — a person who can authenticate and act in the system.
+**User** *(existing, extended v1.2)* — a person who can authenticate and act in the system.
 | Attribute | Notes |
 |---|---|
 | user_id, cognito_sub, email, display_name | |
-| role | Existing enum `admin` / `operator` / `service_partner`. **Naming reconciliation**: these map to the PRD/SRS's Tenant Admin / Facility Operator / Service Partner respectively — same values, no schema change, just the display names used in product docs going forward |
+| role | Existing enum `admin` / `operator`. **Corrected v1.2**: this document previously listed `service_partner` as a third value (decision 5) — checked directly against `docs/data-model.sql`, the `service_partner` Cognito *group* was removed in Security Architecture v1.1 (no route ever checked for it), but the database-level `CHECK` constraint on `users.role` still allows it, a real leftover inconsistency this amendment closes (Database Schema #10 to tighten the constraint) |
 | status | |
+| **clock_format (nullable), timezone (nullable), theme (nullable)** | **New, added v1.2** — per-user display preferences (SET-3/SET-4/SET-5). Null means "use the application default" (24-hour, UTC, light) rather than requiring a value at signup — a user who never opens Settings still works correctly |
 
 **ChannelPartner** *(new)* — a reseller/supplier relationship (e.g. a pool-chemical supplier) whose customers' tenants are attributed to them (CH-1.1, CH-2.1).
 | Attribute | Notes |
@@ -142,14 +143,15 @@ The MCP server (MCP-1.1) and baseline analytics (AI-3.1) are an **access/computa
 
 ### 2.6 Audit
 
-**AuditLogEntry** *(new)* — a record of a state-changing administrative action (AUD-1).
+**AuditLogEntry** *(new, corrected v1.2)* — a record of a state-changing administrative action (AUD-1). **This document's original v1 description was already stale**: it described a single-tenant-scoped shape, but Database Schema v1.1 (approved before this document was corrected — a real, disclosed documentation gap, not a schema problem) already extended it to a dual-scope shape for the channel-partner portal. Corrected here to match `docs/data-model.sql` as it actually exists, not as this document previously (incorrectly) described it.
 | Attribute | Notes |
 |---|---|
-| audit_log_id, tenant_id | Tenant-scoped, same RLS enforcement as every other table (AUD-2) |
-| actor (user_id) | |
+| audit_log_id | |
+| tenant_id (nullable) / channel_partner_id (nullable) | **Exactly one** non-null — the "scope" this entry is about. A staff console action (§2.8, new v1.2) is scoped to whichever tenant or channel partner it acted on, reusing these same two columns rather than adding a third scope dimension |
+| actor_id (nullable) / actor_channel_partner_user_id (nullable) / **actor_staff_user_id (nullable, new v1.2)** | **At most one** non-null — the "who." All three null is a legitimate system-triggered entry, not an error |
 | action, target_entity, target_id | |
 | prior_value, new_value (nullable) | |
-| timestamp | |
+| occurred_at | |
 
 ### 2.7 Channel Partner Portal & Dispatch *(new — added v1.1, see Revision History)*
 
@@ -194,6 +196,31 @@ A RouteAssignment has **1—*** RouteStops, each referencing exactly **1** Site.
 
 **Cardinalities:** A ChannelPartner has **many** ChannelPartnerUsers (of either role) and **many** Territories. A Territory has **0..*** ChannelPartnerUsers with `role = technician` assigned to it. A technician-role ChannelPartnerUser has **0..1** RouteAssignment per calendar date.
 
+### 2.8 Internal Administration *(new — added v1.2, see Revision History)*
+
+The entities behind PRD §5.11's Administration Console (IA-1–IA-8) — a **third** identity/access surface, alongside the tenant `User` (§2.1) and the channel-partner `ChannelPartnerUser` (§2.7). None of this existed in `docs/data-model.sql` before this amendment.
+
+**PeakLogicStaffUser** *(new)* — a PeakLogic employee who can authenticate into the Administration Console. Deliberately not an extension of `User` or `ChannelPartnerUser` — PeakLogic staff are neither a tenant's own people nor a channel partner's, the same "genuinely separate identity space" reasoning §2.7 already applied to channel partners (§4 decision 6), extended one level further.
+| Attribute | Notes |
+|---|---|
+| staff_user_id | |
+| cognito_sub, email, display_name | Same shape as `User`/`ChannelPartnerUser`, third identity space |
+| role | `superadmin` or `account_manager` — mirrors the established single-entity, role-differentiated pattern (§4 decisions 5/8) rather than two separate tables |
+| status | active / disabled — a departed employee's access must be revocable without deleting their audit-log history (AuditLogEntry's `actor_staff_user_id` references this table; deleting the row would orphan the audit trail) |
+
+**AccountAssignment** *(new)* — the "book of business" relationship: which tenants/channel partners a given `account_manager`-role PeakLogicStaffUser is permitted to act on (IA-4). **Deliberately does not apply to `superadmin`** — a superadmin's access is unconditional (IA-6), not expressed as a (very large) set of assignment rows; modeling it that way would make "grant a new superadmin full access" require inserting one row per existing tenant/partner, and would need a new row for every *future* tenant/partner too, which defeats the point of "unconditional."
+| Attribute | Notes |
+|---|---|
+| account_assignment_id, staff_user_id | References a PeakLogicStaffUser with `role = account_manager` (a soft data-integrity expectation, same category as `Asset.category`↔`DeviceAdapter` and `RouteAssignment.technician_user_id`↔`role = technician`) |
+| tenant_id (nullable) / channel_partner_id (nullable) | **Exactly one** non-null — an assignment is to one tenant or one channel partner, not both at once. An account manager with a mixed book of business (some tenants, some partners) simply has multiple `AccountAssignment` rows |
+| assigned_at, assigned_by (staff_user_id, expected `role = superadmin`) | Provenance — who granted this assignment and when, itself a natural audit-log target (IA-7) |
+
+**Cardinalities:** A PeakLogicStaffUser with `role = account_manager` has **0..*** AccountAssignments (zero is a valid, if useless, state — a newly-created account manager not yet given any accounts). A Tenant or ChannelPartner has **0..*** AccountAssignments pointing to it (multiple account managers can share responsibility for one large account — not excluded, though not required by IA-4 either).
+
+**Provisioning is `superadmin`-initiated, not self-service** — the same pattern established for tenant users (existing, manual today) and ChannelPartnerUsers (§2.7, `partner_admin`-initiated): a `superadmin` creates a PeakLogicStaffUser's credential and grants their initial AccountAssignments. No self-service signup path exists for this identity surface at all, at any role (PRD §4, explicit non-goal).
+
+**Flagged, not resolved, here** (same discipline as §4 decision 6 for the channel-partner portal): the concrete RLS/access-control mechanism enforcing AccountAssignment as a real, structural boundary — not just an application-layer filter — is Multi-Tenant Architecture's (#14) job to amend. This one is **materially harder** than the channel-partner-portal precedent: that pattern was read-mostly (a technician viewing sites in their territory); an `account_manager` needs real cross-tenant **write** access (creating tenant users, claiming devices, setting asset specs) scoped to their assigned accounts specifically — and it directly intersects Multi-Tenant Architecture's own already-disclosed open item that no non-owning application database role exists yet (§6 item 6 there). PeakLogicStaffUser's concrete auth mechanism (new Cognito pool vs. an extension of an existing one) is Security Architecture's (#13) job, mirroring decision 6's split of responsibility for the channel-partner portal.
+
 ---
 
 ## 3. Relationship Diagram
@@ -221,6 +248,10 @@ erDiagram
     ROUTE_ASSIGNMENT ||--o{ ROUTE_STOP : contains
     ROUTE_STOP }o--|| SITE : visits
     CHANNEL_PARTNER_USER ||--o{ ROUTE_ASSIGNMENT : "confirms (admins only)"
+    PEAKLOGIC_STAFF_USER ||--o{ ACCOUNT_ASSIGNMENT : "granted (account managers only)"
+    ACCOUNT_ASSIGNMENT }o--o| TENANT : "book of business"
+    ACCOUNT_ASSIGNMENT }o--o| CHANNEL_PARTNER : "book of business"
+    PEAKLOGIC_STAFF_USER ||--o{ AUDIT_LOG_ENTRY : "acts as (staff actions)"
 ```
 
 ---
@@ -235,6 +266,9 @@ erDiagram
 6. **Channel-partner-scoped entities (§2.7) introduce a second scoping dimension alongside `tenant_id` — added v1.1.** Every entity before this amendment is scoped by exactly one `tenant_id`, enforced structurally by RLS (decision 1). ChannelPartnerUser, Territory, RouteAssignment, and RouteStop are scoped by `channel_partner_id` instead — and a RouteAssignment's stops can reference Sites belonging to *multiple different tenants* (every tenant attributed to that channel partner), which no existing entity in this schema does. **Flagged, not resolved, here**: the concrete RLS/access-control mechanism for this new scoping dimension is Multi-Tenant Architecture's (#14) job to amend; ChannelPartnerUser's concrete auth mechanism is Security Architecture's (#13). Modeled now so those two artifacts have a concrete shape to design against.
 7. **Territory→Site is a derived resolution rule (geographic containment + existing tenant attribution), not a stored foreign key — added v1.1.** Consistent with decision 4's Asset→DeviceAdapter precedent. Keeps `sites` schema-stable as territories are redrawn — a territory boundary edit never requires a bulk `UPDATE sites`.
 8. **Technician and partner-admin are both `ChannelPartnerUser` roles, not separate entities — added v1.1, resolved during review (§6.4).** Mirrors `User.role`'s existing single-entity, role-differentiated pattern (decision 5) rather than a Field-Service-Partner-style no-login design. **User decision, 2026-07-11: technicians get real logins, but access is scoped to their assigned territory's sites only** (§2.7) — not full portal access, consistent with the "operational dispatch view only" scope already locked for CH-3 overall. **Provisioning is admin-initiated, not self-service**: a `partner_admin` creates a technician's login credential and assigns their territory (preconfigured assets) and routes — mirrors CH-1.2's existing internal-assignment-only precedent (a tenant can't self-assign its own channel-partner reference either). No self-service signup path exists for either role at MVP.
+9. **PeakLogicStaffUser is a third, genuinely separate identity space — added v1.2 (§2.8).** Superadmin and account_manager are roles on one entity (decision 5/8's pattern again, now applied a third time), not two tables. `superadmin`'s access is modeled as unconditional, not as a degenerate/universal case of `AccountAssignment` — a deliberate choice to avoid needing a new assignment row every time a new tenant/partner is created (see §2.8's own reasoning).
+10. **AuditLogEntry's actor dimension grows to three mutually-exclusive columns, not a polymorphic `actor_type` + `actor_id` pair — added v1.2.** Kept consistent with the existing `tenant_id`/`channel_partner_id` scope-dimension pattern (one nullable column per possibility, a `CHECK` constraint enforcing at-most-one) rather than switching styles for the actor dimension specifically. A polymorphic actor column would need application-level type-checking to stay correct; the three-nullable-column-plus-CHECK approach gets that enforcement from Postgres itself, for free, the same reasoning already applied to the scope dimension in Database Schema v1.1.
+11. **This amendment corrects two things this document had already gotten stale on, found while writing it — not new decisions, disclosed for the record.** §2.1's `User.role` list still showed `service_partner` as a live value after Security Architecture v1.1 removed that Cognito group; §2.6's `AuditLogEntry` still showed its pre-v1.1 single-scope shape after Database Schema v1.1 had already extended it. Both corrected in place (§2.1, §2.6) rather than left to compound further.
 
 ---
 
@@ -245,6 +279,7 @@ erDiagram
 - Pool-chemistry and gas-sensor threshold *content* (the actual numbers) — still unassigned per SRS Open Issue #1; this document only models the shape a DeviceAdapter's `threshold_rules` take.
 - Actuation/command entities (e.g. a future Command or CommandAck entity) — explicitly deferred to Device & Command Security Architecture (#12), since no actuation ships at MVP (CC-3/CC-4).
 - **Added v1.1:** Territory's `boundary` exact storage type (PostGIS geography/geometry vs. JSONB GeoJSON) — Database Schema (#10). The concrete channel-partner-scoped RLS/access-control mechanism (§4 decision 6) — Multi-Tenant Architecture (#14). ChannelPartnerUser's concrete auth mechanism (new Cognito group vs. new user pool) — Security Architecture (#13).
+- **Added v1.2:** The concrete cross-tenant-**write** RLS/access-control mechanism for AccountAssignment (§2.8) — Multi-Tenant Architecture (#14), explicitly flagged there as harder than the v1.1 precedent. PeakLogicStaffUser's concrete auth mechanism — Security Architecture (#13). The `assetId`/`siteId` query-filter shape for `GET /v1/devices` (NAV-5) — API Specification (#11).
 
 ---
 
@@ -269,7 +304,7 @@ Modeled as a separate table (§2.7) rather than an ordered JSONB array of site I
 
 ## 7. Traceability
 
-Every entity/attribute above cites the SRS requirement it formalizes inline, or is marked *(existing)* against `docs/data-model.sql`. No entity here should be treated as authoritative until the Open Questions in §6 are resolved and this document is marked Approved, at which point the Database Schema (#10) becomes free to depend on it. **Added v1.1:** §2.7 (ChannelPartnerUser, Territory, RouteAssignment, RouteStop) traces to PRD §5.8 (CH-3/CH-3a) + §5.10 (TR-1–TR-3) and SRS §3.8 (CH-3.1/CH-3a.1) + §3.12 (TR-1.1–TR-3.2). All §6 open questions are now resolved (§6.4 resolved during review, 2026-07-11) — Security Architecture (#13) should design the technician access-scoping mechanism (§2.7) as real requirement input, not a placeholder.
+Every entity/attribute above cites the SRS requirement it formalizes inline, or is marked *(existing)* against `docs/data-model.sql`. No entity here should be treated as authoritative until the Open Questions in §6 are resolved and this document is marked Approved, at which point the Database Schema (#10) becomes free to depend on it. **Added v1.1:** §2.7 (ChannelPartnerUser, Territory, RouteAssignment, RouteStop) traces to PRD §5.8 (CH-3/CH-3a) + §5.10 (TR-1–TR-3) and SRS §3.8 (CH-3.1/CH-3a.1) + §3.12 (TR-1.1–TR-3.2). All §6 open questions are now resolved (§6.4 resolved during review, 2026-07-11) — Security Architecture (#13) should design the technician access-scoping mechanism (§2.7) as real requirement input, not a placeholder. **Added v1.2:** §2.8 (PeakLogicStaffUser, AccountAssignment) traces to PRD §5.11 (IA-1–IA-8) and SRS §3.13 (IA-1.1–IA-8.1); the `User`/`clock_format`/`timezone`/`theme` additions trace to PRD §5.12 (SET-3/SET-4/SET-5) and SRS §3.14.
 
 ---
 
@@ -286,6 +321,12 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 4. **Technician login (§6.4) — flagged as genuinely open, then resolved by the user, not assumed.** First draft modeled Technician with no login (mirroring the Field Service Partner precedent) and explicitly called this out as an unconfirmed judgment call rather than quietly deciding it. The user's answer — real logins, scoped to preconfigured (territory) assets, admin-provisioned — was incorporated by merging Technician into `ChannelPartnerUser` as a role, not bolting a login onto the separate entity, since the role-based single-entity shape already matches this document's existing `User.role` pattern (§4 decision 5).
 5. **Re-verified, held up:** the claim that `docs/data-model.sql` has an installed-but-unused `postgis` extension (checked directly against the file's `CREATE EXTENSION` statements, not assumed from memory); that RP-2.1 is a live query with no persisted state, distinguishing it correctly from the new RouteAssignment's need for a stable, confirmable snapshot; CH-1.2's internal-assignment-only precedent (re-checked against PRD §5.8's exact wording) as the right analogy for admin-initiated technician provisioning.
 
+**v1.2 (2026-07-12), reviewed 2026-07-12:** two real staleness bugs found in this document's own prior content while amending it, not just new entities added.
+
+6. **§2.1's `User.role` list was wrong, not just incomplete.** Checked `infra/lib/auth-stack.ts` directly rather than trusting this document's own decision 5 — confirmed the `service_partner` Cognito group was removed in Security Architecture v1.1, but this document still listed it as a current value. A second check, against `docs/data-model.sql`'s actual `users.role` `CHECK` constraint, found the database-level constraint was *never* updated to match — a real, live inconsistency (the DB still accepts a role the application no longer grants through any group), not just a documentation lag. Flagged for Database Schema (#10) to close.
+7. **§2.6's `AuditLogEntry` was describing a shape that stopped being true after Database Schema v1.1 shipped**, and nothing caught it at the time. Checked `docs/data-model.sql`'s actual `CREATE TABLE audit_log_entries` directly and corrected the entity description to match — the dual-scope/dual-actor columns and their `CHECK` constraints were already real, just never reflected back into this document.
+8. **AccountAssignment's design (§2.8) was checked against the locked decision, not re-litigated:** confirmed the "assigned subset" requirement (PRD IA-4, locked via the user's earlier explicit choice) is modeled as a real join table, and confirmed `superadmin`'s unconditional access is deliberately *not* expressed through that same table (see §2.8's own reasoning) — re-read the original AskUserQuestion exchange rather than assuming the model's shape from memory.
+
 ---
 
 ## Revision History
@@ -297,3 +338,13 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **§4 decisions 6–8 added**: channel-partner-scoping as a genuinely new second scoping dimension alongside `tenant_id` (flagged for Multi-Tenant Architecture and Security Architecture, not resolved here); Territory→Site as a derived resolution rule (consistent with the existing Asset→DeviceAdapter precedent); technician/partner-admin modeled as ChannelPartnerUser roles.
 - **Resolved during review, same day, per direct user decisions:** the first draft modeled a separate, login-less Technician entity (mirroring the Field Service Partner precedent) and flagged it as an open question (§6.4). The user rejected that default: **technicians get real logins.** Redesigned as a single `ChannelPartnerUser` entity with a `role` column (`partner_admin` / `technician`), mirroring `User.role`'s existing pattern rather than a separate table. Two more user-specified constraints incorporated in the same pass: **a technician's access is scoped to their assigned territory's sites only** (their "preconfigured assets"), not full portal access; and **a `partner_admin` creates the technician's credential and assigns their territory/routes** — provisioning is admin-initiated, not self-service, mirroring CH-1.2's existing internal-assignment-only precedent. RouteAssignment gained a `source` (`ai_suggested` / `manual`) attribute so a partner_admin can also hand-build a route, not only confirm an AI suggestion. §6.4 is now resolved, not open; §6.5 (RouteStop as a separate entity) was already resolved.
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-channel-partner-portal` memory): Territory's exact geometry storage type, the channel-partner-scoped RLS mechanism, and ChannelPartnerUser's concrete Cognito mechanism (including how a technician's scoped access is actually enforced at the auth/query layer) — all deferred to their respective downstream artifacts (Database Schema, Multi-Tenant Architecture, Security Architecture).
+
+**v1.2 (2026-07-12)** — forced by the PRD v1.6/SRS v1.6 amendment (Internal Administration Console, Settings & Preferences, Site→Asset→Device Drill-Down), surfaced by direct hands-on product use rather than a planned artifact review, per this document's own rule (§7).
+
+- **§2.1 `User` extended**: nullable `clock_format`/`timezone`/`theme` display-preference attributes (SET-3/SET-4/SET-5), null meaning "application default."
+- **§2.1 `User.role` corrected, not just extended**: found and disclosed that this document's own `service_partner` reference was already stale (removed as a Cognito group in Security Architecture v1.1) and that the underlying database `CHECK` constraint was never tightened to match — a real, live inconsistency, not a documentation nit.
+- **§2.6 `AuditLogEntry` corrected**: this document's description had already drifted out of sync with Database Schema v1.1's actual dual-scope/dual-actor shape; corrected to match reality, and extended with a third actor column (`actor_staff_user_id`) for the new identity surface below.
+- **§2.8 added**: PeakLogicStaffUser (a third, genuinely separate identity space — `superadmin`/`account_manager` roles on one entity, mirroring the established pattern) and AccountAssignment (the "book of business" join table implementing the user's locked decision that Account Manager access is an explicitly assigned subset, not universal — `superadmin` deliberately modeled as unconditional access, not a degenerate case of this same table).
+- **§4 decisions 9–11 added**: PeakLogicStaffUser as a third identity space; AuditLogEntry's actor dimension staying consistent with the existing nullable-column-plus-CHECK style rather than switching to a polymorphic actor type; explicit disclosure of the two staleness corrections (not new decisions, but recorded for the same reason every other correction in this project's history has been recorded — so a future reader doesn't wonder whether it was intentional).
+- **§4 decision 6's pattern extended, not repeated blindly**: AccountAssignment's cross-tenant RLS/access-control mechanism is flagged, not resolved, here — and explicitly called out as *harder* than the channel-partner-portal precedent, since it needs real cross-tenant write, not read-mostly access, and directly intersects Multi-Tenant Architecture's own already-known gap (no non-owning application DB role exists yet).
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-admin-console-and-settings` memory): the concrete RLS/access-control mechanism for AccountAssignment, PeakLogicStaffUser's concrete Cognito mechanism, and the exact API shape for the new `assetId`/`siteId` device filters — all deferred to their respective downstream artifacts (Database Schema, Multi-Tenant Architecture, Security Architecture, API Specification).
