@@ -234,20 +234,26 @@ export class ApiStack extends cdk.Stack {
     const partnerBranding = partner.addResource('branding');
     partnerBranding.addMethod('PUT', integration, partnerAuth);
 
-    const addPartnerCrud = (name: string) => {
+    const addPartnerCrud = (name: string, options: { delete?: boolean } = {}) => {
+      const { delete: allowDelete = true } = options;
       const r = partner.addResource(name);
       r.addMethod('GET',  integration, partnerAuth);
       r.addMethod('POST', integration, partnerAuth);
       const detail = r.addResource(`{${name.replace(/s$/, '')}Id}`);
-      detail.addMethod('GET',    integration, partnerAuth);
-      detail.addMethod('PUT',    integration, partnerAuth);
-      detail.addMethod('DELETE', integration, partnerAuth);
+      detail.addMethod('GET', integration, partnerAuth);
+      detail.addMethod('PUT', integration, partnerAuth);
+      if (allowDelete) detail.addMethod('DELETE', integration, partnerAuth);
       return { resource: r, detail };
     };
 
     addPartnerCrud('territories');
     addPartnerCrud('users');
-    const { detail: routeDetail } = addPartnerCrud('routes');
+    // Routes are deliberately not deletable (API Specification §4.5: a
+    // confirmed route is immutable, re-plan by submitting a new one) —
+    // review caught that addPartnerCrud's default DELETE method had been
+    // wired here anyway with no corresponding handler in partner-router.ts,
+    // an authenticated API Gateway method that only ever 404s.
+    const { detail: routeDetail } = addPartnerCrud('routes', { delete: false });
     routeDetail.addResource('confirm').addMethod('POST', integration, partnerAuth);
 
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
