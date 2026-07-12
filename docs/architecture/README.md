@@ -29,6 +29,6 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 21 | [Patent Opportunity Analysis](patent-opportunity-analysis.md) | ✅ Approved v1 (not legal advice — see doc header; no filing action recommended now) |
 | 22 | [MVP Roadmap](mvp-roadmap.md) | ✅ Approved v1.0 (Blocker #1: no AWS deploy yet; Blocker #2 resolved; §4a — channel-partner-portal amendment sequence fully closed, implementation now a sequenced §5 item) |
 | 23 | [Enterprise Roadmap](enterprise-roadmap.md) | ✅ Approved v1.0 (12 initiatives synthesized from all prior artifacts, sequenced by trigger condition not calendar date) |
-| 24 | Technical Debt Register | 🔲 Not started |
+| 24 | [Technical Debt Register](technical-debt-register.md) | 🟡 Draft v0.1 (40 items across 5 categories, none rated above Medium) |
 
 Adapted from the IronQuill project's artifact list — items specific to IronQuill's immutable ledger (Ledger Architecture, Blockchain Migration Strategy, EPA/NJ Regulatory Requirements Matrix) are replaced here with items specific to PeakVantage's actual scope: SOC 2 readiness, and the device/command security model needed for the future actuation roadmap (see `CLAUDE.md` → "Future: Command & Control Architecture").
