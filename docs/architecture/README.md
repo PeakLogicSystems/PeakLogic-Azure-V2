@@ -31,7 +31,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 23 | [Enterprise Roadmap](enterprise-roadmap.md) | ✅ Approved v1.0 (12 initiatives synthesized from all prior artifacts, sequenced by trigger condition not calendar date) |
 | 24 | [Technical Debt Register](technical-debt-register.md) | ✅ Approved v1.1 (42 items across 5 categories, none rated above Medium — TD-41/TD-42 added for the admin console's untested staff-session functions and missing frontend) |
 | 25 | [Windows Endpoint Application ("The Brains")](windows-endpoint-application.md) | 🟡 Draft v1.1 (on-site Windows kiosk/gateway spec + hub fleet management/patch governance/VPN; not yet reviewed or implemented, see doc §14) |
-| 26 | [iOS Application](ios-application.md) | 🟡 Draft v1.0 (new — iPhone/iPad client spec; two real gaps disclosed — no streaming/push backend exists yet, role vocabulary needs a product decision — see doc §12) |
+| 26 | [iOS Application](ios-application.md) | 🟡 Draft v1.1 (role-model decisions locked — no PeakLogic-staff login ever; "Manager" = new Channel Partner Manager role, needs its own future backend amendment sequence, §2.1a; streaming/push backend gaps still open, see doc §12) |
 
 **Note on the six 🟡 Draft v1.2/v1.6 rows above (#2–4, #10–11, #13–14):** these amendments were drafted *and their real backend/infra/frontend code shipped and verified* (typecheck, `cdk synth`, full test suite) on the `dev` branch in the same session — but the formal Draft→Approved status bump on the documents themselves was never circled back to. This is a real process gap, not a fiction: the code is real and working; the paperwork marking these six docs "Approved" is the one remaining step. Flagged here rather than silently left inconsistent.
 

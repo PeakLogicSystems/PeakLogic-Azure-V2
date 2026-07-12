@@ -3,22 +3,22 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.0 — specification only, no code shipped
+**Status:** Draft v1.1 — specification only, no code shipped
 **Depends on:** [Security Architecture](security-architecture.md) (Draft v1.2), [API Specification](api-specification.md) (Draft v1.2), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.1)
-**Last updated:** 2026-07-12
+**Last updated:** 2026-07-12 (v1.1 — role-model decisions locked: no PeakLogic-staff login mode ships in this app at all; "Manager" means a new Channel Partner Manager role spanning multiple channel-partner accounts, requiring new backend work sketched in §2.1a)
 
 ---
 
 ## 0. Ground rules
 
-This document specifies a **new, physically separate application** — an iPhone/iPad client. It does not change `backend/`, `frontend/`, or `infra/`. Every integration point targets a real, already-shipped contract: three separate Cognito pools (tenant `userPool`, `PartnerPool`, `StaffPool`), the Cognito-authenticated REST API, and the same RLS/role model already enforced server-side.
+This document specifies a **new, physically separate application** — an iPhone/iPad client. It does not change `backend/`, `frontend/`, or `infra/`. This app authenticates against exactly **two** of the platform's three real identity pools — tenant `userPool` and `PartnerPool`. **`StaffPool` is out of scope entirely and permanently**: no PeakLogic team member uses this app, in any build, hidden or otherwise (locked decision, §12). This app is strictly for customer telemetry/control and channel-partner setup/management.
 
 **Two real gaps this document must disclose rather than paper over, because they change what "real-time" and "push notifications" can mean today:**
 
 1. **No live push/streaming channel exists for user-facing clients.** The only real-time transport in this system is device-to-cloud MQTT (AWS IoT Core), authenticated by per-device X.509 certs — not accessible to a Cognito-authenticated human session, and not designed for fan-out to many viewers of the same data. Neither the web frontend nor any backend service exposes a WebSocket/streaming API today. §4 designs the iOS app to degrade gracefully via polling now, with a recommended (not yet built) API Gateway WebSocket addition as the real-time upgrade path.
 2. **No push-notification device-token registration endpoint exists.** APNs requires the backend to hold a per-user, per-device push token to target notifications. This is new, minimal backend surface — flagged in §9, not assumed.
 
-**The role model needs a decision before this document can be taken as final.** §2 works through this in detail: the requested four-role vocabulary (viewer/technician/manager/admin) does not map 1:1 onto what actually exists server-side (`admin`/`operator` for tenant users; `partner_admin`/`technician` for channel-partner users, a separate identity pool; `superadmin`/`account_manager` for PeakLogic staff, a third pool). This document does not invent a fourth backend role system to make the mapping clean — it specifies the client-side mechanics generically enough to work with real roles as they exist, and flags where a product decision is still needed.
+**A third real gap, found while resolving the role-model decision: the "Channel Partner Manager" role this app needs to support does not exist in the backend at all today.** `channel_partner_users` ties one login to exactly one `channel_partners` row — there is no existing way for a non-PeakLogic user to hold cross-account visibility the way `PeakLogicStaffUser`/`account_assignments` already lets PeakLogic staff do for tenants and channel partners. §2.1a sketches the new table/RLS pattern this requires — real, disclosed, not-yet-built backend work, following the exact same handoff design already proven for the Internal Administration Console rather than inventing a new pattern.
 
 ---
 
@@ -26,7 +26,7 @@ This document specifies a **new, physically separate application** — an iPhone
 
 ### 1.1 What this application is
 
-One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whichever of the three real identity types a signed-in user actually holds — a tenant `admin`/`operator`, a channel-partner `partner_admin`/`technician`, or (lower priority, see §2.4) PeakLogic staff. It is a **client of the existing REST API**, nothing more — no local rule evaluation, no local RLS, no shadow copy of tenant logic. Its two jobs: **view** (sites/assets/devices/telemetry/alerts/tickets, matching each pool's existing scoping) and **act** (the subset of writes each role's real backend permissions already allow — acknowledge an alert, update a ticket, confirm a route, whatever `requireRole()`/`requirePartnerRole()` already permit that user to do today).
+One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whichever of two real identity types a signed-in user actually holds — a tenant `admin`/`operator`, or a channel-partner user, which is itself now two shapes: the existing single-account `partner_admin`/`technician`, or the new cross-account **Channel Partner Manager** (§2.1a). It is a **client of the existing REST API**, nothing more — no local rule evaluation, no local RLS, no shadow copy of tenant logic. Its two jobs: **view** (sites/assets/devices/telemetry/alerts/tickets, matching each pool's existing scoping) and **act** (the subset of writes each role's real backend permissions already allow — acknowledge an alert, update a ticket, confirm a route, whatever `requireRole()`/`requirePartnerRole()` already permit that user to do today).
 
 ### 1.2 Component diagram
 
@@ -94,22 +94,66 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 
 ## 2. Role-Based Access + Control
 
-### 2.1 The real role landscape (not the requested four)
+### 2.1 The real role landscape (decided — not the originally-requested four)
 
 | Backend identity pool | Real roles | Resolved from |
 |---|---|---|
 | Tenant `userPool` | `admin`, `operator` | Cognito `cognito:groups` claim, directly off the JWT |
-| `PartnerPool` (channel partner) | `partner_admin`, `technician` | **Not** a JWT claim — resolved server-side per-request from `channel_partner_users.role` (Security Architecture §2.4's deliberate design: the partner pool carries no Cognito groups). The iOS client cannot know a partner user's role until it makes one authenticated call (e.g. `GET /v1/partner`) and reads the role back from the response body. |
-| `StaffPool` (PeakLogic internal) | `superadmin`, `account_manager` | Cognito `cognito:groups` claim, same as tenant pool |
+| `PartnerPool` (channel partner) | `partner_admin`, `technician` | **Not** a JWT claim — resolved server-side per-request from `channel_partner_users.role` (Security Architecture §2.4's deliberate design: the partner pool carries no Cognito groups). |
+| `PartnerPool` (channel partner) | **`channel_partner_manager`** — new, §2.1a | Also not a JWT claim — resolved server-side by checking `channel_partner_managers` (new table) when a `channel_partner_users` lookup finds nothing for that `cognito_sub`. |
 
-**This document's mapping of the user's requested vocabulary onto reality:**
+`StaffPool` does not appear in this table at all — no build of this app, hidden or otherwise, authenticates against it. This is a locked decision (§12), not an open question.
 
-- **"Viewer"** — not a distinct backend role anywhere. Every real role above can already read more than a pure viewer would need; a client-side-only "viewer mode" (hide write affordances, still call read endpoints normally) is achievable entirely in the iOS app's UI layer without any backend change, and is the recommended interpretation — **not** a new Cognito group.
-- **"Technician"** — real and exact for `PartnerPool`. For the tenant pool, `operator` is the closest real equivalent (can update assets/devices/tickets/acknowledge alerts, cannot delete or manage users).
-- **"Manager"** — no exact backend equivalent in any pool. Closest real mappings: tenant `admin`, or `account_manager` (StaffPool, scoped to an assigned book of business) depending on intent. **This is the one that most needs a product decision before implementation** — see §12 item 1.
-- **"Admin"** — real in every pool, but means three different things (tenant `admin` manages one tenant; `superadmin`/`account_manager` manage a cross-tenant book of business; there is no `admin` in `PartnerPool` at all, only `partner_admin`). The iOS app must never collapse these into one generic "Admin" label in the UI — the role badge shown always reflects the real, specific role name from the specific pool the session authenticated against.
+**Locked mapping of the originally-requested vocabulary onto reality:**
 
-**Recommendation for §12: build the client generically against real roles (as this document does throughout), and treat "viewer/technician/manager/admin" as a *display-label* mapping applied per-pool in the UI layer, not a new backend concept** — avoids inventing backend logic while still giving the product the vocabulary it wants at the presentation layer.
+- **"Viewer"** — not a distinct backend role anywhere. Every real role above can already read more than a pure viewer would need; a client-side-only "viewer mode" (hide write affordances, still call read endpoints normally) is achievable entirely in the iOS app's UI layer without any backend change.
+- **"Technician"** — real and exact for `PartnerPool`. For the tenant pool, `operator` is the closest real equivalent.
+- **"Manager" — decided: a Channel Partner Manager.** One person, not employed by PeakLogic, who needs the same administrative capability a `partner_admin` already has (branding, territories, technician management, route confirmation), but across **several independent, otherwise-unrelated `channel_partners` accounts** rather than one — e.g. someone who manages the PeakLogic relationship for multiple separate pool-service franchise locations. Structurally the same shape as the Internal Administration Console's `account_manager`↔`account_assignments` pattern, but for a person outside PeakLogic entirely, which is exactly why it can't just reuse `StaffPool` (§2.1a).
+- **"Admin"** — tenant `admin`, `partner_admin`, and the new `channel_partner_manager` are all real, distinct "administrative" roles depending on which side of the platform someone is on. The iOS app never collapses these into one generic "Admin" label — the role badge shown always reflects the real, specific role name.
+
+### 2.1a New backend requirement: Channel Partner Manager (not yet built)
+
+Mirrors the Internal Administration Console's `account_assignments` handoff pattern exactly (Database Schema §4.5, Security Architecture §2.5) — same proven shape, applied to a person who isn't PeakLogic staff:
+
+```sql
+-- A channel-partner-side login that is NOT scoped to one channel_partners
+-- row the way channel_partner_users is — deliberately a separate table,
+-- not a nullable channel_partner_id on the existing one, for the same
+-- reason peaklogic_staff_users is its own table rather than a flag on
+-- users: the identity/authorization shape is genuinely different (cross-
+-- account vs. single-account), not a variant of the same thing.
+CREATE TABLE channel_partner_managers (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cognito_sub  TEXT        NOT NULL UNIQUE,   -- same PartnerPool, a second user type within it
+  email        TEXT        NOT NULL,
+  display_name TEXT,
+  status       TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE channel_partner_managers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channel_partner_managers FORCE ROW LEVEL SECURITY;
+-- Keyed on cognito_sub for the same reason peaklogic_staff_users' policy
+-- is (Database Schema §4.5's "corrected during implementation" fix) --
+-- the lookup that resolves this row's own id must be possible BEFORE
+-- that id is known.
+CREATE POLICY manager_self_lookup ON channel_partner_managers
+  USING (cognito_sub = current_setting('app.current_manager_cognito_sub', true));
+
+-- The "book of business" -- independent, unrelated accounts (decided,
+-- not the franchise/parent-child alternative that was considered).
+CREATE TABLE channel_partner_manager_assignments (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  manager_id          UUID        NOT NULL REFERENCES channel_partner_managers(id) ON DELETE CASCADE,
+  channel_partner_id  UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
+  assigned_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  assigned_by         UUID        NOT NULL,  -- who may grant this is itself open — §12 item 6
+  UNIQUE (manager_id, channel_partner_id)
+);
+```
+
+**Access pattern — reuses `withChannelPartner()`'s existing shape, not a new one:** a `withPartnerManagerActingOnChannelPartner(auth, targetChannelPartnerId, fn)` function, structurally identical to `withStaffActingOnTenant()` (Database Schema §4.5) — verify a `channel_partner_manager_assignments` row (itself RLS-scoped, so a manager session can't even see proof of an assignment they don't hold), then set `app.current_channel_partner_id` and defer entirely to the channel-partner-scoped RLS policies that already exist and are already hardened (territories, routes, `channel_partner_users`, everything `withChannelPartner()` already governs). **Zero new permissive policies on any operational table** — same "why this doesn't repeat the earlier pattern's risk" reasoning already established for the admin console.
+
+**What this app needs to work with this once it ships:** a manager-facing "switch account" picker (reads the manager's own assignment list — a new `GET /v1/partner-manager/assignments`-shape endpoint — and re-authenticates the active `channel_partner_id` context per switch, the same mental model as the Windows hub's per-device identity switching, just for a human instead of a device).
 
 ### 2.2 What role maps to, concretely
 
@@ -122,24 +166,22 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 
 ### 2.3 Enforcement at four points
 
-**1. Login — pool selection is explicit, not inferred.** The login screen has three modes (Tenant / Channel Partner / PeakLogic Staff — the last one likely hidden behind a build-config flag for an internal-only build, §12 item 2), each hard-wired to its own Cognito User Pool ID / Client ID (matching the three real, separate pools) — there is no "try all three" auto-detection, since that would mean sending credentials to pools that were never meant to receive them.
+**1. Login — pool selection is explicit, not inferred.** The login screen has exactly two modes (Tenant / Channel Partner — no third mode exists, hidden or otherwise, per §0/§12's locked decision), each hard-wired to its own Cognito User Pool ID / Client ID — there is no "try all pools" auto-detection, since that would mean sending credentials to a pool that was never meant to receive them. The Channel Partner mode covers all three real partner-side shapes (`partner_admin`, `technician`, the new `channel_partner_manager`) — they share one pool and one login screen; which shape a given login turns out to be is resolved after authentication (§2.1), not chosen at the login screen itself.
 
 ```swift
 enum AuthPool {
-    case tenant, partner, staff
+    case tenant, partner
 
     var userPoolId: String {
         switch self {
         case .tenant:  return Config.current.tenantUserPoolId
         case .partner: return Config.current.partnerUserPoolId
-        case .staff:   return Config.current.staffUserPoolId
         }
     }
     var clientId: String {
         switch self {
         case .tenant:  return Config.current.tenantClientId
         case .partner: return Config.current.partnerClientId
-        case .staff:   return Config.current.staffClientId
         }
     }
 }
@@ -150,18 +192,21 @@ enum AuthPool {
 ```swift
 struct AuthorizationContext {
     let pool: AuthPool
-    let role: String          // "admin" | "operator" | "partner_admin" | "technician" | "superadmin" | "account_manager"
-    let tenantId: String?     // present only for .tenant sessions
-    let channelPartnerId: String? // present only for .partner sessions
+    let role: String          // "admin" | "operator" | "partner_admin" | "technician" | "channel_partner_manager"
+    let tenantId: String?          // present only for .tenant sessions
+    let channelPartnerId: String?  // present for .partner sessions with a single account; for a
+                                     // channel_partner_manager this is the CURRENTLY ACTIVE account
+                                     // out of possibly several (§2.1a's account switcher sets this)
+    let managedChannelPartnerIds: [String]  // non-empty only for role == "channel_partner_manager"
 
     func allows(_ destination: NavigationDestination) -> Bool {
         switch destination {
         case .teamManagement:      return pool == .tenant && role == "admin"
-        case .partnerTerritories:  return pool == .partner && role == "partner_admin"
-        case .adminConsole:        return pool == .staff
+        case .partnerTerritories:  return pool == .partner && ["partner_admin", "channel_partner_manager"].contains(role)
+        case .accountSwitcher:     return role == "channel_partner_manager" && managedChannelPartnerIds.count > 1
         case .deviceDetail, .assetDetail, .siteDetail, .alerts, .tickets:
             return true // every real role can read these — RLS/pool scoping already narrows the data itself
-        case .controlPanel:        return false // §5 — inert everywhere until backend command channel ships
+        case .controlPanel:        return false // §6.4 — inert everywhere until backend command channel ships
         }
     }
 }
@@ -205,7 +250,7 @@ Button("Acknowledge") { viewModel.acknowledge(alert) }
 
 ### 3.1 Authentication flow
 
-Cognito SRP (Secure Remote Password) via AWS Amplify's Swift SDK (`Amplify.Auth.signIn`) — the same auth flow the web frontend uses via `@aws-amplify/ui-react`, not a custom implementation. MFA is `Mfa.REQUIRED` pool-wide server-side (Security Architecture §2.2) for the tenant and staff pools, `Required TOTP` for the partner pool too — the iOS app must implement the TOTP challenge step for all three, not just assume password-only.
+Cognito SRP (Secure Remote Password) via AWS Amplify's Swift SDK (`Amplify.Auth.signIn`) — the same auth flow the web frontend uses via `@aws-amplify/ui-react`, not a custom implementation. MFA is `Mfa.REQUIRED` pool-wide server-side (Security Architecture §2.2) for the tenant pool, `Required TOTP` for the partner pool too — the iOS app must implement the TOTP challenge step for both, not just assume password-only.
 
 ```swift
 enum SessionState { case signedOut, needsMfa(challengeSession: String), signedIn(AuthorizationContext) }
@@ -473,7 +518,7 @@ Login (pool picker → credentials → MFA)
      → Settings (profile, biometric preference, notification preferences, sign out)
 ```
 
-Channel-partner sessions additionally see **Territories** and **Routes** (read + route-confirm, matching `/v1/partner/*`'s real endpoint set); staff sessions (§2.4) see a minimal **Admin Console** entry point, not a full parallel app surface.
+Channel-partner sessions additionally see **Territories** and **Routes** (read + route-confirm, matching `/v1/partner/*`'s real endpoint set). A `channel_partner_manager` session (§2.1a) also sees an **Account Switcher** entry point in Settings whenever `managedChannelPartnerIds.count > 1` — everything else in the navigation tree is identical to a single-account `partner_admin`'s, just re-scoped to whichever account is currently active.
 
 ### 6.2 Real-time telemetry views
 
@@ -664,7 +709,7 @@ A small, versioned, **non-security-relevant** JSON document (mirrors the Windows
   "featureFlags": {
     "swiftChartsTrendView": true,
     "partnerRoutesScreen": true,
-    "staffAdminConsoleEntryPoint": false
+    "channelPartnerManagerAccountSwitcher": false
   },
   "polling": {
     "deviceDetailIntervalSeconds": 10,
@@ -692,8 +737,8 @@ For MDM-distributed (not App Store) deployments, the tenant-specific `apiBaseURL
 ### 10.1 Build sequence
 
 1. **Security Layer skeleton** — Keychain wrapper, biometric gate, pinning delegate. Everything depends on this.
-2. **Authentication Layer** — all three pool flows (tenant/partner/staff), MFA challenge handling, session refresh.
-3. **REST API Client + Local Caching Layer** — repository pattern wired to Core Data, validated against real dev-stage endpoints for all three pools.
+2. **Authentication Layer** — both pool flows (tenant/partner, including the partner pool's `channel_partner_manager` post-auth resolution, §2.1a), MFA challenge handling, session refresh.
+3. **REST API Client + Local Caching Layer** — repository pattern wired to Core Data, validated against real dev-stage endpoints for both pools.
 4. **UI Layer** — screens per §6.1, built against the now-real data layer (not mocked separately, same discipline the Windows Edge app's own blueprint calls out, Windows Endpoint Application §11.1).
 5. **Navigation + Deep Links** — `AppRouter`, then push-notification wiring once §9's backend token-registration endpoint exists (flagged §12 item 4 — this step is blocked on new backend work).
 6. **Offline queue + polling tiers** — §5/§4, once the UI has real screens to observe reachability changes against.
@@ -747,7 +792,7 @@ PeakLogicMobile/
 
 | Class | Responsibility |
 |---|---|
-| `SessionManager` | Owns sign-in/refresh/logout across all three pools |
+| `SessionManager` | Owns sign-in/refresh/logout across both pools |
 | `AuthorizationContext` | The single resolved-role source every gate (§2) reads |
 | `AppRouter` | The single navigation choke point (§7.1) — role checks, deep links |
 | `PeakLogicAPIClient` | All REST calls, pinned, bearer-authenticated |
@@ -765,7 +810,7 @@ Authentication: §3.1/§3.4 · Telemetry ingestion: §4.2–4.3 · Role-based UI
 
 | Section | Traces to |
 |---|---|
-| §2.1 | Security Architecture §2.3/§2.4/§2.5 (three real pools, three real role vocabularies) |
+| §2.1 | Security Architecture §2.3/§2.4 (the two pools this app uses); §2.1a's Channel Partner Manager traces to the Internal Administration Console's `account_assignments` pattern (Security Architecture §2.5) by analogy, not by reuse |
 | §3.1 | Security Architecture §2.2 (MFA required, all pools) |
 | §4.1 | Real gap — no streaming API exists; Windows Endpoint Application §5.2's identical reasoning for why device-side MQTT isn't reusable for human sessions |
 | §5.3, §6.4 | Device & Command Security Architecture §5 (CC-3.1/CC-4.1 gate) — identical inert posture to Windows Endpoint Application §6.4 |
@@ -775,11 +820,19 @@ Authentication: §3.1/§3.4 · Telemetry ingestion: §4.2–4.3 · Role-based UI
 
 ## 12. Open Questions
 
-1. **The "manager" role has no real backend equivalent** (§2.1) — needs a product decision (tenant `admin`? `account_manager`? a genuinely new distinction?) before the role-gating table in §2.2 can be considered final rather than provisional.
-2. **Whether a PeakLogic-staff login mode ships in a customer-facing build at all** is undecided — likely should be a separate internal-only build/App Store listing (or MDM-only, never public App Store) rather than a hidden mode in the same binary customers install, to avoid exposing the existence of internal tooling in a public app's binary/strings.
-3. **The Control Panel's activation path (§6.4)** needs its own amendment in lockstep with the Windows Edge app's equivalent (Windows Endpoint Application §12 item 3) the day Device & Command Security Architecture §5's gate lifts — the two clients should not go live with command UI on different schedules without a deliberate reason.
-4. **Push notifications require new backend work**: a device-token registration endpoint (e.g. `POST /v1/settings/push-token`), and a place server-side to actually trigger an APNs send when a critical alert fires (most naturally alongside the existing webhook-on-critical-alert path in `backend/ingest/handler.ts`, not a new, separate notification pipeline). Not designed here — flagged as a prerequisite, matching this document's own §0 disclosure discipline.
-5. **Real-time telemetry's WebSocket upgrade path (§4.1)** is a recommendation, not a decision — needs its own scoping pass (API Gateway WebSocket + Lambda authorizer cost/complexity vs. the tiered-polling approach's actual observed staleness in practice) before committing engineering time to it.
+**Decided this session (no longer open):**
+
+- ~~The "manager" role has no real backend equivalent~~ — **decided**: a new cross-account Channel Partner Manager role, sketched in §2.1a. What remains open is the *implementation* of §2.1a (item 6 below), not the product decision itself.
+- ~~Whether a PeakLogic-staff login mode ships in a customer-facing build~~ — **decided**: no, never, in any build. `StaffPool` is entirely out of scope for this app (§0).
+
+**Still open:**
+
+1. **The Control Panel's activation path (§6.4)** needs its own amendment in lockstep with the Windows Edge app's equivalent (Windows Endpoint Application §12 item 3) the day Device & Command Security Architecture §5's gate lifts — the two clients should not go live with command UI on different schedules without a deliberate reason.
+2. **Push notifications require new backend work**: a device-token registration endpoint (e.g. `POST /v1/settings/push-token`), and a place server-side to actually trigger an APNs send when a critical alert fires (most naturally alongside the existing webhook-on-critical-alert path in `backend/ingest/handler.ts`, not a new, separate notification pipeline). Not designed here — flagged as a prerequisite, matching this document's own §0 disclosure discipline.
+3. **Real-time telemetry's WebSocket upgrade path (§4.1)** is a recommendation, not a decision — needs its own scoping pass (API Gateway WebSocket + Lambda authorizer cost/complexity vs. the tiered-polling approach's actual observed staleness in practice) before committing engineering time to it.
+4. **§2.1a's `channel_partner_manager_assignments` table, `withPartnerManagerActingOnChannelPartner()`, and the account-list/switch endpoints are a sketch, not a shipped design.** Following this project's own discipline, this needs a real Domain Model → Database Schema → Security Architecture → API Specification amendment sequence before implementation, the same sequence the Internal Administration Console went through — not built directly off this sketch.
+5. **Who may grant a `channel_partner_manager_assignments` row is undecided** (§2.1a's `assigned_by` column). Candidates: a superadmin only (mirrors how only a superadmin can grant PeakLogic-staff `account_assignments`), or self-service by an existing `partner_admin` who already controls the accounts being granted (lower friction, but means a channel partner can grant cross-account access without PeakLogic's own staff being involved in the decision at all — a real product/trust question, not just a technical one).
+6. **Whether a Channel Partner Manager should be able to see combined/aggregate data across their managed accounts** (e.g. one dashboard summing alerts across every account they manage) or must always view one account at a time via the switcher — this document assumes the latter (simpler, reuses `withChannelPartner()`'s existing single-account-at-a-time scoping unchanged) but that's an assumption, not a confirmed requirement.
 
 ---
 
