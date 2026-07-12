@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v0.1
+**Status:** Approved v1.0
 **Depends on:** All 23 previously approved/drafted artifacts (#1–23) — synthesizes every disclosed-but-unfixed gap in already-shipped code or already-approved documentation into one trackable inventory
 **Last updated:** 2026-07-12
 
@@ -153,6 +153,8 @@ No item in this register is rated above Medium — consistent with §1.1's frami
 3. **Re-verified directly**: TD-25's total-chlorine gap against the live `srs.md` text — confirmed it's stated in three separate places (SN-4.1's row, §9's open-issue resolution note, §13's revision history), consistently described as "disclosed... not a silent omission" each time, not an inconsistent or exaggerated claim.
 4. **Confirmed the research pass correctly excluded already-fixed items**: two infra-code `TODO`s the docs originally flagged (API Gateway CORS `ALL_ORIGINS`, DB `rejectUnauthorized: false`) were checked directly in `infra/lib/api-stack.ts`/`backend/shared/db.ts` by the research pass and found already fixed in code — correctly left out of this register rather than re-reported as still-open.
 5. **A judgment call, disclosed not hidden**: severity ratings (Medium/Low only, no item above Medium) and the Status field's Open/Scheduled/Blocked values are this document's own first-pass classification, not independently reviewed — flagged explicitly in §6 item 2 rather than presented as an objective, externally-validated triage.
+
+**Approved v1.0, 2026-07-12** — user-approved without requested changes. Bumped out of `v0.x` draft numbering into `v1.0`, the same convention MVP Roadmap and Enterprise Roadmap followed. This completes the full 24-artifact architecture-first sequence for the first time in this project's history.
 
 ---
 
