@@ -13,6 +13,8 @@ export class AuthStack extends cdk.Stack {
   public readonly userPoolClient: cognito.UserPoolClient;
   public readonly partnerPool: cognito.UserPool;
   public readonly partnerPoolClient: cognito.UserPoolClient;
+  public readonly staffPool: cognito.UserPool;
+  public readonly staffPoolClient: cognito.UserPoolClient;
 
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
@@ -158,6 +160,88 @@ export class AuthStack extends cdk.Stack {
       {
         id: 'AwsSolutions-COG8',
         reason: 'Same reasoning as the tenant pool above (Security Architecture §3.3/§2.2) — Plus tier is a paid upgrade disproportionate at design-partner-tenant scale.',
+      },
+    ]);
+
+    // ── Internal Administration Console Pool (Security Architecture §2.5, added v1.2) ──
+    // A third, genuinely separate identity space, not a group inside
+    // userPool or partnerPool — a PeakLogicStaffUser is not a Tenant User
+    // and not a ChannelPartnerUser (Domain Model §2.8), no tenant_id, no
+    // channel_partner_id. Deliberately avoids the exact failure mode this
+    // project already found once (Security Architecture v1 §2.3's orphaned
+    // service_partner group granting unintended full access): a staff role
+    // folded into an existing pool as "just another group" is that same
+    // shape of mistake.
+    //
+    // Unlike partnerPool, this pool DOES use Cognito groups
+    // (superadmin/account_manager) — a deliberate, reasoned difference, not
+    // an inconsistency: the admin console's "act as" handoff
+    // (withStaffActingOnTenant(), backend/shared/db.ts) needs
+    // app.current_staff_role immediately, before any account_assignments
+    // query even runs (that query's own RLS depends on it) — deriving role
+    // from a DB round-trip first, when the role is exactly what decides
+    // whether a round-trip is even necessary (superadmin skips the
+    // assignment check entirely), would be circular for no benefit.
+    this.staffPool = new cognito.UserPool(this, 'StaffPool', {
+      userPoolName: `peaklogic-${props.stage}-staff`,
+      selfSignUpEnabled: false,       // superadmin-provisioned only (IA-2.1) — no self-service signup
+      signInAliases: { email: true },
+      autoVerify: { email: true },
+      standardAttributes: {
+        email:    { required: true,  mutable: true },
+        fullname: { required: false, mutable: true },
+      },
+      passwordPolicy: {
+        minLength: 12,
+        requireUppercase: true,
+        requireDigits: true,
+        requireSymbols: true,
+      },
+      // Stricter, not lighter, is the default posture for internal tooling
+      // with cross-tenant reach — not something to relax for being "just
+      // internal" (Security Architecture §2.5).
+      mfa: cognito.Mfa.REQUIRED,
+      mfaSecondFactor: { otp: true, sms: false },
+      accountRecovery: cognito.AccountRecovery.EMAIL_ONLY,
+      removalPolicy: cdk.RemovalPolicy.RETAIN,
+    });
+
+    for (const group of ['superadmin', 'account_manager']) {
+      new cognito.CfnUserPoolGroup(this, `StaffGroup-${group}`, {
+        userPoolId: this.staffPool.userPoolId,
+        groupName: group,
+      });
+    }
+
+    this.staffPoolClient = this.staffPool.addClient('StaffSpaClient', {
+      userPoolClientName: `peaklogic-${props.stage}-staff-spa`,
+      generateSecret: false,
+      authFlows: { userSrp: true },
+      oAuth: {
+        flows: { authorizationCodeGrant: true },
+        scopes: [
+          cognito.OAuthScope.EMAIL,
+          cognito.OAuthScope.OPENID,
+          cognito.OAuthScope.PROFILE,
+        ],
+        // Same origin list as the tenant/partner SPA clients — the admin
+        // console frontend doesn't exist yet (project memory: deferred
+        // this pass), so there is no separate URL to point at today.
+        callbackUrls: ALLOWED_ORIGINS,
+        logoutUrls:   ALLOWED_ORIGINS,
+      },
+      accessTokenValidity:  cdk.Duration.hours(1),
+      idTokenValidity:      cdk.Duration.hours(1),
+      refreshTokenValidity: cdk.Duration.days(30),
+    });
+
+    new cdk.CfnOutput(this, 'StaffPoolId',       { value: this.staffPool.userPoolId });
+    new cdk.CfnOutput(this, 'StaffPoolClientId', { value: this.staffPoolClient.userPoolClientId });
+
+    NagSuppressions.addResourceSuppressions(this.staffPool, [
+      {
+        id: 'AwsSolutions-COG8',
+        reason: 'Same reasoning as the tenant/partner pools above (Security Architecture §3.3/§2.2/§2.5) — Plus tier is a paid upgrade disproportionate at design-partner-tenant scale.',
       },
     ]);
   }

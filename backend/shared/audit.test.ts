@@ -28,9 +28,25 @@ describe('writeAuditLog', () => {
 
     expect(client.query).toHaveBeenCalledTimes(1);
     const [sql, params] = client.query.mock.calls[0];
-    expect(sql).toContain('tenant_id, actor_id');
+    expect(sql).toContain('tenant_id, actor_id, actor_staff_user_id');
     expect(sql).not.toContain('channel_partner_id');
-    expect(params).toEqual(['tenant-1', 'user-1', 'device.claim', 'device', 'device-1', null, null]);
+    expect(params).toEqual(['tenant-1', 'user-1', null, 'device.claim', 'device', 'device-1', null, null]);
+  });
+
+  it('populates actor_staff_user_id for a staff-initiated write, leaving actor_id null (IA-7.1)', async () => {
+    const client = fakeClient();
+    await writeAuditLog(client, {
+      scope: 'tenant',
+      tenantId: 'tenant-1',
+      actorId: null,
+      actorStaffUserId: 'staff-1',
+      action: 'device.update',
+      targetEntity: 'device',
+      targetId: 'device-1',
+    });
+
+    const [, params] = client.query.mock.calls[0];
+    expect(params).toEqual(['tenant-1', null, 'staff-1', 'device.update', 'device', 'device-1', null, null]);
   });
 
   it('inserts a channel-partner-scoped row using channel_partner_id/actor_channel_partner_user_id', async () => {
@@ -64,8 +80,8 @@ describe('writeAuditLog', () => {
     });
 
     const [, params] = client.query.mock.calls[0];
-    expect(params[5]).toBe(JSON.stringify({ plan: 'trial' }));
-    expect(params[6]).toBe(JSON.stringify({ plan: 'professional' }));
+    expect(params[6]).toBe(JSON.stringify({ plan: 'trial' }));
+    expect(params[7]).toBe(JSON.stringify({ plan: 'professional' }));
   });
 
   it('allows a null actor (system-triggered entry) on either scope', async () => {

@@ -5,14 +5,37 @@ import { requireRole } from '../../shared/auth';
 import type { AuthContext } from '../../shared/auth';
 import type { Device } from '../../shared/types';
 
-export async function list(_event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+// NAV-1/NAV-3 (SRS §3.15, added v1.6) — this handler previously ignored
+// _event entirely and always returned the full tenant device list, a real
+// verified defect found while designing the Site→Asset→Device drill-down
+// (API Specification §4.9): a device-detail page's "other devices on this
+// asset" panel, or a site-level device list, had no server-side filter to
+// call. assetId/siteId now mirror alerts.ts's list()/assets.ts's list()
+// filter-param pattern already established elsewhere in this file's own
+// package. siteId is a JOIN-through filter (devices has no site_id column
+// of its own — a device's site is derived via its asset), so it can only
+// be applied once the assets JOIN below is already in the query.
+export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+  const assetId = event.queryStringParameters?.assetId;
+  const siteId = event.queryStringParameters?.siteId;
+
   return withTenant(auth.tenantId, async (client) => {
+    const conditions: string[] = [];
+    const params: unknown[] = [];
+
+    if (assetId) { params.push(assetId); conditions.push(`d.asset_id = $${params.length}`); }
+    if (siteId)  { params.push(siteId);  conditions.push(`s.id = $${params.length}`); }
+
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+
     const { rows } = await client.query<Device>(
       `SELECT d.*, a.name AS asset_name, s.name AS site_name
        FROM devices d
        LEFT JOIN assets  a ON a.id = d.asset_id
        LEFT JOIN sites   s ON s.id = a.site_id
+       ${where}
        ORDER BY d.created_at DESC`,
+      params,
     );
     return ok(rows);
   });

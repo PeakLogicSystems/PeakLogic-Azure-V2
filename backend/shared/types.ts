@@ -11,6 +11,44 @@ export interface Tenant {
   updated_at: Date;
 }
 
+// ── Internal Administration Console (Domain Model §2.8, added v1.2) ────────
+
+export interface PeakLogicStaffUser {
+  id: string;
+  cognito_sub: string;
+  email: string;
+  display_name: string | null;
+  role: 'superadmin' | 'account_manager';
+  status: 'active' | 'disabled';
+  created_at: Date;
+  updated_at: Date;
+}
+
+export interface AccountAssignment {
+  id: string;
+  staff_user_id: string;
+  tenant_id: string | null;
+  channel_partner_id: string | null;
+  assigned_at: Date;
+  assigned_by: string;
+}
+
+// ── Tenant user (SET-3/SET-4/SET-5 preferences, added v1.2) ────────────────
+
+export interface User {
+  id: string;
+  tenant_id: string;
+  cognito_sub: string;
+  email: string;
+  display_name: string | null;
+  role: 'admin' | 'operator';
+  status: string;
+  clock_format: '12h' | '24h' | null;
+  timezone: string | null;
+  theme: 'light' | 'dark' | null;
+  created_at: Date;
+}
+
 export interface Site {
   id: string;
   tenant_id: string;

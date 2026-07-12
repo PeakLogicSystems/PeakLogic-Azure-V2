@@ -85,3 +85,56 @@ export function getPartnerAuth(event: APIGatewayProxyEvent): PartnerAuthContext 
     channelPartnerId,
   };
 }
+
+// ── Internal Administration Console auth (Security Architecture §2.5, added v1.2) ──
+
+export type StaffRole = 'superadmin' | 'account_manager';
+
+export interface StaffAuthContext {
+  sub: string;
+  email: string;
+  role: StaffRole;
+}
+
+/**
+ * Extracts staff identity from a Cognito JWT issued by StaffPool
+ * (infra/lib/auth-stack.ts) — the third, separate pool alongside userPool
+ * and PartnerPool. Unlike getPartnerAuth() above, role IS read directly off
+ * a Cognito group claim here, not resolved via a DB lookup — a deliberate
+ * difference from the partner pool's pattern, not an oversight: an admin
+ * console request needs to know superadmin-vs-account_manager BEFORE any
+ * DB round-trip, since that's what decides whether withStaffActingOnTenant()
+ * (db.ts) even needs to check account_assignments at all. Fails closed like
+ * getAuth() — no group means no session, never a silent default role.
+ */
+export function getStaffAuth(event: APIGatewayProxyEvent): StaffAuthContext {
+  const claims = event.requestContext.authorizer?.claims as Record<string, string> | undefined;
+
+  if (!claims?.sub) {
+    throw Object.assign(new Error('Unauthorized'), { statusCode: 401 });
+  }
+
+  const groups = (claims['cognito:groups'] ?? '').split(',').filter(Boolean);
+  if (groups.length === 0) {
+    throw Object.assign(new Error('Staff user has no role assigned'), { statusCode: 403 });
+  }
+  const role = groups[0];
+  if (role !== 'superadmin' && role !== 'account_manager') {
+    throw Object.assign(new Error(`Unrecognized staff role '${role}'`), { statusCode: 403 });
+  }
+
+  return {
+    sub:   claims.sub,
+    email: claims.email ?? '',
+    role,
+  };
+}
+
+export function requireStaffRole(auth: StaffAuthContext, ...roles: StaffRole[]): void {
+  if (!roles.includes(auth.role)) {
+    throw Object.assign(
+      new Error(`Role '${auth.role}' is not permitted — requires: ${roles.join(' | ')}`),
+      { statusCode: 403 },
+    );
+  }
+}

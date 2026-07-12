@@ -108,8 +108,16 @@ CREATE TABLE users (
   email        TEXT        NOT NULL,
   display_name TEXT,
   role         TEXT        NOT NULL
-               CHECK (role IN ('admin','operator','service_partner')),
+               -- 'service_partner' removed v1.2 (added 1783875780000) --
+               -- the Cognito group that could ever create one was removed
+               -- in Security Architecture v1.1; verified no row held it.
+               CHECK (role IN ('admin','operator')),
   status       TEXT        NOT NULL DEFAULT 'active',
+  -- Display preferences (SET-3/SET-4/SET-5, added v1.2). NULL = use the
+  -- application default (24h, UTC, light) -- no backfill needed.
+  clock_format TEXT        CHECK (clock_format IN ('12h','24h')),
+  timezone     TEXT,
+  theme        TEXT        CHECK (theme IN ('light','dark')),
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
@@ -504,10 +512,74 @@ CREATE POLICY channel_partner_isolation ON route_stops
   );
 
 -- ─────────────────────────────────────────────────────────────
+-- PEAKLOGIC STAFF USERS  (Domain Model §2.8, added v1.2, migration
+-- 1783875780000) -- a third, genuinely separate identity space for
+-- Internal Administration Console access. No tenant_id, no
+-- channel_partner_id -- superadmin/account_manager are PeakLogic's own
+-- people, not a tenant's or a channel partner's.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE peaklogic_staff_users (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cognito_sub  TEXT        NOT NULL UNIQUE,
+  email        TEXT        NOT NULL,
+  display_name TEXT,
+  role         TEXT        NOT NULL CHECK (role IN ('superadmin','account_manager')),
+  status       TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE peaklogic_staff_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE peaklogic_staff_users FORCE ROW LEVEL SECURITY;
+-- Keyed on cognito_sub, not id -- withStaffSession() (backend/shared/db.ts)
+-- must resolve a staff user's own row FROM their cognito_sub (the one thing
+-- known pre-lookup, straight off the JWT), so id can't be the match column
+-- here (that's exactly the id it's trying to discover). Mirrors
+-- withChannelPartner()'s "ordering matters" pattern below -- the session
+-- variable used for self-lookup must be one already knowable before the
+-- row is found, not one only the row itself can supply.
+CREATE POLICY staff_self_or_superadmin ON peaklogic_staff_users
+  USING (
+    cognito_sub = current_setting('app.current_staff_cognito_sub', true)
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+  );
+
+-- ─────────────────────────────────────────────────────────────
+-- ACCOUNT ASSIGNMENTS  (Domain Model §2.8, added v1.2) -- the "book of
+-- business" join table: which tenants/channel partners an
+-- account_manager may act on. Deliberately does NOT apply to
+-- superadmin -- that role's access is unconditional (Database Schema
+-- §4.5), not expressed as a (very large) set of assignment rows.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE account_assignments (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_user_id       UUID        NOT NULL REFERENCES peaklogic_staff_users(id) ON DELETE CASCADE,
+  tenant_id           UUID        REFERENCES tenants(id) ON DELETE CASCADE,
+  channel_partner_id  UUID        REFERENCES channel_partners(id) ON DELETE CASCADE,
+  assigned_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  assigned_by         UUID        NOT NULL REFERENCES peaklogic_staff_users(id),
+  CONSTRAINT account_assignments_scope_check CHECK (
+    (tenant_id IS NOT NULL AND channel_partner_id IS NULL)
+    OR (tenant_id IS NULL AND channel_partner_id IS NOT NULL)
+  ),
+  UNIQUE (staff_user_id, tenant_id),
+  UNIQUE (staff_user_id, channel_partner_id)
+);
+ALTER TABLE account_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_assignments FORCE ROW LEVEL SECURITY;
+CREATE POLICY account_assignment_visibility ON account_assignments
+  USING (
+    staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+  );
+CREATE INDEX account_assignments_staff_idx ON account_assignments(staff_user_id);
+CREATE INDEX account_assignments_tenant_idx ON account_assignments(tenant_id);
+
+-- ─────────────────────────────────────────────────────────────
 -- AUDIT LOG ENTRIES  (AUD-1 -- record of every state-changing
 -- administrative action; AUD-2 requires the same tenant RLS
 -- enforcement as every other table. Extended v1.1 to also cover
--- channel_partner_users actions -- see the scope/actor CHECK
+-- channel_partner_users actions; extended again v1.2 with a third
+-- actor column for staff console actions -- see the scope/actor CHECK
 -- constraints below.)
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE audit_log_entries (
@@ -516,6 +588,7 @@ CREATE TABLE audit_log_entries (
   channel_partner_id            UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,
   actor_id                      UUID        REFERENCES users(id) ON DELETE SET NULL,
   actor_channel_partner_user_id UUID        REFERENCES channel_partner_users(id) ON DELETE SET NULL,
+  actor_staff_user_id           UUID        REFERENCES peaklogic_staff_users(id) ON DELETE SET NULL,
   action                        TEXT        NOT NULL,
   target_entity                 TEXT        NOT NULL,
   target_id                     UUID        NOT NULL,
@@ -527,10 +600,12 @@ CREATE TABLE audit_log_entries (
     OR (tenant_id IS NULL AND channel_partner_id IS NOT NULL)
   ),
   -- Not "exactly one actor" -- a system-triggered entry with no human
-  -- actor (both null) is legitimate; what's invalid is claiming both a
-  -- tenant User actor AND a ChannelPartnerUser actor on the same row.
+  -- actor (all three null) is legitimate; what's invalid is claiming
+  -- more than one actor type on the same row.
   CONSTRAINT audit_log_entries_actor_check CHECK (
-    NOT (actor_id IS NOT NULL AND actor_channel_partner_user_id IS NOT NULL)
+    (CASE WHEN actor_id IS NOT NULL THEN 1 ELSE 0 END
+   + CASE WHEN actor_channel_partner_user_id IS NOT NULL THEN 1 ELSE 0 END
+   + CASE WHEN actor_staff_user_id IS NOT NULL THEN 1 ELSE 0 END) <= 1
   )
 );
 
@@ -637,9 +712,51 @@ CREATE POLICY channel_partner_read ON alerts FOR SELECT
 -- read either yet. Add if/when one does, not preemptively.
 
 -- ─────────────────────────────────────────────────────────────
+-- STAFF ACCESS POLICY FOR TENANTS  (Database Schema §4.5, added v1.2)
+-- Consolidated here, after account_assignments already exists, same
+-- reason channel_partner_read was consolidated above.
+--
+-- One policy handles superadmin creation, superadmin full access, and
+-- account_manager assigned-subset access all at once. Verified against
+-- PostgreSQL's own documentation (not assumed): a USING-only policy
+-- (no explicit WITH CHECK) is implicitly reused as WITH CHECK too, so
+-- this correctly governs INSERT as well as SELECT/UPDATE/DELETE --
+-- account_manager is automatically denied INSERT with no separate rule
+-- needed, since the EXISTS subquery can never match a not-yet-existing
+-- tenant's id.
+-- ─────────────────────────────────────────────────────────────
+CREATE POLICY staff_tenant_access ON tenants
+  USING (
+    current_setting('app.current_staff_role', true) = 'superadmin'
+    OR EXISTS (
+      SELECT 1 FROM account_assignments aa
+      WHERE aa.staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+        AND aa.tenant_id = tenants.id
+    )
+  );
+
+-- channel_partners is deliberately NOT given an equivalent policy here --
+-- it has never had RLS enabled at all (see its own comment above), and
+-- retrofitting FORCE ROW LEVEL SECURITY onto it would require
+-- re-auditing every existing caller first (Database Schema §4.5/§6 item
+-- 7). Superadmin-only channel-partner creation (IA-3.1) is enforced at
+-- the application layer for now -- a disclosed scope decision, not a
+-- silent gap.
+
+-- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction
 -- ─────────────────────────────────────────────────────────────
 -- Tenant session:          SET LOCAL app.current_tenant_id = '<tenant_uuid_from_jwt>';
 -- Channel-partner session: SET LOCAL app.current_channel_partner_id = '<...>';
 --                          SET LOCAL app.current_channel_partner_user_id = '<...>';
 --                          SET LOCAL app.current_channel_partner_role = 'partner_admin' | 'technician';
+-- Staff session (non-tenant-scoped actions):
+--                          SET LOCAL app.current_staff_cognito_sub = '<sub_from_jwt>';
+--                          SET LOCAL app.current_staff_role = 'superadmin' | 'account_manager';
+--                          -- THEN look up peaklogic_staff_users by cognito_sub to resolve
+--                          -- the row's id, and only then:
+--                          SET LOCAL app.current_staff_user_id = '<resolved_id>';
+-- Staff session, acting on a tenant (withStaffActingOnTenant()):
+--                          -- all of the above, THEN, only after verifying
+--                          -- an account_assignments row (or role = superadmin):
+--                          SET LOCAL app.current_tenant_id = '<target_tenant_uuid>';

@@ -130,6 +130,7 @@ export class ApiStack extends cdk.Stack {
         ...commonEnv,
         USER_POOL_ID: props.auth.userPool.userPoolId,
         PARTNER_POOL_ID: props.auth.partnerPool.userPoolId,
+        STAFF_POOL_ID: props.auth.staffPool.userPoolId,
       },
     });
     props.data.dbSecret.grantRead(apiFn);
@@ -142,6 +143,30 @@ export class ApiStack extends cdk.Stack {
     apiFn.addToRolePolicy(new iam.PolicyStatement({
       actions: ['cognito-idp:AdminCreateUser'],
       resources: [props.auth.partnerPool.userPoolArn],
+    }));
+
+    // API Specification §4.7/§4.8, added v1.2 — POST /v1/settings/team and
+    // POST /v1/admin/tenants/{tenantId}/users both provision real userPool
+    // Cognito accounts and assign the admin/operator group; POST
+    // /v1/admin/staff-users does the same against staffPool for
+    // superadmin/account_manager. AdminAddUserToGroup wasn't needed for the
+    // partnerPool grant above since PartnerPool deliberately carries no
+    // Cognito groups (Security Architecture §2.4) — the tenant and staff
+    // pools both do, so both need it here.
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cognito-idp:AdminCreateUser', 'cognito-idp:AdminAddUserToGroup'],
+      resources: [props.auth.userPool.userPoolArn, props.auth.staffPool.userPoolArn],
+    }));
+
+    // GET/PUT /v1/settings/password and /v1/settings/mfa (routes/settings.ts)
+    // proxy Cognito's own self-service ChangePassword/GetUser APIs using the
+    // caller's own access token — no parallel credential store — but the
+    // Lambda execution role still needs IAM permission for the underlying
+    // API call itself, scoped to the tenant pool only (staff/partner users
+    // have no settings endpoints).
+    apiFn.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['cognito-idp:ChangePassword', 'cognito-idp:GetUser'],
+      resources: [props.auth.userPool.userPoolArn],
     }));
 
     // Structured access log — distinct from the executionLogging above
@@ -211,6 +236,23 @@ export class ApiStack extends cdk.Stack {
     const telemetry = v1.addResource('telemetry');
     telemetry.addMethod('GET', integration, auth);
 
+    // ── Settings & Preferences (API Specification §4.8, added v1.2) ──
+    // Tenant-pool authenticated — the existing `auth` MethodOptions above,
+    // no new authorizer (these are ordinary per-user preferences, not a new
+    // identity surface).
+    const settings = v1.addResource('settings');
+    settings.addMethod('GET', integration, auth);
+    settings.addMethod('PUT', integration, auth);
+    settings.addResource('password').addMethod('PUT', integration, auth);
+    settings.addResource('mfa').addMethod('GET', integration, auth);
+
+    const settingsTeam = settings.addResource('team');
+    settingsTeam.addMethod('GET', integration, auth);
+    settingsTeam.addMethod('POST', integration, auth);
+    const settingsTeamDetail = settingsTeam.addResource('{userId}');
+    settingsTeamDetail.addMethod('PUT', integration, auth);
+    settingsTeamDetail.addMethod('DELETE', integration, auth);
+
     // ── Channel Partner Portal routes (API Specification §4.5, added v1.1) ──
     // A second, separate Cognito authorizer bound to PartnerPool, not the
     // tenant userPool authorizer above — Security Architecture §2.4 built
@@ -256,8 +298,57 @@ export class ApiStack extends cdk.Stack {
     const { detail: routeDetail } = addPartnerCrud('routes', { delete: false });
     routeDetail.addResource('confirm').addMethod('POST', integration, partnerAuth);
 
+    // ── Internal Administration Console routes (API Specification §4.7, added v1.2) ──
+    // A third, separate Cognito authorizer bound to StaffPool — same
+    // pattern as PartnerAuthorizer above. backend/api/handler.ts branches
+    // on event.resource to pick getStaffAuth()/adminRoute() for anything
+    // under /v1/admin, the same single-Lambda, internally-routed pattern
+    // used for both other identity surfaces.
+    const staffAuthorizer = new apigateway.CognitoUserPoolsAuthorizer(this, 'StaffAuthorizer', {
+      cognitoUserPools: [props.auth.staffPool],
+      authorizerName: 'StaffCognitoAuthorizer',
+    });
+    const staffAuth: apigateway.MethodOptions = {
+      authorizer: staffAuthorizer,
+      authorizationType: apigateway.AuthorizationType.COGNITO,
+    };
+
+    const adminResource = v1.addResource('admin');
+    adminResource.addMethod('GET', integration, staffAuth);
+
+    const adminTenants = adminResource.addResource('tenants');
+    adminTenants.addMethod('GET', integration, staffAuth);
+    adminTenants.addMethod('POST', integration, staffAuth);
+    const adminTenantDetail = adminTenants.addResource('{tenantId}');
+    adminTenantDetail.addMethod('GET', integration, staffAuth);
+
+    // "Acting on a tenant" (IA-5.1) — nested under the same {tenantId},
+    // reusing withStaffActingOnTenant() rather than a parallel resource tree.
+    adminTenantDetail.addResource('users').addMethod('POST', integration, staffAuth);
+    const adminTenantDevice = adminTenantDetail.addResource('devices').addResource('{deviceId}');
+    adminTenantDevice.addMethod('PUT', integration, staffAuth);
+    const adminTenantAsset = adminTenantDetail.addResource('assets').addResource('{assetId}');
+    adminTenantAsset.addMethod('PUT', integration, staffAuth);
+    const adminTenantAlert = adminTenantDetail.addResource('alerts').addResource('{alertId}');
+    adminTenantAlert.addMethod('PUT', integration, staffAuth);
+
+    const adminPartners = adminResource.addResource('channel-partners');
+    adminPartners.addMethod('GET', integration, staffAuth);
+    adminPartners.addMethod('POST', integration, staffAuth);
+    adminPartners.addResource('{partnerId}').addMethod('GET', integration, staffAuth);
+
+    const adminStaffUsers = adminResource.addResource('staff-users');
+    adminStaffUsers.addMethod('GET', integration, staffAuth);
+    adminStaffUsers.addMethod('POST', integration, staffAuth);
+
+    const adminAssignments = adminResource.addResource('assignments');
+    adminAssignments.addMethod('GET', integration, staffAuth);
+    adminAssignments.addMethod('POST', integration, staffAuth);
+    adminAssignments.addResource('{assignmentId}').addMethod('DELETE', integration, staffAuth);
+
     new cdk.CfnOutput(this, 'ApiUrl', { value: api.url });
     new cdk.CfnOutput(this, 'PartnerAuthorizerId', { value: partnerAuthorizer.authorizerId });
+    new cdk.CfnOutput(this, 'StaffAuthorizerId', { value: staffAuthorizer.authorizerId });
 
     // RDS secret rotation is wired up in data-stack.ts, not here — see that
     // file for why (two failed attempts here first, both hitting a real

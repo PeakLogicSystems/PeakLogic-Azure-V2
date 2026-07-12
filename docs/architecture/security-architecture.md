@@ -108,7 +108,9 @@ Database Schema §4.5 built the "act as" handoff mechanism (`account_assignments
 
 **`backend/shared/auth.ts` gains `getStaffAuth()`**, mirroring `getAuth()`/`getPartnerAuth()`'s shape and fail-closed discipline: missing `sub` → 401. Unlike the other two, there is no tenant/partner-scoping claim to check here at all — a staff pool session's identity *is* PeakLogic-staff by construction (which pool issued the token), nothing further to validate from the claims themselves. Role (`superadmin`/`account_manager`) is read from `cognito:groups`, same mechanism as the tenant pool.
 
-**`backend/shared/db.ts` gains `withStaffActingOnTenant()`**, implementing Database Schema §4.5's handoff exactly:
+**Corrected during implementation (not re-derived from scratch — a real bug caught before it shipped):** `StaffAuthContext` (returned by `getStaffAuth()`) carries only `sub`/`email`/`role` off the JWT — it has no `staffUserId`, since that's a database-derived value (`peaklogic_staff_users.id`), not a JWT claim (no `custom:staff_user_id` attribute exists on `StaffPool`, deliberately — see §2.5 decision above on why role, but not a DB-derived id, is worth putting in a claim). The original draft of `withStaffActingOnTenant()` referenced a nonexistent `auth.staffUserId` and set `app.current_staff_user_id` before any row was ever looked up. Fixed to resolve the staff user's own row by `cognito_sub` first (the one identifier genuinely available pre-lookup), which also required correcting `peaklogic_staff_users`' own RLS policy to match — see Database Schema §4.5's "Corrected during implementation" note for the policy-side half of this same fix.
+
+**`backend/shared/db.ts` gains `withStaffActingOnTenant()`**, implementing Database Schema §4.5's handoff, corrected as above:
 ```ts
 export async function withStaffActingOnTenant<T>(
   auth: StaffAuthContext,
@@ -118,8 +120,19 @@ export async function withStaffActingOnTenant<T>(
   const client = await (await getPool()).connect();
   try {
     await client.query('BEGIN');
-    await client.query('SET LOCAL app.current_staff_user_id = $1', [auth.staffUserId]);
+    await client.query('SET LOCAL app.current_staff_cognito_sub = $1', [auth.sub]);
     await client.query('SET LOCAL app.current_staff_role = $1', [auth.role]);
+
+    const { rows: [staffUser] } = await client.query<{ id: string; status: string }>(
+      'SELECT id, status FROM peaklogic_staff_users WHERE cognito_sub = $1', [auth.sub],
+    );
+    if (!staffUser) {
+      throw Object.assign(new Error('Staff user not found'), { statusCode: 403 });
+    }
+    if (staffUser.status === 'disabled') {
+      throw Object.assign(new Error('Staff account is disabled'), { statusCode: 403 });
+    }
+    await client.query('SET LOCAL app.current_staff_user_id = $1', [staffUser.id]);
 
     if (auth.role !== 'superadmin') {
       const { rows } = await client.query(
@@ -138,11 +151,11 @@ export async function withStaffActingOnTenant<T>(
   finally { client.release(); }
 }
 ```
-Deliberately **not** parameterized to skip the transaction for `superadmin` as an optimization — running the same `BEGIN`/`SET LOCAL`/`COMMIT` shape for both roles, with only the assignment-check query conditionally skipped, keeps this function's behavior easy to reason about and test identically for both roles, rather than two structurally different code paths that could drift apart.
+Deliberately **not** parameterized to skip the transaction for `superadmin` as an optimization — running the same `BEGIN`/`SET LOCAL`/`COMMIT` shape for both roles, with only the assignment-check query conditionally skipped, keeps this function's behavior easy to reason about and test identically for both roles, rather than two structurally different code paths that could drift apart. The `peaklogic_staff_users` lookup itself is unconditional for both roles — mirrors `withChannelPartner()`'s status check (a disabled staff account is rejected here the same way a suspended channel partner is rejected there), and resolving `id` this way is now load-bearing, not just a nice-to-have, since `account_assignments`' own policy is keyed on `staff_user_id`.
 
-**A design constraint carried over directly from Database Schema §4.5, not re-derived**: the assignment-check query must run *after* `app.current_staff_user_id`/`app.current_staff_role` are set but *before* `app.current_tenant_id` is — this ordering is what lets `account_assignments`' own RLS policy correctly scope the check itself (an `account_manager` session literally cannot see a row proving assignment to a tenant it isn't assigned to), rather than trusting application code to add the right `WHERE staff_user_id = ...` clause unaided. Getting this ordering wrong would either reject valid assignments (if the assignment check ran before staff identity is set) or defeat the check's own RLS scoping (if it ran after `current_tenant_id`, at which point `account_assignments` would be evaluated with the wrong session context).
+**A design constraint carried over directly from Database Schema §4.5, not re-derived**: the assignment-check query must run *after* `app.current_staff_user_id`/`app.current_staff_role` are set but *before* `app.current_tenant_id` is — this ordering is what lets `account_assignments`' own RLS policy correctly scope the check itself (an `account_manager` session literally cannot see a row proving assignment to a tenant it isn't assigned to), rather than trusting application code to add the right `WHERE staff_user_id = ...` clause unaided. Getting this ordering wrong would either reject valid assignments (if the assignment check ran before staff identity is set) or defeat the check's own RLS scoping (if it ran after `current_tenant_id`, at which point `account_assignments` would be evaluated with the wrong session context). The newly-added `peaklogic_staff_users` lookup slots in after the `cognito_sub`/role variables are set (required, per the corrected `staff_self_or_superadmin` policy) and before the assignment check (which needs the resolved `id`) — same reasoning, one more link in the same chain.
 
-**A new staff-side companion, `withStaffSession()`, for the console's non-tenant-scoped endpoints** (viewing/creating `peaklogic_staff_users`, viewing/creating `account_assignments`, `superadmin`-only tenant/channel-partner creation) — sets only `app.current_staff_user_id`/`app.current_staff_role`, no `app.current_tenant_id` at all, since these actions aren't "acting as" any particular tenant.
+**A new staff-side companion, `withStaffSession()`, for the console's non-tenant-scoped endpoints** (viewing/creating `peaklogic_staff_users`, viewing/creating `account_assignments`, `superadmin`-only tenant/channel-partner creation) — runs the identical `current_staff_cognito_sub` → lookup → `current_staff_user_id` sequence as the first half of `withStaffActingOnTenant()` above, then stops there: no `account_assignments` check, no `app.current_tenant_id` at all, since these actions aren't "acting as" any particular tenant.
 
 **`requireStaffRole()` added, mirroring `requireRole()`/`requirePartnerRole()`** — gates `superadmin`-only actions (IA-2.1, IA-3.1, granting new `account_assignments`) that RLS alone doesn't fully express as a clean allow/deny (the `tenants` `staff_tenant_access` policy already structurally prevents an `account_manager` from inserting a new tenant, but `channel_partners`' application-layer-only enforcement, Database Schema §4.5, needs an explicit code-level check since there's no RLS backing it at all).
 

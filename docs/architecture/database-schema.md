@@ -201,11 +201,13 @@ ALTER TABLE peaklogic_staff_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE peaklogic_staff_users FORCE ROW LEVEL SECURITY;
 CREATE POLICY staff_self_or_superadmin ON peaklogic_staff_users
   USING (
-    id = current_setting('app.current_staff_user_id', true)::uuid
+    cognito_sub = current_setting('app.current_staff_cognito_sub', true)
     OR current_setting('app.current_staff_role', true) = 'superadmin'
   );
 ```
 A staff session can always see (and, per the same USING-doubles-as-WITH-CHECK behavior below, only modify) their own row; `superadmin` sessions see/manage every row, including creating new ones (IA-1.1) — the `OR` condition doesn't depend on the target row existing, so it evaluates true for INSERT the same way it does for existing rows.
+
+**Corrected during implementation (v1.2, real code pass):** the original draft of this policy matched on `id = current_setting('app.current_staff_user_id', ...)`. That's circular — `withStaffSession()` (`backend/shared/db.ts`) must resolve a staff user's own row by looking it up FROM their `cognito_sub` (the one identifier available straight off the JWT, before any DB round-trip), and a policy keyed on `id` can never match during that very lookup, since `id` is exactly what the lookup is trying to discover. Re-keyed on `cognito_sub` — a session variable set directly from the JWT claim, not from a row this table itself would need to supply first. Same "ordering matters" class of bug already documented on `withChannelPartner()` in `db.ts`, caught here before any code shipped rather than empirically after.
 
 **`account_assignments`** — the "book of business" join table (Domain Model §2.8).
 ```sql
@@ -236,8 +238,13 @@ An `account_manager` can see (and a `superadmin` can create/see/revoke) assignme
 **The "act as" handoff — the mechanism that makes IA-5 work without touching any operational table's RLS.** A new `withStaffActingOnTenant()` function (mirrors `withTenant()`/`withChannelPartner()` in shape, `backend/shared/db.ts`), used by every admin-console route that operates on a tenant on a staff member's behalf:
 ```sql
 -- Within one transaction, in this order:
-SET LOCAL app.current_staff_user_id = '<staff uuid>';
+SET LOCAL app.current_staff_cognito_sub = '<sub from JWT>';
 SET LOCAL app.current_staff_role = '<superadmin|account_manager>';
+
+-- Resolve the staff user's own row (id) by cognito_sub — the lookup this
+-- corrected staff_self_or_superadmin policy above exists to allow —
+-- then, only once id is known:
+SET LOCAL app.current_staff_user_id = '<resolved id>';
 
 -- Verify assignment BEFORE touching the target tenant's own scope —
 -- this query is itself RLS-scoped by account_assignment_visibility above,

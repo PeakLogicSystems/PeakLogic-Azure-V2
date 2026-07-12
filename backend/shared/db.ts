@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { Pool, PoolClient } from 'pg';
 import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
-import type { PartnerAuthContext } from './auth';
+import type { PartnerAuthContext, StaffAuthContext, StaffRole } from './auth';
 
 // AWS's published RDS CA bundle, copied into a certs/ subdirectory alongside
 // this file's bundled output by infra/lib/api-stack.ts's `afterBundling` hook
@@ -215,6 +215,138 @@ export async function withTenant<T>(
     }
 
     const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+// ── Internal Administration Console (Database Schema §4.5 / Security Architecture §2.5, added v1.2) ──
+
+export interface StaffSession {
+  staffUserId: string;
+  role: StaffRole;
+}
+
+/**
+ * Resolves auth.sub → peaklogic_staff_users row and sets the two staff
+ * session variables both this function and withStaffActingOnTenant() below
+ * depend on. Not exported — both public entry points below call it as the
+ * shared first half of their sequence, so the cognito_sub → id resolution
+ * only exists once.
+ *
+ * Ordering is load-bearing, not stylistic: app.current_staff_cognito_sub
+ * and app.current_staff_role are set from the JWT (auth.sub/auth.role,
+ * known before any query runs) BEFORE the peaklogic_staff_users lookup,
+ * because that table's own staff_self_or_superadmin RLS policy is keyed on
+ * cognito_sub, not id — id is exactly what this lookup exists to discover,
+ * so a policy keyed on id would make the lookup circular (see Database
+ * Schema §4.5's "Corrected during implementation" note). app.current_staff_
+ * user_id is only set afterward, once the row (and therefore the id) is
+ * actually known.
+ */
+async function resolveStaffSession(client: PoolClient, auth: StaffAuthContext): Promise<StaffSession> {
+  await client.query('SET LOCAL app.current_staff_cognito_sub = $1', [auth.sub]);
+  await client.query('SET LOCAL app.current_staff_role = $1', [auth.role]);
+
+  const { rows: [staffUser] } = await client.query<{ id: string; status: string }>(
+    'SELECT id, status FROM peaklogic_staff_users WHERE cognito_sub = $1',
+    [auth.sub],
+  );
+  if (!staffUser) {
+    throw Object.assign(new Error('Staff user not found'), { statusCode: 403 });
+  }
+  if (staffUser.status === 'disabled') {
+    throw Object.assign(new Error('Staff account is disabled'), { statusCode: 403 });
+  }
+
+  await client.query('SET LOCAL app.current_staff_user_id = $1', [staffUser.id]);
+  return { staffUserId: staffUser.id, role: auth.role };
+}
+
+/**
+ * Runs fn inside a transaction with only staff RLS set (no
+ * app.current_tenant_id) — for the console's own-scope endpoints: viewing/
+ * creating peaklogic_staff_users, viewing/creating account_assignments,
+ * superadmin-only tenant/channel-partner creation (Security Architecture
+ * §2.5). Not "acting as" any tenant, so does not touch tenant_isolation or
+ * staff_tenant_access at all.
+ */
+export async function withStaffSession<T>(
+  auth: StaffAuthContext,
+  fn: (client: PoolClient, session: StaffSession) => Promise<T>,
+): Promise<T> {
+  const p = await getPool();
+  const client = await p.connect();
+  try {
+    await client.query('BEGIN');
+    const session = await resolveStaffSession(client, auth);
+    const result = await fn(client, session);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+/**
+ * The "act as" handoff (Database Schema §4.5, IA-5). Verifies an
+ * account_assignments row (itself RLS-scoped by account_assignment_
+ * visibility — an account_manager session literally cannot see a row
+ * proving assignment to a tenant it isn't assigned to) BEFORE setting
+ * app.current_tenant_id, then defers entirely to the already-existing,
+ * already-hardened tenant_isolation policies every tenant-side route
+ * already runs under — deliberately NOT a repeat of the channel-partner
+ * portal's pattern of adding new permissive read policies to multiple
+ * operational tables, since this needs cross-tenant WRITE, not read-only,
+ * and re-verifying write-capable policies across many tables is exactly
+ * the class of mistake this project's history (the unclaimed_lookup leak,
+ * Multi-Tenant Architecture §2.2) has shown is easy to get wrong.
+ *
+ * superadmin skips the assignment check entirely (Domain Model §2.8:
+ * unconditional access, not expressed as a very large set of assignment
+ * rows) but still runs through the identical BEGIN/SET LOCAL/COMMIT shape
+ * as account_manager — kept as one code path, not two that could drift.
+ */
+export async function withStaffActingOnTenant<T>(
+  auth: StaffAuthContext,
+  targetTenantId: string,
+  fn: (client: PoolClient, session: StaffSession) => Promise<T>,
+): Promise<T> {
+  const p = await getPool();
+  const client = await p.connect();
+  try {
+    await client.query('BEGIN');
+    const session = await resolveStaffSession(client, auth);
+
+    if (session.role !== 'superadmin') {
+      const { rows } = await client.query(
+        'SELECT 1 FROM account_assignments WHERE staff_user_id = $1 AND tenant_id = $2',
+        [session.staffUserId, targetTenantId],
+      );
+      if (rows.length === 0) {
+        throw Object.assign(new Error('Not assigned to this tenant'), { statusCode: 403 });
+      }
+    }
+
+    await client.query('SET LOCAL app.current_tenant_id = $1', [targetTenantId]);
+
+    const { rows: [tenant] } = await client.query<{ status: string }>(
+      'SELECT status FROM tenants WHERE id = $1',
+      [targetTenantId],
+    );
+    if (!tenant) {
+      throw Object.assign(new Error('Tenant not found'), { statusCode: 403 });
+    }
+
+    const result = await fn(client, session);
     await client.query('COMMIT');
     return result;
   } catch (err) {

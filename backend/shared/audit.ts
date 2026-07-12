@@ -29,6 +29,11 @@ export interface TenantAuditEntry extends AuditEntryBase {
   scope: 'tenant';
   tenantId: string;
   actorId: string | null;
+  // Set when a staff member wrote this entry via withStaffActingOnTenant()
+  // (IA-7.1) — the entry stays tenant-scoped (a tenant admin reviewing
+  // their own audit log should see it), but the actor is the staff member,
+  // not a tenant user, so it's a distinct column, not actorId reused.
+  actorStaffUserId?: string | null;
 }
 
 export interface ChannelPartnerAuditEntry extends AuditEntryBase {
@@ -46,9 +51,9 @@ export async function writeAuditLog(client: PoolClient, entry: AuditEntry): Prom
   if (entry.scope === 'tenant') {
     await client.query(
       `INSERT INTO audit_log_entries
-         (tenant_id, actor_id, action, target_entity, target_id, prior_value, new_value)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [entry.tenantId, entry.actorId, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+         (tenant_id, actor_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [entry.tenantId, entry.actorId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
     );
   } else {
     await client.query(

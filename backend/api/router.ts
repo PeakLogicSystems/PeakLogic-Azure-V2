@@ -7,6 +7,8 @@ import * as devices   from './routes/devices';
 import * as alerts    from './routes/alerts';
 import * as tickets   from './routes/tickets';
 import * as telemetry from './routes/telemetry';
+import * as settings from './routes/settings';
+import * as settingsTeam from './routes/settings-team';
 
 type RouteHandler = (
   event: APIGatewayProxyEvent,
@@ -51,6 +53,17 @@ const ROUTES: Record<string, RouteHandler> = {
 
   // Telemetry (read-only from API; writes come via IoT Core)
   'GET /v1/telemetry': telemetry.list,
+
+  // Settings & Preferences (API Specification §4.8, added v1.2)
+  'GET /v1/settings':          settings.getSettings,
+  'PUT /v1/settings':          settings.updateSettings,
+  'PUT /v1/settings/password': settings.changePassword,
+  'GET /v1/settings/mfa':      settings.getMfaStatus,
+
+  'GET /v1/settings/team':               settingsTeam.list,
+  'POST /v1/settings/team':              settingsTeam.create,
+  'PUT /v1/settings/team/{userId}':      settingsTeam.update,
+  'DELETE /v1/settings/team/{userId}':   settingsTeam.remove,
 };
 
 export async function route(
