@@ -11,9 +11,9 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 3 | [Software Requirements Specification (SRS)](srs.md) | ✅ Approved v1.5 (new §3.12 Partner Territory & Dispatch; SN-4.1/SN-5.1 thresholds resolved) |
 | 4 | [Domain Model](domain-model.md) | ✅ Approved v1.1 (new §2.7 Channel Partner Portal & Dispatch — technicians get scoped logins) |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
-| 6 | [User Personas](user-personas.md) | ✅ Approved v1.1 |
+| 6 | [User Personas](user-personas.md) | ✅ Approved v1.2 (new §2.7 Channel Partner Portal Dispatcher; §2.2 corrected — pool-service companies are Channel Partners, not Tenants) |
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
-| 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.2 |
+| 8 | [UX Wireframes](ux-wireframes.md) | ✅ Approved v1.3 (new §2.11–2.15 Channel Partner Portal screens — login, territory editor, technician management, daily dispatch route) |
 | 9 | [Information Architecture](information-architecture.md) | ✅ Approved v1 |
 | 10 | [Database Schema](database-schema.md) | ✅ Approved v1.1 (new §4.4 Channel Partner Portal & Dispatch Schema — real cross-tenant RLS + audit logging) |
 | 11 | [API Specification](api-specification.md) | ✅ Approved v1.1 (new §4.5/§4.6 Channel Partner Portal endpoints — real infra + 4 route handler files shipped and typechecked) |
