@@ -403,9 +403,11 @@
   <tr><td>RDS Security Group</td><td>Accepts TCP:5432 from Lambda SG only</td></tr>
 </table>
 
-<div class="box box-warn">
-  <div class="box-title">Cost Note — NAT Gateway</div>
-  NAT Gateway costs ~$32/month regardless of traffic. For non-production environments, set <code>natGateways: 0</code> in <code>network-stack.ts</code> and move Lambda to public subnets. This reduces the monthly bill to ~$14/month but is not recommended for production.
+<div class="box box-danger">
+  <div class="box-title">Cost Note — NAT Gateway (corrected)</div>
+  NAT Gateway costs ~$32/month regardless of traffic. <strong>An earlier version of this note incorrectly claimed setting <code>natGateways: 0</code> and moving Lambda to public subnets reduces the bill to ~$14/month while staying functional — this is wrong and has been removed.</strong> AWS Lambda ENIs never receive a public IP address, even in a subnet with an Internet Gateway route — this is a Lambda platform limitation, not a routing detail to work around. Placing Lambda in a "public" subnet with no NAT gives it no internet path at all, which breaks <code>backend/shared/db.ts</code>'s Secrets Manager call for the RDS credential on every cold start — i.e. it would break every database connection, not just cost-saving.
+  <br><br>
+  Real lower-cost alternatives for non-production: (1) a <strong>VPC Interface Endpoint for Secrets Manager only</strong> (~$7.30/month single-AZ, ~$14.60/month two-AZ) — covers the DB-credential fetch, but Cognito Admin* calls (team invites, staff/tenant user creation via the console) and the ticket webhook feature still need real internet and would fail without additional endpoints or a NAT Gateway; or (2) a dev-only code change to read DB credentials from a Lambda environment variable instead of Secrets Manager, removing that dependency entirely — a real security posture downgrade appropriate only for a non-production home-lab deploy, never for a real customer environment.
 </div>
 
 <h3>2.2 Data Stack</h3>
