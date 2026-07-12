@@ -28,11 +28,18 @@ export class ApiStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: ApiStackProps) {
     super(scope, id, props);
 
+    // Dev deliberately has no dbSecret (data-stack.ts's DEV_PLAINTEXT_DB_PASSWORD
+    // path) — db.ts's getPool() branches on DB_PASSWORD being present (checked
+    // before DB_SECRET_ARN) to skip the Secrets Manager call entirely, which
+    // is what lets dev run with zero NAT gateways (network-stack.ts). Staging/
+    // prod are unchanged: DB_SECRET_ARN only, no DB_PASSWORD ever set for them.
     const commonEnv = {
-      DB_SECRET_ARN: props.data.dbSecret.secretArn,
-      DB_HOST:       props.data.dbInstance.instanceEndpoint.hostname,
-      DB_NAME:       'peaklogic',
-      NODE_ENV:      'production',
+      ...(props.data.dbSecret
+        ? { DB_SECRET_ARN: props.data.dbSecret.secretArn }
+        : { DB_USER: 'peaklogic_admin', DB_PASSWORD: props.data.devPlaintextDbPassword! }),
+      DB_HOST:  props.data.dbInstance.instanceEndpoint.hostname,
+      DB_NAME:  'peaklogic',
+      NODE_ENV: 'production',
     };
 
     const commonProps: Omit<lambdaNode.NodejsFunctionProps, 'entry' | 'functionName' | 'logGroup'> = {
@@ -116,7 +123,7 @@ export class ApiStack extends cdk.Stack {
       handler: 'handler',
       environment: commonEnv,
     });
-    props.data.dbSecret.grantRead(ingestFn);
+    props.data.dbSecret?.grantRead(ingestFn); // no-op for dev — no secret exists to grant read on
     this.ingestFn = ingestFn;
 
     // ── API Lambda (all REST routes, path-routed internally) ──────────────
@@ -133,7 +140,7 @@ export class ApiStack extends cdk.Stack {
         STAFF_POOL_ID: props.auth.staffPool.userPoolId,
       },
     });
-    props.data.dbSecret.grantRead(apiFn);
+    props.data.dbSecret?.grantRead(apiFn); // no-op for dev — no secret exists to grant read on
     this.apiFn = apiFn;
 
     // API Specification §4.5 — POST /v1/partner/users provisions a real

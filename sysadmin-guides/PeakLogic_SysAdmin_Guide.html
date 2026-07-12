@@ -407,7 +407,14 @@
   <div class="box-title">Cost Note — NAT Gateway (corrected)</div>
   NAT Gateway costs ~$32/month regardless of traffic. <strong>An earlier version of this note incorrectly claimed setting <code>natGateways: 0</code> and moving Lambda to public subnets reduces the bill to ~$14/month while staying functional — this is wrong and has been removed.</strong> AWS Lambda ENIs never receive a public IP address, even in a subnet with an Internet Gateway route — this is a Lambda platform limitation, not a routing detail to work around. Placing Lambda in a "public" subnet with no NAT gives it no internet path at all, which breaks <code>backend/shared/db.ts</code>'s Secrets Manager call for the RDS credential on every cold start — i.e. it would break every database connection, not just cost-saving.
   <br><br>
-  Real lower-cost alternatives for non-production: (1) a <strong>VPC Interface Endpoint for Secrets Manager only</strong> (~$7.30/month single-AZ, ~$14.60/month two-AZ) — covers the DB-credential fetch, but Cognito Admin* calls (team invites, staff/tenant user creation via the console) and the ticket webhook feature still need real internet and would fail without additional endpoints or a NAT Gateway; or (2) a dev-only code change to read DB credentials from a Lambda environment variable instead of Secrets Manager, removing that dependency entirely — a real security posture downgrade appropriate only for a non-production home-lab deploy, never for a real customer environment.
+  Real lower-cost alternatives for non-production: (1) a <strong>VPC Interface Endpoint for Secrets Manager only</strong> (~$7.30/month single-AZ, ~$14.60/month two-AZ) — covers the DB-credential fetch, but Cognito Admin* calls (team invites, staff/tenant user creation via the console) and the ticket webhook feature still need real internet and would fail without additional endpoints or a NAT Gateway; or (2) a dev-only code change to read DB credentials from a Lambda environment variable instead of Secrets Manager, removing that dependency entirely.
+</div>
+
+<div class="box box-danger">
+  <div class="box-title">⚠️ Option 2 above is now implemented for the <code>dev</code> stage — TD-43, hard revert gate</div>
+  As of this release, <code>dev</code> genuinely runs with <strong>zero NAT gateways and zero Secrets Manager cost</strong>: <code>network-stack.ts</code> sets <code>natGateways: 0</code> for <code>dev</code> specifically (staging keeps 1, prod keeps 2), and <code>data-stack.ts</code> generates the RDS master password from a CDK context value (<code>-c devDbPassword=...</code>) instead of Secrets Manager's auto-generated secret. <strong>This password ends up in plaintext in the synthesized CloudFormation template and stack outputs</strong> — not access-controlled or rotated the way every other stage's credential is. <code>staging</code>/<code>prod</code> are completely unaffected by this — both still use <code>fromGeneratedSecret()</code>/<code>DB_SECRET_ARN</code>, unchanged.
+  <br><br>
+  <strong>This is a deliberate, user-approved home-lab cost trade-off, not a hardening regression to silently live with.</strong> See <code>docs/architecture/technical-debt-register.md</code> TD-43 and the "⚠️ Known Temporary Security Trade-off" section near the top of <code>CLAUDE.md</code> for the full record. <strong>Hard gate: revert to the Secrets Manager path before any real customer data ever touches this deployment, and never promote this pattern to <code>staging</code> or <code>prod</code>.</strong>
 </div>
 
 <h3>2.2 Data Stack</h3>
@@ -420,8 +427,8 @@
   <tr><td>Multi-AZ</td><td>Disabled (enable for production)</td></tr>
   <tr><td>Backup Retention</td><td>7 days</td></tr>
   <tr><td>Maintenance Window</td><td>Sun 03:00–04:00 UTC</td></tr>
-  <tr><td>Credentials</td><td>Auto-generated, stored in Secrets Manager</td></tr>
-  <tr><td>Credential Rotation</td><td><span class="badge badge-green">Added v1.1.0</span> Automatic, 30-day schedule, all stages (<code>addRotationSingleUser()</code>)</td></tr>
+  <tr><td>Credentials</td><td><span class="badge badge-red">Stage-conditional, TD-43</span> <code>staging</code>/<code>prod</code>: auto-generated, stored in Secrets Manager (unchanged). <code>dev</code> only: plaintext password from a CDK context value (<code>-c devDbPassword=...</code>), <strong>not</strong> Secrets Manager — see the danger box above §2.2</td></tr>
+  <tr><td>Credential Rotation</td><td>Automatic, 30-day schedule, <code>staging</code>/<code>prod</code> only (<code>addRotationSingleUser()</code>). Skipped entirely for <code>dev</code> — no secret exists for it to rotate, and <code>dev</code> has no NAT gateway for the rotation Lambda to reach Secrets Manager even if one did</td></tr>
   <tr><td>Deletion Policy</td><td>SNAPSHOT (CDK will take a snapshot before deleting)</td></tr>
   <tr><td>Deletion Protection</td><td><span class="badge badge-green">Stage-conditional as of v1.1.0</span> — <code>false</code> for dev/staging, <code>true</code> for prod, automatic</td></tr>
   <tr><td>Multi-AZ</td><td><span class="badge badge-green">Stage-conditional as of v1.1.0</span> — <code>false</code> for dev/staging, <code>true</code> for prod, automatic</td></tr>
@@ -2080,11 +2087,12 @@ Compress-Archive -Path "device-certs" -DestinationPath "device-certs-backup-$(Ge
 <div class="section page-break">
 <h2>16. Known Issues &amp; Technical Debt</h2>
 
-<p>New in v1.1.0, extended v1.2.0. The full, categorized inventory lives in <code>docs/architecture/technical-debt-register.md</code> (42 items as of v1.2.0, none rated above Medium severity) — this section pulls out the ones most likely to matter to whoever is actually operating this platform day to day, with their register IDs so they're easy to cross-reference.</p>
+<p>New in v1.1.0, extended v1.2.0. The full, categorized inventory lives in <code>docs/architecture/technical-debt-register.md</code> (43 items as of this update, one rated Medium — TD-43 — the rest none above Medium) — this section pulls out the ones most likely to matter to whoever is actually operating this platform day to day, with their register IDs so they're easy to cross-reference.</p>
 
 <h3>Most Operationally Relevant</h3>
 <table>
   <tr><th>ID</th><th>Issue</th><th>Where covered in this guide</th></tr>
+  <tr><td class="col-mono">TD-43</td><td><strong>⚠️ <code>dev</code> stage RDS credential bypasses Secrets Manager (plaintext, hard revert gate before real customer data)</strong></td><td>§2.1, §2.2</td></tr>
   <tr><td class="col-mono">TD-1</td><td>No WAF on API Gateway</td><td>§13</td></tr>
   <tr><td class="col-mono">TD-2</td><td>SSRF fix doesn't fully close DNS rebinding</td><td>§9</td></tr>
   <tr><td class="col-mono">TD-4</td><td>No admin session-revocation ("force logout") tooling</td><td>§13</td></tr>

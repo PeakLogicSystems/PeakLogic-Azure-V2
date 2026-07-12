@@ -14,13 +14,25 @@ export class NetworkStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props: NetworkStackProps) {
     super(scope, id, props);
 
-    // 2 AZs. 1 NAT gateway for dev/staging (~$32/month, single point of
-    // failure if its AZ has an outage — acceptable given both are non-prod).
-    // 2 for prod, one per AZ, so a single AZ's NAT outage doesn't take out
-    // every Lambda's AWS-API egress platform-wide (Deployment Architecture §3).
+    // 2 AZs. 0 NAT gateways for dev (home-lab/cost-minimal posture, added —
+    // see data-stack.ts's DEV_PLAINTEXT_DB_PASSWORD path and db.ts's
+    // DB_PASSWORD branch, which together remove apiFn/ingestFn's only real
+    // reason to need internet egress: fetching the RDS credential from
+    // Secrets Manager. With that removed, dev's Lambdas touch nothing
+    // outside the VPC for core telemetry/API functionality — no NAT, no
+    // VPC endpoint, needed. Real, disclosed limitation: any code path that
+    // DOES need genuine internet (Cognito Admin* calls for team/staff
+    // invites, the ticket webhook feature) will fail outright on dev with
+    // zero NAT gateways — acceptable for a single-operator home-lab
+    // deployment exercising core telemetry ingestion, not something to
+    // carry into staging/prod.
+    // 1 NAT gateway for staging (~$32/month, single point of failure if its
+    // AZ has an outage — acceptable, staging is still non-prod). 2 for prod,
+    // one per AZ, so a single AZ's NAT outage doesn't take out every
+    // Lambda's AWS-API egress platform-wide (Deployment Architecture §3).
     this.vpc = new ec2.Vpc(this, 'Vpc', {
       maxAzs: 2,
-      natGateways: props.stage === 'prod' ? 2 : 1,
+      natGateways: props.stage === 'prod' ? 2 : props.stage === 'staging' ? 1 : 0,
       subnetConfiguration: [
         { name: 'public',   subnetType: ec2.SubnetType.PUBLIC,              cidrMask: 24 },
         { name: 'private',  subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS, cidrMask: 24 },

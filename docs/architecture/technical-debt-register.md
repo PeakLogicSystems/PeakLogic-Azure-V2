@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.0
+**Status:** Approved v1.2 (minor amendments — TD-41/TD-42 added v1.1, TD-43 added v1.2 — do not require re-approval of the base document, see Revision History)
 **Depends on:** All 23 previously approved/drafted artifacts (#1–23) — synthesizes every disclosed-but-unfixed gap in already-shipped code or already-approved documentation into one trackable inventory
 **Last updated:** 2026-07-12
 
@@ -104,6 +104,7 @@ Each item has:
 | TD-40 | SRS §5.2 cites Threat Model as artifact "#17" — stale; Threat Model is actually #19 | Low | Security Architecture §1 (intro note); source error in SRS §5.2 | Open — trivial, included for completeness |
 | TD-41 | `withStaffSession()`/`withStaffActingOnTenant()` (`backend/shared/db.ts`, added v1.2.0/PRD-SRS v1.6) have no integration-test coverage against a real Postgres — the channel-partner equivalent (`withChannelPartner()`) has that coverage in `db.integration.test.ts`, the staff-side functions are the same load-bearing shape but weren't added to that suite in the same pass | Medium | Security Architecture §2.5; SysAdmin Guide §5.7 | Open — same "verify, don't just re-read" bar as everything else in this register, not yet met for this one |
 | TD-42 | Internal Administration Console (`/v1/admin/*`) has no dedicated frontend UI — every endpoint is real and callable, but a PeakLogic staff member has to call the API directly (e.g. via Postman) rather than through a built console screen | Low | API Specification §4.7; SysAdmin Guide §8.3 | Open — deferred this pass in favor of the tenant-side Settings/theme/drill-down frontend, which end users are actively using |
+| TD-43 | **`dev` stage RDS credential bypasses Secrets Manager entirely** — a plaintext password (CDK context value, `Credentials.fromPassword(...unsafePlainText(...))`) ends up recoverable in the synthesized CloudFormation template/stack outputs, and automatic rotation is skipped for `dev`. Deliberate, user-approved home-lab cost trade-off (removes the only reason `dev`'s Lambdas needed internet egress, enabling `natGateways: 0` and $0/month networking) — `staging`/`prod` are unaffected, both still use `fromGeneratedSecret()`. | Medium | `infra/lib/data-stack.ts`, `infra/lib/network-stack.ts`, `infra/lib/api-stack.ts`, `backend/shared/db.ts`; `CLAUDE.md`'s "⚠️ Known Temporary Security Trade-off" section | **Open — hard gate, not a someday item: must be reverted to the Secrets Manager path before any real customer data touches this deployment, or before this pattern is ever promoted to `staging`/`prod`.** |
 
 ---
 
@@ -161,6 +162,8 @@ No item in this register is rated above Medium — consistent with §1.1's frami
 ---
 
 ## Revision History
+
+**v1.2 (2026-07-12)** — added TD-43: the `dev` stage's RDS credential deliberately bypasses Secrets Manager (plaintext password via CDK context, `natGateways: 0`), a real, user-approved trade-off made to reach a genuinely $0/month home-lab dev deployment. Rated Medium, not Low, specifically because of the promotion risk (this pattern must never reach `staging`/`prod`, and must be reverted before any real customer data touches even `dev`) — also cross-referenced from a new prominent section in `CLAUDE.md` itself, not just this register, since it's the kind of item that needs to surface proactively in a future session, not only when someone thinks to check this document.
 
 **v1.1 (2026-07-12)** — added TD-41/TD-42, both real gaps disclosed rather than silently skipped while implementing the Internal Administration Console + Settings & Preferences feature (PRD/SRS v1.6): no integration-test coverage yet for the new `withStaffSession()`/`withStaffActingOnTenant()` functions against a real Postgres, and no dedicated frontend UI yet for the admin console. A minimal amendment (two rows added, no re-triage of existing items) rather than a full re-approval pass — this document's own job is bookkeeping, and these are exactly the kind of items it exists to catch.
 

@@ -16,7 +16,11 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 ### Added
 - **Full international time zone selector** (SET-3) — a searchable combobox (`TimezoneSelect`) backed by `Intl.supportedValuesOf('timeZone')`, the complete ~400-zone IANA database with UTC offset labels, replacing the original 6-city US-only dropdown.
 
+### Changed
+- **Corrected a wrong cost-saving claim in the SysAdmin Guide**: an earlier note claimed setting `natGateways: 0` and moving Lambda to public subnets reduces the NAT bill while staying functional — this is false, Lambda ENIs never receive a public IP even in a public subnet, and the change would have broken every database connection (`db.ts`'s Secrets Manager call for the RDS credential). Verified against AWS's own documentation before correcting.
+
 ### Security
+- **`dev` stage RDS credential deliberately bypasses Secrets Manager** (TD-43, Technical Debt Register) — a plaintext password via CDK context (`-c devDbPassword=...`) instead of an auto-generated, access-controlled, rotated secret, paired with `natGateways: 0` for `dev`. A real, user-approved home-lab cost trade-off to reach $0/month for a minimal-device dev deployment — `staging`/`prod` are completely unaffected, both still use `fromGeneratedSecret()`. **Hard gate, tracked in `CLAUDE.md` and the Technical Debt Register: must be reverted before any real customer data touches this deployment, and must never be promoted to `staging`/`prod`.**
 - **Known: esbuild/Vite dev-server CORS vulnerability** (GHSA-67mh-4wv8-2f99, moderate severity). Affects `vite <=6.4.1` via `esbuild <=0.24.2`. **Production is not affected** — the vulnerability only allows a malicious website to query the local Vite dev server while `npm run dev` is running. Fix requires upgrading Vite v5 → v8 and vitest v2 → v4+ together (breaking change); deferred past v1.1.0 to keep that release proportionate to what's actually shipping (tracked as TD-11, Technical Debt Register).
 
 ---

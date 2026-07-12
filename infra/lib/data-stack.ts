@@ -13,12 +13,52 @@ interface DataStackProps extends cdk.StackProps {
 
 export class DataStack extends cdk.Stack {
   public readonly dbInstance: rds.DatabaseInstance;
-  public readonly dbSecret: secretsmanager.ISecret;
+  // Undefined for dev — see DEV_PLAINTEXT_DB_PASSWORD below. ApiStack must
+  // branch on this being present, not assume it always is.
+  public readonly dbSecret?: secretsmanager.ISecret;
+  // Set only for dev, alongside dbSecret being undefined — ApiStack reads
+  // this to wire a DB_PASSWORD env var directly instead of DB_SECRET_ARN.
+  public readonly devPlaintextDbPassword?: string;
 
   constructor(scope: Construct, id: string, props: DataStackProps) {
     super(scope, id, props);
 
     const isProd = props.stage === 'prod';
+    const isDev = props.stage === 'dev';
+
+    // Home-lab / minimal-cost dev posture: skip Secrets Manager entirely
+    // for the RDS credential, not just skip Lambda's runtime call to it.
+    // `fromGeneratedSecret()` (the path every other stage still uses)
+    // creates a real Secrets Manager secret as a side effect of RDS
+    // provisioning itself — that $0.40/month exists whether or not
+    // anything ever reads it, so removing only db.ts's runtime
+    // GetSecretValue call (see DB_PASSWORD branch there) doesn't fully
+    // solve for zero cost on its own; this half does.
+    //
+    // Real, disclosed trade-off, not a free lunch: `unsafePlainText` is
+    // CDK's own explicit escape hatch for exactly this shape of decision —
+    // the password ends up in the CloudFormation template/stack outputs in
+    // recoverable form, not just in Secrets Manager's access-controlled
+    // store. Acceptable for a throwaway/home-lab dev database holding no
+    // real customer data; never appropriate for staging or prod, which is
+    // why this branch is hard-gated on `isDev` specifically, not a general
+    // "non-prod" check the way Multi-AZ/deletion-protection already are.
+    // Sourced from CDK context (`-c devDbPassword=...`), fails loud if
+    // missing rather than silently generating or defaulting one — matches
+    // this project's existing "no default stage" discipline in
+    // bin/peaklogic.ts, applied to this one new required context value too.
+    const devPlaintextDbPassword = isDev
+      ? (this.node.tryGetContext('devDbPassword') as string | undefined)
+      : undefined;
+    if (isDev && !devPlaintextDbPassword) {
+      throw new Error(
+        'Missing required context "devDbPassword" for the dev stage (e.g. ' +
+        '-c devDbPassword=\'some-local-only-password\'). Dev deliberately ' +
+        'skips Secrets Manager for cost reasons (see data-stack.ts) — this ' +
+        'is not optional, not a value CDK will generate for you.',
+      );
+    }
+    this.devPlaintextDbPassword = devPlaintextDbPassword;
 
     // RDS's own security group lives here, not in NetworkStack (Infrastructure
     // as Code §2.3) — only DataStack ever consumed it, and Secrets Manager
@@ -51,7 +91,9 @@ export class DataStack extends cdk.Stack {
       vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
       securityGroups: [rdsSg],
       databaseName: 'peaklogic',
-      credentials: rds.Credentials.fromGeneratedSecret('peaklogic_admin'),
+      credentials: isDev
+        ? rds.Credentials.fromPassword('peaklogic_admin', cdk.SecretValue.unsafePlainText(devPlaintextDbPassword!))
+        : rds.Credentials.fromGeneratedSecret('peaklogic_admin'),
       multiAz: isProd,
       storageEncrypted: true,
       backupRetention: cdk.Duration.days(7),
@@ -59,9 +101,14 @@ export class DataStack extends cdk.Stack {
       removalPolicy: cdk.RemovalPolicy.SNAPSHOT,
     });
 
-    this.dbSecret = this.dbInstance.secret!;
+    // dbInstance.secret is only populated when fromGeneratedSecret() was
+    // used above — undefined for dev by design, not a bug. ApiStack must
+    // branch on this (see its DB_SECRET_ARN vs. DB_PASSWORD wiring).
+    this.dbSecret = this.dbInstance.secret;
 
-    new cdk.CfnOutput(this, 'DbSecretArn', { value: this.dbSecret.secretArn });
+    if (this.dbSecret) {
+      new cdk.CfnOutput(this, 'DbSecretArn', { value: this.dbSecret.secretArn });
+    }
     new cdk.CfnOutput(this, 'DbHost', { value: this.dbInstance.instanceEndpoint.hostname });
 
     // Automatic rotation (Infrastructure as Code §2.3 → now fixed, not just
@@ -100,15 +147,25 @@ export class DataStack extends cdk.Stack {
     // necessary to pre-supply one now that the cycle's real cause is fixed.
     //
     // 30 days: no SOC 2-mandated interval exists, but it's standard practice
-    // and errs toward the stronger end of common 30–90 day guidance. All
-    // stages rotate — the Lambda only runs periodically, so the marginal
-    // cost in dev/staging is negligible, and it's better exercised
-    // continuously everywhere than enabled for prod alone and only tested
-    // for the first time under pressure.
-    this.dbInstance.addRotationSingleUser({
-      automaticallyAfter: cdk.Duration.days(30),
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
-    });
+    // and errs toward the stronger end of common 30–90 day guidance. Staging
+    // and prod rotate — the Lambda only runs periodically, so the marginal
+    // cost in staging is negligible, and it's better exercised continuously
+    // there too than enabled for prod alone and only tested for the first
+    // time under pressure.
+    //
+    // Dev is skipped entirely, not just "rotation runs but does nothing
+    // useful" — there is no Secrets Manager secret for it to rotate (the
+    // credentials branch above), and dev's own NetworkStack now provisions
+    // zero NAT gateways (network-stack.ts), so PRIVATE_WITH_EGRESS below
+    // would have no internet route for the rotation Lambda to reach
+    // Secrets Manager even if a secret existed. Calling
+    // addRotationSingleUser() for dev would fail at either point.
+    if (!isDev) {
+      this.dbInstance.addRotationSingleUser({
+        automaticallyAfter: cdk.Duration.days(30),
+        vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      });
+    }
 
     // cdk-nag suppressions (Infrastructure as Code §2.2).
     const suppressions: { id: string; reason: string }[] = [

@@ -61,6 +61,39 @@ export async function getPool(): Promise<Pool> {
     return pool;
   }
 
+  // Home-lab / minimal-cost dev posture — infra/lib/data-stack.ts's dev
+  // branch skips Secrets Manager entirely (both the RDS credential's
+  // storage AND this function's runtime GetSecretValue call), which is
+  // what lets infra/lib/network-stack.ts run dev with zero NAT gateways:
+  // this is the only reason apiFn/ingestFn ever needed real internet
+  // egress in the first place. Checked before getSecret() below, not
+  // after — calling getSecret() first would defeat the entire point by
+  // making the Secrets Manager network call anyway. Real TLS validation
+  // against the RDS CA bundle still applies here exactly as it does on
+  // the Secrets Manager path below — this branch only changes where the
+  // credential comes from, not the transport security of the DB
+  // connection itself. Mirrors scripts/provision-devices.ts's own
+  // pre-existing DB_PASSWORD-or-Secrets-Manager pattern (buildPool()),
+  // not a new precedent invented here.
+  if (process.env.DB_PASSWORD) {
+    pool = new Pool({
+      host:     process.env.DB_HOST!,
+      port:     5432,
+      database: process.env.DB_NAME ?? 'peaklogic',
+      user:     process.env.DB_USER ?? 'peaklogic_admin',
+      password: process.env.DB_PASSWORD,
+      max: 2,
+      idleTimeoutMillis:    60_000,
+      connectionTimeoutMillis: 5_000,
+      ssl: { ca: RDS_CA_BUNDLE, rejectUnauthorized: true },
+    });
+    pool.on('error', (err) => {
+      console.error('PG pool error', err);
+      pool = null;
+    });
+    return pool;
+  }
+
   const secret = await getSecret();
 
   pool = new Pool({

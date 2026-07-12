@@ -168,6 +168,18 @@ DB_SECRET_ARN=<arn>   # production — or use DB_USER + DB_PASSWORD for local de
 
 Lambda environment variables are injected by CDK at deploy time from stack outputs — do not set them manually.
 
+## ⚠️ Known Temporary Security Trade-off — Dev Stage DB Credentials (added 2026-07-12)
+
+**The `dev` stage does not use Secrets Manager for its RDS credential.** This was a deliberate, user-approved home-lab cost decision — see `docs/architecture/technical-debt-register.md` TD-43 for the full record — traded off to reach genuinely $0/month for a minimal-device home-lab prototype deploy (no NAT Gateway, no Secrets Manager charge, no VPC endpoint).
+
+**What's actually different for `dev` only** (`staging`/`prod` are completely unaffected — verified via `cdk synth`, both still use `fromGeneratedSecret()`/`DB_SECRET_ARN`):
+- `infra/lib/data-stack.ts`: RDS master password comes from a CDK context value (`-c devDbPassword=...`) via `Credentials.fromPassword(...cdk.SecretValue.unsafePlainText(...))` — **this password ends up in plaintext in the synthesized CloudFormation template and stack outputs**, not access-controlled or rotated the way a real secret is.
+- `infra/lib/network-stack.ts`: `dev` gets 0 NAT gateways (this is *why* the plaintext path was needed at all — it removes apiFn/ingestFn's only reason to need outbound internet, which was fetching the RDS credential from Secrets Manager).
+- Automatic credential rotation is skipped entirely for `dev`.
+- `backend/shared/db.ts`'s `getPool()` has a `DB_PASSWORD` branch that reads the credential straight from a Lambda env var instead of calling Secrets Manager.
+
+**🔴 This is a hard gate, not a someday cleanup item: before any real customer data ever touches this deployment — including promoting this pattern to `staging` or `prod`, or pointing a real customer's device fleet at what was a `dev`-stage sandbox — this must be reverted to the Secrets Manager path every other stage already uses.** If a future session is asked to move toward a real customer pilot, deploy for an actual customer, or "promote dev to prod," proactively flag this exact trade-off before proceeding, even if not explicitly asked to check.
+
 ## Branching & Commits
 
 - `main` — production-ready only; tagged at every release
