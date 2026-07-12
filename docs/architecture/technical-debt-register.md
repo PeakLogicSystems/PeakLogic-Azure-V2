@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.2 (minor amendments — TD-41/TD-42 added v1.1, TD-43 added v1.2 — do not require re-approval of the base document, see Revision History)
+**Status:** Approved v1.3 (minor amendments — TD-41/TD-42 added v1.1, TD-43 added v1.2, TD-10 closed v1.3 — do not require re-approval of the base document, see Revision History)
 **Depends on:** All 23 previously approved/drafted artifacts (#1–23) — synthesizes every disclosed-but-unfixed gap in already-shipped code or already-approved documentation into one trackable inventory
 **Last updated:** 2026-07-12
 
@@ -51,7 +51,7 @@ Each item has:
 | TD-7 | No non-owning application DB role — `FORCE ROW LEVEL SECURITY` is correct today but not structurally tamper-proof against a compromised app credential with schema privileges | Medium | Multi-Tenant Architecture §6 item 6 | Blocked — tied to Enterprise Roadmap §3.2 (SOC 2 Type II) trigger |
 | TD-8 | RLS coverage across the whole codebase is not provably complete — three independent audit passes each caught something the last missed; a fourth might too | Medium | Multi-Tenant Architecture §6 item 10 | Open — will only be provable via real integration tests against a real database |
 | TD-9 | Per-device X.509 certificate rotation policy has no owner — Device & Command Security Architecture explicitly deferred it to Security Architecture, which never picked it up | Medium | Device & Command Security Architecture §7 item 2 (handoff never fulfilled — verified: `security-architecture.md` has zero mentions of certificate rotation) | Open — orphaned between two documents, needs a real owner assigned |
-| TD-10 | CloudFront distribution allows TLS 1.0 (`AwsSolutions-CFR4` suppressed) — blocked on owning `app.peaklogic.io`'s real DNS for a custom ACM certificate | Low | `infra/lib/frontend-stack.ts`; Infrastructure as Code §2.2/§6 item 2 | Blocked — needs real domain ownership, itself blocked on MVP Roadmap Blocker #1 |
+| TD-10 | ~~CloudFront distribution allows TLS 1.0~~ | Low | `infra/lib/frontend-stack.ts`, `infra/lib/domain-stack.ts` | **Closed 2026-07-12** — `peaklogicsolutions.com` purchased, `domain-stack.ts` provisions a real ACM certificate, `frontend-stack.ts` and `marketing-stack.ts` both set `minimumProtocolVersion: TLS_V1_2_2021`. The `AwsSolutions-CFR4` suppression was removed from `frontend-stack.ts` entirely, not left in place as dead code. |
 | TD-11 | Known moderate-severity dev-dependency CVE: esbuild/Vite dev-server CORS (GHSA-67mh-4wv8-2f99) — production unaffected | Low | `CHANGELOG.md` [Unreleased]/Security; Test Strategy §9 item 2 | Scheduled — fix requires Vite v5→v8 (breaking) + vitest v2→v4+ in the same pass, targeted for v1.1.0 |
 | TD-12 | GitHub branch protection and required-reviewer merge gates are not technically enforceable on this repository's current billing tier — CI checks are advisory only, and the originally-designed prod-deploy approval gate tested as non-functional (`422`) | Medium | CI/CD Pipeline §2.3/§3/§7 item 1 | Blocked — needs a paid GitHub tier; current mitigation is procedural discipline plus manual `workflow_dispatch` |
 
@@ -162,6 +162,8 @@ No item in this register is rated above Medium — consistent with §1.1's frami
 ---
 
 ## Revision History
+
+**v1.3 (2026-07-12)** — closed TD-10 (CloudFront TLS 1.0): the user purchased `peaklogicsolutions.com`, unblocking the real domain ownership this item had been waiting on since it was first logged. New `infra/lib/domain-stack.ts` provisions a real ACM certificate; `frontend-stack.ts` (the app, now at `app.{domain}`) and the new `marketing-stack.ts` (the public site, `{domain}`/`www.{domain}`) both set `minimumProtocolVersion: TLS_V1_2_2021`. Also replaced the `app.peaklogic.io` placeholder `allowed-origins.ts` had referenced since before this project had any real domain.
 
 **v1.2 (2026-07-12)** — added TD-43: the `dev` stage's RDS credential deliberately bypasses Secrets Manager (plaintext password via CDK context, `natGateways: 0`), a real, user-approved trade-off made to reach a genuinely $0/month home-lab dev deployment. Rated Medium, not Low, specifically because of the promotion risk (this pattern must never reach `staging`/`prod`, and must be reverted before any real customer data touches even `dev`) — also cross-referenced from a new prominent section in `CLAUDE.md` itself, not just this register, since it's the kind of item that needs to surface proactively in a future session, not only when someone thinks to check this document.
 

@@ -20,16 +20,19 @@ The goal of this discipline is a fully commercialized, enterprise-sellable produ
 
 ## Monorepo Structure
 
-Four independent sub-packages, each with their own `package.json` and `tsconfig.json`:
+Five sub-packages (four with their own `package.json`/`tsconfig.json`; `marketing/` is plain static HTML, no build tooling):
 
-| Directory   | Purpose                                      | Runtime   |
-|-------------|----------------------------------------------|-----------|
-| `infra/`    | AWS CDK v2 stacks (TypeScript)               | Node 20   |
-| `backend/`  | Lambda source (API + ingest)                 | Node 20   |
-| `frontend/` | React SPA (Vite + Tailwind)                  | Browser   |
-| `scripts/`  | Admin tooling (device provisioning, DB migrations) | Node 20   |
+| Directory     | Purpose                                      | Runtime   |
+|---------------|-----------------------------------------------|-----------|
+| `infra/`      | AWS CDK v2 stacks (TypeScript)               | Node 20   |
+| `backend/`    | Lambda source (API + ingest)                 | Node 20   |
+| `frontend/`   | React SPA (Vite + Tailwind) — the authenticated app, served at `app.{domain}` | Browser   |
+| `marketing/`  | Public marketing site (`peaklogicsolutions.com`) — plain static HTML/CSS, no build step, deployed via `infra/lib/marketing-stack.ts` | Browser   |
+| `scripts/`    | Admin tooling (device provisioning, DB migrations) | Node 20   |
 
 **The backend is not deployed independently.** CDK bundles it at deploy time via esbuild. The `ApiStack` in `infra/lib/api-stack.ts` points `entry:` directly into `../../backend/`. There is no build step to run before deploying the backend.
+
+**Real domain, added 2026-07-12:** `peaklogicsolutions.com` (purchased via Cloudflare; DNS deliberately stays at Cloudflare, not migrated to Route53 — see `infra/lib/domain-stack.ts`'s header comment for the trade-off). `infra/lib/domain-stack.ts` owns one shared ACM certificate (us-east-1, DNS-validated — the validation CNAME must be added to Cloudflare by hand on first deploy per stage) covering three names per stage: the bare/`www` domain (marketing site, `marketing-stack.ts`) and `app.{domain}` (the real app, `frontend-stack.ts`). Prod owns the bare domain; `dev`/`staging` get their own subdomain (`dev.peaklogicsolutions.com`) — see `allowed-origins.ts`'s `getAllowedOrigins(stage)`. This replaced a long-standing `app.peaklogic.io` placeholder that predated any real domain purchase, and closed TD-10 (CloudFront TLS 1.0) in the same change — see the Technical Debt Register.
 
 ## Common Commands
 

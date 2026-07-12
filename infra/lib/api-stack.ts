@@ -11,7 +11,7 @@ import { NagSuppressions } from 'cdk-nag';
 import { NetworkStack } from './network-stack';
 import { DataStack } from './data-stack';
 import { AuthStack } from './auth-stack';
-import { ALLOWED_ORIGINS } from './allowed-origins';
+import { getAllowedOrigins } from './allowed-origins';
 
 interface ApiStackProps extends cdk.StackProps {
   network: NetworkStack;
@@ -191,7 +191,7 @@ export class ApiStack extends cdk.Stack {
     const api = new apigateway.RestApi(this, 'Api', {
       restApiName: `peaklogic-${props.stage}-api`,
       defaultCorsPreflightOptions: {
-        allowOrigins: ALLOWED_ORIGINS, // Security Architecture §3.2 — was Cors.ALL_ORIGINS
+        allowOrigins: getAllowedOrigins(props.stage), // Security Architecture §3.2 — was Cors.ALL_ORIGINS
         allowMethods: apigateway.Cors.ALL_METHODS,
         allowHeaders: ['Content-Type', 'Authorization'],
       },

@@ -2,11 +2,16 @@ import * as cdk from 'aws-cdk-lib';
 import * as s3 from 'aws-cdk-lib/aws-s3';
 import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
 import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
+import * as acm from 'aws-cdk-lib/aws-certificatemanager';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
 
 interface FrontendStackProps extends cdk.StackProps {
   stage: string;
+  certificate: acm.ICertificate; // from DomainStack — us-east-1, covers appDomain (+ domainRoot/www, unused here)
+  appDomain: string;             // e.g. app.peaklogicsolutions.com — real domain, replacing the
+                                   // app.peaklogic.io placeholder allowed-origins.ts referenced before
+                                   // any real domain existed for this project
 }
 
 export class FrontendStack extends cdk.Stack {
@@ -43,6 +48,8 @@ export class FrontendStack extends cdk.Stack {
     });
 
     const distribution = new cloudfront.Distribution(this, 'Distribution', {
+      domainNames: [props.appDomain],
+      certificate: props.certificate,
       defaultBehavior: {
         origin: origins.S3BucketOrigin.withOriginAccessControl(bucket),
         viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
@@ -68,13 +75,13 @@ export class FrontendStack extends cdk.Stack {
       priceClass: cloudfront.PriceClass.PRICE_CLASS_100, // US + Europe only — cheapest
       logBucket: accessLogsBucket,
       logFilePrefix: `cloudfront/${props.stage}/`,
-      // NOT fixed here (Infrastructure as Code §2.2/§6, open item): TLSv1 remains
-      // allowed because this distribution uses CloudFront's default
-      // certificate — a custom minimumProtocolVersion requires a custom
-      // domain + ACM certificate, which requires actually owning
-      // app.peaklogic.io's DNS, not yet in place despite auth-stack.ts's
-      // Cognito callback URLs already referencing that domain as a
-      // placeholder target.
+      // FIXED (Infrastructure as Code §2.2/§6, TD-10 — was open pending real
+      // domain ownership, now resolved): a real custom domain
+      // (peaklogicsolutions.com, purchased via Cloudflare) + DomainStack's
+      // ACM certificate exist now, so TLS 1.0/1.1 no longer need to stay
+      // allowed the way CloudFront's shared default certificate forced them
+      // to when this distribution had no custom domain of its own.
+      minimumProtocolVersion: cloudfront.SecurityPolicyProtocol.TLS_V1_2_2021,
     });
 
     this.bucketName = bucket.bucketName;
@@ -83,13 +90,17 @@ export class FrontendStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'BucketName',       { value: bucket.bucketName });
     new cdk.CfnOutput(this, 'DistributionId',   { value: distribution.distributionId });
     new cdk.CfnOutput(this, 'DistributionUrl',  { value: this.distributionUrl });
+    new cdk.CfnOutput(this, 'CloudflareDnsInstructions', {
+      value: `Add a CNAME in Cloudflare (DNS only / grey-cloud, not proxied): ${props.appDomain} -> ` +
+        `${distribution.distributionDomainName}`,
+    });
 
-    // cdk-nag suppressions (Infrastructure as Code §2.2).
+    // cdk-nag suppressions (Infrastructure as Code §2.2). AwsSolutions-CFR4
+    // (TLS 1.0 allowed) no longer needs a suppression here at all — it's
+    // genuinely fixed above (minimumProtocolVersion), not just excused;
+    // removed rather than left as a stale, now-inapplicable entry (TD-10,
+    // Technical Debt Register — closed by this change).
     NagSuppressions.addResourceSuppressions(distribution, [
-      {
-        id: 'AwsSolutions-CFR4',
-        reason: 'TLSv1 remains allowed because this distribution uses the default CloudFront certificate — AWS does not allow a custom minimumProtocolVersion without a custom domain + ACM certificate. Not fixed here: requires actually owning app.peaklogic.io\'s DNS, a real infrastructure dependency not yet in place despite auth-stack.ts\'s Cognito callback URLs already referencing that domain as a placeholder. Tracked as an open item.',
-      },
       {
         id: 'AwsSolutions-CFR1',
         reason: 'No regulatory or business requirement to geo-restrict the product today — PRICE_CLASS_100 already limits edge locations to US/Europe for cost, a different concern from access control. Revisit if a specific compliance requirement emerges.',

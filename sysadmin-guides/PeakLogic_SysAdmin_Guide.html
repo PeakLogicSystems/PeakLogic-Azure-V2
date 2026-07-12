@@ -246,7 +246,9 @@
         <li>Auth Stack (Cognito — Tenant Pool + Partner Pool + Staff Pool)</li>
         <li>API Stack (Lambda + API Gateway)</li>
         <li>IoT Stack (AWS IoT Core)</li>
-        <li>Frontend Stack (S3 + CloudFront)</li>
+        <li>Domain Stack (peaklogicsolutions.com, ACM Certificate)</li>
+        <li>Frontend Stack (S3 + CloudFront — the app)</li>
+        <li>Marketing Stack (S3 + CloudFront — the public site)</li>
         <li>Monitoring Stack (CloudWatch Alarms)</li>
         <li>CI/CD Stack (GitHub Actions OIDC Roles)</li>
       </ol>
@@ -373,7 +375,7 @@
 <div class="section page-break">
 <h2>2. Architecture &amp; Infrastructure</h2>
 
-<p>All infrastructure is defined as code in the <code>infra/</code> directory using AWS CDK v2. Eight CDK stacks are deployed in order (grew from 6 at v1.0.0 — Monitoring and CI/CD were added in v1.1.0; v1.2.0 added no new stack, only a third Cognito pool and new routes inside the existing Auth and Api stacks). Each stack's outputs are consumed by subsequent stacks.</p>
+<p>All infrastructure is defined as code in the <code>infra/</code> directory using AWS CDK v2. Ten CDK stacks are deployed in order (grew from 6 at v1.0.0 — Monitoring and CI/CD were added in v1.1.0; v1.2.0 added no new stack, only a third Cognito pool and new routes inside the existing Auth and Api stacks; Domain and Marketing were added in v1.3.0 alongside the real domain purchase). Each stack's outputs are consumed by subsequent stacks.</p>
 
 <div class="box box-danger">
   <div class="box-title">Every stack name is stage-suffixed — there is no default stage</div>
@@ -386,7 +388,9 @@
 ├── PeakLogic-{stage}-Auth       → Cognito: tenant User Pool + Partner Pool (v1.1.0) + Staff Pool (v1.2.0)
 ├── PeakLogic-{stage}-Api        → Lambda functions + API Gateway (tenant + partner routes)
 ├── PeakLogic-{stage}-IoT        → IoT Core: thing type, policy, rule
-├── PeakLogic-{stage}-Frontend   → S3 bucket + CloudFront distribution
+├── PeakLogic-{stage}-Domain     → peaklogicsolutions.com ACM certificate (added v1.3.0)
+├── PeakLogic-{stage}-Frontend   → S3 bucket + CloudFront distribution (the app, app.{domain})
+├── PeakLogic-{stage}-Marketing  → S3 bucket + CloudFront distribution (public site, added v1.3.0)
 ├── PeakLogic-{stage}-CiCd       → GitHub Actions OIDC deploy roles (added v1.1.0)
 └── PeakLogic-{stage}-Monitoring → CloudWatch alarms + SNS topic (added v1.1.0)</pre>
 
@@ -532,22 +536,51 @@
   The IoT policy uses <code>${iot:Connection.Thing.ThingName}</code> to restrict each device certificate to only its own topic. A device cannot publish to another device's telemetry topic even if it has a valid certificate.
 </div>
 
-<h3>2.6 Frontend Stack</h3>
-<p>File: <code>infra/lib/frontend-stack.ts</code></p>
+<h3>2.6 Domain Stack — new v1.3.0</h3>
+<p>File: <code>infra/lib/domain-stack.ts</code>. Owns the real domain, <code>peaklogicsolutions.com</code> (purchased via Cloudflare) — replaces the <code>app.peaklogic.io</code> placeholder every other stack had referenced since before this project had any real domain.</p>
 <table>
   <tr><th>Resource</th><th>Configuration</th></tr>
-  <tr><td>S3 Bucket</td><td>Private (no public access), server-side encryption</td></tr>
-  <tr><td>CloudFront</td><td>Origin Access Control (OAC), HTTPS-only</td></tr>
-  <tr><td>Price Class</td><td>PRICE_CLASS_100 (US + Europe edge locations)</td></tr>
-  <tr><td>SPA Routing</td><td>403 and 404 errors rewrite to /index.html (client-side routing)</td></tr>
-  <tr><td>HTTP → HTTPS</td><td>Redirect enforced</td></tr>
-  <tr><td>Minimum TLS Version</td><td><span class="badge badge-yellow">Known issue</span> TLS 1.0 remains allowed — see box below</td></tr>
+  <tr><td>Region</td><td><strong>Always us-east-1</strong>, regardless of the stack's own <code>env</code> — hardcoded, not inherited, because ACM certificates used by CloudFront must be in us-east-1 no matter which region the rest of the app deploys to</td></tr>
+  <tr><td>Certificate</td><td>One ACM certificate per stage, three SANs: the bare/stage domain, <code>www.</code>, and <code>app.</code> — e.g. prod covers <code>peaklogicsolutions.com</code> / <code>www.peaklogicsolutions.com</code> / <code>app.peaklogicsolutions.com</code>; <code>dev</code>/<code>staging</code> get their own subdomain (<code>dev.peaklogicsolutions.com</code> etc.)</td></tr>
+  <tr><td>Validation</td><td><span class="badge badge-yellow">Manual step required</span> DNS validation, no Route53 (DNS deliberately stays at Cloudflare) — the deploy pends until you add the validation CNAME(s) to Cloudflare by hand. See the box below.</td></tr>
 </table>
 
 <div class="box box-warn">
-  <div class="box-title">Known issue — TLS 1.0 allowed on CloudFront (tracked, not fixed)</div>
-  This distribution uses CloudFront's default shared certificate. AWS does not allow raising <code>minimumProtocolVersion</code> without a custom domain + ACM certificate, which requires actually owning <code>app.peaklogic.io</code>'s DNS — not yet in place despite the Auth Stack's Cognito callback URLs already referencing that domain as a placeholder. Fix this once a real domain is provisioned (part of the first real deploy, §4). Tracked as TD-10 in the Technical Debt Register (§16).
+  <div class="box-title">First deploy of this stack will pend — this is expected</div>
+  <code>cdk deploy PeakLogic-{stage}-Domain -c stage={stage}</code> will sit at <code>CREATE_IN_PROGRESS</code> on the certificate resource until DNS validation completes. While it's pending:
+  <ol class="steps">
+    <li>Open the ACM console (us-east-1) or run <code>aws acm list-certificates --region us-east-1</code> to find the pending certificate, then <code>aws acm describe-certificate --region us-east-1 --certificate-arn &lt;arn&gt;</code> to get the exact CNAME name/value ACM wants per domain name.</li>
+    <li>Add each CNAME in the Cloudflare dashboard — <strong>DNS only (grey cloud), not proxied</strong>. A proxied (orange cloud) record would present Cloudflare's own certificate to ACM's validator instead of the plain DNS answer it needs to see.</li>
+    <li>Wait for DNS propagation (usually a few minutes). The CloudFormation deploy resumes automatically once ACM sees the record — no need to re-run the deploy command.</li>
+  </ol>
+  Once validated, the certificate is reused by both Frontend Stack (§2.7) and Marketing Stack (§2.9) — this manual step happens once per stage, not once per stack.
 </div>
+
+<h3>2.7 Frontend Stack</h3>
+<p>File: <code>infra/lib/frontend-stack.ts</code> — the authenticated tenant app, now served at <code>app.{domain}</code> instead of a raw CloudFront default domain.</p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>S3 Bucket</td><td>Private (no public access), server-side encryption</td></tr>
+  <tr><td>CloudFront</td><td>Origin Access Control (OAC), HTTPS-only, custom domain <code>app.{domain}</code> (Domain Stack's certificate)</td></tr>
+  <tr><td>Price Class</td><td>PRICE_CLASS_100 (US + Europe edge locations)</td></tr>
+  <tr><td>SPA Routing</td><td>403 and 404 errors rewrite to /index.html (client-side routing)</td></tr>
+  <tr><td>HTTP → HTTPS</td><td>Redirect enforced</td></tr>
+  <tr><td>Minimum TLS Version</td><td><span class="badge badge-green">Fixed v1.3.0</span> TLS 1.2 (<code>TLS_V1_2_2021</code>) — TLS 1.0 is no longer allowed, now that a real custom domain + certificate exist. Closed TD-10, Technical Debt Register (§16).</td></tr>
+  <tr><td>DNS</td><td><span class="badge badge-yellow">Manual step</span> add a CNAME in Cloudflare: <code>app.{domain}</code> → the distribution's <code>*.cloudfront.net</code> domain (in the stack's <code>CloudflareDnsInstructions</code> output)</td></tr>
+</table>
+
+<h3>2.8 IoT Stack</h3>
+<p>Unchanged from prior releases — see §2.5 above for its own numbering; renumbered here only because Domain Stack was inserted before Frontend Stack in deploy order.</p>
+
+<h3>2.9 Marketing Stack — new v1.3.0</h3>
+<p>File: <code>infra/lib/marketing-stack.ts</code>. The public marketing site — <strong>deliberately a separate S3 bucket/CloudFront distribution from the app</strong>, not the same distribution serving two kinds of content. A "Coming Soon" splash page today (<code>marketing/index.html</code>, plain static HTML — no build step, no framework), the real marketing site later.</p>
+<table>
+  <tr><th>Resource</th><th>Configuration</th></tr>
+  <tr><td>S3 Bucket</td><td>Private (no public access), server-side encryption</td></tr>
+  <tr><td>CloudFront</td><td>Origin Access Control (OAC), HTTPS-only, TLS 1.2 minimum, custom domains: bare domain + <code>www.</code> (Domain Stack's certificate)</td></tr>
+  <tr><td>Content deploy</td><td>No CI/CD wiring yet — deploy by hand: <code>aws s3 sync marketing/ s3://&lt;bucket-name-from-stack-output&gt; --delete</code>, then invalidate CloudFront the same way §10 documents for the app</td></tr>
+  <tr><td>DNS</td><td><span class="badge badge-yellow">Manual step</span> two CNAMEs in Cloudflare: the bare domain and <code>www.</code>, both → the distribution's <code>*.cloudfront.net</code> domain (stack's <code>CloudflareDnsInstructions</code> output). Cloudflare requires its own CNAME-flattening for a record at the zone apex — offered automatically when you add a CNAME at the root in their dashboard.</td></tr>
+</table>
 
 <h3>2.7 Monitoring Stack — new in v1.1.0</h3>
 <p>File: <code>infra/lib/monitoring-stack.ts</code>. Zero CloudWatch Alarms existed anywhere in this codebase before v1.1.0 — every log source (Lambda logs, API access logs, VPC Flow Logs) was something a human <em>could</em> look at, nothing actively watched any of it. This stack closes that gap.</p>

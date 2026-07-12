@@ -15,6 +15,7 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ### Added
 - **Full international time zone selector** (SET-3) — a searchable combobox (`TimezoneSelect`) backed by `Intl.supportedValuesOf('timeZone')`, the complete ~400-zone IANA database with UTC offset labels, replacing the original 6-city US-only dropdown.
+- **Real domain: `peaklogicsolutions.com`** (purchased via Cloudflare; DNS stays at Cloudflare, not migrated to Route53). New `infra/lib/domain-stack.ts` (one shared ACM certificate per stage, DNS-validated) and `infra/lib/marketing-stack.ts` (public marketing site — a "Coming Soon" splash page today, `marketing/index.html`, no build step). The app (`frontend-stack.ts`) now serves at `app.{domain}` instead of a raw CloudFront default domain. Replaced the `app.peaklogic.io` placeholder `allowed-origins.ts` had referenced since before this project had any real domain — closed TD-10 (CloudFront TLS 1.0) in the same change, now `staging`/`prod`-appropriate `TLS_V1_2_2021` on both distributions.
 
 ### Changed
 - **Corrected a wrong cost-saving claim in the SysAdmin Guide**: an earlier note claimed setting `natGateways: 0` and moving Lambda to public subnets reduces the NAT bill while staying functional — this is false, Lambda ENIs never receive a public IP even in a public subnet, and the change would have broken every database connection (`db.ts`'s Secrets Manager call for the RDS credential). Verified against AWS's own documentation before correcting.

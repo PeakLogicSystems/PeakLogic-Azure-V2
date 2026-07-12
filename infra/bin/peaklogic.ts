@@ -8,7 +8,9 @@ import { DataStack }     from '../lib/data-stack';
 import { AuthStack }     from '../lib/auth-stack';
 import { ApiStack }      from '../lib/api-stack';
 import { IoTStack }      from '../lib/iot-stack';
+import { DomainStack }   from '../lib/domain-stack';
 import { FrontendStack } from '../lib/frontend-stack';
+import { MarketingStack } from '../lib/marketing-stack';
 import { CiCdStack }     from '../lib/cicd-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
 
@@ -49,6 +51,23 @@ const data     = new DataStack    (app, `PeakLogic-${stage}-Data`,     { env, ta
 const auth     = new AuthStack    (app, `PeakLogic-${stage}-Auth`,     { env, tags, stage });
 const api      = new ApiStack     (app, `PeakLogic-${stage}-Api`,      { env, tags, network, data, auth, stage });
                  new IoTStack     (app, `PeakLogic-${stage}-IoT`,      { env, tags, ingestFn: api.ingestFn, stage });
-                 new FrontendStack(app, `PeakLogic-${stage}-Frontend`, { env, tags, stage });
+
+// peaklogicsolutions.com (purchased via Cloudflare) — DomainStack always
+// deploys to us-east-1 regardless of `env` (ACM/CloudFront requirement,
+// see domain-stack.ts), and owns the one shared certificate both
+// FrontendStack and MarketingStack consume below.
+const domain     = new DomainStack   (app, `PeakLogic-${stage}-Domain`, { env, tags, stage });
+                    new FrontendStack(app, `PeakLogic-${stage}-Frontend`, {
+                      env, tags, stage,
+                      certificate: domain.certificate,
+                      appDomain: domain.appDomain,
+                    });
+                    new MarketingStack(app, `PeakLogic-${stage}-Marketing`, {
+                      env, tags, stage,
+                      certificate: domain.certificate,
+                      domainRoot: domain.domainRoot,
+                      wwwDomain: domain.wwwDomain,
+                    });
+
                  new CiCdStack    (app, `PeakLogic-${stage}-CiCd`,     { env, tags, stage });
                  new MonitoringStack(app, `PeakLogic-${stage}-Monitoring`, { env, tags, api, data, stage });

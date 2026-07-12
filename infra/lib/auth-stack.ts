@@ -2,7 +2,7 @@ import * as cdk from 'aws-cdk-lib';
 import * as cognito from 'aws-cdk-lib/aws-cognito';
 import { Construct } from 'constructs';
 import { NagSuppressions } from 'cdk-nag';
-import { ALLOWED_ORIGINS } from './allowed-origins';
+import { getAllowedOrigins } from './allowed-origins';
 
 interface AuthStackProps extends cdk.StackProps {
   stage: string;
@@ -18,6 +18,8 @@ export class AuthStack extends cdk.Stack {
 
   constructor(scope: Construct, id: string, props: AuthStackProps) {
     super(scope, id, props);
+
+    const allowedOrigins = getAllowedOrigins(props.stage);
 
     this.userPool = new cognito.UserPool(this, 'UserPool', {
       userPoolName: `peaklogic-${props.stage}-users`,
@@ -69,8 +71,8 @@ export class AuthStack extends cdk.Stack {
           cognito.OAuthScope.OPENID,
           cognito.OAuthScope.PROFILE,
         ],
-        callbackUrls: ALLOWED_ORIGINS,
-        logoutUrls:   ALLOWED_ORIGINS,
+        callbackUrls: allowedOrigins,
+        logoutUrls:   allowedOrigins,
       },
       accessTokenValidity:  cdk.Duration.hours(1),
       idTokenValidity:      cdk.Duration.hours(1),
@@ -145,8 +147,8 @@ export class AuthStack extends cdk.Stack {
         // so there is no separate URL to point at today. Revisit once it's
         // built, likely a distinct route on the same app rather than a
         // separate deployment.
-        callbackUrls: ALLOWED_ORIGINS,
-        logoutUrls:   ALLOWED_ORIGINS,
+        callbackUrls: allowedOrigins,
+        logoutUrls:   allowedOrigins,
       },
       accessTokenValidity:  cdk.Duration.hours(1),
       idTokenValidity:      cdk.Duration.hours(1),
@@ -227,8 +229,8 @@ export class AuthStack extends cdk.Stack {
         // Same origin list as the tenant/partner SPA clients — the admin
         // console frontend doesn't exist yet (project memory: deferred
         // this pass), so there is no separate URL to point at today.
-        callbackUrls: ALLOWED_ORIGINS,
-        logoutUrls:   ALLOWED_ORIGINS,
+        callbackUrls: allowedOrigins,
+        logoutUrls:   allowedOrigins,
       },
       accessTokenValidity:  cdk.Duration.hours(1),
       idTokenValidity:      cdk.Duration.hours(1),
