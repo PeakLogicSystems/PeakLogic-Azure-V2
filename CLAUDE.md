@@ -142,9 +142,11 @@ Set `VITE_PREVIEW=true` in `frontend/.env.local` to skip the Cognito `Authentica
 | `backend/shared/response.ts` | All Lambda responses go through helpers here — never return raw objects |
 | `backend/api/router.ts` | Full list of registered routes |
 | `infra/lib/api-stack.ts` | Where API Gateway resources are declared — must match the router |
-| `backend/ingest/handler.ts` | `RULES_BY_CATEGORY` — edit here to change alert thresholds |
+| `backend/ingest/rules.ts` | `RULES_BY_CATEGORY` — edit here to change alert thresholds (moved out of `handler.ts` in v1.1.0 so it could be unit-tested in isolation) |
 | `docs/data-model.sql` | Canonical schema including all RLS policies — hand-maintained snapshot; actual schema changes are applied via `scripts/migrations/`, then mirrored in here by hand in the same commit |
 | `scripts/migrations/` | Versioned schema migrations (node-pg-migrate, Database Schema §4.2) — applied via `scripts/migrate.ts`, never automatically by `cdk deploy` |
+| `sysadmin-guides/PeakLogic_SysAdmin_Guide.html` | Operator-facing reference — deploying, administering, and troubleshooting the platform. Kept current every release, see Release Process below |
+| `user-guides/PeakLogic_User_Guide.html` | End-user-facing reference — plain-language walkthrough of the actual application. Checked every release, updated when user-facing behavior changes, see Release Process below |
 
 ## Environment Setup
 
@@ -188,7 +190,7 @@ PeakLogic is an industrial IoT SaaS platform monitoring safety-critical equipmen
 
 ### Release Process — Execute in This Order
 
-Every time a version is accepted and shipped, run through all steps:
+Every time a version is accepted and shipped, run through all steps. **Two documentation sets are maintained in lockstep with every release, not as an afterthought**: the System Administrator Guide (always updated) and the User Guide (checked every time, updated when user-facing behavior changed). Skipping either check is how documentation quietly goes stale — don't skip it even when a release looks purely backend/infra.
 
 ```
 1.  All feature work merged to dev; typecheck passes (npm run typecheck in backend/ and frontend/)
@@ -196,13 +198,29 @@ Every time a version is accepted and shipped, run through all steps:
 3.  Update CHANGELOG.md — move [Unreleased] items under new [vX.Y.Z] heading with ISO date
 4.  git checkout main && git merge dev && git push origin main
 5.  git tag vX.Y.Z && git push origin vX.Y.Z
-6.  Update PeakLogic_SysAdmin_Guide.html:
-      a. Bump version number in cover page, footer, and <title>
+6.  Update sysadmin-guides/PeakLogic_SysAdmin_Guide.html — REQUIRED every release, no exceptions:
+      a. Bump version number in cover page, footer, and <title> to match the platform vX.Y.Z
       b. Add a row to the Document Revision History table
-      c. Update any sections affected by the release changes
-7.  Copy the updated guide to: PeakLogic_SysAdmin_Guide_vX.Y.Z_YYYYMMDD.html  (keep ALL archived copies — never delete)
-8.  git add CHANGELOG.md PeakLogic_SysAdmin_Guide*.html
-    git commit -m "docs: release vX.Y.Z — update CHANGELOG and sysadmin guide"
+      c. Update every section affected by the release's actual changes (infra, schema, API,
+         RLS/security posture, endpoints, alert rules, env vars, troubleshooting) — re-verify
+         against the real code/config, don't just add a changelog blurb and leave stale detail
+         in place further down the document
+7.  Copy the updated guide to:
+      sysadmin-guides/PeakLogic_SysAdmin_Guide_vX.Y.Z_YYYYMMDD.html  (keep ALL archived copies)
+8.  Check user-guides/PeakLogic_User_Guide.html — did anything a real end user would see or do
+    change this release (new/changed frontend page, a "Coming soon" feature went live, a
+    workflow changed, new terminology)?
+      - If yes: update the affected section(s), bump the guide's own version number (its own
+        simple vN.M scheme — independent of the platform's SemVer, since this doc changes on a
+        different cadence than infra/backend releases; see "Documentation Archiving Rules"),
+        add a Revision History row, and archive a copy the same way as the sysadmin guide:
+        user-guides/PeakLogic_User_Guide_vN.M_YYYYMMDD.html
+      - If no: note that explicitly in the release commit message rather than silently skipping
+        it — "User Guide: no change, nothing user-facing shipped this release" is a real,
+        deliberate check, not a gap
+9.  git add CHANGELOG.md sysadmin-guides/PeakLogic_SysAdmin_Guide*.html \
+      user-guides/PeakLogic_User_Guide*.html   (only add the user-guide files if step 8 changed them)
+    git commit -m "docs: release vX.Y.Z — update CHANGELOG and sysadmin/user guides"
     git push origin main
 ```
 
@@ -230,16 +248,18 @@ Backend and frontend are bundled fresh at every `cdk deploy` — there is no sep
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Use these categories only: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`. Write entries in past tense, user-facing language. Always maintain an `[Unreleased]` section at the top for work in progress.
 
-### Sysadmin Guide Archiving Rules
+### Documentation Archiving Rules (SysAdmin Guide + User Guide)
 
-All guide files live in **`sysadmin-guides/`** at the repo root. Never move them elsewhere.
+Two separately-versioned HTML guides are maintained, each in its own top-level directory. Never move either elsewhere, and never let one get updated without at least checking the other (Release Process step 6/8 above).
 
 | File | Purpose |
 |------|---------|
 | `sysadmin-guides/PeakLogic_SysAdmin_Guide.html` | Always the current/latest version — update in place |
-| `sysadmin-guides/PeakLogic_SysAdmin_Guide_vX.Y.Z_YYYYMMDD.html` | Immutable snapshot at each release |
+| `sysadmin-guides/PeakLogic_SysAdmin_Guide_vX.Y.Z_YYYYMMDD.html` | Immutable snapshot at each release — versioned with the **platform's SemVer** (matches the git tag), since this guide documents infra/backend/security posture that changes with every release |
+| `user-guides/PeakLogic_User_Guide.html` | Always the current/latest version — update in place |
+| `user-guides/PeakLogic_User_Guide_vN.M_YYYYMMDD.html` | Immutable snapshot at each *content* change — versioned with its **own simple `vN.M` scheme**, independent of platform SemVer. Bump the minor number (`v1.0`→`v1.1`) for adding/correcting a section; bump the major number (`v1.x`→`v2.0`) for a significant restructure or a wave of "Coming soon" features going live at once. Does **not** bump on releases where nothing user-facing changed — see Release Process step 8 |
 
-**Never delete archived copies** — they form the audit trail. The guide's `<title>`, cover page, Revision History table, and footer must all be updated to the new version on every release.
+**Never delete archived copies from either directory** — they form the audit trail. Both guides' `<title>`, cover page, Revision History table, and footer must be updated to match on every release where that guide changes. The User Guide's `<span class="badge badge-soon">Coming soon</span>` tags (§5–9 in the current edition) are the live signal for what to graduate to a fully-described feature the next time the underlying button/action is actually wired up in the frontend — check that list specifically at each release rather than only skimming for new pages.
 
 ## Git Discipline — Required
 
