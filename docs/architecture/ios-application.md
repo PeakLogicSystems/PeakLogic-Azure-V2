@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.1 — specification only, no code shipped
+**Status:** Draft v1.2 — specification only, no code shipped
 **Depends on:** [Security Architecture](security-architecture.md) (Draft v1.2), [API Specification](api-specification.md) (Draft v1.2), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.1)
-**Last updated:** 2026-07-12 (v1.1 — role-model decisions locked: no PeakLogic-staff login mode ships in this app at all; "Manager" means a new Channel Partner Manager role spanning multiple channel-partner accounts, requiring new backend work sketched in §2.1a)
+**Last updated:** 2026-07-12 (v1.2 — §2.1a's grantor question locked: either a superadmin or the target account's own `partner_admin` may grant a manager assignment, dual-grantor `CHECK` mirroring `audit_log_entries`' actor shape. Landing-screen design revised: a `channel_partner_manager` lands on a cross-account Issues Overview, not a plain account picker — backed by N separate single-account-scoped queries, not new cross-account RLS; a `technician` gets the equivalent treatment for free via the already-real `/v1/partner/routes`)
 
 ---
 
@@ -141,19 +141,39 @@ CREATE POLICY manager_self_lookup ON channel_partner_managers
 
 -- The "book of business" -- independent, unrelated accounts (decided,
 -- not the franchise/parent-child alternative that was considered).
+--
+-- Decided: EITHER a superadmin OR the target account's own partner_admin
+-- may grant this -- two legitimate, independent paths to the same
+-- table, not one gated behind the other. Modeled with the same dual-
+-- actor, exactly-one-set shape audit_log_entries already uses for its
+-- three possible actor types (Domain Model §2.6) -- reusing an
+-- established idiom rather than inventing a new one for this table.
 CREATE TABLE channel_partner_manager_assignments (
-  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  manager_id          UUID        NOT NULL REFERENCES channel_partner_managers(id) ON DELETE CASCADE,
-  channel_partner_id  UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
-  assigned_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
-  assigned_by         UUID        NOT NULL,  -- who may grant this is itself open — §12 item 6
+  id                       UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  manager_id               UUID        NOT NULL REFERENCES channel_partner_managers(id) ON DELETE CASCADE,
+  channel_partner_id       UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
+  assigned_at              TIMESTAMPTZ NOT NULL DEFAULT now(),
+  assigned_by_staff_user_id       UUID REFERENCES peaklogic_staff_users(id),
+  assigned_by_partner_user_id     UUID REFERENCES channel_partner_users(id),
+  CONSTRAINT assignment_has_exactly_one_grantor CHECK (
+    (CASE WHEN assigned_by_staff_user_id IS NOT NULL THEN 1 ELSE 0 END
+   + CASE WHEN assigned_by_partner_user_id IS NOT NULL THEN 1 ELSE 0 END) = 1
+  ),
   UNIQUE (manager_id, channel_partner_id)
 );
 ```
 
 **Access pattern — reuses `withChannelPartner()`'s existing shape, not a new one:** a `withPartnerManagerActingOnChannelPartner(auth, targetChannelPartnerId, fn)` function, structurally identical to `withStaffActingOnTenant()` (Database Schema §4.5) — verify a `channel_partner_manager_assignments` row (itself RLS-scoped, so a manager session can't even see proof of an assignment they don't hold), then set `app.current_channel_partner_id` and defer entirely to the channel-partner-scoped RLS policies that already exist and are already hardened (territories, routes, `channel_partner_users`, everything `withChannelPartner()` already governs). **Zero new permissive policies on any operational table** — same "why this doesn't repeat the earlier pattern's risk" reasoning already established for the admin console.
 
-**What this app needs to work with this once it ships:** a manager-facing "switch account" picker (reads the manager's own assignment list — a new `GET /v1/partner-manager/assignments`-shape endpoint — and re-authenticates the active `channel_partner_id` context per switch, the same mental model as the Windows hub's per-device identity switching, just for a human instead of a device).
+**A real implementation nuance the two-grantor decision creates, not yet resolved:** a `partner_admin` is RLS-scoped to their own one `channel_partners` account and has no visibility into `channel_partner_managers` generally — self-service granting therefore has to work by **email invite**, not by picking an existing manager from a list (that list would itself be a cross-account visibility leak a `partner_admin` shouldn't have). `POST /v1/partner/managers` (new, `partner_admin`-only, mirrors `POST /v1/partner/users`'s existing shape) needs to handle both "this email has no `channel_partner_managers` row yet — create one" and "this email already has one from a different account's earlier invite — link to it, don't duplicate" — the second case is the one genuinely new piece of logic here, not covered by any existing endpoint's precedent.
+
+**Revised: the landing screen is a cross-account issues overview, not a plain account picker.** A `channel_partner_manager` does not land on a generic Dashboard, and does not land on a bare "choose an account" list either — they land on a triage view: **every site, across every account they manage, that currently has an open issue** (open alert or open ticket), ranked by severity. Tapping a site drills down through the ordinary Site→Asset→Device tree exactly as it does for any other role — the drill-down itself is what re-scopes the active `channel_partner_id` context to whichever account that site belongs to, so there is no separate "select an account first" step at all. A manager with exactly one managed account sees the identical screen, it just never shows more than one account's sites on it.
+
+**How this stays consistent with "zero new permissive RLS policies," the principle this whole document has held to everywhere else:** the overview is **not** backed by a new cross-account RLS policy on `sites`/`alerts` (that would be exactly the class of new, harder-to-verify permissive-policy grant this document has deliberately avoided at every other turn). Instead, a new orchestration endpoint (`GET /v1/partner-manager/overview`) loops over the manager's own `channel_partner_manager_assignments` list (itself RLS-scoped — a manager session can only ever enumerate accounts they actually hold a row for) and, **for each one**, opens the exact same single-account `withPartnerManagerActingOnChannelPartner()` handoff already designed above to ask "does this account have any open-issue sites," then merges the small resulting list before returning it. N small, individually-scoped queries, not one cross-account query — the RLS surface never grows past what already exists per account. Reasonable at the scale this role implies (a person overseeing a handful of franchise-style accounts, not thousands); would need revisiting if that assumption changes.
+
+A persistent "Switch account" affordance is no longer a separate concept — the overview screen itself always shows every account's issues at once, and is reachable at any time from the Dashboard's own navigation chrome, not nested under Settings.
+
+**The same "land on a purposeful overview, not a generic Dashboard" principle applies to the existing `technician` role too, and needs no new backend work at all:** a `technician` session's landing screen is their current day's route (`GET /v1/partner/routes`, already real, already returns ordered stops with live site status/chemistry) — "priority maintenance sites" is exactly what that endpoint already models. This is a client-side navigation decision only (§7.2), reusing an endpoint this document hasn't had to touch anywhere else.
 
 ### 2.2 What role maps to, concretely
 
@@ -195,15 +215,17 @@ struct AuthorizationContext {
     let role: String          // "admin" | "operator" | "partner_admin" | "technician" | "channel_partner_manager"
     let tenantId: String?          // present only for .tenant sessions
     let channelPartnerId: String?  // present for .partner sessions with a single account; for a
-                                     // channel_partner_manager this is the CURRENTLY ACTIVE account
-                                     // out of possibly several (§2.1a's account switcher sets this)
-    let managedChannelPartnerIds: [String]  // non-empty only for role == "channel_partner_manager"
+                                     // channel_partner_manager this is set by whichever site the
+                                     // user most recently drilled into from the Issues Overview (§2.1a)
+                                     // — there is no separate "active account" concept to pick ahead of time
+    let managedChannelPartnerIds: [String]  // non-empty only for role == "channel_partner_manager"; drives the Issues Overview's fan-out query
 
     func allows(_ destination: NavigationDestination) -> Bool {
         switch destination {
         case .teamManagement:      return pool == .tenant && role == "admin"
         case .partnerTerritories:  return pool == .partner && ["partner_admin", "channel_partner_manager"].contains(role)
-        case .accountSwitcher:     return role == "channel_partner_manager" && managedChannelPartnerIds.count > 1
+        case .todaysRoute:         return role == "technician"          // §2.1a/§7.2 — a landing destination, not gated further
+        case .issuesOverview:      return role == "channel_partner_manager" // §2.1a/§7.2 — ditto
         case .deviceDetail, .assetDetail, .siteDetail, .alerts, .tickets:
             return true // every real role can read these — RLS/pool scoping already narrows the data itself
         case .controlPanel:        return false // §6.4 — inert everywhere until backend command channel ships
@@ -509,7 +531,12 @@ Mirrors the tenant web app's information architecture (`frontend/src/pages/*`) a
 
 ```
 Login (pool picker → credentials → MFA)
-  → Dashboard (role-appropriate KPI cards, recent alerts)
+  → landing destination, resolved per role (§7.2):
+     → Dashboard (tenant admin/operator, partner_admin — role-appropriate KPI cards, recent alerts)
+     → Today's Route (technician — /v1/partner/routes, already real)
+     → Issues Overview (channel_partner_manager — new, §2.1a — every managed account's open-issue sites)
+        │
+        └── every landing destination drills into the SAME tree below, no separate navigation graph:
      → Sites → Site Detail (assets at site)
         → Asset Detail (devices on asset)
            → Device Detail (live telemetry, gauges/charts, Control Panel — §6.4, inert)
@@ -518,7 +545,7 @@ Login (pool picker → credentials → MFA)
      → Settings (profile, biometric preference, notification preferences, sign out)
 ```
 
-Channel-partner sessions additionally see **Territories** and **Routes** (read + route-confirm, matching `/v1/partner/*`'s real endpoint set). A `channel_partner_manager` session (§2.1a) also sees an **Account Switcher** entry point in Settings whenever `managedChannelPartnerIds.count > 1` — everything else in the navigation tree is identical to a single-account `partner_admin`'s, just re-scoped to whichever account is currently active.
+Channel-partner sessions additionally see **Territories** and **Routes** (read + route-confirm, matching `/v1/partner/*`'s real endpoint set). Two roles get a purposeful landing screen instead of the generic Dashboard, decided explicitly rather than defaulted: a **`technician`** session lands on **Today's Route** (their existing `/v1/partner/routes` day, already real — "priority maintenance sites"); a **`channel_partner_manager`** session (§2.1a) lands on an **Issues Overview** — every site with an open alert/ticket across every account they manage, ranked by severity, drilling down exactly like any other role's Site→Asset→Device navigation. Both are always reachable again later from the Dashboard's own navigation chrome, not nested under Settings. `partner_admin` and every tenant-side role keep the standard Dashboard landing, unchanged.
 
 ### 6.2 Real-time telemetry views
 
@@ -634,9 +661,20 @@ final class AppRouter: ObservableObject {
 
 ### 7.2 Navigation driven by role, device type, telemetry availability
 
-- **Role**: `AppRouter.navigate` is the single choke point (§7.1) — every push-notification deep link, every sidebar tap, every "View device" button funnels through the same `authContext.current.allows(...)` check from §2.3.
+- **Role**: `AppRouter.navigate` is the single choke point (§7.1) — every push-notification deep link, every sidebar tap, every "View device" button funnels through the same `authContext.current.allows(...)` check from §2.3. **Role also decides the post-login landing destination, not just what's reachable afterward** — `AppRouter` resolves this once, right after `completeSignIn()` (§3.1):
+
+```swift
+func landingDestination(for context: AuthorizationContext) -> NavigationDestination {
+    switch context.role {
+    case "technician":              return .todaysRoute          // §2.1a — GET /v1/partner/routes, already real
+    case "channel_partner_manager": return .issuesOverview        // §2.1a — GET /v1/partner-manager/overview, new
+    default:                         return .dashboard             // tenant admin/operator, partner_admin — unchanged
+    }
+}
+```
+
 - **Device type**: `RootView`'s `NavigationSplitView`/size-class branching (§6.3) — not a separate navigation graph per device type, one graph that renders differently.
-- **Telemetry availability**: a device with zero telemetry channels (e.g. `provisioning` status) renders Device Detail's telemetry section as an empty state, not a navigation-level block — the drill-down path itself is always reachable, matching the "drill down from any page to the lowest level" requirement already established for the web app's own Site→Asset→Device navigation.
+- **Telemetry availability**: a device with zero telemetry channels (e.g. `provisioning` status) renders Device Detail's telemetry section as an empty state, not a navigation-level block — the drill-down path itself is always reachable, matching the "drill down from any page to the lowest level" requirement already established for the web app's own Site→Asset→Device navigation. This is also what makes §2.1a's design work at all: an Issues Overview tap doesn't need its own special-cased navigation — it drills into the same Site→Asset→Device tree every other entry point uses, re-scoped by whichever account the tapped site belongs to.
 
 ---
 
@@ -822,17 +860,18 @@ Authentication: §3.1/§3.4 · Telemetry ingestion: §4.2–4.3 · Role-based UI
 
 **Decided this session (no longer open):**
 
-- ~~The "manager" role has no real backend equivalent~~ — **decided**: a new cross-account Channel Partner Manager role, sketched in §2.1a. What remains open is the *implementation* of §2.1a (item 6 below), not the product decision itself.
+- ~~The "manager" role has no real backend equivalent~~ — **decided**: a new cross-account Channel Partner Manager role, sketched in §2.1a. What remains open is the *implementation* (item 4 below), not the product decision itself.
 - ~~Whether a PeakLogic-staff login mode ships in a customer-facing build~~ — **decided**: no, never, in any build. `StaffPool` is entirely out of scope for this app (§0).
+- ~~Who may grant a `channel_partner_manager_assignments` row~~ — **decided**: either a superadmin or the target account's own `partner_admin`, independently (§2.1a's dual-grantor `CHECK` constraint). Not one gated behind the other.
+- ~~Whether a Channel Partner Manager sees combined/aggregate data or one account at a time~~ — **decided, and revised again after further clarification**: they land on a cross-account **Issues Overview** (every site with an open issue, across every managed account, ranked by severity) — genuinely combined at the presentation layer, but backed by N separate single-account-scoped queries server-side (§2.1a), not a new cross-account RLS policy. A `technician` session gets the analogous treatment for free, reusing the already-real `/v1/partner/routes` — no new backend work for that half.
 
 **Still open:**
 
 1. **The Control Panel's activation path (§6.4)** needs its own amendment in lockstep with the Windows Edge app's equivalent (Windows Endpoint Application §12 item 3) the day Device & Command Security Architecture §5's gate lifts — the two clients should not go live with command UI on different schedules without a deliberate reason.
 2. **Push notifications require new backend work**: a device-token registration endpoint (e.g. `POST /v1/settings/push-token`), and a place server-side to actually trigger an APNs send when a critical alert fires (most naturally alongside the existing webhook-on-critical-alert path in `backend/ingest/handler.ts`, not a new, separate notification pipeline). Not designed here — flagged as a prerequisite, matching this document's own §0 disclosure discipline.
 3. **Real-time telemetry's WebSocket upgrade path (§4.1)** is a recommendation, not a decision — needs its own scoping pass (API Gateway WebSocket + Lambda authorizer cost/complexity vs. the tiered-polling approach's actual observed staleness in practice) before committing engineering time to it.
-4. **§2.1a's `channel_partner_manager_assignments` table, `withPartnerManagerActingOnChannelPartner()`, and the account-list/switch endpoints are a sketch, not a shipped design.** Following this project's own discipline, this needs a real Domain Model → Database Schema → Security Architecture → API Specification amendment sequence before implementation, the same sequence the Internal Administration Console went through — not built directly off this sketch.
-5. **Who may grant a `channel_partner_manager_assignments` row is undecided** (§2.1a's `assigned_by` column). Candidates: a superadmin only (mirrors how only a superadmin can grant PeakLogic-staff `account_assignments`), or self-service by an existing `partner_admin` who already controls the accounts being granted (lower friction, but means a channel partner can grant cross-account access without PeakLogic's own staff being involved in the decision at all — a real product/trust question, not just a technical one).
-6. **Whether a Channel Partner Manager should be able to see combined/aggregate data across their managed accounts** (e.g. one dashboard summing alerts across every account they manage) or must always view one account at a time via the switcher — this document assumes the latter (simpler, reuses `withChannelPartner()`'s existing single-account-at-a-time scoping unchanged) but that's an assumption, not a confirmed requirement.
+4. **§2.1a's `channel_partner_manager_assignments` table, `withPartnerManagerActingOnChannelPartner()`, and the account-list/selection endpoints are a sketch, not a shipped design.** Following this project's own discipline, this needs a real Domain Model → Database Schema → Security Architecture → API Specification amendment sequence before implementation, the same sequence the Internal Administration Console went through — not built directly off this sketch.
+5. **§2.1a's "link to an existing manager by email, don't duplicate" logic for `partner_admin` self-service invites** is flagged but not designed — it's the one piece of `POST /v1/partner/managers` that has no precedent in any existing endpoint (every other invite-a-user flow in this codebase assumes the invitee is new).
 
 ---
 
