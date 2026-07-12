@@ -27,20 +27,35 @@ const NAV = [
 export function Sidebar({ user, onSignOut }: SidebarProps) {
   return (
     <aside className="w-60 flex-shrink-0 bg-brand-black flex flex-col h-screen sticky top-0">
-      {/* Logo */}
-      <div className="flex items-center gap-2.5 px-5 py-5 border-b border-white/10">
-        <svg width="28" height="28" viewBox="0 0 32 32" fill="none" aria-hidden>
+      {/* Logo — px-4 matches the nav and bottom sections below, so the
+          logo mark, nav icons, and sign-out row all sit flush on the
+          same left edge instead of three different indents. items-end
+          bottom-justifies the wordmark against the icon's base. The
+          viewBox is cropped tight to the mountain path's own bounds
+          (originally "0 0 32 32" with the shape only spanning x:4-28,
+          y:10-28 — leaving ~4px of invisible canvas below the visible
+          base) so the SVG's box edge IS the mountain's visible base,
+          not empty space below it — otherwise items-end aligns box
+          edges, not visible pixels, and the text still looks too high. */}
+      <div className="flex items-end gap-2.5 px-4 py-5 border-b border-white/10">
+        <svg width="28" height="21" viewBox="4 10 24 18" fill="none" aria-hidden>
           <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
           <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />
         </svg>
-        <span className="text-lg font-bold tracking-tight">
+        {/* leading-none collapses the default ~28px line-height box
+            down to hug the glyphs — without it, "PeakLogic" (which has
+            no descenders) sits visually centered in that tall box,
+            so its baseline ends up well above the box's true bottom
+            edge, and items-end above ends up flushing that empty
+            space with the icon's base instead of the actual letters. */}
+        <span className="text-lg font-bold tracking-tight leading-none">
           <span className="text-white">Peak</span>
           <span className="text-brand-purple-mid">Logic</span>
         </span>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 px-3 py-4 space-y-0.5 overflow-y-auto">
+      <nav className="flex-1 px-4 py-4 space-y-0.5 overflow-y-auto">
         {NAV.map(({ to, label, Icon }) => (
           <NavLink
             key={to}
