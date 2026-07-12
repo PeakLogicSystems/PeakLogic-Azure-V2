@@ -1,11 +1,18 @@
-import { Cpu, MapPin, Bell, Ticket } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { Cpu, MapPin, Bell, Ticket, Clock } from 'lucide-react';
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { formatFullDateTime, formatHourLabel } from '@/lib/datetime';
 
 // ── Mock data — replace with api.get('/v1/telemetry') in Phase C ──────────
-const TELEMETRY = Array.from({ length: 24 }, (_, i) => ({
-  hour: `${String(i).padStart(2, '0')}:00`,
+// Held as hoursAgo + a raw value, not a pre-formatted "hour" string, so the
+// chart's X-axis can be labeled in whichever timezone/clock format the
+// viewer has selected (SET-3/SET-4) instead of a fixed, meaningless "00:00"
+// that never matched any real clock.
+const TELEMETRY_RAW = Array.from({ length: 24 }, (_, i) => ({
+  hoursAgo: 23 - i,
   power_kw: +(2.5 + Math.sin(i / 3) * 1.2 + Math.random() * 0.3).toFixed(2),
   temp_c:   +(42   + Math.cos(i / 4) * 5   + Math.random() * 0.5).toFixed(1),
 }));
@@ -30,11 +37,36 @@ const SEVERITY_BADGE: Record<string, string> = {
 };
 
 export function Dashboard() {
+  const prefs = usePreferences();
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
+  const telemetry = useMemo(
+    () => TELEMETRY_RAW.map(({ hoursAgo, ...rest }) => ({
+      hour: formatHourLabel(new Date(now.getTime() - hoursAgo * 3600_000), prefs),
+      ...rest,
+    })),
+    [now, prefs],
+  );
+
   return (
     <div className="p-8 max-w-6xl mx-auto space-y-8">
-      <div>
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Overview of your estate</p>
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h1 className="text-2xl font-semibold text-gray-900 dark:text-gray-100">Dashboard</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Overview of your estate</p>
+        </div>
+        {/* Live clock — reflects Settings' clock format and time zone
+            immediately (SET-3/SET-4), the clearest at-a-glance proof those
+            preferences are actually applied, not just stored. */}
+        <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg px-3 py-1.5">
+          <Clock size={14} className="text-brand-purple flex-shrink-0" />
+          {formatFullDateTime(now, prefs)}
+        </div>
       </div>
 
       {/* Stat cards */}
@@ -55,7 +87,7 @@ export function Dashboard() {
       <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm">
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Power draw — last 24 h (kW)</h2>
         <ResponsiveContainer width="100%" height={220}>
-          <LineChart data={TELEMETRY} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
+          <LineChart data={telemetry} margin={{ top: 4, right: 8, left: -16, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" className="dark:opacity-10" />
             <XAxis dataKey="hour" tick={{ fontSize: 11, fill: '#9ca3af' }} interval={3} />
             <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} />

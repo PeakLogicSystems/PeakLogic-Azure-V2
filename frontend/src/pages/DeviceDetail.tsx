@@ -1,7 +1,10 @@
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { ArrowLeft, Cpu, Boxes, MapPin, Wifi, WifiOff, Activity } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { MOCK_DEVICES, MOCK_ASSETS, MOCK_SITES } from '@/lib/mockEstate';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { formatHourLabel, type DateTimePrefs } from '@/lib/datetime';
 
 const STATUS_CONFIG: Record<string, { label: string; badge: string; Icon: typeof Wifi }> = {
   online:       { label: 'Online',       badge: 'bg-brand-green-soft text-green-700 dark:bg-green-500/15 dark:text-green-400', Icon: Wifi    },
@@ -11,10 +14,13 @@ const STATUS_CONFIG: Record<string, { label: string; badge: string; Icon: typeof
 
 // Deterministic-looking mock trend, not truly random per render — matches
 // Dashboard.tsx's own "replace with api.get('/v1/telemetry') in Phase C"
-// convention for the one chart this frontend already has.
-function mockTrend(seed: number, base: number, spread: number) {
+// convention for the one chart this frontend already has. Labeled in
+// whichever timezone/clock format the viewer has selected (SET-3/SET-4),
+// same fix as Dashboard.tsx's chart — previously a fixed "00:00" string
+// that never reflected the Settings page at all.
+function mockTrend(seed: number, base: number, spread: number, now: Date, prefs: DateTimePrefs) {
   return Array.from({ length: 24 }, (_, i) => ({
-    hour: `${String(i).padStart(2, '0')}:00`,
+    hour: formatHourLabel(new Date(now.getTime() - (23 - i) * 3600_000), prefs),
     value: +(base + Math.sin((i + seed) / 3) * spread).toFixed(2),
   }));
 }
@@ -27,9 +33,16 @@ function mockTrend(seed: number, base: number, spread: number) {
 export function DeviceDetail() {
   const { deviceId } = useParams<{ deviceId: string }>();
   const navigate = useNavigate();
+  const prefs = usePreferences();
+  const [now, setNow] = useState(() => new Date());
   const device = MOCK_DEVICES.find(d => d.id === deviceId);
   const asset = device?.assetId ? MOCK_ASSETS.find(a => a.id === device.assetId) : undefined;
   const site = asset ? MOCK_SITES.find(s => s.id === asset.siteId) : undefined;
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   if (!device) {
     return (
@@ -110,7 +123,7 @@ export function DeviceDetail() {
       {/* Trend chart for the first numeric telemetry channel */}
       {telemetryEntries.find(([, t]) => typeof t.value === 'number') && (() => {
         const [key, t] = telemetryEntries.find(([, tt]) => typeof tt.value === 'number')!;
-        const trend = mockTrend(key.length, t.value as number, Math.max((t.value as number) * 0.08, 1));
+        const trend = mockTrend(key.length, t.value as number, Math.max((t.value as number) * 0.08, 1), now, prefs);
         return (
           <div className="bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-6 shadow-sm">
             <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">{t.label} — last 24 h</h2>

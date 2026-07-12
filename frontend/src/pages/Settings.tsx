@@ -1,18 +1,21 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Sun, Moon, Users, Shield, KeyRound, Plus, Trash2 } from 'lucide-react';
 import { useTheme } from '@/contexts/ThemeContext';
+import { usePreferences } from '@/contexts/PreferencesContext';
+import { TimezoneSelect } from '@/components/TimezoneSelect';
+import { formatFullDateTime } from '@/lib/datetime';
 
 // API Specification §4.8 (SET-1 through SET-7, PRD/SRS v1.6). Mock-data
 // only, matching every other page in this frontend today (CLAUDE.md: "All
 // frontend pages currently use hardcoded mock data — they are not yet
-// wired to the real API") — theme is the one exception, since it's real,
-// client-side state (ThemeContext), not something a mock API response
-// could stand in for.
-
-const TIMEZONES = [
-  'America/New_York', 'America/Chicago', 'America/Denver', 'America/Los_Angeles',
-  'America/Phoenix', 'UTC',
-];
+// wired to the real API") — theme, clock format, and timezone are the
+// exceptions: real, client-side state (ThemeContext/PreferencesContext),
+// not something a mock API response could stand in for. Clock format and
+// timezone previously lived in local useState right here, which is why
+// changing them never affected anything else in the app (Dashboard's
+// chart, DeviceDetail's chart, etc. had no way to see the change) — now
+// backed by PreferencesContext, the same shared-state shape ThemeContext
+// already used correctly.
 
 const MOCK_TEAM = [
   { id: '1', email: 'jane.ops@acme-water.com', display_name: 'Jane Rodriguez', role: 'admin' as const,    status: 'active' },
@@ -39,15 +42,25 @@ function SectionCard({ title, description, children }: { title: string; descript
 
 export function Settings() {
   const { theme, setTheme } = useTheme();
+  const { clockFormat, timezone, setClockFormat, setTimezone } = usePreferences();
   const [displayName, setDisplayName] = useState('Jane Rodriguez');
-  const [clockFormat, setClockFormat] = useState<'12h' | '24h'>('24h');
-  const [timezone, setTimezone] = useState('America/Chicago');
   const [saved, setSaved] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+
+  // Ticks once a minute so the live preview below actually demonstrates a
+  // clock-format/timezone change without needing a page refresh.
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 30_000);
+    return () => clearInterval(id);
+  }, []);
 
   const handleSaveProfile = (e: React.FormEvent) => {
     e.preventDefault();
-    // PUT /v1/settings — mock submit, matching this frontend's not-yet-
-    // wired-to-real-API convention (see file header note).
+    // PUT /v1/settings — display name is still a mock submit, matching
+    // this frontend's not-yet-wired-to-real-API convention (see file
+    // header note). Clock format/timezone below apply immediately via
+    // PreferencesContext, the same UX as the theme toggle — no separate
+    // save step for those two.
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
   };
@@ -61,16 +74,25 @@ export function Settings() {
 
       {/* Profile & display preferences — SET-1/SET-3/SET-4/SET-5 */}
       <SectionCard title="Profile & Display Preferences" description="How your name and the monitoring clock appear across the app">
-        <form onSubmit={handleSaveProfile} className="space-y-5">
-          <div>
+        <div className="space-y-5">
+          <form onSubmit={handleSaveProfile}>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Display name</label>
-            <input
-              type="text"
-              value={displayName}
-              onChange={e => setDisplayName(e.target.value)}
-              className="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-purple"
-            />
-          </div>
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                className="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-purple"
+              />
+              <button
+                type="submit"
+                className="bg-brand-purple text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-purple/90 transition-colors flex-shrink-0"
+              >
+                Save
+              </button>
+              {saved && <span className="text-xs text-brand-green font-medium flex-shrink-0">Saved</span>}
+            </div>
+          </form>
 
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Clock format</label>
@@ -94,28 +116,17 @@ export function Settings() {
 
           <div>
             <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">Time zone</label>
-            <select
-              value={timezone}
-              onChange={e => setTimezone(e.target.value)}
-              className="w-full max-w-sm rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 text-sm px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand-purple"
-            >
-              {TIMEZONES.map(tz => <option key={tz} value={tz}>{tz}</option>)}
-            </select>
+            <TimezoneSelect value={timezone} onChange={setTimezone} />
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5">
-              Applies to alert timestamps and telemetry views — independent of any individual site's own configured time zone.
+              Applies to alert timestamps and telemetry views across the app — independent of any individual site's own configured time zone.
             </p>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="submit"
-              className="bg-brand-purple text-white text-sm font-medium px-4 py-2 rounded-lg hover:bg-brand-purple/90 transition-colors"
-            >
-              Save changes
-            </button>
-            {saved && <span className="text-xs text-brand-green font-medium">Saved</span>}
+          <div className="pt-3 border-t border-gray-100 dark:border-gray-800">
+            <p className="text-xs font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-1">Preview</p>
+            <p className="text-sm font-semibold text-gray-900 dark:text-gray-100">{formatFullDateTime(now, { clockFormat, timezone })}</p>
           </div>
-        </form>
+        </div>
       </SectionCard>
 
       {/* Theme — SET-4 */}

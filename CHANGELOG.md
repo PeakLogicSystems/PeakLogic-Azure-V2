@@ -9,6 +9,13 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Fixed
+- **Clock format and time zone (Settings, v1.2.0) had no effect anywhere except the Settings page itself** — they were local component state, not shared app state, so a change never reached the Dashboard chart, Device Detail chart, or anywhere else. Moved into a new `PreferencesContext` (same shape as the already-working `ThemeContext`) and wired `frontend/src/lib/datetime.ts`'s formatting helpers into every place a time is actually rendered. Added a live clock to the Dashboard header as the clearest at-a-glance proof the setting is applied.
+- **Light/dark mode appeared broken in the local dev preview** — root cause was a stale `npm run dev` process still serving the OS-level `@media (prefers-color-scheme: dark)` compiled CSS from before `tailwind.config.ts`'s `darkMode: 'class'` was added, compounded by a Windows quirk where killing the process didn't free port 5173, so a second server silently started on 5174 while testing kept hitting the stale one. The code itself was always correct — confirmed via a direct `npx tailwindcss` CLI build and a full `npm run build`, both correctly class-scoped. No code change needed, only a clean server restart.
+
+### Added
+- **Full international time zone selector** (SET-3) — a searchable combobox (`TimezoneSelect`) backed by `Intl.supportedValuesOf('timeZone')`, the complete ~400-zone IANA database with UTC offset labels, replacing the original 6-city US-only dropdown.
+
 ### Security
 - **Known: esbuild/Vite dev-server CORS vulnerability** (GHSA-67mh-4wv8-2f99, moderate severity). Affects `vite <=6.4.1` via `esbuild <=0.24.2`. **Production is not affected** — the vulnerability only allows a malicious website to query the local Vite dev server while `npm run dev` is running. Fix requires upgrading Vite v5 → v8 and vitest v2 → v4+ together (breaking change); deferred past v1.1.0 to keep that release proportionate to what's actually shipping (tracked as TD-11, Technical Debt Register).
 

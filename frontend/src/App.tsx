@@ -2,6 +2,7 @@ import { Authenticator } from '@aws-amplify/ui-react';
 import '@aws-amplify/ui-react/styles.css';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { PreferencesProvider } from '@/contexts/PreferencesContext';
 import { AppShell } from '@/components/layout/AppShell';
 import { LoginBackground } from '@/components/layout/LoginBackground';
 import { Dashboard }     from '@/pages/Dashboard';
@@ -48,18 +49,22 @@ export function App() {
   if (PREVIEW) {
     return (
       <ThemeProvider>
-        <AppRoutes signOut={() => {}} user={DEV_USER} />
+        <PreferencesProvider>
+          <AppRoutes signOut={() => {}} user={DEV_USER} />
+        </PreferencesProvider>
       </ThemeProvider>
     );
   }
 
   return (
     <ThemeProvider>
-      <Authenticator hideSignUp components={{ Header: LoginBackground }}>
-        {({ signOut, user }) => (
-          <AppRoutes signOut={signOut!} user={user as never} />
-        )}
-      </Authenticator>
+      <PreferencesProvider>
+        <Authenticator hideSignUp components={{ Header: LoginBackground }}>
+          {({ signOut, user }) => (
+            <AppRoutes signOut={signOut!} user={user as never} />
+          )}
+        </Authenticator>
+      </PreferencesProvider>
     </ThemeProvider>
   );
 }
