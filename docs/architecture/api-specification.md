@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Domain Model](domain-model.md) (approved v1.1), [Database Schema](database-schema.md) (approved v1.1), [Security Architecture](security-architecture.md) (approved v1.1), [Multi-Tenant Architecture](multi-tenant-architecture.md) (approved v1.1), [User Personas](user-personas.md) (approved v1.1), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.2), [Information Architecture](information-architecture.md) (approved v1)
+**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.2, pending), [Database Schema](database-schema.md) (Draft v1.2, pending), [Security Architecture](security-architecture.md) (Draft v1.2, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1)
 **Last updated:** 2026-07-11
 
 ---
@@ -204,6 +204,48 @@ SRS §3.7 (v1.5) already committed to extending MCP-1.1's tool list for the pool
 
 Same MCP-2.1 auth reuse principle, extended: a request presenting a `PartnerPool`-issued token authenticates exactly like a `GET /v1/partner/*` call would, resolved through `withChannelPartner()` — no third auth path invented for MCP specifically. **The MCP server itself still doesn't exist in code** (§4.4's standing note) — this section specifies the contract these tools will need to satisfy once it's built, the same "mechanism before implementation" sequencing every other MCP-related decision in this project has followed.
 
+### 4.7 Internal Administration Console Endpoints (new — added v1.2, IA-1.1–IA-8.1)
+
+Base path `/v1/admin/*`, a third parallel resource tree authenticated by `StaffPool` (Security Architecture §2.5) — same pattern as `/v1/partner/*`'s own separate authorizer.
+
+| Domain | Endpoints | Source |
+|---|---|---|
+| Self-read | `GET /v1/admin` | `routes/admin.ts` *(new)* |
+| Tenants | `GET/POST /v1/admin/tenants` (POST is `superadmin`-only, `requireStaffRole`), `GET /v1/admin/tenants/{tenantId}` | `routes/admin-tenants.ts` *(new)* |
+| Channel partners | `GET/POST /v1/admin/channel-partners` (POST is `superadmin`-only), `GET /v1/admin/channel-partners/{partnerId}` | `routes/admin-partners.ts` *(new)* |
+| Staff users | `GET/POST /v1/admin/staff-users` (POST is `superadmin`-only) | `routes/admin-staff.ts` *(new)* |
+| Assignments | `GET/POST/DELETE /v1/admin/assignments` (all `superadmin`-only — granting/revoking a book of business) | `routes/admin-assignments.ts` *(new)* |
+| **Acting on a tenant** (IA-5.1) | `POST /v1/admin/tenants/{tenantId}/users`, `PUT /v1/admin/tenants/{tenantId}/devices/{deviceId}`, `PUT /v1/admin/tenants/{tenantId}/assets/{assetId}`, `PUT /v1/admin/tenants/{tenantId}/alerts/{alertId}` | `routes/admin-tenant-actions.ts` *(new)* |
+
+**The "acting on a tenant" endpoints deliberately do not reimplement business logic** — each one calls `withStaffActingOnTenant(auth, tenantId, ...)` (Security Architecture §2.5) instead of `withTenant(auth.tenantId, ...)`, then runs the *exact same* query the corresponding tenant-side route already runs (`routes/devices.ts`'s claim/update logic, `routes/assets.ts`'s specs update, `routes/alerts.ts`'s status update, and a new user-creation query mirroring the manual Cognito-console process the SysAdmin Guide currently documents). This is a direct consequence of Database Schema §4.5's design choice — the handoff exists specifically so this layer doesn't need its own parallel implementation of "how to create a tenant user" or "how to claim a device."
+
+**Every write through this resource tree calls `writeAuditLog()` with `actorStaffUserId` set (IA-7.1)** — not optional, not a follow-up item the way the channel-partner portal's call sites were disclosed as unwired (Security Architecture §2.4's §8 item 5). Given this pass already knows to check for that gap, it isn't repeated here.
+
+**`channel_partners` creation is checked at the application layer, not RLS** (Database Schema §4.5's disclosed scope decision) — `POST /v1/admin/channel-partners`'s handler calls `requireStaffRole(auth, 'superadmin')` explicitly before the `INSERT`, since there's no policy backing it the way `POST /v1/admin/tenants` has.
+
+### 4.8 Settings & Preferences Endpoints (new — added v1.2, SET-1.1–SET-8.1)
+
+Base path `/v1/settings`, tenant-pool authenticated — the existing `getAuth()`/`withTenant()` path, no new auth surface.
+
+| Domain | Endpoints | Notes |
+|---|---|---|
+| Profile & display preferences | `GET/PUT /v1/settings` | `PUT` body: `{ display_name?, clock_format?, timezone?, theme? }`, partial update (only provided fields change) — mirrors `PUT /v1/partner/branding`'s merge-not-replace convention |
+| Password | `PUT /v1/settings/password` | Proxies to Cognito's `ChangePassword` API — no parallel credential store (SET-2.1) |
+| MFA | `GET /v1/settings/mfa` | Returns enrolled method status; re-enrollment reuses Cognito's existing associate-software-token flow, not a new mechanism (SET-6.1) |
+| Team (Tenant Admin only) | `GET/POST /v1/settings/team`, `PUT/DELETE /v1/settings/team/{userId}` | `requireRole(auth, 'admin')` — a product-facing equivalent of the AWS-Console process, calling the same underlying Cognito `AdminCreateUser`/group-management calls the SysAdmin Guide currently documents as manual (SET-7.1) |
+
+**SET-8 (notification preferences) has no endpoint here** — PRD/SRS both marked it `Could`, conditioned on verifying real email-notification infrastructure exists beyond Cognito's transactional emails and the existing webhook-on-critical-alert path. Not building an endpoint for an unverified capability.
+
+### 4.9 Site → Asset → Device Drill-Down (new — added v1.2, NAV-1.1–NAV-5.1)
+
+**Most of this drill-down needs no new endpoint at all — checked directly against what already exists, not assumed missing.** `GET /v1/assets?siteId=` already exists and already satisfies NAV-1.1 (Site Detail's asset list). `GET /v1/telemetry?deviceId=` already exists and already satisfies NAV-3.1 (Device Detail's telemetry). The **one real gap** is NAV-2.1/NAV-5.1's asset→device lookup:
+
+| Change | Before | After |
+|---|---|---|
+| `GET /v1/devices` | Ignores all query parameters (verified directly, `backend/api/routes/devices.ts`), always returns the full tenant device list | Accepts optional `assetId` and `siteId` query parameters, filtering server-side. `siteId` requires a join through `assets` (a device has no direct `site_id`) — resolves via `devices.asset_id → assets.id → assets.site_id` |
+
+No new route, no new resource — the existing `GET /v1/devices` handler gains a `WHERE` clause. **The channel-partner portal's equivalent** (NAV-4.1) reuses this same parameter shape on `GET /v1/partner/routes/{routeId}` territory-adjacent site queries where applicable, rather than inventing a second filtering convention.
+
 ---
 
 ## 5. Unauthenticated Access: Two Screens With No Login (open, not yet resolved)
@@ -246,6 +288,9 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 | §5 Unauthenticated Access | UX Wireframes §2.6/§2.10, User Personas §2.5/§2.6, CH-2.1 — in tension with AUTH-1 as currently written |
 | §4.5 Channel Partner Portal Endpoints *(added v1.1)* | Domain Model §2.7, Database Schema §4.4, Security Architecture §2.4, PRD §5.10/SRS §3.12 (TR-1.1–TR-3.2) |
 | §4.6 MCP Territory/Technician Tools *(added v1.1)* | SRS §3.7 (extended v1.5) |
+| §4.7 Internal Administration Console *(added v1.2)* | Domain Model §2.8, Database Schema §4.5, Security Architecture §2.5, PRD §5.11/SRS §3.13 (IA-1–IA-8) |
+| §4.8 Settings & Preferences *(added v1.2)* | Domain Model §2.1, PRD §5.12/SRS §3.14 (SET-1–SET-8) |
+| §4.9 Site→Asset→Device Drill-Down *(added v1.2)* | PRD §5.13/SRS §3.15 (NAV-1–NAV-5) |
 
 ---
 
@@ -258,6 +303,8 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 5. **§4.1's Portfolio Roll-Up has no distinct "Ops Leader" role.** Both Tenant Admin and Corporate/Regional Ops Leader currently map to the same `admin` Cognito group (AUTH-2) — fine for now since neither this document nor Information Architecture requires them to see different data, only different nav chrome, but worth confirming that stays true as more role-gated endpoints appear.
 6. **§4.5's `POST /v1/partner/users` is not atomic across Cognito and the database, added v1.1.** If `AdminCreateUserCommand` succeeds but the subsequent `channel_partner_users` INSERT fails (or vice versa in a future retry), the two systems can drift — a real Cognito account with no matching DB row, or (less likely, since the DB insert happens second) a DB row with a `cognito_sub` that doesn't resolve. No compensating transaction/cleanup logic exists yet. Flagged, not fixed — proportionate to note, not to solve, at current design-partner-tenant scale, but a real gap a production-hardening pass should close (e.g., a cleanup Lambda reconciling orphaned Cognito users, or wrapping both calls in a saga).
 7. **§4.5's `PUT /v1/partner/territories/{territoryId}` doesn't specify what happens to `route_assignments` already built against the old boundary, added v1.1.** Redrawing a territory could silently strand an already-`suggested` (not yet confirmed) route whose stops no longer match the new shape. Not resolved here — a real UX/product question (warn the partner_admin? invalidate pending suggestions automatically?) more than an API contract one.
+8. **§4.7's `POST /v1/admin/tenants/{tenantId}/users` has the same non-atomicity risk as item 6 above, added v1.2** — it also calls `AdminCreateUserCommand` then inserts a DB row, the exact same two-system-drift shape already flagged for the partner portal's user creation. Not re-solved independently here; whichever fix item 6 eventually gets should cover both call sites, not just one.
+9. **No frontend exists yet for the admin console, Settings page, or drill-down views, added v1.2** — this document specifies the API contract only; sequenced as real frontend work in the same pass as this amendment (`project-peaklogic-admin-console-and-settings` memory), not left purely theoretical.
 
 ---
 
@@ -295,3 +342,11 @@ Also added the nullable-`supplier_name` case to §4.3's example, which the first
 - **Two new open items added** (§7 items 6–7): `POST /v1/partner/users`'s Cognito/DB non-atomicity, and territory redraws potentially stranding pending route suggestions — both real, both disclosed, neither fixed in this pass.
 - **A stale claim corrected**: §2.3 previously described `devices.claim()`'s unscoped-pool pattern as an "intentional exception" — Multi-Tenant Architecture §2.5.3 found this was actually a bug, not a design choice, and the code has since changed. Updated to match reality instead of quietly going stale.
 - **Real infrastructure and code shipped alongside this document**, not left as design-only: a second Cognito authorizer wired to `PartnerPool` in `infra/lib/api-stack.ts`; a new `backend/api/partner-router.ts` mirroring `router.ts`'s shape; four new route handler files (`routes/partner.ts`, `routes/partner-territories.ts`, `routes/partner-users.ts`, `routes/partner-routes.ts`); `backend/api/handler.ts` branching on path to select `getAuth()`/`getPartnerAuth()`.
+
+**v1.2 (2026-07-12)** — forced by the PRD v1.6/SRS v1.6/Domain Model v1.2/Database Schema v1.2/Security Architecture v1.2/Multi-Tenant Architecture v1.2 amendment (Internal Administration Console, Settings & Preferences, Site→Asset→Device Drill-Down).
+
+- **§4.7 added**: a third parallel resource tree, `/v1/admin/*`, authenticated by `StaffPool`. The "acting on a tenant" endpoints deliberately call `withStaffActingOnTenant()` and reuse the *exact same* query logic the tenant-side routes already run, rather than reimplementing "how to create a user"/"how to claim a device" a second time — a direct consequence of Database Schema §4.5's handoff design, not a new decision made here.
+- **§4.8 added**: `/v1/settings` on the existing tenant-pool auth path — no new identity surface, since these are ordinary per-user preferences. Password/MFA endpoints proxy Cognito's own APIs rather than building parallel credential handling. SET-8 (notification preferences) deliberately has no endpoint, matching its `Could`, not-yet-verified status in PRD/SRS.
+- **§4.9 added**: **checked directly, not assumed** — most of the drill-down (Site→Assets, Device→Telemetry) needs zero new endpoints, since `GET /v1/assets?siteId=` and `GET /v1/telemetry?deviceId=` already exist and already do this. The one real gap, verified against the live handler code: `GET /v1/devices` ignores every query parameter today. Fixed by adding `assetId`/`siteId` filters to the existing endpoint, not a new one.
+- **Real infrastructure and code sequenced immediately after this document, in the same pass**: a third Cognito authorizer for `StaffPool`, `backend/api/admin-router.ts`, new route handler files, `backend/api/handler.ts` branching extended to a third path prefix. Not yet complete as this section is written — this entry will be corrected with real `cdk synth`/typecheck/test results once that pass finishes, matching v1.1's own standard of not claiming verification ahead of when it actually happened.
+- **Two new open items added** (§7 items 8–9): `POST /v1/admin/tenants/{tenantId}/users`'s Cognito/DB non-atomicity (the same shape as the existing, still-open item 6); no frontend exists yet for any of §4.7/§4.8/§4.9's new endpoints.
