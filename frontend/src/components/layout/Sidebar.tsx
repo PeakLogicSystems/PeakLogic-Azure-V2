@@ -38,17 +38,21 @@ export function Sidebar({ user, onSignOut }: SidebarProps) {
           not empty space below it — otherwise items-end aligns box
           edges, not visible pixels, and the text still looks too high. */}
       <div className="flex items-end gap-2.5 px-4 py-5 border-b border-white/10">
-        <svg width="28" height="21" viewBox="4 10 24 18" fill="none" aria-hidden>
+        {/* Icon scaled up proportionally (28x21 -> 32x24, same 4:3
+            crop ratio) alongside the text bump below, so the
+            items-end/leading-none alignment we tuned stays intact
+            instead of drifting at a new size. */}
+        <svg width="32" height="24" viewBox="4 10 24 18" fill="none" aria-hidden>
           <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
           <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />
         </svg>
-        {/* leading-none collapses the default ~28px line-height box
-            down to hug the glyphs — without it, "PeakLogic" (which has
-            no descenders) sits visually centered in that tall box,
-            so its baseline ends up well above the box's true bottom
+        {/* leading-none collapses the default line-height box down to
+            hug the glyphs — without it, "PeakLogic" (which has no
+            descenders) sits visually centered in that tall box, so
+            its baseline ends up well above the box's true bottom
             edge, and items-end above ends up flushing that empty
             space with the icon's base instead of the actual letters. */}
-        <span className="text-lg font-bold tracking-tight leading-none">
+        <span className="text-xl font-bold tracking-tight leading-none">
           <span className="text-white">Peak</span>
           <span className="text-brand-purple-mid">Logic</span>
         </span>
