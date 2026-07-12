@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PeakLogic — User Guide v1.0</title>
+<style>
+  /* ── Reset & Base ─────────────────────────────────────────── */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { font-size: 11pt; scroll-behavior: smooth; }
+  body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    color: #1e293b;
+    line-height: 1.7;
+    background: #fff;
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 32px;
+  }
+
+  /* ── Typography ───────────────────────────────────────────── */
+  h1 { font-size: 2rem; color: #0f172a; margin-bottom: .4rem; }
+  h2 { font-size: 1.5rem; color: #0f172a; margin: 2.2rem 0 .8rem;
+       padding-bottom: .4rem; border-bottom: 3px solid #7c3aed; }
+  h3 { font-size: 1.15rem; color: #7c3aed; margin: 1.6rem 0 .5rem; }
+  h4 { font-size: 1rem; color: #334155; margin: 1.1rem 0 .35rem; font-weight: 700; }
+  p  { margin: .6rem 0; }
+  ul, ol { margin: .5rem 0 .5rem 1.4rem; }
+  li { margin: .3rem 0; }
+  a  { color: #7c3aed; text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  strong { color: #0f172a; }
+
+  /* ── Cover Page ───────────────────────────────────────────── */
+  .cover {
+    display: flex; flex-direction: column; justify-content: center;
+    min-height: 100vh; text-align: center; padding: 60px 40px;
+  }
+  .cover-logo {
+    font-size: 3rem; font-weight: 800; letter-spacing: -1px;
+    margin-bottom: .3rem;
+  }
+  .cover-logo .peak { color: #0f172a; }
+  .cover-logo .logic { color: #7c3aed; }
+  .cover-rule {
+    width: 80px; height: 4px; background: #22c55e;
+    margin: 1.2rem auto; border-radius: 2px;
+  }
+  .cover-title { font-size: 1.7rem; color: #334155; font-weight: 300; margin-bottom: .5rem; }
+  .cover-sub   { font-size: 1.05rem; color: #64748b; margin-bottom: 2.5rem; }
+  .cover-meta  { font-size: .9rem; color: #94a3b8; }
+  .cover-meta span { display: block; margin: .18rem 0; }
+  .cover-badge {
+    display: inline-block; background: #DCFCE7; color: #166534;
+    border: 1px solid #bbf7d0; padding: .35rem .9rem; border-radius: 999px;
+    font-size: .85rem; font-weight: 600; margin-top: 1.5rem;
+  }
+  .cover-hint {
+    margin-top: 3rem; font-size: .85rem; color: #94a3b8;
+  }
+
+  /* ── Revision History ─────────────────────────────────────── */
+  .rev-history { margin: 2.5rem 0; page-break-after: always; }
+  .rev-title {
+    font-size: 1.2rem; font-weight: 700; color: #0f172a;
+    margin-bottom: 1rem; padding-bottom: .4rem;
+    border-bottom: 2px solid #7c3aed;
+  }
+  .rev-history table { font-size: .88rem; }
+  .rev-note { font-size: .8rem; color: #94a3b8; margin-top: .6rem; }
+
+  /* ── TOC ──────────────────────────────────────────────────── */
+  .toc { page-break-after: always; }
+  .toc-title { font-size: 1.2rem; font-weight: 700; color: #0f172a;
+               margin: 2rem 0 1rem; border-bottom: 2px solid #7c3aed; padding-bottom: .4rem; }
+  .toc ol { counter-reset: toc-section; list-style: none; margin: 0; }
+  .toc > ol > li { margin: .5rem 0; font-weight: 600; }
+  .toc > ol > li > ol { counter-reset: toc-sub; list-style: none; margin: .25rem 0 .5rem 1.2rem; }
+  .toc > ol > li > ol > li { font-weight: 400; font-size: .92rem; color: #475569; margin: .2rem 0; }
+  .toc-num { color: #7c3aed; font-weight: 700; margin-right: .5rem; }
+  .toc a { color: inherit; }
+  .toc a:hover { color: #7c3aed; }
+  .toc-item { display: flex; align-items: baseline; }
+
+  /* ── Section wrappers ─────────────────────────────────────── */
+  .section { margin-bottom: 2.5rem; }
+  .page-break { page-break-before: always; }
+  .back-to-top { display: inline-block; margin-top: 1.5rem; font-size: .85rem; color: #94a3b8; }
+  .back-to-top:hover { color: #7c3aed; }
+
+  /* ── Info boxes ───────────────────────────────────────────── */
+  .box {
+    border-radius: 8px; padding: 1rem 1.2rem; margin: 1rem 0;
+    font-size: .95rem; line-height: 1.6;
+  }
+  .box-info    { background: #eff6ff; border-left: 4px solid #3b82f6; }
+  .box-warn    { background: #fffbeb; border-left: 4px solid #f59e0b; }
+  .box-tip     { background: #f0fdf4; border-left: 4px solid #22c55e; }
+  .box-title   { font-weight: 700; margin-bottom: .35rem; }
+
+  /* ── Tables ───────────────────────────────────────────────── */
+  table { width: 100%; border-collapse: collapse; margin: .9rem 0; font-size: .92rem; }
+  th {
+    background: #0f172a; color: #fff; text-align: left;
+    padding: .55rem .8rem; font-weight: 600; font-size: .82rem;
+    text-transform: uppercase; letter-spacing: .04em;
+  }
+  td { padding: .55rem .8rem; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+  tr:nth-child(even) td { background: #f8fafc; }
+  .col-name  { font-weight: 600; color: #0f172a; white-space: nowrap; }
+
+  /* ── Badges ───────────────────────────────────────────────── */
+  .badge {
+    display: inline-block; padding: .2rem .6rem; border-radius: 999px;
+    font-size: .78rem; font-weight: 600; white-space: nowrap;
+  }
+  .badge-green  { background: #dcfce7; color: #166534; }
+  .badge-red    { background: #fee2e2; color: #991b1b; }
+  .badge-amber  { background: #fef3c7; color: #92400e; }
+  .badge-blue   { background: #dbeafe; color: #1e40af; }
+  .badge-purple { background: #ede9fe; color: #5b21b6; }
+  .badge-gray   { background: #f1f5f9; color: #475569; }
+  .badge-soon   { background: #fff; color: #7c3aed; border: 1.5px dashed #7c3aed; }
+
+  /* ── Step list ────────────────────────────────────────────── */
+  .steps { counter-reset: step; list-style: none; margin: .6rem 0; }
+  .steps li { counter-increment: step; display: flex; gap: .9rem; margin: .8rem 0; align-items: flex-start; }
+  .steps li::before {
+    content: counter(step);
+    background: #7c3aed; color: #fff;
+    min-width: 26px; height: 26px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .82rem; font-weight: 700; flex-shrink: 0; margin-top: .05rem;
+  }
+
+  /* ── FAQ ──────────────────────────────────────────────────── */
+  .faq-item { margin: 1.1rem 0; padding-bottom: 1.1rem; border-bottom: 1px solid #e2e8f0; }
+  .faq-q { font-weight: 700; color: #0f172a; font-size: 1.02rem; margin-bottom: .35rem; }
+  .faq-q::before { content: "Q. "; color: #7c3aed; }
+  .faq-a { color: #334155; }
+  .faq-a::before { content: "A. "; color: #22c55e; font-weight: 700; }
+
+  /* ── Mock "screenshot" frames ─────────────────────────────── */
+  .shot {
+    border: 1px solid #e2e8f0; border-radius: 10px; overflow: hidden;
+    margin: 1.2rem 0; box-shadow: 0 2px 10px rgba(15,23,42,.08);
+    background: #fff;
+  }
+  .shot-bar {
+    background: #f1f5f9; padding: .5rem .75rem; display: flex; gap: .35rem;
+    border-bottom: 1px solid #e2e8f0;
+  }
+  .shot-dot { width: 9px; height: 9px; border-radius: 50%; }
+  .shot-dot.r { background: #f87171; } .shot-dot.y { background: #fbbf24; } .shot-dot.g { background: #34d399; }
+  .shot-body { display: flex; font-size: .78rem; min-height: 60px; }
+  .shot-side {
+    width: 96px; background: #0f172a; color: #94a3b8; flex-shrink: 0;
+    padding: .6rem .5rem; display: flex; flex-direction: column; gap: .35rem;
+  }
+  .shot-side .logo { color: #fff; font-weight: 800; font-size: .8rem; margin-bottom: .4rem; }
+  .shot-side .logo span { color: #a78bfa; }
+  .shot-side .navitem { padding: .3rem .4rem; border-radius: 5px; font-size: .72rem; }
+  .shot-side .navitem.active { background: #7c3aed; color: #fff; font-weight: 600; }
+  .shot-main { flex: 1; background: #f8fafc; padding: .7rem .8rem; }
+  .shot-main h5 { font-size: .82rem; color: #0f172a; margin-bottom: .1rem; }
+  .shot-main .sub { color: #94a3b8; font-size: .68rem; margin-bottom: .5rem; }
+  .shot-card { background: #fff; border: 1px solid #e2e8f0; border-radius: 6px; padding: .5rem; margin-bottom: .4rem; }
+  .shot-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: .4rem; margin-bottom: .5rem; }
+  .shot-stat-label { font-size: .62rem; color: #94a3b8; text-transform: uppercase; }
+  .shot-stat-num { font-size: 1.1rem; font-weight: 800; color: #0f172a; }
+  .shot-row { display: flex; justify-content: space-between; align-items: center; padding: .3rem 0; border-bottom: 1px solid #f1f5f9; font-size: .68rem; }
+  .shot-row:last-child { border-bottom: none; }
+  .shot-pill { padding: .08rem .45rem; border-radius: 999px; font-size: .6rem; font-weight: 700; }
+  .shot-btn { display: inline-block; background: #7c3aed; color: #fff; padding: .25rem .6rem; border-radius: 5px; font-size: .68rem; font-weight: 600; float: right; }
+  .shot-caption { text-align: center; font-size: .78rem; color: #94a3b8; padding: .5rem; background: #fafafa; border-top: 1px solid #f1f5f9; }
+
+  /* ── Glossary ─────────────────────────────────────────────── */
+  .gloss-term { font-weight: 700; color: #7c3aed; }
+
+  /* ── Print ────────────────────────────────────────────────── */
+  @media print {
+    body { max-width: none; padding: 0; font-size: 10pt; }
+    .cover { min-height: auto; padding: 80px 60px; page-break-after: always; }
+    .toc   { page-break-after: always; }
+    .page-break { page-break-before: always; }
+    h2 { page-break-after: avoid; }
+    h3 { page-break-after: avoid; }
+    table { page-break-inside: avoid; }
+    .box  { page-break-inside: avoid; }
+    .shot { page-break-inside: avoid; }
+    a { color: #7c3aed; }
+    .back-to-top { display: none; }
+    @page {
+      margin: 18mm 16mm;
+      @bottom-center { content: "PeakLogic — User Guide"; font-size: 8pt; color: #94a3b8; }
+      @bottom-right  { content: counter(page); font-size: 8pt; color: #94a3b8; }
+    }
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════════════
+     COVER PAGE
+════════════════════════════════════════════════════════════ -->
+<div class="cover">
+  <div class="cover-logo">
+    <span class="peak">Peak</span><span class="logic">Logic</span>
+  </div>
+  <div class="cover-rule"></div>
+  <div class="cover-title">User Guide</div>
+  <div class="cover-sub">A friendly walkthrough of PeakView — no technical background required</div>
+  <div class="cover-meta">
+    <span>Guide Version: v1.0</span>
+    <span>Last Updated: 2026-07-12</span>
+    <span>Written for: everyone who uses PeakLogic — no IT experience needed</span>
+  </div>
+  <div>
+    <span class="cover-badge">✓ Plain-language guide — start anywhere, jump around freely</span>
+  </div>
+  <p class="cover-hint">Tip: use the Table of Contents on the next page — every line is clickable and jumps straight to that section.</p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     REVISION HISTORY
+════════════════════════════════════════════════════════════ -->
+<div class="rev-history">
+  <div class="rev-title">About This Guide</div>
+  <table>
+    <tr>
+      <th style="width:72px">Version</th>
+      <th style="width:96px">Date</th>
+      <th>What's in it</th>
+    </tr>
+    <tr>
+      <td>v1.0</td>
+      <td>2026-07-12</td>
+      <td>First edition. Covers logging in, every screen in the app (Dashboard, Sites, Assets, Devices, Alerts, Service Tickets), connecting a new sensor step-by-step, what the colors mean, an FAQ, and a plain-English glossary.</td>
+    </tr>
+  </table>
+  <p class="rev-note">
+    Some buttons you'll see in the app are still being built — this guide tells you honestly which ones with a <span class="badge badge-soon">Coming soon</span> tag, right next to them, so you're never left wondering why nothing happened when you clicked.
+  </p>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     TABLE OF CONTENTS
+════════════════════════════════════════════════════════════ -->
+<div class="toc">
+  <div class="toc-title">Table of Contents</div>
+  <ol>
+    <li><a href="#faq" class="toc-item"><span class="toc-num">1</span> Frequently Asked Questions</a></li>
+    <li><a href="#getting-started" class="toc-item"><span class="toc-num">2</span> Getting Started</a>
+      <ol>
+        <li><a href="#what-youll-need">What You'll Need</a></li>
+        <li><a href="#first-login">Logging In for the First Time</a></li>
+        <li><a href="#mfa-setup">Setting Up Your Second Login Step</a></li>
+        <li><a href="#everyday-login">Logging In After That</a></li>
+        <li><a href="#signing-out">Signing Out</a></li>
+      </ol>
+    </li>
+    <li><a href="#navigation" class="toc-item"><span class="toc-num">3</span> Finding Your Way Around</a></li>
+    <li><a href="#dashboard" class="toc-item"><span class="toc-num">4</span> Your Dashboard</a></li>
+    <li><a href="#sites" class="toc-item"><span class="toc-num">5</span> Sites</a></li>
+    <li><a href="#assets" class="toc-item"><span class="toc-num">6</span> Assets</a></li>
+    <li><a href="#devices" class="toc-item"><span class="toc-num">7</span> Devices</a>
+      <ol>
+        <li><a href="#viewing-devices">Viewing Your Devices</a></li>
+        <li><a href="#onboarding">Connecting a New Device</a></li>
+      </ol>
+    </li>
+    <li><a href="#alerts" class="toc-item"><span class="toc-num">8</span> Alerts</a></li>
+    <li><a href="#tickets" class="toc-item"><span class="toc-num">9</span> Service Tickets</a></li>
+    <li><a href="#colors" class="toc-item"><span class="toc-num">10</span> What the Colors Mean</a></li>
+    <li><a href="#glossary" class="toc-item"><span class="toc-num">11</span> Glossary — Plain-English Definitions</a></li>
+    <li><a href="#help" class="toc-item"><span class="toc-num">12</span> Getting Help</a></li>
+  </ol>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 1 — FAQ
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="faq">
+<h2>1. Frequently Asked Questions</h2>
+<p>Short on time? Start here. Every answer links to the full section if you want more detail.</p>
+
+<div class="faq-item">
+  <div class="faq-q">What is PeakLogic / PeakView?</div>
+  <div class="faq-a">It's a website that watches your equipment for you — pumps, coolers, pool systems, and more — using small sensors. Instead of someone walking around checking things by hand, the sensors send readings automatically, and PeakView tells you the moment something looks wrong. See <a href="#dashboard">Your Dashboard</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">How do I log in?</div>
+  <div class="faq-a">Go to the web address your PeakLogic contact gave you, enter the email and temporary password you were emailed, then follow the on-screen prompts to set your own password. See <a href="#first-login">Logging In for the First Time</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">I forgot my password. What do I do?</div>
+  <div class="faq-a">On the login screen, click <strong>"Forgot your password?"</strong> and follow the instructions — you'll get a code by email to reset it. If that doesn't work, see <a href="#help">Getting Help</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">Why does it ask me for a 6-digit code every time I log in?</div>
+  <div class="faq-a">That's your second login step (sometimes called "two-factor" or "MFA") — it's a security requirement, not optional, and it's there to keep your account safe even if someone else guessed your password. See <a href="#mfa-setup">Setting Up Your Second Login Step</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">What do the red, amber (orange), and green colors mean?</div>
+  <div class="faq-a">Green means everything's fine. Amber/orange means something's worth a look soon. Red means it needs attention now. This color pattern is used everywhere in the app — sites, equipment, and alerts all use the same three colors. See <a href="#colors">What the Colors Mean</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">What's the difference between a "Site," an "Asset," and a "Device"?</div>
+  <div class="faq-a">A <strong>Site</strong> is a physical place (like your restaurant on Main Street). An <strong>Asset</strong> is a piece of equipment at that place (like the walk-in cooler). A <strong>Device</strong> is the small sensor attached to that equipment, which is what actually talks to PeakLogic. See the <a href="#glossary">Glossary</a> for more everyday examples.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">How do I connect a new sensor?</div>
+  <div class="faq-a">Go to the Devices page and click <strong>"Onboard device."</strong> It's a short 2-step form — type in the serial number printed on the sensor, then tell it which site and piece of equipment it belongs to. Takes about a minute. Full walkthrough: <a href="#onboarding">Connecting a New Device</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">I got an alert. What should I do?</div>
+  <div class="faq-a">Open the Alerts page, find the alert, and read the message — it tells you exactly what's wrong in plain language (e.g. "Temperature sensor offline — no data for 3 h"). If it's red (critical), treat it as urgent. See <a href="#alerts">Alerts</a>.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">I clicked a button and nothing happened. Is something broken?</div>
+  <div class="faq-a">Probably not — a handful of buttons (like "Add site," "New ticket," and "Acknowledge") are still being built and don't do anything yet. This guide marks every one of them with a <span class="badge badge-soon">Coming soon</span> tag so you always know in advance. Everything else in the app works normally.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">Can I use PeakLogic on my phone?</div>
+  <div class="faq-a">Yes — it's a website, not an app you download, and the pages resize to fit a phone or tablet screen. Just open the same web address in your phone's browser and log in the same way.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">Can other companies see my data?</div>
+  <div class="faq-a">No. Every customer's information is kept completely separate at the database level — not just hidden in the screen, but structurally walled off so it isn't possible for your data to mix with anyone else's.</div>
+</div>
+
+<div class="faq-item">
+  <div class="faq-q">Who do I contact if I'm stuck?</div>
+  <div class="faq-a">See <a href="#help">Getting Help</a> at the end of this guide.</div>
+</div>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 2 — GETTING STARTED
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="getting-started">
+<h2>2. Getting Started</h2>
+
+<h3 id="what-youll-need">2.1 What You'll Need</h3>
+<ul>
+  <li>A computer, tablet, or phone with an internet connection and a web browser (Chrome, Safari, Edge, or Firefox all work fine)</li>
+  <li>The web address for your PeakLogic account (your PeakLogic contact will give you this)</li>
+  <li>The email invitation you received with a temporary password</li>
+  <li>Your phone, with an authenticator app installed (like <strong>Google Authenticator</strong> or <strong>Microsoft Authenticator</strong> — both are free) — you'll need this once, during setup</li>
+</ul>
+
+<div class="box box-info">
+  <div class="box-title">You don't sign yourself up</div>
+  There's no "Create Account" button anywhere in PeakLogic — on purpose. Your account is created for you by an administrator (either at your own company or at PeakLogic), and you're sent an email invitation with everything you need to get started. If you haven't received one yet, see <a href="#help">Getting Help</a>.
+</div>
+
+<h3 id="first-login">2.2 Logging In for the First Time</h3>
+<ol class="steps">
+  <li>Open the web address you were given, in any browser.</li>
+  <li>You'll see the PeakLogic sign-in screen. Enter the <strong>email address</strong> your invitation was sent to.</li>
+  <li>Enter the <strong>temporary password</strong> from your invitation email exactly as it appears (these are case-sensitive, so double-check capital letters).</li>
+  <li>Click <strong>Sign In</strong>.</li>
+  <li>Because this is your first time, you'll be asked to <strong>choose a new password</strong>. Pick something only you know, type it twice to confirm, and continue.</li>
+  <li>Next, you'll be walked through setting up your second login step — see below, this only takes a minute.</li>
+</ol>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body" style="justify-content:center; padding: 1.2rem; flex-direction:column; align-items:center; background:#f8fafc;">
+    <div style="font-weight:800; font-size:1rem; margin-bottom:.15rem;"><span style="color:#0f172a">Peak</span><span style="color:#7c3aed">Logic</span></div>
+    <div style="color:#94a3b8; font-size:.68rem; margin-bottom:.9rem;">IoT Asset &amp; Energy Management</div>
+    <div style="background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:.8rem 1.1rem; width:220px;">
+      <div style="font-size:.62rem; color:#94a3b8; margin-bottom:.15rem;">Email</div>
+      <div style="border:1px solid #e2e8f0; border-radius:4px; padding:.3rem; font-size:.65rem; color:#0f172a; margin-bottom:.5rem;">you@yourcompany.com</div>
+      <div style="font-size:.62rem; color:#94a3b8; margin-bottom:.15rem;">Password</div>
+      <div style="border:1px solid #e2e8f0; border-radius:4px; padding:.3rem; font-size:.65rem; color:#0f172a; margin-bottom:.6rem;">••••••••••</div>
+      <div style="background:#7c3aed; color:#fff; text-align:center; border-radius:4px; padding:.35rem; font-size:.68rem; font-weight:700;">Sign In</div>
+    </div>
+  </div>
+  <div class="shot-caption">What the sign-in screen looks like</div>
+</div>
+
+<h3 id="mfa-setup">2.3 Setting Up Your Second Login Step</h3>
+<p>PeakLogic requires a <strong>second login step</strong> beyond just your password — a fresh 6-digit code every time you sign in, generated by an app on your phone. This is standard practice for protecting business data and only needs to be set up once.</p>
+<ol class="steps">
+  <li>Open the authenticator app on your phone (Google Authenticator or Microsoft Authenticator both work — install one free from your phone's app store if you don't have one yet).</li>
+  <li>On your computer screen, you'll see a small square barcode-like image called a <strong>QR code</strong>.</li>
+  <li>In your phone's authenticator app, tap the button to add a new account (usually a <strong>+</strong> icon), then choose "Scan a QR code."</li>
+  <li>Point your phone's camera at the QR code on your screen — the app will automatically add "PeakLogic" to your list.</li>
+  <li>Your phone will now show a 6-digit number that changes every 30 seconds. Type that number into the box on your screen.</li>
+  <li>Click <strong>Confirm</strong>. You're all set — from now on, every time you log in, you'll open the same app on your phone and type in whatever 6-digit code it's currently showing.</li>
+</ol>
+
+<div class="box box-tip">
+  <div class="box-title">Keep your phone handy</div>
+  You'll need this authenticator app every single time you log in from now on, so keep it installed. If you ever get a new phone, set up the authenticator app again before your old phone is wiped — otherwise contact <a href="#help">support</a> to get re-linked.
+</div>
+
+<h3 id="everyday-login">2.4 Logging In After That</h3>
+<p>Every visit after your first one is quicker:</p>
+<ol class="steps">
+  <li>Go to the same web address and enter your email and the password you chose.</li>
+  <li>Open your authenticator app and type in the current 6-digit code when asked.</li>
+  <li>You're in — you'll land on your <a href="#dashboard">Dashboard</a>.</li>
+</ol>
+
+<h3 id="signing-out">2.5 Signing Out</h3>
+<p>Look at the bottom-left corner of the screen, underneath the navigation menu. You'll see your email address and, next to it, a small door-shaped icon — that's the sign-out button. Click it any time to log out.</p>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 3 — NAVIGATION
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="navigation">
+<h2>3. Finding Your Way Around</h2>
+<p>Once you're logged in, everything in PeakLogic is reachable from one place: the dark menu bar running down the left side of the screen. It's always there, no matter which page you're on, so you're never more than one click from anywhere else in the app.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem active">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+      <div style="flex:1"></div>
+      <div style="border-top:1px solid #334155; padding-top:.4rem; font-size:.6rem;">you@company.com<br><span style="color:#64748b">Signed in</span> &nbsp;⏻</div>
+    </div>
+    <div class="shot-main">
+      <h5>This is where the page you clicked shows up</h5>
+      <div class="sub">The menu on the left never moves — only this area changes</div>
+    </div>
+  </div>
+  <div class="shot-caption">The menu bar (left) stays put; the page content (right) changes as you click around</div>
+</div>
+
+<p>The six menu items, top to bottom:</p>
+<table>
+  <tr><th>Menu Item</th><th>What it's for</th></tr>
+  <tr><td class="col-name">Dashboard</td><td>A quick overview of everything — see <a href="#dashboard">§4</a></td></tr>
+  <tr><td class="col-name">Sites</td><td>Your physical locations — see <a href="#sites">§5</a></td></tr>
+  <tr><td class="col-name">Assets</td><td>The equipment at those locations — see <a href="#assets">§6</a></td></tr>
+  <tr><td class="col-name">Devices</td><td>The sensors themselves, and where you connect new ones — see <a href="#devices">§7</a></td></tr>
+  <tr><td class="col-name">Alerts</td><td>Anything that needs your attention — see <a href="#alerts">§8</a></td></tr>
+  <tr><td class="col-name">Tickets</td><td>Service/repair jobs in progress — see <a href="#tickets">§9</a></td></tr>
+</table>
+
+<p>Whichever page you're on lights up in purple in the menu so you always know where you are.</p>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 4 — DASHBOARD
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="dashboard">
+<h2>4. Your Dashboard</h2>
+<p>The Dashboard is the first thing you see after logging in — think of it as your morning-coffee summary. It answers "is everything okay?" at a glance, without you having to click into anything.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem active">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Dashboard</h5>
+      <div class="sub">Overview of your estate</div>
+      <div class="shot-grid">
+        <div class="shot-card"><div class="shot-stat-label">Devices Online</div><div class="shot-stat-num">12 / 14</div></div>
+        <div class="shot-card"><div class="shot-stat-label">Open Alerts</div><div class="shot-stat-num" style="color:#dc2626">3</div></div>
+        <div class="shot-card"><div class="shot-stat-label">Active Sites</div><div class="shot-stat-num" style="color:#16a34a">6</div></div>
+        <div class="shot-card"><div class="shot-stat-label">Open Tickets</div><div class="shot-stat-num" style="color:#d97706">2</div></div>
+      </div>
+      <div class="shot-card">
+        <div style="font-size:.68rem; font-weight:700; color:#0f172a; margin-bottom:.3rem;">Recent alerts</div>
+        <div class="shot-row"><span>Fryer Unit 2 — Temp sensor offline</span><span class="shot-pill" style="background:#fee2e2;color:#991b1b;">critical</span></div>
+        <div class="shot-row"><span>Primary Pump P1 — Power draw high</span><span class="shot-pill" style="background:#fef3c7;color:#92400e;">warning</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Dashboard, with the four summary cards and a live list of recent alerts</div>
+</div>
+
+<h3>What's on this page</h3>
+<table>
+  <tr><th>Section</th><th>What it tells you</th></tr>
+  <tr><td class="col-name">Devices Online</td><td>How many of your sensors are actively reporting right now, out of the total you have. If the second number is lower than the first, some are offline — worth a look at <a href="#devices">Devices</a>.</td></tr>
+  <tr><td class="col-name">Open Alerts</td><td>How many issues currently need attention, and how many of those are the most serious ("critical") kind.</td></tr>
+  <tr><td class="col-name">Active Sites</td><td>How many locations you have equipment monitoring at.</td></tr>
+  <tr><td class="col-name">Open Tickets</td><td>How many repair/service jobs are currently open and waiting to be handled.</td></tr>
+  <tr><td class="col-name">Power draw chart</td><td>A simple line graph of electricity usage over the last 24 hours, so you can spot unusual spikes at a glance.</td></tr>
+  <tr><td class="col-name">Recent alerts</td><td>Your three newest alerts, with a <strong>"View all"</strong> link that takes you to the full <a href="#alerts">Alerts</a> page.</td></tr>
+</table>
+
+<div class="box box-tip">
+  <div class="box-title">Make this your daily habit</div>
+  A quick glance at the Dashboard once a day is usually all it takes to stay ahead of problems — the four number cards are designed to be readable in about five seconds.
+</div>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 5 — SITES
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="sites">
+<h2>5. Sites</h2>
+<p>A <strong>Site</strong> is a physical place — a restaurant, a pumping station, a pool facility, a nursing home, anywhere you have equipment being monitored. Click <strong>Sites</strong> in the menu to see the full list.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem">▦ Dashboard</div>
+      <div class="navitem active">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Sites <span style="float:right;" class="shot-btn">+ Add site</span></h5>
+      <div class="sub">7 sites across all verticals</div>
+      <div class="shot-card">
+        <div class="shot-row"><span>📍 Riverside Pump Station — Houston, TX</span><span class="shot-pill" style="background:#dcfce7;color:#166534;">healthy</span></div>
+        <div class="shot-row"><span>📍 QSR — Downtown Branch — Austin, TX</span><span class="shot-pill" style="background:#fef3c7;color:#92400e;">warning</span></div>
+        <div class="shot-row"><span>📍 Northside Pump Station — Houston, TX</span><span class="shot-pill" style="background:#fee2e2;color:#991b1b;">critical</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Sites list — one row per location, with an at-a-glance status color</div>
+</div>
+
+<h3>What's on this page</h3>
+<p>A simple list (table) with one row per site:</p>
+<table>
+  <tr><th>Column</th><th>What it shows</th></tr>
+  <tr><td class="col-name">Name</td><td>The site's name, e.g. "Riverside Pump Station"</td></tr>
+  <tr><td class="col-name">Type</td><td>What kind of place it is — pumping station, restaurant, pool, nursing home, and so on</td></tr>
+  <tr><td class="col-name">Location</td><td>City and state</td></tr>
+  <tr><td class="col-name">Devices</td><td>How many sensors are installed there</td></tr>
+  <tr><td class="col-name">Status</td><td>A colored badge — see <a href="#colors">What the Colors Mean</a></td></tr>
+</table>
+
+<p>In the top-right corner is an <strong>"Add site"</strong> button <span class="badge badge-soon">Coming soon</span> — this will let you register a brand-new location yourself. For now, if you need a new site added, contact your PeakLogic representative.</p>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 6 — ASSETS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="assets">
+<h2>6. Assets</h2>
+<p>An <strong>Asset</strong> is a specific piece of equipment — a pump, a walk-in cooler, a fryer, a pool pump — that lives at one of your <a href="#sites">Sites</a>. Click <strong>Assets</strong> in the menu to see every piece of equipment you have registered, shown as a grid of cards rather than a table.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem active">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Assets <span style="float:right;" class="shot-btn">+ Add asset</span></h5>
+      <div class="sub">7 assets registered</div>
+      <div class="shot-grid">
+        <div class="shot-card">
+          <div class="shot-row" style="border:none;"><span style="color:#94a3b8">pump</span><span class="shot-pill" style="background:#dcfce7;color:#166534;">healthy</span></div>
+          <div style="font-weight:700; font-size:.72rem;">Primary Pump P1</div>
+          <div style="color:#94a3b8; font-size:.62rem;">Riverside Pump Station</div>
+        </div>
+        <div class="shot-card">
+          <div class="shot-row" style="border:none;"><span style="color:#94a3b8">hvac</span><span class="shot-pill" style="background:#fee2e2;color:#991b1b;">critical</span></div>
+          <div style="font-weight:700; font-size:.72rem;">Fryer Unit 2</div>
+          <div style="color:#94a3b8; font-size:.62rem;">QSR — Downtown Branch</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Assets grid — each card is one piece of equipment</div>
+</div>
+
+<h3>What's on each card</h3>
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td class="col-name">Category label</td><td>The type of equipment — pump, HVAC, pool system, refrigeration, and so on</td></tr>
+  <tr><td class="col-name">Status badge</td><td>Colored health indicator — see <a href="#colors">What the Colors Mean</a></td></tr>
+  <tr><td class="col-name">Asset name &amp; site</td><td>What it's called and where it lives</td></tr>
+  <tr><td class="col-name">Make &amp; model</td><td>The manufacturer and model number, e.g. "Grundfos CM10-A"</td></tr>
+</table>
+
+<p>The <strong>"Add asset"</strong> button in the top-right is <span class="badge badge-soon">Coming soon</span> — for now, new equipment is registered by your PeakLogic representative when a sensor is installed.</p>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 7 — DEVICES
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="devices">
+<h2>7. Devices</h2>
+
+<h3 id="viewing-devices">7.1 Viewing Your Devices</h3>
+<p>A <strong>Device</strong> is the physical sensor itself — the small box attached to a piece of equipment that actually does the measuring and sends the data to PeakLogic. Click <strong>Devices</strong> in the menu to see all of them.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem active">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Devices <span style="float:right;" class="shot-btn">+ Onboard device</span></h5>
+      <div class="sub">6 devices · 5 online</div>
+      <div class="shot-card">
+        <div class="shot-row"><span>PLG-0001 — Primary Pump P1</span><span class="shot-pill" style="background:#dcfce7;color:#166534;">📶 Online</span></div>
+        <div class="shot-row"><span>PLG-0004 — Fryer Unit 2</span><span class="shot-pill" style="background:#fee2e2;color:#991b1b;">📵 Offline</span></div>
+        <div class="shot-row"><span>PLG-0005 — (not assigned yet)</span><span class="shot-pill" style="background:#f1f5f9;color:#475569;">Provisioning</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Devices list, with each sensor's connection status</div>
+</div>
+
+<table>
+  <tr><th>Column</th><th>What it shows</th></tr>
+  <tr><td class="col-name">Serial</td><td>The unique code printed on the sensor itself, e.g. <code>PLG-0001</code></td></tr>
+  <tr><td class="col-name">Asset / Site</td><td>Which piece of equipment and location it's attached to</td></tr>
+  <tr><td class="col-name">Firmware</td><td>The version of software running on the sensor (only matters if support asks you for it)</td></tr>
+  <tr><td class="col-name">Last seen</td><td>How long ago it last sent a reading — if this says something like "3 hr ago" for a device that should be online, that's worth flagging</td></tr>
+  <tr><td class="col-name">Status</td><td><span class="badge badge-green">Online</span> is reporting normally, <span class="badge badge-red">Offline</span> hasn't checked in recently, <span class="badge badge-gray">Provisioning</span> means it's been registered but not yet assigned to a location</td></tr>
+</table>
+
+<h3 id="onboarding">7.2 Connecting a New Device</h3>
+<p>This is the one setup task you'll actually do yourself, and it's fully working today — no waiting required. When you get a new sensor from PeakLogic, here's how to bring it online:</p>
+
+<ol class="steps">
+  <li>Click <strong>Devices</strong> in the left menu, then click the purple <strong>"Onboard device"</strong> button in the top-right corner.</li>
+  <li>You'll land on a simple 2-step form. <strong>Step 1</strong> asks for the <strong>serial number</strong> — this is printed on a label on the back of your sensor, in the format <code>PLG-0000</code>. Type it in (it doesn't matter if you use capital or lowercase letters).</li>
+  <li>Click <strong>Next</strong>. PeakLogic checks the serial number for you — if it's valid and hasn't already been claimed by someone else, you'll move to Step 2 automatically. If something's wrong, you'll see a short message explaining what to fix.</li>
+  <li><strong>Step 2</strong> asks where this sensor lives. Choose the <strong>Site</strong> from the dropdown list first.</li>
+  <li>Once you've picked a site, a second dropdown appears for <strong>Asset</strong> — choose which specific piece of equipment this sensor is attached to. (This step is optional — you can skip it and assign it later if you're not sure yet.)</li>
+  <li>Click <strong>Finish</strong> (or <strong>"Skip for now"</strong> if you didn't pick an asset). You'll see a green confirmation screen summarizing everything.</li>
+  <li>From there, you can click <strong>"Onboard another"</strong> if you have more sensors to add, or <strong>"View all devices"</strong> to see it in your full device list.</li>
+</ol>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body" style="flex-direction:column; padding: 1rem;">
+    <div style="display:flex; align-items:center; gap:.5rem; margin-bottom:.8rem; justify-content:center;">
+      <div style="width:22px;height:22px;border-radius:50%;background:#22c55e;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;">✓</div>
+      <div style="width:40px;height:2px;background:#22c55e;"></div>
+      <div style="width:22px;height:22px;border-radius:50%;background:#7c3aed;color:#fff;display:flex;align-items:center;justify-content:center;font-size:.6rem;font-weight:700;">2</div>
+    </div>
+    <div style="text-align:center; font-size:.62rem; color:#94a3b8; margin-bottom:.8rem;">Step 1: Enter serial &nbsp;&nbsp;&nbsp;&nbsp; Step 2: Assign location</div>
+    <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:6px; padding:.4rem .6rem; font-size:.65rem; color:#166534; margin-bottom:.6rem;">✓ Device PLG-0007 verified and claimed</div>
+    <div style="font-size:.68rem; color:#94a3b8; margin-bottom:.2rem;">Site</div>
+    <div style="border:1px solid #e2e8f0; border-radius:4px; padding:.35rem; font-size:.65rem; margin-bottom:.5rem;">Riverside Pump Station ▾</div>
+    <div style="font-size:.68rem; color:#94a3b8; margin-bottom:.2rem;">Asset (optional)</div>
+    <div style="border:1px solid #e2e8f0; border-radius:4px; padding:.35rem; font-size:.65rem;">— Select an asset — ▾</div>
+  </div>
+  <div class="shot-caption">Step 2 of the onboarding wizard — a green checkmark confirms Step 1 succeeded</div>
+</div>
+
+<div class="box box-tip">
+  <div class="box-title">Not sure which asset yet?</div>
+  It's fine to click <strong>"Skip for now"</strong> — the sensor is still fully connected and reporting data, it's just not linked to a specific piece of equipment yet. You (or your PeakLogic contact) can assign it later.
+</div>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 8 — ALERTS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="alerts">
+<h2>8. Alerts</h2>
+<p>An <strong>Alert</strong> is PeakLogic's way of tapping you on the shoulder — it means a sensor reading crossed a threshold that's worth knowing about. Click <strong>Alerts</strong> in the menu to see every alert, newest first.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem active">🔔 Alerts</div>
+      <div class="navitem">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Alerts</h5>
+      <div class="sub">3 open · 1 critical</div>
+      <div class="shot-card" style="border-left:3px solid #f87171;">
+        <div style="font-weight:700; font-size:.7rem;">Fryer Unit 2 <span style="float:right;" class="shot-pill" style="background:#fee2e2;color:#991b1b;">critical</span></div>
+        <div style="color:#94a3b8; font-size:.62rem;">QSR — Downtown Branch</div>
+        <div style="font-size:.65rem; margin-top:.2rem;">Temperature sensor offline — no data for 3 h</div>
+      </div>
+      <div class="shot-card" style="border-left:3px solid #fbbf24;">
+        <div style="font-weight:700; font-size:.7rem;">Primary Pump P1 <span style="float:right;" class="shot-pill" style="background:#fef3c7;color:#92400e;">warning</span></div>
+        <div style="color:#94a3b8; font-size:.62rem;">Riverside Pump Station</div>
+        <div style="font-size:.65rem; margin-top:.2rem;">Power draw 18% above rated — 3.8 kW vs 3.2 kW</div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Alerts page — a colored strip on the left of each card shows severity at a glance</div>
+</div>
+
+<h3>Reading an alert</h3>
+<p>Every alert card tells you, in plain sentences, exactly what happened — for example <em>"Temperature sensor offline — no data for 3 h"</em> or <em>"Power draw 18% above rated — 3.8 kW vs 3.2 kW."</em> No decoding required. Each card also shows:</p>
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td class="col-name">Colored side stripe &amp; badge</td><td>How serious it is — see <a href="#colors">What the Colors Mean</a></td></tr>
+  <tr><td class="col-name">Equipment &amp; site name</td><td>Exactly where the problem is</td></tr>
+  <tr><td class="col-name">Timestamp</td><td>How long ago it was raised, e.g. "14 min ago"</td></tr>
+  <tr><td class="col-name">Status</td><td><span class="badge badge-gray">open</span> = nobody has looked at it yet; <span class="badge badge-purple">acknowledged</span> = someone has seen it; <span class="badge badge-green">resolved</span> = it's fixed</td></tr>
+</table>
+
+<p>Open alerts show an <strong>"Acknowledge"</strong> button <span class="badge badge-soon">Coming soon</span> — this will let you mark an alert as "seen" so your team knows someone's on it. For now, the best way to acknowledge an alert is to follow up directly with whoever handles your equipment.</p>
+
+<div class="box box-warn">
+  <div class="box-title">If you see a red "critical" alert</div>
+  Treat it as needing attention today, not next week. Critical alerts also automatically create a <a href="#tickets">Service Ticket</a> and notify your service provider, so help may already be on the way — but it's still worth checking in.
+</div>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 9 — TICKETS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="tickets">
+<h2>9. Service Tickets</h2>
+<p>A <strong>Service Ticket</strong> is a repair or maintenance job — either created automatically when a critical alert fires, or logged manually. Click <strong>Tickets</strong> in the menu to see them.</p>
+
+<div class="shot">
+  <div class="shot-bar"><div class="shot-dot r"></div><div class="shot-dot y"></div><div class="shot-dot g"></div></div>
+  <div class="shot-body">
+    <div class="shot-side">
+      <div class="logo">Peak<span>Logic</span></div>
+      <div class="navitem">▦ Dashboard</div>
+      <div class="navitem">📍 Sites</div>
+      <div class="navitem">📦 Assets</div>
+      <div class="navitem">🖲 Devices</div>
+      <div class="navitem">🔔 Alerts</div>
+      <div class="navitem active">🎫 Tickets</div>
+    </div>
+    <div class="shot-main">
+      <h5>Service Tickets <span style="float:right;" class="shot-btn">+ New ticket</span></h5>
+      <div class="sub">2 open tickets</div>
+      <div class="shot-card">
+        <div style="font-weight:700; font-size:.7rem;">TK-001 — Fryer Unit 2 sensor replacement <span style="float:right;" class="shot-pill" style="background:#f1f5f9;color:#475569;">open</span></div>
+        <div style="color:#94a3b8; font-size:.62rem;">Fryer Unit 2 · QSR — Downtown Branch</div>
+        <div style="font-size:.6rem; color:#94a3b8; margin-top:.2rem;">Created 1 hr ago · Due Tomorrow</div>
+      </div>
+    </div>
+  </div>
+  <div class="shot-caption">The Service Tickets page — one card per repair job</div>
+</div>
+
+<table>
+  <tr><th>What you see</th><th>What it means</th></tr>
+  <tr><td class="col-name">Ticket ID</td><td>A short reference code like <code>TK-001</code>, handy when talking to support</td></tr>
+  <tr><td class="col-name">Title &amp; equipment</td><td>What the job is and which asset/site it's for</td></tr>
+  <tr><td class="col-name">Priority</td><td><span class="badge badge-red">emergency</span> · <span class="badge badge-amber">high</span> · <span class="badge badge-blue">medium</span> · <span class="badge badge-gray">low</span></td></tr>
+  <tr><td class="col-name">Status</td><td><span class="badge badge-gray">open</span> → <span class="badge badge-purple">assigned</span> → <span class="badge badge-amber">in progress</span> → <span class="badge badge-green">completed</span> (or <span class="badge badge-gray">cancelled</span>)</td></tr>
+  <tr><td class="col-name">Created / Due</td><td>When it was logged and when it's expected to be handled by</td></tr>
+</table>
+
+<p>The <strong>"New ticket"</strong> button is <span class="badge badge-soon">Coming soon</span> — for now, most tickets are created automatically from critical alerts, and manual requests go through your PeakLogic representative.</p>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 10 — COLORS
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="colors">
+<h2>10. What the Colors Mean</h2>
+<p>PeakLogic uses the same three-color system everywhere — Sites, Assets, Devices, and Alerts all follow this exact pattern, so once you learn it here, you'll recognize it on every page.</p>
+
+<table>
+  <tr><th>Color</th><th>Meaning</th><th>What to do</th></tr>
+  <tr><td><span class="badge badge-green">🟢 Green — Healthy</span></td><td>Everything is normal</td><td>Nothing — this is what you want to see</td></tr>
+  <tr><td><span class="badge badge-amber">🟠 Amber — Warning</span></td><td>Something is drifting outside its normal range, but it's not an emergency</td><td>Worth checking in the next day or so</td></tr>
+  <tr><td><span class="badge badge-red">🔴 Red — Critical</span></td><td>Something needs attention now</td><td>Treat as urgent — this is what actually wakes people up</td></tr>
+  <tr><td><span class="badge badge-gray">⚪ Gray — Offline / Unknown</span></td><td>No recent data, or the item isn't in active use yet</td><td>Check whether the sensor lost power or connection</td></tr>
+</table>
+
+<p>A few pages use a couple of extra colors for their own specific purposes:</p>
+<table>
+  <tr><th>Color</th><th>Where you'll see it</th><th>Meaning</th></tr>
+  <tr><td><span class="badge badge-blue">🔵 Blue</span></td><td>Alerts, Tickets</td><td>Informational / medium priority — lower urgency than amber</td></tr>
+  <tr><td><span class="badge badge-purple">🟣 Purple</span></td><td>Alerts, Tickets</td><td>"Acknowledged" or "assigned" — someone is already on it</td></tr>
+</table>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 11 — GLOSSARY
+════════════════════════════════════════════════════════════ -->
+<div class="section page-break" id="glossary">
+<h2>11. Glossary — Plain-English Definitions</h2>
+<p>No jargon left unexplained. If you come across a word anywhere in PeakLogic and aren't sure what it means, it's probably here.</p>
+
+<table>
+  <tr><th style="width:160px">Term</th><th>In plain English</th></tr>
+  <tr><td class="gloss-term">Site</td><td>A physical place — a restaurant, a pumping station, a pool facility. The "where."</td></tr>
+  <tr><td class="gloss-term">Asset</td><td>A specific piece of equipment at a Site — a pump, a fryer, a cooler. The "what."</td></tr>
+  <tr><td class="gloss-term">Device</td><td>The small physical sensor attached to an Asset that actually measures and reports data. The "how."</td></tr>
+  <tr><td class="gloss-term">Telemetry</td><td>A fancy word for "the readings sent by a sensor" — temperature, power draw, flow rate, and so on.</td></tr>
+  <tr><td class="gloss-term">Alert</td><td>A notice that a reading crossed a threshold worth knowing about.</td></tr>
+  <tr><td class="gloss-term">Service Ticket</td><td>A tracked repair or maintenance job, often created automatically from a critical alert.</td></tr>
+  <tr><td class="gloss-term">Onboarding (a device)</td><td>The process of connecting a brand-new sensor to your account for the first time.</td></tr>
+  <tr><td class="gloss-term">Serial number</td><td>The unique code printed on a physical sensor, used to identify it when connecting it.</td></tr>
+  <tr><td class="gloss-term">Firmware</td><td>The built-in software running on the sensor itself (not something you usually need to think about).</td></tr>
+  <tr><td class="gloss-term">Two-factor login / MFA</td><td>The second login step — a 6-digit code from an app on your phone, in addition to your password.</td></tr>
+  <tr><td class="gloss-term">Tenant</td><td>An internal PeakLogic term for "your company's account" — you won't see this word in the app itself, but you might hear it from support.</td></tr>
+</table>
+
+<a href="#faq" class="back-to-top">↑ Back to top</a>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     SECTION 12 — GETTING HELP
+════════════════════════════════════════════════════════════ -->
+<div class="section" id="help">
+<h2>12. Getting Help</h2>
+<p>Nobody expects you to memorize any of this — if you're ever stuck, reach out.</p>
+
+<ul>
+  <li><strong>Locked out, no invitation email, or need a new account:</strong> contact the administrator at your own company who manages your PeakLogic account, or your PeakLogic representative directly.</li>
+  <li><strong>Something in the app looks wrong or broken</strong> (not one of the <span class="badge badge-soon">Coming soon</span> items already noted in this guide): contact your PeakLogic representative with a description of what you were doing and what you saw.</li>
+  <li><strong>A question about a specific alert or piece of equipment:</strong> your PeakLogic representative or your own facilities/maintenance team can help interpret it.</li>
+  <li><strong>Lost your authenticator app / new phone:</strong> contact support to get your two-factor login reset before you're locked out.</li>
+</ul>
+
+<div class="box box-info">
+  <div class="box-title">This guide will keep growing</div>
+  As more features go live (like creating your own sites and tickets), this guide will be updated to match — the <span class="badge badge-soon">Coming soon</span> tags you see today are the clearest sign of what's arriving next.
+</div>
+
+<hr style="margin: 2.5rem 0; border: none; border-top: 1px solid #e2e8f0;">
+
+<p style="text-align:center; color:#94a3b8; font-size:.85rem;">
+  PeakLogic — User Guide &nbsp;·&nbsp; <strong>v1.0</strong> &nbsp;·&nbsp; 2026-07-12<br>
+  Written in plain language for everyone, technical or not.
+</p>
+
+</div>
+
+</body>
+</html>
