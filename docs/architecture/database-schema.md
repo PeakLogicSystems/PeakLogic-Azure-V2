@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.1 (amended — see Revision History, end of document)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Domain Model](domain-model.md) (approved v1.1), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [User Personas](user-personas.md) (approved v1.1), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.2), [Information Architecture](information-architecture.md) (approved v1)
+**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.2, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1)
 **Last updated:** 2026-07-11
 
 ---
@@ -179,6 +179,120 @@ WHERE terr.id = $1
 - A new `channel_partner_isolation` policy (`channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid`) grants channel-partner sessions read access to their own scope's entries, additive alongside the existing (now `missing_ok`-fixed) `tenant_isolation` policy.
 - The append-only trigger (§4.3) needed **no change** — it blocks `UPDATE`/`DELETE` regardless of which scope dimension a row belongs to, so the evidentiary guarantee already covers the new rows automatically.
 
+### 4.5 Internal Administration Console Schema *(new — added v1.2, see Revision History)*
+
+Domain Model §2.8 (v1.2) specified PeakLogicStaffUser and AccountAssignment; this section makes the physical decisions Domain Model left open (§5 there), and — the hard part — designs the actual cross-tenant **write** RLS mechanism flagged there as harder than §4.4's channel-partner precedent.
+
+**The core design decision: reuse `withTenant()`'s existing machinery via a verified "act as" handoff, not a parallel permissive-policy layer.** §4.4's channel-partner pattern added new `channel_partner_read` policies to five operational tables (`sites`/`assets`/`devices`/`telemetry`/`alerts`). Doing the same thing again for the admin console — which needs real cross-tenant **write**, not read-only — would mean auditing and re-verifying five-plus tables' worth of new permissive policies for a write path, the exact kind of surface area where this project's own history (the `unclaimed_lookup` leak, found only on a third audit pass) shows real bugs hide. Instead: once an `account_manager` session's assignment to a specific target tenant is verified, the request handler sets `app.current_tenant_id` to that tenant's ID for the rest of the transaction — reusing the *exact same*, already-hardened `tenant_isolation` policies and route-handler code every ordinary tenant session already goes through. **No new policy is added to `users`, `sites`, `assets`, `devices`, `alerts`, or any other operational table for this feature.** The only new RLS surface is on the three tables genuinely new to this amendment (`peaklogic_staff_users`, `account_assignments`) plus one additive policy each on the two already-RLS'd tables that need a staff-visibility path (`tenants`, and — deliberately, see below — not `channel_partners`).
+
+**`peaklogic_staff_users`** — the third identity table (Domain Model §2.8), structurally parallel to `users`/`channel_partner_users`, no `tenant_id`.
+```sql
+CREATE TABLE peaklogic_staff_users (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cognito_sub  TEXT        NOT NULL UNIQUE,
+  email        TEXT        NOT NULL,
+  display_name TEXT,
+  role         TEXT        NOT NULL CHECK (role IN ('superadmin','account_manager')),
+  status       TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE peaklogic_staff_users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE peaklogic_staff_users FORCE ROW LEVEL SECURITY;
+CREATE POLICY staff_self_or_superadmin ON peaklogic_staff_users
+  USING (
+    id = current_setting('app.current_staff_user_id', true)::uuid
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+  );
+```
+A staff session can always see (and, per the same USING-doubles-as-WITH-CHECK behavior below, only modify) their own row; `superadmin` sessions see/manage every row, including creating new ones (IA-1.1) — the `OR` condition doesn't depend on the target row existing, so it evaluates true for INSERT the same way it does for existing rows.
+
+**`account_assignments`** — the "book of business" join table (Domain Model §2.8).
+```sql
+CREATE TABLE account_assignments (
+  id                  UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  staff_user_id       UUID        NOT NULL REFERENCES peaklogic_staff_users(id) ON DELETE CASCADE,
+  tenant_id           UUID        REFERENCES tenants(id) ON DELETE CASCADE,
+  channel_partner_id  UUID        REFERENCES channel_partners(id) ON DELETE CASCADE,
+  assigned_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  assigned_by         UUID        NOT NULL REFERENCES peaklogic_staff_users(id),
+  CONSTRAINT account_assignments_scope_check CHECK (
+    (tenant_id IS NOT NULL AND channel_partner_id IS NULL)
+    OR (tenant_id IS NULL AND channel_partner_id IS NOT NULL)
+  ),
+  UNIQUE (staff_user_id, tenant_id),
+  UNIQUE (staff_user_id, channel_partner_id)
+);
+ALTER TABLE account_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE account_assignments FORCE ROW LEVEL SECURITY;
+CREATE POLICY account_assignment_visibility ON account_assignments
+  USING (
+    staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+  );
+```
+An `account_manager` can see (and a `superadmin` can create/see/revoke) assignment rows — this is what a session's "check am I assigned to tenant X" query runs against, and it's itself correctly scoped by RLS, not just an application-level `WHERE` clause (MT-1.1's structural principle, applied here too). The two partial-looking `UNIQUE` constraints (`staff_user_id, tenant_id` and `staff_user_id, channel_partner_id`) rely on Postgres treating `NULL` as distinct for uniqueness purposes — this correctly allows one staff member to hold both a tenant assignment and a (different) channel-partner assignment, while still preventing a duplicate assignment to the same tenant twice.
+
+**The "act as" handoff — the mechanism that makes IA-5 work without touching any operational table's RLS.** A new `withStaffActingOnTenant()` function (mirrors `withTenant()`/`withChannelPartner()` in shape, `backend/shared/db.ts`), used by every admin-console route that operates on a tenant on a staff member's behalf:
+```sql
+-- Within one transaction, in this order:
+SET LOCAL app.current_staff_user_id = '<staff uuid>';
+SET LOCAL app.current_staff_role = '<superadmin|account_manager>';
+
+-- Verify assignment BEFORE touching the target tenant's own scope —
+-- this query is itself RLS-scoped by account_assignment_visibility above,
+-- so an account_manager session literally cannot see a row proving
+-- assignment to a tenant they aren't assigned to; the DB enforces this,
+-- the application code isn't trusted to get the WHERE clause right alone.
+-- Skipped entirely when app.current_staff_role = 'superadmin' (IA-6:
+-- unconditional access, not expressed as an assignment row -- see
+-- Domain Model §2.8's own reasoning).
+SELECT 1 FROM account_assignments WHERE tenant_id = '<target tenant uuid>';
+-- Application code: if role = 'account_manager' and the above returns
+-- zero rows, ROLLBACK and return 403 -- do not proceed to the next line.
+
+-- Only once verified (or unconditionally for superadmin): hand off to
+-- the exact same session variable every ordinary tenant request uses.
+SET LOCAL app.current_tenant_id = '<target tenant uuid>';
+-- From here, every existing tenant_isolation policy, every existing
+-- route handler (create user, claim device, update asset specs, manage
+-- alerts) runs completely unchanged -- it cannot distinguish a staff
+-- session acting-as a tenant from that tenant's own real session,
+-- because by design it doesn't need to.
+```
+`writeAuditLog()` (Security Architecture §5) is extended to accept an optional `actorStaffUserId` alongside its existing tenant/channel-partner scope parameters, populating the new `audit_log_entries.actor_staff_user_id` column (Domain Model §2.6, corrected) — so an audit entry produced through this handoff correctly attributes the *staff member*, not a synthetic tenant user, while still being scoped (`tenant_id`) to the tenant that was acted upon.
+
+**`tenants` gains one additive policy for staff visibility/creation**, alongside its existing `tenant_isolation`/`channel_partner_read` (§2, already `FORCE`'d):
+```sql
+CREATE POLICY staff_tenant_access ON tenants
+  USING (
+    current_setting('app.current_staff_role', true) = 'superadmin'
+    OR EXISTS (
+      SELECT 1 FROM account_assignments aa
+      WHERE aa.staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+        AND aa.tenant_id = tenants.id
+    )
+  );
+```
+Per the USING-doubles-as-WITH-CHECK behavior (verified directly against PostgreSQL's own documentation, not assumed — a `USING`-only policy applies to `INSERT` as well as `SELECT`/`UPDATE`/`DELETE`), this single policy does three things at once, correctly, with no separate INSERT-specific policy needed: a `superadmin` can create a new tenant row (IA-2.1 — the condition doesn't reference the row at all, so it's satisfiable for a row that doesn't exist yet); a `superadmin` can read/update every existing tenant; an `account_manager` can read/update only tenants they have a matching `account_assignments` row for, and is automatically denied `INSERT` (the `EXISTS` subquery can never match a not-yet-existing tenant's `id`) without needing a separate rule to say so.
+
+**`channel_partners` is deliberately *not* given equivalent RLS in this pass — a disclosed scope decision, not a silent gap.** Unlike `tenants`, `channel_partners` has never had RLS enabled at all (§2's documented convention: "access controlled at the application layer only"). Retrofitting `FORCE ROW LEVEL SECURITY` onto it now would require first enumerating and replicating every existing legitimate reader (tenant-side CH-1.2 attribution display, the channel-partner portal's own self-read via `withChannelPartner()`, and now the admin console) — real, necessary work this project has previously done carefully across three full audit passes for the original `FORCE` rollout (Multi-Tenant Architecture v1.1), not something to rush inside an already-large amendment. **IA-3.1 (superadmin-only channel-partner creation) is enforced at the application layer for now** — the route handler checks `app.current_staff_role = 'superadmin'` before executing the `INSERT`, consistent with this table's existing, already-accepted trust model. Flagged in §6 as a real open item, not resolved silently.
+
+**`users.role` CHECK constraint corrected in the same migration, since it was found in the same pass (Domain Model §2.1/§4 decision 11):**
+```sql
+ALTER TABLE users DROP CONSTRAINT users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('admin','operator'));
+```
+Safe to apply — no `service_partner`-role row can exist today (the Cognito group that would create one was removed in Security Architecture v1.1, and no code path writes this value).
+
+**`users` gains three nullable display-preference columns (Domain Model §2.1, SET-3/SET-4/SET-5)** — no RLS change needed, they're ordinary columns on an already-`tenant_isolation`-protected table:
+```sql
+ALTER TABLE users ADD COLUMN clock_format TEXT CHECK (clock_format IN ('12h','24h'));
+ALTER TABLE users ADD COLUMN timezone TEXT;
+ALTER TABLE users ADD COLUMN theme TEXT CHECK (theme IN ('light','dark'));
+```
+All three `NULL`-default, meaning "use the application default" — no backfill migration needed for existing rows.
+
 ---
 
 ## 5. Indexing Strategy
@@ -198,6 +312,8 @@ WHERE terr.id = $1
 | `route_stops_assignment_idx` *(new)* | `route_stops` | Fetching an assignment's ordered stop list (also served by the `UNIQUE (route_assignment_id, sequence_number)` constraint's implicit index) |
 | `route_assignments_partner_idx` *(new)* | `route_assignments` | `channel_partner_isolation`'s own filter — every read goes through this column |
 | `audit_log_entries_channel_partner_idx` *(new)* | `audit_log_entries` | The channel-partner-scoped analog of `audit_log_entries_lookup`, for the same "history of actions" query pattern |
+| `account_assignments_staff_idx` *(new, added v1.2)* | `account_assignments` | `account_assignment_visibility`'s own filter, and the "act as" handoff's assignment-verification query — every request through the admin console hits this |
+| `account_assignments_tenant_idx` *(new, added v1.2)* | `account_assignments` | Reverse lookup — `staff_tenant_access`'s `EXISTS` subquery, and "which account managers are assigned to this tenant" |
 
 **No `GiST` spatial index on `territories.boundary` at MVP** — deferred for the same reason `sites.lat`/`lng` aren't promoted to a geography column (§4.4): a handful of territories per partner, queried interactively, doesn't need one yet.
 
@@ -213,6 +329,9 @@ WHERE terr.id = $1
 4. ~~The cross-tenant access-control mechanism for `territories`/`channel_partner_users`/`route_assignments`/`route_stops` is explicitly not decided here~~ **Resolved 2026-07-11** (§4.4): `channel_partner_isolation` RLS policies on all four tables, plus `channel_partner_read` policies (backed by `channel_partner_can_read_site()`) on `sites`/`assets`/`devices`/`telemetry`/`alerts`. **What remains genuinely open**: this is the data-layer mechanism only — the application code that actually sets `app.current_channel_partner_id`/`app.current_channel_partner_user_id`/`app.current_channel_partner_role` per request (a `withChannelPartner()` helper mirroring `withTenant()` in `backend/shared/db.ts`) doesn't exist yet, and depends on Security Architecture (#13) defining the concrete Cognito/JWT shape for a `channel_partner_users` session first.
 5. ~~No audit logging exists for `channel_partner_users` actions~~ **Resolved 2026-07-11** (§4.4): `audit_log_entries` extended with a nullable `channel_partner_id` + `actor_channel_partner_user_id`, scope/actor `CHECK` constraints, and a `channel_partner_isolation` policy. The append-only trigger needed no change.
 6. **New, added during this review**: the `missing_ok` fix to nine existing `tenant_isolation` policies (§4.4) has never been exercised against a real database (no AWS account exists yet, `mvp-roadmap.md` Blocker #1) — the reasoning is sound (documented Postgres `current_setting()` behavior), but "sound reasoning, unverified against a real instance" is a real caveat this project applies consistently elsewhere (e.g. the migration tool choice, item 2) and should apply here too, not be presented as more certain than it is.
+7. **`channel_partners` was deliberately left without RLS in this pass (§4.5)** — IA-3.1's superadmin-only creation restriction is enforced at the application layer only, a real, disclosed gap rather than a resolved one. Revisit if `channel_partners` ever needs row-level differentiation for a reason beyond "who can create one" (today, every existing reader needs unrestricted access, so there's no differentiation to add yet).
+8. **The "act as" handoff mechanism (§4.5) has never run against a real database**, same standing caveat as item 6 — the USING-doubles-as-WITH-CHECK behavior it depends on was verified directly against PostgreSQL's own documentation (not assumed from memory), but that's still "sound reasoning, unverified against a real instance," not proof.
+9. **Whether `superadmin` actions should also go through an assignment-style verification step, just always-true, for defensive-depth/audit-clarity reasons — not decided here.** Domain Model §2.8 and this section both model `superadmin` as unconditionally bypassing the assignment check entirely, which is simpler but means a `superadmin` session's audit trail can't distinguish "acted on a tenant they were expected to touch" from "acted on an arbitrary tenant" the way an `account_manager`'s always can. Flagged as a real design tradeoff, not silently resolved in favor of simplicity.
 
 ---
 
@@ -226,6 +345,7 @@ WHERE terr.id = $1
 | §4.3 Audit Log Immutability | PRD §6 (evidentiary-record framing), AUD-1, Compliance & Certification Roadmap §4 |
 | §5 Indexing Strategy | RP-1.1, UX-2.1, CH-2.1, AUD-1, AI-3.1 |
 | §4.4 Channel Partner Portal & Dispatch Schema *(added v1.1)* | Domain Model §2.7, PRD §5.10 (TR-1–TR-3), SRS §3.12 (TR-1.1–TR-3.2) |
+| §4.5 Internal Administration Console Schema *(added v1.2)* | Domain Model §2.8, PRD §5.11 (IA-1–IA-8), SRS §3.13 (IA-1.1–IA-8.1) |
 
 ---
 
@@ -250,6 +370,13 @@ WHERE terr.id = $1
 9. **A real, separate bug found while designing the fix for item 8, not assumed away**: every *existing* `tenant_isolation` policy used `current_setting('app.current_tenant_id')` without `missing_ok` — which raises an exception, not just denies, when that variable is unset. A channel-partner session never sets it, so without a fix, the new cross-tenant read policies would never even get evaluated; the pre-existing policy would error first. Verified this is genuine Postgres behavior (`current_setting()`'s documented two-argument form), not assumed — and that Postgres does not short-circuit around an erroring permissive policy just because a sibling policy would pass. Fixed by re-creating all nine affected policies with `missing_ok=true`; a normal tenant session's behavior is provably unaffected, since it always sets the variable.
 10. **A real ordering bug caught and fixed in `docs/data-model.sql` specifically (not in the migration file, which was already correctly ordered)**: `docs/data-model.sql` is one linear script, and the first draft of this fix placed `sites`' `channel_partner_read` policy (which calls `channel_partner_can_read_site()`) immediately after `sites`' own block — before `territories`/`channel_partner_users`/the function itself were ever defined later in the file. Caught by tracing the actual statement order top-to-bottom, not assumed correct because the migration file (a different execution context, building on an already-existing schema) happened to be fine. Fixed by consolidating the function and all five `channel_partner_read` policies into one section at the end of the file, after every table they depend on already exists.
 
+**v1.2 (2026-07-12), reviewed 2026-07-12:** a genuinely different design shape than §4.4's precedent, checked deliberately rather than reused by default.
+
+11. **Verified, not assumed, before committing to the "act as" handoff design**: whether a `USING`-only RLS policy (no explicit `WITH CHECK`) actually governs `INSERT` the same way it governs `SELECT`/`UPDATE`/`DELETE` — checked directly against PostgreSQL's own documentation (`ddl-rowsecurity.html`, `sql-createpolicy.html`) rather than assumed from general RLS familiarity, since this exact mechanic is what makes `staff_tenant_access` correctly self-restrict `account_manager` from `INSERT`ing a new tenant without a second, separate policy. Confirmed: PostgreSQL implicitly reuses `USING` as `WITH CHECK` when none is given.
+12. **A deliberate design fork, decided and justified, not defaulted into**: whether to extend §4.4's five-table `*_read`-policy pattern to the admin console, or reuse `withTenant()` via a verified handoff. Chose the handoff specifically *because* it needs write access (not read-only like §4.4), and because re-verifying five-plus tables' worth of new write-capable permissive policies is exactly the kind of surface area this project's own history (three audit passes on the original `FORCE` rollout, one of which caught a real leak) shows is easy to get subtly wrong. The handoff design adds zero new policies to any operational table.
+13. **`channel_partners`' lack of RLS was checked directly, not assumed from §4.4's convention note** — confirmed via `docs/data-model.sql` that no `ENABLE ROW LEVEL SECURITY` statement exists for this table at all, then made the deliberate, disclosed choice not to retrofit it in this pass (§4.5, §6 item 7) rather than either silently skipping the IA-3.1 protection or rushing a broader RLS retrofit without enumerating every existing caller first.
+14. **`users.role`'s stale `service_partner` CHECK value (Domain Model §2.1's finding) is fixed here, in the schema, not just narrated** — confirmed via `docs/data-model.sql` that no row could currently hold that value (the only path that could ever have written it, the Cognito group, was removed in Security Architecture v1.1) before writing a `DROP CONSTRAINT`/`ADD CONSTRAINT` migration, rather than assuming it was safe.
+
 ---
 
 ## Revision History
@@ -268,3 +395,13 @@ WHERE terr.id = $1
 - **A real, separate bug found and fixed as a consequence of designing the above, not a second deferred item**: every existing `tenant_isolation` policy (nine tables) used `current_setting()` without `missing_ok`, which raises an exception rather than denying when a channel-partner session (which never sets `app.current_tenant_id`) queries them — fixed by re-creating all nine with `missing_ok=true`. Verified this is genuine, documented Postgres behavior, not assumed.
 - **A real ordering bug caught and fixed in `docs/data-model.sql`** (not present in the migration file, which was already correctly ordered against an existing schema): the file is one linear script, and `channel_partner_can_read_site()` — which the new `sites` policy calls — itself depends on `territories`/`channel_partner_users`, which didn't exist yet at the point `sites` was originally defined. Fixed by consolidating the function and all five `channel_partner_read` policies into one section at the end of the file.
 - **What's still genuinely open, not resolved by this pass** (tracked in `project-peaklogic-channel-partner-portal` memory): the *application code* that sets the new `app.current_channel_partner_*` session variables per request (a `withChannelPartner()` helper mirroring `withTenant()`) doesn't exist yet — this document resolved the data-layer mechanism, not the auth/API-layer wiring, which depends on Security Architecture (#13) defining the concrete Cognito/JWT shape for a `channel_partner_users` session first. Also still open: this fix has never run against a real database (no AWS account exists yet).
+
+**v1.2 (2026-07-12)** — forced by the PRD v1.6/SRS v1.6/Domain Model v1.2 amendment (Internal Administration Console, Settings & Preferences), per this document's own established rule that a new domain-model entity needs a real physical-schema decision, not an assumed one.
+
+- **New tables**: `peaklogic_staff_users` (third identity table — `superadmin`/`account_manager` roles) and `account_assignments` (the "book of business" join table, with dual `UNIQUE` constraints allowing one staff member both a tenant assignment and a channel-partner assignment simultaneously, never a duplicate of either).
+- **A genuinely different design shape than §4.4's precedent, chosen deliberately, not by default**: rather than adding new cross-tenant permissive read policies to five-plus operational tables (§4.4's pattern, appropriate for read-mostly access), the admin console reuses `withTenant()`'s existing, already-hardened machinery via a verified "act as" handoff — `account_assignments` (itself RLS-protected) is checked *before* `app.current_tenant_id` is set to the target tenant, after which every existing route handler and `tenant_isolation` policy runs completely unchanged. Zero new policies added to `users`/`sites`/`assets`/`devices`/`alerts`/any other operational table.
+- **`tenants` gains one additive policy** (`staff_tenant_access`) that correctly handles `superadmin` creation, `superadmin` full access, and `account_manager` assigned-subset access — and, verified directly against PostgreSQL's documentation rather than assumed, automatically denies `account_manager` `INSERT` with no separate rule needed, since a `USING`-only policy's condition also gates `INSERT` and an `EXISTS` check against a not-yet-existing row can never pass.
+- **`channel_partners` deliberately left without RLS in this pass** — a disclosed scope decision (§4.5, §6 item 7), not a silent gap. IA-3.1's superadmin-only creation restriction is enforced at the application layer, consistent with this table's pre-existing, already-accepted trust model; retrofitting full RLS would require re-auditing every current caller, real work this project has previously done carefully (three passes, Multi-Tenant Architecture v1.1) and isn't rushing here.
+- **Two real, small fixes bundled into the same migration since they were found in the same pass**: `users.role`'s `CHECK` constraint tightened to drop the already-orphaned `service_partner` value (Domain Model §2.1's finding, verified safe — no row could hold it); `users` gains three nullable display-preference columns (`clock_format`, `timezone`, `theme`) for SET-3/SET-4/SET-5, no backfill needed.
+- **`writeAuditLog()` extended, not replaced**: a new optional `actorStaffUserId` parameter populates `audit_log_entries.actor_staff_user_id` (Domain Model §2.6, itself corrected this pass to match what Database Schema v1.1 had already shipped but never gotten reflected back into that document).
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-admin-console-and-settings` memory): the application code implementing `withStaffActingOnTenant()` and the Cognito/JWT shape behind `app.current_staff_user_id`/`app.current_staff_role` — Security Architecture's (#13) job, same split of responsibility as every prior identity-surface amendment. This design has never run against a real database, same standing caveat as v1.1's fixes.
