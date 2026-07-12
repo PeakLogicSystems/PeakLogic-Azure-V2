@@ -102,6 +102,8 @@ Each item has:
 | TD-38 | No route-handler-level tests exist for the 17 channel-partner endpoints (input validation, state-transition checks like "confirmed routes are immutable") | Low | `project-peaklogic-channel-partner-portal` memory | Open — consistent with existing precedent, none of the 24 original tenant endpoints have route-handler tests either |
 | TD-39 | Cognito Plus tier (advanced threat protection / adaptive auth) deferred purely on cost, not re-evaluated since | Low | Infrastructure as Code §2.2/§6 item 4 | Blocked — tied to Enterprise Roadmap trigger conditions generally |
 | TD-40 | SRS §5.2 cites Threat Model as artifact "#17" — stale; Threat Model is actually #19 | Low | Security Architecture §1 (intro note); source error in SRS §5.2 | Open — trivial, included for completeness |
+| TD-41 | `withStaffSession()`/`withStaffActingOnTenant()` (`backend/shared/db.ts`, added v1.2.0/PRD-SRS v1.6) have no integration-test coverage against a real Postgres — the channel-partner equivalent (`withChannelPartner()`) has that coverage in `db.integration.test.ts`, the staff-side functions are the same load-bearing shape but weren't added to that suite in the same pass | Medium | Security Architecture §2.5; SysAdmin Guide §5.7 | Open — same "verify, don't just re-read" bar as everything else in this register, not yet met for this one |
+| TD-42 | Internal Administration Console (`/v1/admin/*`) has no dedicated frontend UI — every endpoint is real and callable, but a PeakLogic staff member has to call the API directly (e.g. via Postman) rather than through a built console screen | Low | API Specification §4.7; SysAdmin Guide §8.3 | Open — deferred this pass in favor of the tenant-side Settings/theme/drill-down frontend, which end users are actively using |
 
 ---
 
@@ -159,5 +161,7 @@ No item in this register is rated above Medium — consistent with §1.1's frami
 ---
 
 ## Revision History
+
+**v1.1 (2026-07-12)** — added TD-41/TD-42, both real gaps disclosed rather than silently skipped while implementing the Internal Administration Console + Settings & Preferences feature (PRD/SRS v1.6): no integration-test coverage yet for the new `withStaffSession()`/`withStaffActingOnTenant()` functions against a real Postgres, and no dedicated frontend UI yet for the admin console. A minimal amendment (two rows added, no re-triage of existing items) rather than a full re-approval pass — this document's own job is bookkeeping, and these are exactly the kind of items it exists to catch.
 
 **v0.1 (2026-07-12)** — initial draft. Inventories 40 known technical-debt items across 5 categories (Security & Hardening, Reliability & Operational Verification, Compliance & Process, Product & Design Gaps, Code Quality & Documentation Governance), synthesized from Enterprise Roadmap §6's explicit hand-off plus a dedicated second research pass across every remaining artifact and the codebase. This is the last artifact in the 24-item sequenced architecture list.

@@ -14,6 +14,43 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ---
 
+## [1.2.0] — 2026-07-12
+
+The full architecture-first cycle for the Internal Administration Console, Settings & Preferences, and the Site → Asset → Device drill-down (PRD/SRS v1.6, 7 amended architecture artifacts). A real design bug — a circular row-level-security self-lookup policy — was caught and fixed during implementation, before any code shipped.
+
+### Added
+
+**Internal Administration Console** (superuser cross-tenant management for PeakLogic's own staff)
+- Third, separate Cognito user pool (`StaffPool`) — `superadmin`/`account_manager` groups, unlike the group-less Partner Pool: role must be known before any database round-trip, since the cross-tenant "act as" handoff's own row-level security depends on it
+- `superadmin`: unconditional access, and the only role that can create tenants, channel partners, or staff accounts. `account_manager`: scoped to an explicit "book of business" (`account_assignments` table) — sets up a newly-assigned customer's first users, device dashboards, and preliminary alert baselines, but cannot create tenants/partners/staff
+- The "act as" pattern: `withStaffActingOnTenant()` verifies an `account_assignments` row, then defers entirely to the *existing* `tenant_isolation` RLS policies — deliberately not a repeat of the Channel-Partner Portal's approach of adding new permissive read policies across operational tables, since this needs cross-tenant write
+- 12 new `/v1/admin/*` REST endpoints across 6 route handler files
+- 2 new database tables (`peaklogic_staff_users`, `account_assignments`); `audit_log_entries` gained a third actor dimension (`actor_staff_user_id`)
+
+**Settings & Preferences**
+- 8 new `/v1/settings/*` endpoints (reuses the existing tenant Cognito pool — no new identity surface): profile/display preferences, password change and MFA status (proxy Cognito's own APIs, no parallel credential store), and self-service team management
+- `users` gained `clock_format` (12h/24h), `timezone`, and `theme` (light/dark) columns
+- Frontend: real light/dark theme (`ThemeContext`, class-based Tailwind dark mode, persisted to `localStorage`), retrofitted across every existing page; new Settings page (mock data except the theme toggle, which is real)
+
+**Site → Asset → Device Drill-Down**
+- New `SiteDetail`/`AssetDetail`/`DeviceDetail` frontend pages — a site's assets, an asset's independently-reporting devices (e.g. a pump's separate flow sensor, energy monitor, leak sensor, and power actuator), and a device's own live telemetry channels and 24-hour trend
+- Consolidated Sites/Assets/Devices' three previously-independent mock data arrays into one relational dataset so drill-down has real IDs to navigate through
+
+### Fixed
+- **`GET /v1/devices` ignored all query parameters** and always returned the full tenant device list — a real, verified live defect found while designing the drill-down. Added `assetId`/`siteId` filters.
+- **A circular RLS self-lookup policy**, caught during implementation before any code shipped: the drafted `staff_self_or_superadmin` policy on `peaklogic_staff_users` matched a staff member's own row by `id` — but the code that resolves `id` from a JWT's `cognito_sub` needs that same policy to already permit the lookup. Re-keyed the policy on `cognito_sub` instead.
+- `users.role` CHECK constraint still allowed the removed `service_partner` value (dead since Security Architecture v1.1); dropped and re-added without it.
+
+### Security
+- `peaklogic_staff_users` and `account_assignments` both ship with RLS enabled and forced from the start (no retrofit gap, unlike `tenants`' v1.0.0→v1.1.0 history).
+- Every staff write against a tenant's data (via the "act as" handoff) writes an `audit_log_entries` row with `actor_staff_user_id` set — held to a stricter audit-logging bar than the tenant-side routes it reuses query logic from.
+
+### Known limitations (disclosed, tracked as TD-41/TD-42)
+- No integration-test coverage yet for `withStaffSession()`/`withStaffActingOnTenant()` against a real Postgres.
+- The admin console has no dedicated frontend UI — every `/v1/admin/*` endpoint is real and callable, but only via direct API calls today.
+
+---
+
 ## [1.1.0] — 2026-07-12
 
 The architecture-first governance process (`docs/architecture/`, adopted after v1.0.0) drove this entire release: every item below traces to a specific approved architecture artifact, and the two Critical security fixes were found *during* that process, not reported externally.
