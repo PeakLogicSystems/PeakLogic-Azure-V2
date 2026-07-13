@@ -38,7 +38,7 @@ dotnet run --project src/PeakLogicEdge.Host
 
 ## Setting up a new hub device (interim process)
 
-**Requires Windows 10 or 11, x64.** .NET 8 does not support Windows 8/8.1 or Windows RT — RT in particular can only run Windows Store apps and can never run this app, full stop, regardless of .NET version (confirmed 2026-07-12 against an actual Surface RT candidate device, which had to be ruled out for this reason). If a candidate hub device shows Windows 8/8.1/RT under Settings → System → About, it cannot be used until upgraded to Windows 10/11 (only possible on real x86/x64 hardware — Surface RT/2 can never be upgraded past 8.1).
+**Minimum spec: Windows 10 or 11, x64.** .NET 8 does not support Windows 8/8.1 or Windows RT — RT in particular can only run Windows Store apps and can never run this app, full stop, regardless of .NET version. Before provisioning any candidate hub device, check Settings → System → About: anything below Windows 10, or any device restricted to Windows RT (Store-apps-only, cannot be upgraded to a real Windows 10/11), cannot be used.
 
 **Current distribution mechanism: GitHub Releases**, tagged `edge-vX.Y.Z` (a separate tag namespace from the platform's own `vX.Y.Z` releases, since they share this repo). This is explicitly an interim choice, not the production path — see the note below.
 

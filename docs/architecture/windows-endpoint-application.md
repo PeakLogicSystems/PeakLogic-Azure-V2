@@ -26,7 +26,7 @@ This document specifies a **new, physically separate application** — a Windows
 
 ### 1.1 What this application is
 
-A single Windows process (call it **PeakLogic Edge**) per physical site, running on whatever hardware that site has — a Surface tablet mounted at a pump station, a fanless PC in a utility closet, a touchscreen in a QSR back office. It has two jobs:
+A single Windows process (call it **PeakLogic Edge**) per physical site, running on whatever hardware that site has — a touch-first tablet mounted at a pump station, a fanless PC in a utility closet, a touchscreen in a QSR back office. It has two jobs:
 
 1. **Uplink**: aggregate telemetry from devices that have no native cloud connectivity of their own (USB/RS-485 sensors, LAN devices behind a local API) and get it into AWS IoT Core using the *exact* per-device identity/topic model already built for network-native sensors — not a new ingestion path.
 2. **Kiosk**: give on-site staff a local, always-available view of the same sites/assets/devices/alerts/tickets the web app shows, authenticated the same way, reading and writing the same REST API.
@@ -609,7 +609,7 @@ public sealed class PeakLogicApiClient
 | Option | Verdict |
 |---|---|
 | **WinUI 3** | **Chosen.** Native Fluent controls with first-class touch targets out of the box, direct Win32/WinRT access for Assigned Access integration, MSIX-native packaging, no browser runtime overhead, actively supported by Microsoft for exactly this class of app (kiosk/line-of-business Windows apps). |
-| WPF | Mature and fine for kb/mouse, but touch ergonomics (target sizes, gesture support) are bolted-on, not native — more manual work to get right on a Surface tablet. |
+| WPF | Mature and fine for kb/mouse, but touch ergonomics (target sizes, gesture support) are bolted-on, not native — more manual work to get right on a touch-first device. |
 | MAUI | Cross-platform story is irrelevant here (Windows-only requirement); adds abstraction overhead for no benefit on a single-target platform. |
 | Electron | Rejected outright — a Chromium runtime on a locked-down kiosk device is a larger attack surface and heavier resource footprint than a native app needs, and fights (not helps) the Assigned Access hardening goal in §7. |
 
