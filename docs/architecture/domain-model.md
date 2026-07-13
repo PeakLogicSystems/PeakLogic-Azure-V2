@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes)
+**Last updated:** 2026-07-13
 
 ---
 
@@ -221,6 +221,28 @@ The entities behind PRD §5.11's Administration Console (IA-1–IA-8) — a **th
 
 **Flagged, not resolved, here** (same discipline as §4 decision 6 for the channel-partner portal): the concrete RLS/access-control mechanism enforcing AccountAssignment as a real, structural boundary — not just an application-layer filter — is Multi-Tenant Architecture's (#14) job to amend. This one is **materially harder** than the channel-partner-portal precedent: that pattern was read-mostly (a technician viewing sites in their territory); an `account_manager` needs real cross-tenant **write** access (creating tenant users, claiming devices, setting asset specs) scoped to their assigned accounts specifically — and it directly intersects Multi-Tenant Architecture's own already-disclosed open item that no non-owning application database role exists yet (§6 item 6 there). PeakLogicStaffUser's concrete auth mechanism (new Cognito pool vs. an extension of an existing one) is Security Architecture's (#13) job, mirroring decision 6's split of responsibility for the channel-partner portal.
 
+### 2.9 Channel Partner Manager (Cross-Account) *(new — added v1.3, see Revision History)*
+
+The entity behind the iOS app's locked §2.1a decision: one person, **not employed by PeakLogic**, who needs `partner_admin`-level capability (branding, territories, technicians, route confirmation) across **several independent, unrelated `ChannelPartner` accounts at once** — e.g. someone managing the PeakLogic relationship for multiple separate franchise locations that are not themselves related to each other. Distinct from both `ChannelPartnerUser` (§2.7, scoped to exactly one channel partner) and `PeakLogicStaffUser` (§2.8, PeakLogic-employed) — a fourth identity/access surface, not a variant of either existing one.
+
+**ChannelPartnerManager** *(new)* — a person who can authenticate into the same `PartnerPool` `ChannelPartnerUser` already uses (Security Architecture, #13, to confirm the concrete mechanism — same split-of-responsibility pattern as §2.7/§2.8), but whose access spans multiple `ChannelPartner` rows rather than being tied to one.
+| Attribute | Notes |
+|---|---|
+| channel_partner_manager_id | |
+| cognito_sub, email, display_name | Same shape as `ChannelPartnerUser`/`PeakLogicStaffUser`, resolved server-side by `cognito_sub` the same way both existing identity surfaces already are |
+| status | active / disabled — same revocability reasoning as `PeakLogicStaffUser.status` (§2.8): access must be revocable without deleting the person's audit-log history |
+
+**ChannelPartnerManagerAssignment** *(new)* — the join table granting a ChannelPartnerManager `partner_admin`-level access to one specific `ChannelPartner`. **Deliberately not a hierarchy**: each row is an independent grant to one unrelated account, not a parent/child franchise structure — a manager with access to 5 accounts has 5 rows, and revoking one doesn't imply anything about the other 4. Directly analogous to `AccountAssignment` (§2.8) one level down the identity stack (PeakLogic staff → channel partner accounts instead of PeakLogic staff → tenants/partners), reusing the same "assignment, not inheritance" shape.
+| Attribute | Notes |
+|---|---|
+| channel_partner_manager_assignment_id, channel_partner_manager_id, channel_partner_id | |
+| assigned_by_staff_user_id (nullable) / assigned_by_partner_user_id (nullable) | **Exactly one** non-null — mirrors `AuditLogEntry`'s existing dual/multi-actor CHECK-constraint idiom (§2.6, §4 decision 10), applied here to the *grantor* rather than an audit actor. **Locked decision**: either a `superadmin` (PeakLogicStaffUser) OR the target account's own `partner_admin` (ChannelPartnerUser) may create this assignment — not one gated behind the other, unlike `AccountAssignment` (§2.8) which is `superadmin`-only. This is a real, deliberate divergence from the §2.8 precedent, not an oversight: a channel partner's own admin has a legitimate business reason to delegate to a manager without waiting on PeakLogic staff, where a tenant/partner being assigned to a PeakLogic account manager (§2.8) is PeakLogic-internal bookkeeping only |
+| assigned_at | |
+
+**Provisioning note, not yet a resolved API shape (flagged for API Specification, #11):** unlike `AccountAssignment` and the original `ChannelPartnerUser`/technician precedents (all admin-initiated against an existing, already-visible identity), a `partner_admin` granting access to a ChannelPartnerManager may be inviting someone who doesn't have a `ChannelPartnerManager` row yet, and — critically — a `partner_admin` has no visibility into the cross-account `channel_partner_managers` table (that would itself be a cross-tenant-style leak). This means provisioning here has to work **by email** (link to an existing manager if one already exists for that email, create a new one otherwise) rather than by picking an existing row, a self-service-invite shape no other identity surface in this document has needed before. Modeled as a real, disclosed gap here rather than assumed away.
+
+**Cardinalities:** A ChannelPartnerManager has **0..*** ChannelPartnerManagerAssignments (each to a distinct ChannelPartner — no duplicate grants to the same account). A ChannelPartner has **0..*** ChannelPartnerManagers assigned to it (more than one manager could plausibly share responsibility for one large partner account, not excluded).
+
 ---
 
 ## 3. Relationship Diagram
@@ -252,6 +274,8 @@ erDiagram
     ACCOUNT_ASSIGNMENT }o--o| TENANT : "book of business"
     ACCOUNT_ASSIGNMENT }o--o| CHANNEL_PARTNER : "book of business"
     PEAKLOGIC_STAFF_USER ||--o{ AUDIT_LOG_ENTRY : "acts as (staff actions)"
+    CHANNEL_PARTNER_MANAGER ||--o{ CHANNEL_PARTNER_MANAGER_ASSIGNMENT : "granted (cross-account)"
+    CHANNEL_PARTNER_MANAGER_ASSIGNMENT }o--|| CHANNEL_PARTNER : "book of business (managers only)"
 ```
 
 ---
@@ -269,6 +293,8 @@ erDiagram
 9. **PeakLogicStaffUser is a third, genuinely separate identity space — added v1.2 (§2.8).** Superadmin and account_manager are roles on one entity (decision 5/8's pattern again, now applied a third time), not two tables. `superadmin`'s access is modeled as unconditional, not as a degenerate/universal case of `AccountAssignment` — a deliberate choice to avoid needing a new assignment row every time a new tenant/partner is created (see §2.8's own reasoning).
 10. **AuditLogEntry's actor dimension grows to three mutually-exclusive columns, not a polymorphic `actor_type` + `actor_id` pair — added v1.2.** Kept consistent with the existing `tenant_id`/`channel_partner_id` scope-dimension pattern (one nullable column per possibility, a `CHECK` constraint enforcing at-most-one) rather than switching styles for the actor dimension specifically. A polymorphic actor column would need application-level type-checking to stay correct; the three-nullable-column-plus-CHECK approach gets that enforcement from Postgres itself, for free, the same reasoning already applied to the scope dimension in Database Schema v1.1.
 11. **This amendment corrects two things this document had already gotten stale on, found while writing it — not new decisions, disclosed for the record.** §2.1's `User.role` list still showed `service_partner` as a live value after Security Architecture v1.1 removed that Cognito group; §2.6's `AuditLogEntry` still showed its pre-v1.1 single-scope shape after Database Schema v1.1 had already extended it. Both corrected in place (§2.1, §2.6) rather than left to compound further.
+12. **ChannelPartnerManager is a fourth identity space, not a role added to an existing one — added v1.3.** Unlike `ChannelPartnerUser.role` (partner_admin/technician, decision 8) or `PeakLogicStaffUser.role` (superadmin/account_manager, decision 9), a manager's defining trait is spanning *multiple* `ChannelPartner` rows, which neither existing single-tenant-scoped identity shape can express without a structural change. A new entity plus a dedicated assignment join table (mirroring `AccountAssignment`'s shape) was the smaller, more consistent change than retrofitting cross-account scope onto `ChannelPartnerUser`.
+13. **ChannelPartnerManagerAssignment's grantor is dual-actor, deliberately more permissive than AccountAssignment's single-actor (`superadmin`-only) precedent — added v1.3.** `AccountAssignment` (§2.8) is PeakLogic-internal bookkeeping, so restricting it to `superadmin` is correct. A channel partner delegating portal access across their own accounts is the partner's own business decision, not PeakLogic's to gate — so `assigned_by_staff_user_id`/`assigned_by_partner_user_id` are modeled as alternatives (either actor may grant), not staff-only. This is a genuine, disclosed divergence from the §2.8 pattern, not an inconsistency.
 
 ---
 
@@ -280,6 +306,7 @@ erDiagram
 - Actuation/command entities (e.g. a future Command or CommandAck entity) — explicitly deferred to Device & Command Security Architecture (#12), since no actuation ships at MVP (CC-3/CC-4).
 - **Added v1.1:** Territory's `boundary` exact storage type (PostGIS geography/geometry vs. JSONB GeoJSON) — Database Schema (#10). The concrete channel-partner-scoped RLS/access-control mechanism (§4 decision 6) — Multi-Tenant Architecture (#14). ChannelPartnerUser's concrete auth mechanism (new Cognito group vs. new user pool) — Security Architecture (#13).
 - **Added v1.2:** The concrete cross-tenant-**write** RLS/access-control mechanism for AccountAssignment (§2.8) — Multi-Tenant Architecture (#14), explicitly flagged there as harder than the v1.1 precedent. PeakLogicStaffUser's concrete auth mechanism — Security Architecture (#13). The `assetId`/`siteId` query-filter shape for `GET /v1/devices` (NAV-5) — API Specification (#11).
+- **Added v1.3:** The concrete RLS/access-control mechanism enforcing ChannelPartnerManagerAssignment as a real cross-channel-partner boundary (§2.9) — Multi-Tenant Architecture (#14). ChannelPartnerManager's concrete auth mechanism within `PartnerPool` — Security Architecture (#13). The email-based invite-or-link provisioning flow and the cross-account `GET /v1/partner-manager/overview` orchestration endpoint shape — API Specification (#11).
 
 ---
 
@@ -300,11 +327,16 @@ Confirmed a Tenant has at most one ChannelPartner (0..1), and a ChannelPartner h
 ### 6.5 RouteStop as a separate entity vs. a JSONB array on RouteAssignment — resolved, separate entity chosen *(added v1.1)*
 Modeled as a separate table (§2.7) rather than an ordered JSONB array of site IDs on RouteAssignment, consistent with how every other domain-meaningful join in this schema (ServiceTicket→Alert, Device→Asset) is a real relational entity, not a JSONB blob. A per-stop entity also leaves room for a future per-stop completion field without a schema migration, though stop-level completion tracking is explicitly not required at MVP (TR-3.1/TR-3.2 don't ask for it).
 
+### 6.6 ChannelPartnerManager has no PRD/SRS requirement ID yet — flagged, not urgent *(added v1.3)*
+This entity traces directly to the iOS Application doc's (#26) §2.1a decision, not to a PRD/SRS requirement — unlike every other entity in this document, which cites a PRD/SRS ID first and a downstream artifact second. This is a genuine ordering inversion (a client-app spec forced a domain concept the PRD/SRS haven't formally named), not an error, but the PRD/SRS should eventually gain an explicit CH-3b-style requirement referencing this role so the ordering inversion doesn't compound further as more artifacts amend around it. Not urgent — Database Schema/Security Architecture/API Specification are free to depend on §2.9 as-is; this is a paperwork-completeness note, not a blocker.
+
 ---
 
 ## 7. Traceability
 
 Every entity/attribute above cites the SRS requirement it formalizes inline, or is marked *(existing)* against `docs/data-model.sql`. No entity here should be treated as authoritative until the Open Questions in §6 are resolved and this document is marked Approved, at which point the Database Schema (#10) becomes free to depend on it. **Added v1.1:** §2.7 (ChannelPartnerUser, Territory, RouteAssignment, RouteStop) traces to PRD §5.8 (CH-3/CH-3a) + §5.10 (TR-1–TR-3) and SRS §3.8 (CH-3.1/CH-3a.1) + §3.12 (TR-1.1–TR-3.2). All §6 open questions are now resolved (§6.4 resolved during review, 2026-07-11) — Security Architecture (#13) should design the technician access-scoping mechanism (§2.7) as real requirement input, not a placeholder. **Added v1.2:** §2.8 (PeakLogicStaffUser, AccountAssignment) traces to PRD §5.11 (IA-1–IA-8) and SRS §3.13 (IA-1.1–IA-8.1); the `User`/`clock_format`/`timezone`/`theme` additions trace to PRD §5.12 (SET-3/SET-4/SET-5) and SRS §3.14.
+
+**Added v1.3:** §2.9 (ChannelPartnerManager, ChannelPartnerManagerAssignment) traces to the iOS Application doc's (#26) locked §2.1a role decision — a real precedent for a downstream artifact forcing a Domain Model amendment, same as §2.7/§2.8's PRD/SRS-driven amendments, except the forcing document is a client-application spec rather than the PRD/SRS directly. No PRD/SRS requirement ID exists yet for this role — flagged in §6 below as an open item for whoever picks up the PRD/SRS amendment this should eventually get.
 
 ---
 
@@ -327,6 +359,11 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 7. **§2.6's `AuditLogEntry` was describing a shape that stopped being true after Database Schema v1.1 shipped**, and nothing caught it at the time. Checked `docs/data-model.sql`'s actual `CREATE TABLE audit_log_entries` directly and corrected the entity description to match — the dual-scope/dual-actor columns and their `CHECK` constraints were already real, just never reflected back into this document.
 8. **AccountAssignment's design (§2.8) was checked against the locked decision, not re-litigated:** confirmed the "assigned subset" requirement (PRD IA-4, locked via the user's earlier explicit choice) is modeled as a real join table, and confirmed `superadmin`'s unconditional access is deliberately *not* expressed through that same table (see §2.8's own reasoning) — re-read the original AskUserQuestion exchange rather than assuming the model's shape from memory.
 
+**v1.3 (2026-07-13), amended 2026-07-13:** formalizes a role already locked by direct user decision in an earlier session (iOS Application doc §2.1a), not a new design exercise — re-verified against that doc's exact wording rather than re-derived from memory.
+
+9. **ChannelPartnerManager's dual-actor grantor (§2.9) was deliberately checked against, and found to diverge from, the AccountAssignment precedent (§2.8) rather than copied blindly.** AccountAssignment is `superadmin`-only because it's PeakLogic-internal bookkeeping; a channel partner's own `partner_admin` has legitimate standing to grant manager access across their own accounts without waiting on PeakLogic staff, so the grantor is modeled as either actor, not staff-only. Recorded as a real, disclosed divergence, not an inconsistency between the two entities.
+10. **The email-based invite-or-link provisioning gap was surfaced, not assumed away.** Every other admin-initiated provisioning pattern in this document (ChannelPartnerUser, PeakLogicStaffUser's AccountAssignment) assumes the grantor can already see/select the identity being granted access. A `partner_admin` granting ChannelPartnerManager access structurally cannot see the cross-account `channel_partner_managers` table (that visibility would itself be a cross-account leak) — so this provisioning flow needs an email-based invite that either links an existing manager or creates a new one, a genuinely new shape with no existing precedent in this schema to copy. Flagged explicitly in §2.9 for API Specification rather than left implicit.
+
 ---
 
 ## Revision History
@@ -348,3 +385,10 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **§4 decisions 9–11 added**: PeakLogicStaffUser as a third identity space; AuditLogEntry's actor dimension staying consistent with the existing nullable-column-plus-CHECK style rather than switching to a polymorphic actor type; explicit disclosure of the two staleness corrections (not new decisions, but recorded for the same reason every other correction in this project's history has been recorded — so a future reader doesn't wonder whether it was intentional).
 - **§4 decision 6's pattern extended, not repeated blindly**: AccountAssignment's cross-tenant RLS/access-control mechanism is flagged, not resolved, here — and explicitly called out as *harder* than the channel-partner-portal precedent, since it needs real cross-tenant write, not read-mostly access, and directly intersects Multi-Tenant Architecture's own already-known gap (no non-owning application DB role exists yet).
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-admin-console-and-settings` memory): the concrete RLS/access-control mechanism for AccountAssignment, PeakLogicStaffUser's concrete Cognito mechanism, and the exact API shape for the new `assetId`/`siteId` device filters — all deferred to their respective downstream artifacts (Database Schema, Multi-Tenant Architecture, Security Architecture, API Specification).
+
+**v1.3 (2026-07-13)** — forced by the iOS Application doc's (#26) already-locked §2.1a Channel Partner Manager decision (made in an earlier session), formalized here as the first step of that doc's own required amendment sequence (Domain Model → Database Schema → Security Architecture → API Specification) before any implementation begins.
+
+- **§2.9 added**: ChannelPartnerManager (a fourth identity space — not PeakLogic staff, not scoped to one channel partner) and ChannelPartnerManagerAssignment (the cross-account grant join table, explicitly modeled as independent grants, not a franchise hierarchy).
+- **§4 decisions 12–13 added**: ChannelPartnerManager as a genuinely new identity space rather than a role bolted onto `ChannelPartnerUser`; ChannelPartnerManagerAssignment's dual-actor grantor as a deliberate, disclosed divergence from `AccountAssignment`'s staff-only precedent.
+- **§6.6 added**: flags that this entity has no PRD/SRS requirement ID yet (traces to the iOS doc directly) — a paperwork-completeness gap, not a blocker.
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-client-apps` memory): the concrete cross-channel-partner RLS/access-control mechanism (Multi-Tenant Architecture, #14), ChannelPartnerManager's concrete auth mechanism within `PartnerPool` (Security Architecture, #13), and the email-based invite-or-link provisioning API shape plus the `GET /v1/partner-manager/overview` orchestration endpoint (API Specification, #11) — all deferred to their respective downstream artifacts, continuing this amendment sequence.

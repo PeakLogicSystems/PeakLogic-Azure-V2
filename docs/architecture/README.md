@@ -9,7 +9,7 @@ Documents are produced in dependency order — each one builds on decisions lock
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
 | 2 | [Product Requirements Document (PRD)](prd.md) | 🟡 Draft v1.6 (Internal Administration Console, Settings & Preferences, Site→Asset→Device Drill-Down — real backend/infra/frontend shipped on `dev`; base doc remains Approved v1.5 until v1.6 formally approved) |
 | 3 | [Software Requirements Specification (SRS)](srs.md) | 🟡 Draft v1.6 (mirrors PRD v1.6; base doc remains Approved v1.5 until v1.6 formally approved) |
-| 4 | [Domain Model](domain-model.md) | 🟡 Draft v1.2 (new §2.8 Internal Administration — `PeakLogicStaffUser`/`AccountAssignment`; base doc remains Approved v1.1 until v1.2 formally approved) |
+| 4 | [Domain Model](domain-model.md) | 🟡 Draft v1.3 (new §2.9 Channel Partner Manager — `ChannelPartnerManager`/`ChannelPartnerManagerAssignment`, first step of the iOS doc's #26 required amendment sequence; also carries v1.2's §2.8 Internal Administration; base doc remains Approved v1.1 until v1.2/v1.3 formally approved) |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1.2 (new §2.7 Channel Partner Portal Dispatcher; §2.2 corrected — pool-service companies are Channel Partners, not Tenants) |
 | 7 | [User Stories](user-stories.md) | ✅ Approved v1 |
