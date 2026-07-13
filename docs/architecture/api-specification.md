@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.2, pending), [Database Schema](database-schema.md) (Draft v1.2, pending), [Security Architecture](security-architecture.md) (Draft v1.2, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.3, pending), [Database Schema](database-schema.md) (Draft v1.3, pending), [Security Architecture](security-architecture.md) (Draft v1.3, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1), [iOS Application](ios-application.md) (Draft v1.1)
+**Last updated:** 2026-07-13
 
 ---
 
@@ -68,6 +68,30 @@ Full request/response implementation lives in `backend/api/routes/*.ts`; this ta
 | Routes | `GET/POST /v1/partner/routes`, `GET/PUT /v1/partner/routes/{routeId}`, `POST /v1/partner/routes/{routeId}/confirm` | `routes/partner-routes.ts` *(new)* |
 
 17 new endpoints *(corrected 2026-07-11 — see §8 Review Log)*. See §4.5.
+
+**Added v1.2 — a third, parallel endpoint tree under `/v1/admin/*`, authenticated by `StaffPool` (Security Architecture §2.5). Also, `GET /v1/devices` (existing, in the table above) gained `assetId`/`siteId` filtering — no new row, an existing endpoint's contract changed.** *(This table itself was found stale while writing this v1.3 amendment — it never gained this v1.2 block despite §4.7/§4.8/§4.9 shipping real code; fixed here rather than left to compound further, see §8 Review Log.)*
+
+| Domain | Endpoints | Source |
+|---|---|---|
+| Self-read | `GET /v1/admin` | `routes/admin.ts` *(new)* |
+| Tenants | `GET/POST /v1/admin/tenants`, `GET /v1/admin/tenants/{tenantId}` | `routes/admin-tenants.ts` *(new)* |
+| Channel partners | `GET/POST /v1/admin/channel-partners`, `GET /v1/admin/channel-partners/{partnerId}` | `routes/admin-partners.ts` *(new)* |
+| Staff users | `GET/POST /v1/admin/staff-users` | `routes/admin-staff.ts` *(new)* |
+| Assignments | `GET/POST/DELETE /v1/admin/assignments` | `routes/admin-assignments.ts` *(new)* |
+| Acting on a tenant | `POST /v1/admin/tenants/{tenantId}/users`, `PUT /v1/admin/tenants/{tenantId}/devices/{deviceId}`, `PUT /v1/admin/tenants/{tenantId}/assets/{assetId}`, `PUT /v1/admin/tenants/{tenantId}/alerts/{alertId}` | `routes/admin-tenant-actions.ts` *(new)* |
+| Settings *(tenant-pool authenticated, not `/v1/admin/*`)* | `GET/PUT /v1/settings`, `PUT /v1/settings/password`, `GET /v1/settings/mfa`, `GET/POST /v1/settings/team`, `PUT/DELETE /v1/settings/team/{userId}` | `routes/settings.ts` *(new)* |
+
+20 new endpoints. See §4.7/§4.8/§4.9.
+
+**Added v1.3 — a fourth, parallel endpoint tree under `/v1/partner-manager/*`, authenticated by `PartnerPool` with `getManagerAuth()` (Security Architecture §2.6) rather than `getPartnerAuth()`. Existing `/v1/partner/*` routes above are also reused, unchanged in shape, when called by a manager session — see §4.10.**
+
+| Domain | Endpoints | Source |
+|---|---|---|
+| Cross-account overview | `GET /v1/partner-manager/overview` | `routes/partner-manager.ts` *(new)* |
+| Invite-or-link/revoke (`partner_admin`-initiated) | `POST /v1/partner/managers`, `DELETE /v1/partner/managers/{channelPartnerManagerId}` | `routes/partner-managers.ts` *(new)* |
+| Invite-or-link/revoke (`superadmin`-initiated) | `POST /v1/admin/channel-partners/{partnerId}/managers`, `DELETE /v1/admin/channel-partners/{partnerId}/managers/{channelPartnerManagerId}` | `routes/admin-partners.ts` |
+
+2 genuinely new resource paths, 2 new methods on an existing admin resource. See §4.10.
 
 ---
 
@@ -246,6 +270,43 @@ Base path `/v1/settings`, tenant-pool authenticated — the existing `getAuth()`
 
 No new route, no new resource — the existing `GET /v1/devices` handler gains a `WHERE` clause. **The channel-partner portal's equivalent** (NAV-4.1) reuses this same parameter shape on `GET /v1/partner/routes/{routeId}` territory-adjacent site queries where applicable, rather than inventing a second filtering convention.
 
+### 4.10 Channel Partner Manager Endpoints (new — added v1.3, see Revision History)
+
+Domain Model §2.9 / Database Schema §4.6 / Security Architecture §2.6 built the entity, RLS, and identity/handoff mechanism for a manager acting across multiple `ChannelPartner` accounts; this section is the final step of the amendment sequence — the actual request/response contract.
+
+**A manager acting on one specific account reuses the existing `/v1/partner/*` routes (§4.5) unchanged — this is not a fourth copy of every partner endpoint.** The whole point of §2.6's handoff design is that once `app.current_channel_partner_id`/`app.current_channel_partner_role` are set, every downstream query is identical regardless of whether a real `channel_partner_users` `partner_admin` or a manager acting-as one issued the request. This document extends that principle up to the API layer: `backend/api/handler.ts`'s existing `/v1/partner/` branch (§4.5) checks whether the caller's token carries the `channel_partner_manager` group (Security Architecture §2.6). If not, behavior is completely unchanged — `getPartnerAuth()` + `withChannelPartner()`, exactly as today. **If so**, the handler instead requires a new `X-Channel-Partner-Id` request header (400 if missing — a manager request with no target account is meaningless, there's no implicit single scope the way a real partner session has), calls `getManagerAuth()` + `withManagerActingOnChannelPartner(auth, headerValue, ...)`, and then dispatches into the **exact same `partnerRoute()` function** (`backend/api/partner-router.ts`) every ordinary partner request already uses. No new route handler exists anywhere for territories, branding, users, or routes — a manager managing a specific account's technicians calls the identical `GET/POST /v1/partner/users` a real `partner_admin` would, just with one extra header.
+
+**Why a header, not a path segment (e.g. `/v1/partner-manager/{channelPartnerId}/territories`) or a body field:** a path-segment or body-field design would require either duplicating every `/v1/partner/*` route under a second path prefix (real, unwarranted duplication — exactly what reusing `partnerRoute()` above avoids) or teaching every existing handler to read the target ID from two different places depending on caller type. A header keeps the URL and body **identical** to the ordinary partner request in every case, so `partnerRoute()`'s dispatch table needs zero changes — only `handler.ts`'s auth-resolution step (already the one place that branches on caller type) needs to know about the header.
+
+**`GET /v1/partner-manager/overview`** — the locked landing-screen decision (Domain Model §2.9, iOS doc §2.1a). `getManagerAuth()` + `withManagerSession()` (Security Architecture §2.6) resolves the manager's own row, then the handler loops the manager's own `channel_partner_manager_assignments` (RLS-scoped to only their rows), calling the *same* open-issues query `GET /v1/partner/routes`'s underlying logic and RP-1.1's portfolio-roll-up both already use — once per assigned account, via the identical single-account handoff §4.10's opening paragraph describes, not a new cross-account query. Results are merged and severity-ranked in application code (an in-memory sort over a handful of accounts' worth of results, not a database-level cross-account query — deliberately, per Security Architecture §2.6's own reasoning for avoiding a new cross-account RLS shape).
+```json
+{
+  "issues": [
+    { "channel_partner_id": "...", "channel_partner_name": "...", "site_id": "...", "site_name": "...",
+      "severity": "critical", "alert_id": "...", "type": "threshold", "message": "Freezer temp exceeded 41°F" }
+  ]
+}
+```
+Flat, not grouped-by-account — "ranked by severity" (Domain Model §2.9's exact framing) means one global ranking, not a severity ranking nested within a per-account grouping; the client groups/re-scopes by `channel_partner_id` when the user drills into a specific issue, which is what re-scopes the active account context (setting `X-Channel-Partner-Id` for all subsequent requests) per the locked UX decision.
+
+**`POST /v1/partner/managers`** — the `partner_admin`-initiated half of the invite-or-link flow (Domain Model §2.9's disclosed provisioning gap). Ordinary `/v1/partner/*` auth (`getPartnerAuth()` + `withChannelPartner()`, `requirePartnerRole(session, 'partner_admin')`) — **not** the manager handoff, since granting access *to* a manager is an action the account's own real `partner_admin` takes, not something a manager grants themselves. `channel_partner_id` is never a request parameter here — it's always the calling `partner_admin`'s own session scope, preventing a `partner_admin` from granting manager access to an account that isn't theirs.
+```json
+// Request
+{ "email": "manager@example.com" }
+// Response
+{ "channel_partner_manager_id": "...", "created": false }
+```
+Handler logic: look up `channel_partner_managers` by email — a query the invite handler itself runs as trusted application code, not exposed to the RLS-restricted `partner_admin` session directly (`manager_self_or_staff`, Database Schema §4.6, would otherwise correctly deny this exact lookup to an ordinary session, which is the point). **If found**: insert only a new `channel_partner_manager_assignments` row (`assigned_by_partner_user_id` set), `created: false`. **If not found**: create a new Cognito user in `PartnerPool` with the `channel_partner_manager` group (`AdminCreateUserCommand`, `MessageAction: 'SUPPRESS'` — identical posture to `POST /v1/partner/users`, §4.5), insert the `channel_partner_managers` row, then the assignment row, `created: true`. **Not atomic across Cognito and Postgres**, same disclosed limitation §4.5 already carries for ordinary channel-partner-user creation (§7) — not a new risk category, the same one, applied a second time.
+
+**`POST /v1/admin/channel-partners/{partnerId}/managers`** — the `superadmin`-initiated half, structurally identical body/response/lookup-or-create logic to the endpoint above, `requireStaffRole(auth, 'superadmin')` instead of `requirePartnerRole`, `assigned_by_staff_user_id` set instead of `assigned_by_partner_user_id`. Lives under `/v1/admin/*` (§4.7's existing tree) rather than inventing a third base path for the same underlying operation — a staff-initiated grant is exactly the kind of "acting on behalf of an account" action §4.7's resource tree already exists for, even though this one grants access rather than modifying tenant/asset/device data. `{partnerId}` names the target explicitly in the path, mirroring `/v1/admin/tenants/{tenantId}/*`'s existing shape rather than requiring a header the way the manager-session case above does — a staff session has no implicit single-account scope to omit a target from, the same reasoning `/v1/admin/tenants/{tenantId}/*` already established.
+
+**Revocation, checked against precedent rather than left unspecified: `/v1/admin/assignments` (§4.7) already has a working `DELETE` for `account_assignments` — the manager-grant endpoints mirror it directly, not left as a gap.**
+```
+DELETE /v1/partner/managers/{channelPartnerManagerId}     -- partner_admin, own account only
+DELETE /v1/admin/channel-partners/{partnerId}/managers/{channelPartnerManagerId}  -- superadmin
+```
+Both delete the matching `channel_partner_manager_assignments` row (not the `channel_partner_managers` row itself — a manager who loses access to one account keeps their identity and any other accounts' assignments, the same "assignment ≠ identity" separation `account_assignments`/`peaklogic_staff_users` already model). `manager_assignment_visibility` (Database Schema §4.6) already scopes which rows each caller can see/delete — a `partner_admin` can only ever match a row for their own `channel_partner_id`, so no additional application-layer ownership check is needed beyond what RLS already enforces, the same pattern `staff_tenant_access` already established for `/v1/admin/tenants`.
+
 ---
 
 ## 5. Unauthenticated Access: Two Screens With No Login (open, not yet resolved)
@@ -291,6 +352,7 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 | §4.7 Internal Administration Console *(added v1.2)* | Domain Model §2.8, Database Schema §4.5, Security Architecture §2.5, PRD §5.11/SRS §3.13 (IA-1–IA-8) |
 | §4.8 Settings & Preferences *(added v1.2)* | Domain Model §2.1, PRD §5.12/SRS §3.14 (SET-1–SET-8) |
 | §4.9 Site→Asset→Device Drill-Down *(added v1.2)* | PRD §5.13/SRS §3.15 (NAV-1–NAV-5) |
+| §4.10 Channel Partner Manager Endpoints *(added v1.3)* | Domain Model §2.9, Database Schema §4.6, Security Architecture §2.6, iOS Application doc §2.1a (no PRD/SRS requirement ID yet — Domain Model §6.6) |
 
 ---
 
@@ -305,6 +367,9 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 7. **§4.5's `PUT /v1/partner/territories/{territoryId}` doesn't specify what happens to `route_assignments` already built against the old boundary, added v1.1.** Redrawing a territory could silently strand an already-`suggested` (not yet confirmed) route whose stops no longer match the new shape. Not resolved here — a real UX/product question (warn the partner_admin? invalidate pending suggestions automatically?) more than an API contract one.
 8. **§4.7's `POST /v1/admin/tenants/{tenantId}/users` has the same non-atomicity risk as item 6 above, added v1.2** — it also calls `AdminCreateUserCommand` then inserts a DB row, the exact same two-system-drift shape already flagged for the partner portal's user creation. Not re-solved independently here; whichever fix item 6 eventually gets should cover both call sites, not just one.
 9. **No frontend exists yet for the admin console, Settings page, or drill-down views, added v1.2** — this document specifies the API contract only; sequenced as real frontend work in the same pass as this amendment (`project-peaklogic-admin-console-and-settings` memory), not left purely theoretical.
+10. **§4.10's `POST /v1/partner/managers`/`POST /v1/admin/channel-partners/{partnerId}/managers` share item 6's non-atomicity risk, added v1.3** — same `AdminCreateUserCommand`-then-DB-insert shape, same disclosed limitation, not a new risk category. Whichever fix items 6/8 eventually get should cover this third call site too.
+11. **§3's navigational table was found stale for v1.2 and fixed here, added v1.3** — it never gained a block for the Internal Administration/Settings endpoints despite §4.7/§4.8 shipping real specification content; a documentation-lag bug in this document's own summary table, not a code gap. Fixed alongside adding this amendment's own v1.3 block, same self-correction category as Domain Model §4 item 11 and Database Schema §6 item 10.
+12. **None of §4.10's endpoints have been implemented, added v1.3** — unlike §4.5/§4.7/§4.8 (which shipped real route handlers verified by typecheck), no `routes/partner-manager.ts`/`partner-managers.ts` exists in `backend/` yet, and no `X-Channel-Partner-Id` branch exists in `handler.ts`. Consistent with Security Architecture §2.6 being design-only too — this whole amendment sequence (Domain Model → Database Schema → Security Architecture → API Specification) was explicitly formalization-before-implementation, per the iOS doc's (#26) own stated requirement, not a shortcut taken here specifically.
 
 ---
 
@@ -329,6 +394,12 @@ Also added the nullable-`supplier_name` case to §4.3's example, which the first
 7. **§3's "14 new endpoints" was a simple miscount.** Recounting the very table it summarizes (§3): 2 (partner self-read/branding) + 5 (territories) + 5 (users) + 5 (routes) = **17**, not 14. No design content was wrong, only the arithmetic — corrected in §3.
 8. **A real, separate infra bug surfaced while verifying the count against the actual deployed contract, not just the doc's own table.** `infra/lib/api-stack.ts`'s `addPartnerCrud()` helper unconditionally added a `DELETE` method to every resource it built, including `routes` — but this table (and `partner-router.ts`'s handler map) never included `DELETE /v1/partner/routes/{routeId}`, consistent with §4.5's own stated design that a confirmed route is immutable ("re-plan by submitting a new one," not delete it). The result: API Gateway had a real, Cognito-authenticated `DELETE /v1/partner/routes/{routeId}` method wired to the Lambda with no corresponding handler — it would always 404, not a security hole, but a genuine infra/application-code mismatch (18 methods deployed, 17 actually functional). Verified via `cdk synth`'s JSON output, not assumed from reading the CDK source alone. Fixed by adding an opt-out flag to `addPartnerCrud()` and using it for `routes`; re-ran `cdk synth` and confirmed exactly 17 non-OPTIONS `/v1/partner/*` methods now exist, matching this table precisely.
 
+**v1.3, reviewed 2026-07-13.** A real inaccuracy caught and fixed mid-draft (not after, the way item 8 above was); §3's staleness gap found by the same kind of direct cross-check that's caught several of this project's own documentation-lag bugs before.
+
+9. **This section's own first draft claimed no revocation precedent existed for `channel_partner_manager_assignments` and left it "flagged as follow-up" — checked against §4.7's actual table before finalizing and found this was wrong: `/v1/admin/assignments` already ships a working `DELETE`.** Corrected before this amendment was ever committed, not left as a shipped inaccuracy to catch later — designed real `DELETE /v1/partner/managers/{id}`/`DELETE /v1/admin/channel-partners/{partnerId}/managers/{id}` endpoints mirroring the existing precedent instead.
+10. **§3's navigational table was checked against §4.7/§4.8's actual shipped content, not assumed complete, and found stale** — it never gained a v1.2 block despite those sections specifying 20 real endpoints. Fixed alongside adding this amendment's own v1.3 block (§7 item 11).
+11. **Verified the header-vs-path-segment design decision (§4.10) against `partnerRoute()`'s actual dispatch mechanism, not asserted from convenience.** Confirmed `backend/api/partner-router.ts` (as described in §4.5's Revision History) dispatches purely on `event.httpMethod`/`event.resource`, with no dependency on which pool authenticated the caller — meaning a header-based target-account selection genuinely requires zero changes to the dispatcher itself, only to `handler.ts`'s auth-resolution step. This was checked against the documented shape of the existing code, not assumed to work by analogy alone.
+
 ---
 
 ## Revision History
@@ -350,3 +421,11 @@ Also added the nullable-`supplier_name` case to §4.3's example, which the first
 - **§4.9 added**: **checked directly, not assumed** — most of the drill-down (Site→Assets, Device→Telemetry) needs zero new endpoints, since `GET /v1/assets?siteId=` and `GET /v1/telemetry?deviceId=` already exist and already do this. The one real gap, verified against the live handler code: `GET /v1/devices` ignores every query parameter today. Fixed by adding `assetId`/`siteId` filters to the existing endpoint, not a new one.
 - **Real infrastructure and code sequenced immediately after this document, in the same pass**: a third Cognito authorizer for `StaffPool`, `backend/api/admin-router.ts`, new route handler files, `backend/api/handler.ts` branching extended to a third path prefix. Not yet complete as this section is written — this entry will be corrected with real `cdk synth`/typecheck/test results once that pass finishes, matching v1.1's own standard of not claiming verification ahead of when it actually happened.
 - **Two new open items added** (§7 items 8–9): `POST /v1/admin/tenants/{tenantId}/users`'s Cognito/DB non-atomicity (the same shape as the existing, still-open item 6); no frontend exists yet for any of §4.7/§4.8/§4.9's new endpoints.
+
+**v1.3 (2026-07-13)** — forced by the Security Architecture v1.3 amendment (§2.6 Channel Partner Manager Authentication), the fourth and final step of the iOS Application doc's (#26) required amendment sequence (Domain Model → Database Schema → Security Architecture → API Specification).
+
+- **§4.10 added**: a manager acting on one specific account reuses the existing `/v1/partner/*` routes and `partnerRoute()` dispatcher unchanged, distinguished only by an `X-Channel-Partner-Id` request header and `getManagerAuth()`/`withManagerActingOnChannelPartner()` in `handler.ts`'s auth-resolution step — zero new route handlers for territories, branding, users, or routes. Two genuinely new endpoints: `GET /v1/partner-manager/overview` (the locked cross-account landing screen, merging per-account results via the same single-account handoff rather than a new cross-account query) and the email-based invite-or-link flow, split across `POST /v1/partner/managers` (`partner_admin`-initiated, own account only) and `POST /v1/admin/channel-partners/{partnerId}/managers` (`superadmin`-initiated) — mirroring the dual-grantor design Database Schema §4.6 already locked.
+- **Revocation designed against real precedent, not left open**: `DELETE /v1/partner/managers/{id}` / `DELETE /v1/admin/channel-partners/{partnerId}/managers/{id}`, directly mirroring `/v1/admin/assignments`'s already-shipped `DELETE` for `account_assignments` — a real inaccuracy in this section's own first draft (claiming no such precedent existed) was caught and corrected before this amendment was finalized (§8 item 9).
+- **Two real, disclosed documentation-lag bugs found and fixed while amending, not new gaps**: §3's navigational table never gained a v1.2 block despite §4.7/§4.8 shipping 20 real endpoints (§7 item 11); this section's own header-vs-path-segment design choice was verified against `partnerRoute()`'s actual documented dispatch mechanism rather than assumed to work (§8 item 11).
+- **One new open item added** (§7 item 10): the invite endpoints share the existing Cognito/DB non-atomicity risk (items 6/8) — same shape, not a new risk category.
+- **Honestly scoped as design-only, matching Security Architecture §2.6's own disclosure**: no code exists yet for any of §4.10 — `handler.ts`'s `X-Channel-Partner-Id` branch, `routes/partner-manager.ts`, `routes/partner-managers.ts` are all follow-up implementation work, not shipped in this pass. **This completes the formalization half of the iOS Application doc's (#26) required amendment sequence** — Domain Model v1.3 → Database Schema v1.3 → Security Architecture v1.3 → API Specification v1.3, all four now drafted and internally consistent with each other (cross-checked section references, matching table/column/endpoint names throughout). Real implementation (Cognito group, `backend/` code, frontend) and formal Draft→Approved review remain, tracked in `project-peaklogic-client-apps`/`project-peaklogic-next-steps` memory, not done here.
