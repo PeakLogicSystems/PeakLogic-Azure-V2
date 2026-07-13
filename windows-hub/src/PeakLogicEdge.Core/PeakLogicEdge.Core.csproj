@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PeakLogicEdge.Core</RootNamespace>
+    <!-- net8.0-windows (not plain net8.0): SerialPort and DPAPI (ProtectedData)
+         are both meaningfully Windows-specific, and this project is never
+         going to run anywhere else. Targeting -windows explicitly rather
+         than pretending cross-platform portability matters here. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Serial ingestion (§2.2, windows-endpoint-application.md) -->
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <!-- Local caching: durable queue (§4) -->
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
+    <!-- DPAPI-backed secret storage (§9.3) -->
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+    <!-- Outbound per-device MQTT publishing to AWS IoT Core (§5.1) -->
+    <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
+    <!-- Structured logging -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

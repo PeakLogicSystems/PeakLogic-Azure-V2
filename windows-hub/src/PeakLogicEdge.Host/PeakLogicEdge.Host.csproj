@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PeakLogicEdge.Host</RootNamespace>
+    <!-- A console harness, NOT the eventual WinUI 3 kiosk shell (§6/§7 of
+         the architecture doc). Exists so PeakLogicEdge.Core's ingestion,
+         normalization, and caching pipeline is something you can actually
+         run and watch working today, before the WinUI project, before any
+         real AWS backend is deployed, and before real sensor hardware is
+         wired up. The WinUI shell replaces this as the real UI once it's
+         built; this stays as a useful headless/dev-testing entry point
+         either way. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PeakLogicEdge.Core\PeakLogicEdge.Core.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,12 @@
+# .NET build outputs
+bin/
+obj/
+
+# User-specific / IDE
+*.user
+.vs/
+
+# Local device secrets (DPAPI-protected files, device certs) — never commit
+secrets/
+*.pfx
+*.p12
