@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [Domain Model](domain-model.md) (Draft v1.2, pending), [Database Schema](database-schema.md) (Draft v1.2, pending)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1), [Domain Model](domain-model.md) (Draft v1.3, pending), [Database Schema](database-schema.md) (Draft v1.3, pending), [iOS Application](ios-application.md) (Draft v1.1)
+**Last updated:** 2026-07-13
 
 ---
 
@@ -163,6 +163,65 @@ Deliberately **not** parameterized to skip the transaction for `superadmin` as a
 
 **Verified, not assumed**: see §9 Review Log for what was actually run — `cdk synth`, `npm run typecheck`, and the new unit/integration test results, matching the same verification discipline §2.4 already established rather than a lighter bar for this pass.
 
+### 2.6 Channel Partner Manager Authentication *(new — added v1.3, see Revision History)*
+
+Database Schema §4.6 built the "act as" handoff mechanism for ChannelPartnerManager (a third instance of §2.5's pattern) but left its concrete auth/API-layer wiring open, same split of responsibility as §2.4/§2.5. This section resolves that.
+
+**Decision: reuse `PartnerPool`, not a fourth Cognito pool — but with a real, disclosed exception to §2.4's "no groups" design.** Domain Model §2.9 already specified a manager authenticates into the same `PartnerPool` `ChannelPartnerUser` uses (a deliberate choice — a manager's *whole point* is being a channel-partner-side identity with elevated, cross-account reach, not a fourth genuinely separate identity space the way staff is). But a manager's JWT cannot carry `custom:channel_partner_id` the way an ordinary `ChannelPartnerUser` token does — a manager isn't tied to one channel partner, that's the entire premise (Domain Model §2.9). Something has to distinguish "this is a manager token" from "this is an ordinary partner-user token with a missing claim" before any DB lookup happens, the same problem §2.5 solved for the staff pool by using groups. **Resolution: `PartnerPool` gains exactly one Cognito group, `channel_partner_manager`, used purely as an identity-type discriminator — not a role, since a manager's authority is always `partner_admin`-equivalent by construction once handed off (Database Schema §4.6), so there's no second role value a group would need to distinguish.** This is a narrow, deliberate exception to §2.4 decision 2's "no groups in `PartnerPool`" — recorded as such, not silently walked back: that decision's reasoning (role-from-DB avoids a second driftable source of truth) still holds for `ChannelPartnerUser.role`; it just doesn't apply to a token-type discriminator, which has no DB equivalent to derive from before the DB even knows which table to query.
+
+**Verified, not assumed: `getPartnerAuth()` and the new `getManagerAuth()` are naturally mutually exclusive, not just conventionally kept apart.** `getPartnerAuth()` (§2.4) already 403s on a missing `custom:channel_partner_id` claim — a manager's token never carries one, so a manager token can never succeed through the ordinary partner-user path regardless of group membership, no additional check needed. Symmetrically, `getManagerAuth()` (below) 403s on a missing `channel_partner_manager` group — an ordinary partner-user's token never carries it. Traced both paths explicitly rather than assumed safe by symmetry.
+
+**`backend/shared/auth.ts` gains `getManagerAuth()`**, mirroring `getPartnerAuth()`/`getStaffAuth()`'s shape and fail-closed discipline: missing `sub` → 401; missing `channel_partner_manager` group → 403. Returns only `{ sub, email }` — no `channelPartnerId` (there isn't one; every request must name its target explicitly, the same shape as `getStaffAuth()`/`withStaffActingOnTenant()`'s `targetTenantId` parameter, not `getPartnerAuth()`'s single implicit scope).
+
+**`backend/shared/db.ts` gains `withManagerActingOnChannelPartner()`**, implementing Database Schema §4.6's handoff, mirroring `withStaffActingOnTenant()` structurally but with one real simplification: **there is no `superadmin`-style unconditional-access bypass for a manager.** Domain Model §2.9 never defined one — every manager must hold an explicit `channel_partner_manager_assignments` row for every account they can act on, no exceptions, so the assignment check below is never conditionally skipped the way `withStaffActingOnTenant()`'s is.
+```ts
+export async function withManagerActingOnChannelPartner<T>(
+  auth: ManagerAuthContext,
+  targetChannelPartnerId: string,
+  fn: (client: PoolClient) => Promise<T>,
+): Promise<T> {
+  const client = await (await getPool()).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query('SET LOCAL app.current_manager_cognito_sub = $1', [auth.sub]);
+
+    const { rows: [manager] } = await client.query<{ id: string; status: string }>(
+      'SELECT id, status FROM channel_partner_managers WHERE cognito_sub = $1', [auth.sub],
+    );
+    if (!manager) {
+      throw Object.assign(new Error('Manager not found'), { statusCode: 403 });
+    }
+    if (manager.status === 'disabled') {
+      throw Object.assign(new Error('Manager account is disabled'), { statusCode: 403 });
+    }
+    await client.query('SET LOCAL app.current_manager_id = $1', [manager.id]);
+
+    const { rows } = await client.query(
+      'SELECT 1 FROM channel_partner_manager_assignments WHERE channel_partner_id = $1', [targetChannelPartnerId],
+    );
+    if (rows.length === 0) {
+      throw Object.assign(new Error('Not assigned to this channel partner'), { statusCode: 403 });
+    }
+
+    await client.query('SET LOCAL app.current_channel_partner_id = $1', [targetChannelPartnerId]);
+    await client.query("SET LOCAL app.current_channel_partner_role = 'partner_admin'");
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) { await client.query('ROLLBACK'); throw err; }
+  finally { client.release(); }
+}
+```
+Same ordering discipline §2.5 already established, carried over deliberately, not re-derived: `app.current_manager_cognito_sub` must be set before the `channel_partner_managers` lookup (that table's own `manager_self_or_staff` policy, Database Schema §4.6, requires it); the assignment-verification query must run after `app.current_manager_id` is set but before `app.current_channel_partner_id` is, so `manager_assignment_visibility`'s own RLS correctly scopes the check to this manager's real rows rather than trusting application code alone.
+
+**A new manager-side companion, `withManagerSession()`, for the manager's own cross-account, non-single-partner-scoped endpoint** — specifically `GET /v1/partner-manager/overview` (Domain Model §2.9's locked landing-screen decision, API Specification to define the exact route next in this sequence). Runs the identical `current_manager_cognito_sub` → lookup → `current_manager_id` sequence as the first half of `withManagerActingOnChannelPartner()` above, then stops there — no single-account handoff, since this endpoint's whole job is looping over the manager's own assignment list and opening the existing single-account handoff once per account (an application-code loop, not a new RLS shape — deliberately, to avoid repeating the one class of risk this whole document has avoided everywhere else: a new cross-account *policy* that could grant more than intended, versus a loop over already-individually-verified handoffs, which cannot).
+
+**`writeAuditLog()` extended, not replaced**, with an optional `actorChannelPartnerManagerId` parameter populating the new `audit_log_entries.actor_channel_partner_manager_id` column (Database Schema §4.6) — every write performed through `withManagerActingOnChannelPartner()` is expected to call this, so a manager's actions are attributed to the manager, not silently indistinguishable from that account's own `partner_admin` acting directly.
+
+**Not resolved here, flagged for API Specification (#11) next**: the exact email-based invite-or-link provisioning endpoint (Domain Model §2.9's disclosed gap — creating a new `channel_partner_managers` row plus Cognito identity for a genuinely new email, versus linking an existing manager by email without exposing the cross-account table to the inviting `partner_admin`) and the `GET /v1/partner-manager/overview` response shape. The Cognito mechanics of that invite (an admin-created user via `AdminCreateUser` against `PartnerPool` with the `channel_partner_manager` group, matching every other identity surface's admin-invited-only, `selfSignUpEnabled: false` posture) are settled by this section; the API-layer request/response contract is not.
+
+**Not yet verified against real infrastructure** — same standing caveat as §2.4/§2.5: no `cdk synth`/`npm run typecheck`/test run has been done for this section yet (unlike §2.4/§2.5, which were implemented and verified in the same pass they were designed). Flagged explicitly in §9/§10 rather than silently presented as shipped.
+
 ---
 
 ## 3. Network Security
@@ -243,6 +302,7 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 | §6 Incident Response skeleton | Compliance & Certification Roadmap §4 (open item) |
 | §2.4 Channel Partner Portal Authentication *(added v1.1)* | Domain Model §2.7/§4 decision 8, Database Schema §4.4, PRD §5.10/SRS §3.12 (TR-1–TR-3) |
 | §2.5 Internal Administration Console Authentication *(added v1.2)* | Domain Model §2.8, Database Schema §4.5, PRD §5.11/SRS §3.13 (IA-1–IA-8) |
+| §2.6 Channel Partner Manager Authentication *(added v1.3)* | Domain Model §2.9, Database Schema §4.6, iOS Application doc §2.1a (no PRD/SRS requirement ID yet — Domain Model §6.6) |
 
 ---
 
@@ -258,6 +318,9 @@ Compliance & Certification Roadmap §4 flagged "no documented, tested incident r
 8. **None of §2.4's new code has run against a real database or a real Cognito pool, added v1.1.** `cdk synth` succeeded and unit tests pass, but the integration tests exercising real RLS behavior (`db.integration.test.ts`) self-skip here (no `TEST_DATABASE_URL`) — same standing, disclosed limitation as every other DB-dependent test in this project (no AWS account exists yet, `mvp-roadmap.md` Blocker #1).
 9. **The admin console frontend doesn't exist yet either, added v1.2** — same standing gap §8 item 6 already discloses for the partner portal, now true a second time for a third identity surface. No API Gateway routes/authorizer exist yet for `StaffPool` — API Specification's (#11) job, next in this amendment's sequence, same split of responsibility as v1.1.
 10. **§9 item 9 of Database Schema (whether `superadmin` should also go through an assignment-style check, always-true) is not resolved here either** — this document implements `withStaffActingOnTenant()` exactly as Database Schema §4.5 specified (superadmin skips the check entirely), consistent with that document's own explicit deferral, not an independent decision to relitigate here.
+11. **The email-based invite-or-link provisioning API doesn't exist yet, added v1.3** — this document resolves the identity/session mechanism (`getManagerAuth()`, `withManagerActingOnChannelPartner()`, the `channel_partner_manager` group decision); the actual invite endpoint is API Specification's (#11) job, next in this amendment's sequence.
+12. **No API Gateway routes or Cognito authorizer exist yet for manager sessions, added v1.3** — same standing gap items 7/9 already disclose for the partner/staff pools, now true a third time. Nothing to attach an authorizer to until API Specification defines `GET /v1/partner-manager/overview` and the invite endpoint.
+13. **None of §2.6's new code has been implemented or verified, added v1.3 — a real difference from §2.4/§2.5's pattern, not an oversight.** Unlike the prior two identity-surface amendments (which shipped and verified real code — `cdk synth`, typecheck, tests — in the same pass they were designed), this section is design-only: no `PartnerPool` group has actually been added in `infra/lib/auth-stack.ts`, no `getManagerAuth()`/`withManagerActingOnChannelPartner()` exists in `backend/`. Flagged explicitly rather than presented with the same verification confidence as §2.4/§2.5 — implementation is follow-up work once this amendment sequence (through API Specification) is reviewed.
 
 ---
 
@@ -280,6 +343,12 @@ Reviewed 2026-07-09. One substantive factual error found and fixed — worse tha
 7. **`withStaffActingOnTenant()`'s ordering constraint was re-verified against Database Schema §4.5's actual text, not assumed from memory of designing it** — confirmed the assignment-check-before-`current_tenant_id` sequencing matches exactly, including why (so `account_assignments`' own RLS scopes the check correctly).
 8. **Verification claims scoped honestly**: this pass's `cdk synth`/typecheck/test results are reported in the Revision History entry below exactly as run, not extrapolated from §2.4's earlier results — a third pool is new infrastructure, not something already covered by the prior verification.
 
+**v1.3, reviewed 2026-07-13.** A real design-fork decision (a narrow, disclosed exception to §2.4's own "no groups" rule) checked against its stated reasoning rather than applied by rote; verification honesty checked explicitly against what v1.1/v1.2 actually did, not assumed to carry over.
+
+9. **The `channel_partner_manager` group decision was checked against §2.4 decision 2's original reasoning, not treated as a free pass to add groups wherever convenient.** §2.4 avoided groups because role-resolution-from-DB was free (the round-trip already happens). That reasoning is about *role*, and still holds for `channel_partner_users.role` unchanged. A manager's group is doing a different job — identity-type discrimination *before* the DB even knows which table to query — which has no DB-round-trip equivalent to piggyback on, so the original reasoning genuinely doesn't cover this case rather than being overridden by convenience. Recorded as a scoped exception, not a reversal.
+10. **The mutual-exclusion claim between `getPartnerAuth()` and `getManagerAuth()` was traced through both functions' actual fail conditions, not asserted from "they check different things."** Confirmed a manager token (no `channel_partner_id` claim) fails `getPartnerAuth()` on the existing missing-claim check alone, and an ordinary partner-user token (no `channel_partner_manager` group) fails `getManagerAuth()` on the group check alone — neither function needed a new explicit cross-check added, but that had to be verified, not assumed, before relying on it.
+11. **Verification-status claims for this section are honestly downgraded relative to §2.4/§2.5, not glossed over.** Unlike the prior two identity-surface amendments, §2.6 is design-only — no `cdk synth`, typecheck, or test run backs it, and no code has actually been written. This is stated plainly in §8 item 13 rather than let the section's prose (which otherwise reads identically in style/confidence to §2.4/§2.5) imply a verification bar it hasn't cleared.
+
 ---
 
 ## Revision History
@@ -291,6 +360,14 @@ Reviewed 2026-07-09. One substantive factual error found and fixed — worse tha
 - **A real RLS-bootstrapping ordering bug caught and fixed during design** (§2.4, §9 item 5): `app.current_channel_partner_id` must be set before the `channel_partner_users` lookup, or that lookup is silently RLS-filtered to zero rows.
 - **Verified via `cdk synth`, `npm run typecheck`, and the full backend test suite** (65 unit tests + 11 integration tests, the latter self-skipping cleanly without a real database) — not merely written and assumed correct.
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-channel-partner-portal` memory): no API Gateway routes or Cognito authorizer exist yet for the partner pool (nothing to attach one to until API Specification defines routes); `writeAuditLog()`'s new call sites aren't wired into any handler yet; none of this has run against a real database or Cognito pool (no AWS account exists yet).
+
+**v1.3 (2026-07-13)** — forced by the Database Schema v1.3 amendment (§4.6 ChannelPartnerManager/ChannelPartnerManagerAssignment), the third step of the iOS Application doc's (#26) required amendment sequence.
+
+- **§2.6 added**: reuses `PartnerPool` (not a fourth pool) with one deliberate, disclosed exception to §2.4's group-less design — a single `channel_partner_manager` group used purely as an identity-type discriminator, since a manager's token structurally cannot carry the `custom:channel_partner_id` claim an ordinary partner-user token does. `getManagerAuth()` and `withManagerActingOnChannelPartner()` designed mirroring §2.5's `getStaffAuth()`/`withStaffActingOnTenant()` shape, with one real simplification: no `superadmin`-style unconditional-access bypass exists for a manager (every account access requires an explicit assignment row, per Domain Model §2.9).
+- **`withManagerSession()` added** for the manager's cross-account `GET /v1/partner-manager/overview` endpoint — deliberately an application-code loop over already-individually-verified single-account handoffs, not a new cross-account RLS policy, continuing this document's consistent avoidance of that specific risk class.
+- **`writeAuditLog()` extended again**, with an optional `actorChannelPartnerManagerId` parameter matching Database Schema §4.6's new actor column.
+- **A real, disclosed difference from §2.4/§2.5's pattern**: this section is design-only, not implemented-and-verified in the same pass. No code exists yet in `infra/`/`backend/` for any of §2.6 — flagged explicitly (§8 item 13, §9 item 11) rather than presented with the same verification confidence as the prior two identity-surface sections.
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-client-apps` memory): the email-based invite-or-link provisioning endpoint and `GET /v1/partner-manager/overview`'s response shape — API Specification's (#11) job, next and final step of this amendment sequence. Real implementation (the `channel_partner_manager` group in `infra/lib/auth-stack.ts`, `getManagerAuth()`/`withManagerActingOnChannelPartner()`/`withManagerSession()` in `backend/`) is follow-up work once the full sequence is reviewed, same deferred-implementation pattern §2.4's own v1.1 first pass originally used before its second pass shipped real code.
 
 **v1.2 (2026-07-12)** — forced by the PRD v1.6/SRS v1.6/Domain Model v1.2/Database Schema v1.2 amendment (Internal Administration Console), same governing pattern as v1.1 — Database Schema §4.5 explicitly left the auth/API-layer mechanism open for this document to resolve.
 
