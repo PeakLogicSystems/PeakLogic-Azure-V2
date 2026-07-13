@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.2 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2 is approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.2, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.3, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1), [iOS Application](ios-application.md) (Draft v1.1)
+**Last updated:** 2026-07-13
 
 ---
 
@@ -54,6 +54,8 @@ Full DDL lives in `docs/data-model.sql`; this table is a navigational summary, n
 | Service (§2.4) | `service_tickets` | Yes |
 | Audit (§2.6) | `audit_log_entries` — append-only, §4.3 | Yes |
 | Channel Partner Portal & Dispatch (§2.7, *added v1.1*) | `territories`, `channel_partner_users`, `route_assignments`, `route_stops` — §4.4 | **No** — channel-partner-scoped, not tenant-scoped (§4.4) |
+| Internal Administration (§2.8, *added v1.2*) | `peaklogic_staff_users`, `account_assignments` — §4.5 | Yes, third identity space (no `tenant_id`/`channel_partner_id`) |
+| Channel Partner Manager (§2.9, *added v1.3*) | `channel_partner_managers`, `channel_partner_manager_assignments` — §4.6 | Yes, fourth identity space (no `tenant_id`/`channel_partner_id` on the manager table itself) |
 
 `DeviceAdapter` (Domain Model §2.3) has no table, by design (DA-3.1) — it stays a code-defined object in `backend/ingest/handler.ts`'s `RULES_BY_CATEGORY`.
 
@@ -300,6 +302,102 @@ ALTER TABLE users ADD COLUMN theme TEXT CHECK (theme IN ('light','dark'));
 ```
 All three `NULL`-default, meaning "use the application default" — no backfill migration needed for existing rows.
 
+### 4.6 Channel Partner Manager Schema *(new — added v1.3, see Revision History)*
+
+Domain Model §2.9 (v1.3) specified ChannelPartnerManager and ChannelPartnerManagerAssignment; this section makes the physical decisions Domain Model left open (§5 there) — reusing, not reinventing, the "act as" handoff pattern §4.5 established, since this is structurally the same shape one level down (PeakLogic staff acting on a tenant → a manager acting on a channel partner), and reusing the same design saves this amendment from needing its own five-plus-table permissive-policy audit.
+
+**`channel_partner_managers`** — the fourth identity table (Domain Model §2.9), structurally parallel to `users`/`channel_partner_users`/`peaklogic_staff_users`, no `tenant_id`, no `channel_partner_id` (a manager's whole defining trait is not being scoped to one).
+```sql
+CREATE TABLE channel_partner_managers (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  cognito_sub  TEXT        NOT NULL UNIQUE,
+  email        TEXT        NOT NULL,
+  display_name TEXT,
+  status       TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+ALTER TABLE channel_partner_managers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channel_partner_managers FORCE ROW LEVEL SECURITY;
+CREATE POLICY manager_self_or_staff ON channel_partner_managers
+  USING (
+    cognito_sub = current_setting('app.current_manager_cognito_sub', true)
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+  );
+```
+Mirrors `peaklogic_staff_users`' `staff_self_or_superadmin` policy shape exactly (§4.5, itself corrected mid-amendment to key on `cognito_sub` rather than `id`, for the same "can't require the row you're trying to look up" reason) — applied here directly, not rediscovered. **Deliberately excludes any `channel_partner_users` session from reading this table at all, even a `partner_admin` of an account this manager has access to** — this is the real access-control consequence of Domain Model §2.9's disclosed provisioning gap: a `partner_admin` inviting a manager works by email precisely *because* they structurally cannot see this table to pick an existing row.
+
+**`channel_partner_manager_assignments`** — the cross-account grant join table (Domain Model §2.9).
+```sql
+CREATE TABLE channel_partner_manager_assignments (
+  id                          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_partner_manager_id  UUID        NOT NULL REFERENCES channel_partner_managers(id) ON DELETE CASCADE,
+  channel_partner_id          UUID        NOT NULL REFERENCES channel_partners(id) ON DELETE CASCADE,
+  assigned_by_staff_user_id   UUID        REFERENCES peaklogic_staff_users(id),
+  assigned_by_partner_user_id UUID        REFERENCES channel_partner_users(id),
+  assigned_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT channel_partner_manager_assignments_grantor_check CHECK (
+    (assigned_by_staff_user_id IS NOT NULL AND assigned_by_partner_user_id IS NULL)
+    OR (assigned_by_staff_user_id IS NULL AND assigned_by_partner_user_id IS NOT NULL)
+  ),
+  UNIQUE (channel_partner_manager_id, channel_partner_id)
+);
+ALTER TABLE channel_partner_manager_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE channel_partner_manager_assignments FORCE ROW LEVEL SECURITY;
+CREATE POLICY manager_assignment_visibility ON channel_partner_manager_assignments
+  USING (
+    channel_partner_manager_id = current_setting('app.current_manager_id', true)::uuid
+    OR current_setting('app.current_staff_role', true) = 'superadmin'
+    OR (
+      current_setting('app.current_channel_partner_role', true) = 'partner_admin'
+      AND channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    )
+  );
+```
+The grantor `CHECK` directly implements Domain Model §2.9's locked, deliberately-more-permissive-than-`account_assignments` decision (either a `superadmin` OR the target account's own `partner_admin` may grant, not staff-only) — expressed the same nullable-column-pair idiom as `account_assignments_scope_check` (§4.5) and `audit_log_entries`' scope/actor `CHECK`s, applied to a grantor pair instead. `UNIQUE (channel_partner_manager_id, channel_partner_id)` prevents a duplicate grant of the same account to the same manager (mirrors `account_assignments`' own uniqueness pattern). The visibility policy's third `OR` branch is what lets a `partner_admin` see (and, per the same USING-doubles-as-WITH-CHECK behavior §4.5 already verified against PostgreSQL's documentation, create) assignment rows granting *their own* account to a manager — without ever exposing that manager's other, unrelated assignments to different accounts, since those rows have a different `channel_partner_id` that never matches the `partner_admin`'s own session variable.
+
+**The "act as" handoff — a third instance of §4.5's pattern, not a new design.** A new `withManagerActingOnChannelPartner()` function (`backend/shared/db.ts`, mirrors `withStaffActingOnTenant()` in shape):
+```sql
+-- Within one transaction, in this order:
+SET LOCAL app.current_manager_cognito_sub = '<sub from JWT>';
+
+-- Resolve the manager's own row by cognito_sub — same ordering constraint
+-- §4.5's staff_self_or_superadmin fix already established (can't key the
+-- lookup policy on the id you're trying to discover):
+SET LOCAL app.current_manager_id = '<resolved id>';
+
+-- Verify assignment BEFORE touching the target channel partner's own scope
+-- — this query is itself RLS-scoped by manager_assignment_visibility above:
+SELECT 1 FROM channel_partner_manager_assignments WHERE channel_partner_id = '<target channel_partner uuid>';
+-- Application: if zero rows, ROLLBACK, 403.
+
+-- Only once verified: hand off to the exact same two session variables
+-- every ordinary channel_partner_users partner_admin session already sets:
+SET LOCAL app.current_channel_partner_id = '<target channel_partner uuid>';
+SET LOCAL app.current_channel_partner_role = 'partner_admin';
+-- app.current_channel_partner_user_id is deliberately left unset — every
+-- existing policy that branches on it (channel_partner_can_read_site()'s
+-- technician-territory case, §4.4; route_assignments/route_stops'
+-- technician-only restriction) only ever applies when role = 'technician',
+-- which a manager acting as partner_admin never is. Verified by re-reading
+-- §4.4's actual policy conditions, not assumed safe by analogy.
+```
+From here, every existing `channel_partner_isolation`/`channel_partner_read` policy and every existing channel-partner-portal route handler runs completely unchanged — it cannot distinguish a manager session acting-as `partner_admin` from that account's own real `partner_admin` session, the identical property §4.5's handoff already established for staff-acting-on-tenants.
+
+**`audit_log_entries` gains a fourth actor column, extending — not replacing — the existing three-column pattern.**
+```sql
+ALTER TABLE audit_log_entries ADD COLUMN actor_channel_partner_manager_id UUID REFERENCES channel_partner_managers(id);
+ALTER TABLE audit_log_entries DROP CONSTRAINT audit_log_entries_actor_check;
+ALTER TABLE audit_log_entries ADD CONSTRAINT audit_log_entries_actor_check CHECK (
+  (CASE WHEN actor_id IS NOT NULL THEN 1 ELSE 0 END)
+  + (CASE WHEN actor_channel_partner_user_id IS NOT NULL THEN 1 ELSE 0 END)
+  + (CASE WHEN actor_staff_user_id IS NOT NULL THEN 1 ELSE 0 END)
+  + (CASE WHEN actor_channel_partner_manager_id IS NOT NULL THEN 1 ELSE 0 END)
+  <= 1
+);
+```
+Without this, a manager acting-as `partner_admin` through the handoff above would write an audit entry with no actor column set at all (there is no real `channel_partner_users` row to attribute it to), silently degrading to a "system-triggered, no actor" entry — indistinguishable from a genuinely unattended action, which is exactly the kind of audit-trail gap AUD-1 exists to prevent. The existing pairwise `CHECK (NOT (a AND b))` style used through v1.2 doesn't scale cleanly past three columns; **switched to a counting `CASE`-sum expression here, functionally identical for three columns but clearer as a fourth is added** — a real, disclosed style change, not a silent rewrite (flagged in §8 Review Log). `writeAuditLog()` (Security Architecture, to be amended next in this sequence) gains a corresponding optional `actorChannelPartnerManagerId` parameter.
+
 ---
 
 ## 5. Indexing Strategy
@@ -321,6 +419,8 @@ All three `NULL`-default, meaning "use the application default" — no backfill 
 | `audit_log_entries_channel_partner_idx` *(new)* | `audit_log_entries` | The channel-partner-scoped analog of `audit_log_entries_lookup`, for the same "history of actions" query pattern |
 | `account_assignments_staff_idx` *(new, added v1.2)* | `account_assignments` | `account_assignment_visibility`'s own filter, and the "act as" handoff's assignment-verification query — every request through the admin console hits this |
 | `account_assignments_tenant_idx` *(new, added v1.2)* | `account_assignments` | Reverse lookup — `staff_tenant_access`'s `EXISTS` subquery, and "which account managers are assigned to this tenant" |
+| `channel_partner_manager_assignments_manager_idx` *(new, added v1.3)* | `channel_partner_manager_assignments` | `manager_assignment_visibility`'s own filter, and the "act as" handoff's assignment-verification query — every request through a manager session hits this |
+| `channel_partner_manager_assignments_partner_idx` *(new, added v1.3)* | `channel_partner_manager_assignments` | Reverse lookup — the partner-side `OR` branch of `manager_assignment_visibility`, and "which managers have access to this account" (a `partner_admin`'s own management view) |
 
 **No `GiST` spatial index on `territories.boundary` at MVP** — deferred for the same reason `sites.lat`/`lng` aren't promoted to a geography column (§4.4): a handful of territories per partner, queried interactively, doesn't need one yet.
 
@@ -339,8 +439,8 @@ All three `NULL`-default, meaning "use the application default" — no backfill 
 7. **`channel_partners` was deliberately left without RLS in this pass (§4.5)** — IA-3.1's superadmin-only creation restriction is enforced at the application layer only, a real, disclosed gap rather than a resolved one. Revisit if `channel_partners` ever needs row-level differentiation for a reason beyond "who can create one" (today, every existing reader needs unrestricted access, so there's no differentiation to add yet).
 8. **The "act as" handoff mechanism (§4.5) has never run against a real database**, same standing caveat as item 6 — the USING-doubles-as-WITH-CHECK behavior it depends on was verified directly against PostgreSQL's own documentation (not assumed from memory), but that's still "sound reasoning, unverified against a real instance," not proof.
 9. **Whether `superadmin` actions should also go through an assignment-style verification step, just always-true, for defensive-depth/audit-clarity reasons — not decided here.** Domain Model §2.8 and this section both model `superadmin` as unconditionally bypassing the assignment check entirely, which is simpler but means a `superadmin` session's audit trail can't distinguish "acted on a tenant they were expected to touch" from "acted on an arbitrary tenant" the way an `account_manager`'s always can. Flagged as a real design tradeoff, not silently resolved in favor of simplicity.
-
----
+10. **§3's schema-reference table was stale — found and fixed in this pass, not a new gap.** It never gained a row for Internal Administration (§2.8/§4.5, added v1.2) despite that amendment shipping real tables — a documentation lag, not a schema problem, corrected here alongside adding this amendment's own new row rather than left to compound further (same category of self-correction as Domain Model §4 item 11).
+11. **`channel_partner_managers`/`channel_partner_manager_assignments` (§4.6) has never run against a real database**, same standing caveat items 6/8 already establish for §4.4/§4.5 — the design directly reuses already-verified PostgreSQL RLS behavior (USING-doubles-as-WITH-CHECK, `missing_ok` semantics), so the *reasoning* carries over, but "reasoning carries over" is not the same as "verified again."
 
 ## 7. Traceability
 
@@ -353,6 +453,7 @@ All three `NULL`-default, meaning "use the application default" — no backfill 
 | §5 Indexing Strategy | RP-1.1, UX-2.1, CH-2.1, AUD-1, AI-3.1 |
 | §4.4 Channel Partner Portal & Dispatch Schema *(added v1.1)* | Domain Model §2.7, PRD §5.10 (TR-1–TR-3), SRS §3.12 (TR-1.1–TR-3.2) |
 | §4.5 Internal Administration Console Schema *(added v1.2)* | Domain Model §2.8, PRD §5.11 (IA-1–IA-8), SRS §3.13 (IA-1.1–IA-8.1) |
+| §4.6 Channel Partner Manager Schema *(added v1.3)* | Domain Model §2.9, iOS Application doc §2.1a (no PRD/SRS requirement ID yet — Domain Model §6.6 flags this as a paperwork-completeness gap, not a blocker) |
 
 ---
 
@@ -384,6 +485,13 @@ All three `NULL`-default, meaning "use the application default" — no backfill 
 13. **`channel_partners`' lack of RLS was checked directly, not assumed from §4.4's convention note** — confirmed via `docs/data-model.sql` that no `ENABLE ROW LEVEL SECURITY` statement exists for this table at all, then made the deliberate, disclosed choice not to retrofit it in this pass (§4.5, §6 item 7) rather than either silently skipping the IA-3.1 protection or rushing a broader RLS retrofit without enumerating every existing caller first.
 14. **`users.role`'s stale `service_partner` CHECK value (Domain Model §2.1's finding) is fixed here, in the schema, not just narrated** — confirmed via `docs/data-model.sql` that no row could currently hold that value (the only path that could ever have written it, the Cognito group, was removed in Security Architecture v1.1) before writing a `DROP CONSTRAINT`/`ADD CONSTRAINT` migration, rather than assuming it was safe.
 
+**v1.3 (2026-07-13), reviewed 2026-07-13:** the third instance of the "act as" handoff pattern — checked for genuine fit, not applied on autopilot.
+
+15. **Verified the handoff pattern actually fits before reusing it, rather than assuming a third case automatically matches the first two.** §4.4's five-table permissive-read-policy pattern suits read-mostly access (a technician viewing sites); §4.5's handoff suits real cross-scope write with an existing, already-hardened destination session shape to hand off to. A ChannelPartnerManager acting as `partner_admin` is structurally identical to §4.5's shape (verified-assignment-then-handoff into an existing, already-RLS'd session type), not §4.4's — confirmed by checking that `channel_partner_users`' own policies already support full CRUD via `channel_partner_isolation` (a default `USING`-only ALL-command policy), so handing off into that session type gets write access "for free," the same property that made §4.5 the right choice over extending §4.4 for the admin console.
+16. **Checked whether the handoff's unset `app.current_channel_partner_user_id` could silently break anything, rather than assumed safe by analogy to §4.5.** Traced every existing policy that reads that session variable (§4.4's `channel_partner_can_read_site()`, and `route_assignments`/`route_stops`' technician-only restriction) and confirmed both only branch on it when `app.current_channel_partner_role = 'technician'` — a manager's handoff always sets `role = 'partner_admin'`, so the unset variable is never actually consulted, not just harmlessly absent.
+17. **`audit_log_entries`' actor `CHECK` was restructured from pairwise `NOT (a AND b)` clauses to a counting `CASE`-sum expression, a real style change disclosed here, not silently rewritten.** The pairwise style (used through v1.2, three columns, three pairs) would need six pairwise clauses to correctly cover four columns — the counting form is shorter and its correctness doesn't grow quadratically with column count, at the cost of being a less immediately obvious pattern to a reader unfamiliar with it. Judged worth the tradeoff now, before a fifth actor type ever makes six pairwise clauses of the old style actively unreadable.
+18. **§3's schema-reference table gap (Internal Administration never got a row) was found by cross-checking the table against §4.5's actual shipped content, not assumed complete.** A real, if harmless, documentation-lag bug — fixed in the same pass as adding this amendment's own row (§6 item 10).
+
 ---
 
 ## Revision History
@@ -412,3 +520,11 @@ All three `NULL`-default, meaning "use the application default" — no backfill 
 - **Two real, small fixes bundled into the same migration since they were found in the same pass**: `users.role`'s `CHECK` constraint tightened to drop the already-orphaned `service_partner` value (Domain Model §2.1's finding, verified safe — no row could hold it); `users` gains three nullable display-preference columns (`clock_format`, `timezone`, `theme`) for SET-3/SET-4/SET-5, no backfill needed.
 - **`writeAuditLog()` extended, not replaced**: a new optional `actorStaffUserId` parameter populates `audit_log_entries.actor_staff_user_id` (Domain Model §2.6, itself corrected this pass to match what Database Schema v1.1 had already shipped but never gotten reflected back into that document).
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-admin-console-and-settings` memory): the application code implementing `withStaffActingOnTenant()` and the Cognito/JWT shape behind `app.current_staff_user_id`/`app.current_staff_role` — Security Architecture's (#13) job, same split of responsibility as every prior identity-surface amendment. This design has never run against a real database, same standing caveat as v1.1's fixes.
+
+**v1.3 (2026-07-13)** — forced by the Domain Model v1.3 amendment (§2.9 ChannelPartnerManager/ChannelPartnerManagerAssignment), the second step of the iOS Application doc's (#26) required amendment sequence.
+
+- **New tables**: `channel_partner_managers` (fourth identity table — no `tenant_id`/`channel_partner_id`, self-or-superadmin visibility only, deliberately unreadable by ordinary `channel_partner_users` sessions) and `channel_partner_manager_assignments` (the cross-account grant join table, dual-actor grantor `CHECK` directly implementing Domain Model §2.9's locked "staff OR the target account's own partner_admin may grant" decision).
+- **Reused, not reinvented: the "act as" handoff pattern (§4.5) applied a third time.** `withManagerActingOnChannelPartner()` verifies a `channel_partner_manager_assignments` row, then hands off into the exact same `app.current_channel_partner_id`/`app.current_channel_partner_role = 'partner_admin'` session variables an ordinary `channel_partner_users` `partner_admin` session already sets — zero new policies needed on `territories`/`route_assignments`/`route_stops`/the five §4.4 read-back tables. Verified (§8 items 15–16), not assumed, that this reuse actually fits the access shape needed and that leaving `app.current_channel_partner_user_id` unset is genuinely safe, not just analogous-looking.
+- **`audit_log_entries` gains a fourth actor column** (`actor_channel_partner_manager_id`) so a manager's actions-as-`partner_admin` are attributed correctly rather than silently degrading to "no actor." The actor `CHECK` constraint's style changed from pairwise `NOT (a AND b)` clauses to a counting `CASE`-sum expression — a disclosed refactor (§8 item 17), not a silent rewrite, made because the pairwise style stops scaling cleanly past three columns.
+- **A real, if harmless, documentation-lag bug found and fixed in the same pass**: §3's schema-reference table never gained a row for v1.2's Internal Administration tables — fixed alongside adding this amendment's own row (§6 item 10).
+- **Explicitly not resolved in this pass** (tracked in `project-peaklogic-client-apps` memory): the application code implementing `withManagerActingOnChannelPartner()`, the Cognito/JWT shape for a `channel_partner_managers` session within `PartnerPool`, and the email-based invite-or-link provisioning flow — Security Architecture's (#13) and API Specification's (#11) jobs respectively, continuing this amendment sequence. This design has never run against a real database, same standing caveat as every prior RLS amendment in this document.
