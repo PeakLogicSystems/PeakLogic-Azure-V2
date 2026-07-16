@@ -96,7 +96,7 @@ dotnet build src/PeakLogicEdge.App/PeakLogicEdge.App.csproj -c Debug -r win-x64
 **Current distribution mechanism: GitHub Releases**, tagged `edge-vX.Y.Z` (a separate tag namespace from the platform's own `vX.Y.Z` releases, since they share this repo). This is explicitly an interim choice, not the production path — see the note below.
 
 1. On the hub device, sign into GitHub in a browser (needs an account with access to this private repo).
-2. Go to the repo's Releases page and download the **latest** `edge-vX.Y.Z` asset (currently `edge-v0.2.0` — `edge-v0.1.0` has a known Windows Explorer extraction bug, see below, don't use it).
+2. Go to the repo's Releases page and download the **latest** `edge-vX.Y.Z` asset (currently `edge-v0.2.1` — `edge-v0.1.0` has a known Windows Explorer extraction bug, see below, don't use it; `edge-v0.2.0` and earlier need a separate admin-rights VC++ Redistributable install, `edge-v0.2.1`+ doesn't).
 3. Extract it to a folder (e.g. `C:\PeakLogicEdge`) — Windows' built-in "Extract All" should work fine as of v0.1.1+.
 4. Run `PeakLogicEdge.App.exe` — the real kiosk UI, not `PeakLogicEdge.Host.exe` (the console harness is still built and useful for headless testing, but isn't published as a release asset; build it from source if needed). First launch shows the Setup screen — fill in a site name and tenant/claim code, click "Register this hub," then you land on the Dashboard. It's genuinely self-contained as of `edge-v0.2.1`+ — nothing else needs to be installed first, no admin rights needed on the hub device (see below).
 
