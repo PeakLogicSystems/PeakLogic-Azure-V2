@@ -13,6 +13,7 @@ import { FrontendStack } from '../lib/frontend-stack';
 import { MarketingStack } from '../lib/marketing-stack';
 import { CiCdStack }     from '../lib/cicd-stack';
 import { MonitoringStack } from '../lib/monitoring-stack';
+import { BudgetStack }   from '../lib/budget-stack';
 
 const app = new cdk.App();
 
@@ -71,3 +72,9 @@ const domain     = new DomainStack   (app, `PeakLogic-${stage}-Domain`, { env, t
 
                  new CiCdStack    (app, `PeakLogic-${stage}-CiCd`,     { env, tags, stage });
                  new MonitoringStack(app, `PeakLogic-${stage}-Monitoring`, { env, tags, api, data, stage });
+
+// Cost kill switch (user's explicit request, 2026-07-15) — requires
+// -c budgetAlertEmail=you@example.com at deploy time, no default (see
+// budget-stack.ts's own header comment for why this fails loudly rather
+// than silently deploying an inert budget with nobody notified).
+                 new BudgetStack  (app, `PeakLogic-${stage}-Budget`,   { env, tags, data, stage });

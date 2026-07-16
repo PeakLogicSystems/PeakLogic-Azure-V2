@@ -50,6 +50,8 @@ npm run typecheck    # tsc --noEmit (no standalone build needed)
 
 # Infrastructure — every command requires an explicit stage; there is no
 # default (Deployment Architecture §2). Missing -c stage= fails synth outright.
+# Also requires -c budgetAlertEmail=you@example.com (cost kill switch, see
+# "Cost Kill Switch" section below) — fails synth outright if omitted too.
 cd infra
 npm install
 npm run synth:dev            # cdk synth -c stage=dev — validate without deploying
@@ -182,6 +184,17 @@ Lambda environment variables are injected by CDK at deploy time from stack outpu
 - `backend/shared/db.ts`'s `getPool()` has a `DB_PASSWORD` branch that reads the credential straight from a Lambda env var instead of calling Secrets Manager.
 
 **🔴 This is a hard gate, not a someday cleanup item: before any real customer data ever touches this deployment — including promoting this pattern to `staging` or `prod`, or pointing a real customer's device fleet at what was a `dev`-stage sandbox — this must be reverted to the Secrets Manager path every other stage already uses.** If a future session is asked to move toward a real customer pilot, deploy for an actual customer, or "promote dev to prod," proactively flag this exact trade-off before proceeding, even if not explicitly asked to check.
+
+## Cost Kill Switch (added 2026-07-15)
+
+**Every deploy requires `-c budgetAlertEmail=you@example.com`** — `infra/lib/budget-stack.ts` fails synth loudly without it, same "no silent default" discipline as `-c stage=`. User-requested, in response to real worry about unplanned AWS charges once a real account/deploy exists.
+
+**What it does**: AWS's own native Budget Actions feature (no custom Lambda) — a monthly cost budget (`-c budgetLimitUsd=`, default `$5`) emails at 50%/80% of the limit, then **automatically stops the stage's RDS instance at 100%**, using AWS's documented `AWSBudgetsActions_RolePolicyForResourceAdministrationWithSSM` managed policy rather than a hand-rolled equivalent (cdk-nag `AwsSolutions-IAM4` suppressed with that reasoning). RDS is the one resource in this architecture that bills hourly regardless of usage — everything else (Lambda, API Gateway, CloudFront, S3, Cognito, IoT Core) is already pay-per-use with nothing to "stop."
+
+**Real, disclosed limitations — do not oversell this as a complete safety net:**
+- **AWS Budgets track account-wide spend, not per-stage.** If more than one stage is ever deployed to the same AWS account simultaneously, each stage's `BudgetStack` would watch the *same* total account cost, not its own slice — fine under this project's current single-stage-at-a-time reality, would need real redesign (cost-allocation tags + a filtered budget) before that changes.
+- **Billing data has reporting lag** (typically updated a few times a day) — this is a strong, fast first response, not an instantaneous circuit breaker.
+- **A Budget-Action-stopped RDS instance is still subject to AWS's own platform rule that a stopped instance auto-restarts after 7 days**, regardless of what triggered the stop. This buys a pause to notice and fix the underlying cost driver, not a permanent shutdown — if nothing is done within 7 days, RDS resumes billing on its own.
 
 ## Branching & Commits
 
