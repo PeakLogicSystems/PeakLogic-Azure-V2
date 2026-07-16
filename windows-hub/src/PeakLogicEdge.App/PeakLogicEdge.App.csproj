@@ -36,6 +36,29 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- App-local Visual C++ Redistributable (x64) DLLs, vendored directly
+         instead of requiring a separate vc_redist.x64.exe install on the
+         hub device. WindowsAppSDKSelfContained bundles the Windows App SDK
+         framework, but the SDK's own native components still link against
+         the VC++ runtime, which is not part of that bundle: confirmed
+         2026-07-16 by inspecting a real publish output (no vcruntime140.dll
+         / msvcp140.dll present) after a hub device failed to launch the app
+         with zero visible error. Microsoft explicitly documents app-local
+         (xcopy) deployment of these exact files as a supported alternative
+         to the system-wide installer: https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files
+         This matters here specifically because the hub device this app
+         actually runs on is managed by someone without local admin rights
+         to run an installer, so app-local deployment needs none. -->
+    <None Include="redist\x64\*.dll">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <!-- Flattened to the output root, not redist\x64\: the OS DLL
+           search order only checks the exe's own directory, not
+           subfolders, so these have to land right next to the exe. -->
+      <Link>%(Filename)%(Extension)</Link>
+    </None>
+  </ItemGroup>
+
+  <ItemGroup>
     <Manifest Include="$(ApplicationManifest)" />
   </ItemGroup>
 
