@@ -6,6 +6,7 @@
     <ScrollViewer Padding="32">
         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Dashboard" Style="{StaticResource PageTitleStyle}" />
+            <TextBlock x:Name="SiteNameText" Text="Site" Opacity="0.75" FontWeight="SemiBold" Margin="0,-12,0,16" />
 
             <InfoBar IsOpen="True" Severity="Informational"
                      Title="No cloud backend connected"

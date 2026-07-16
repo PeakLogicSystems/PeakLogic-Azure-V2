@@ -7,6 +7,13 @@
         <StackPanel MaxWidth="900" HorizontalAlignment="Left">
             <TextBlock Text="Settings" Style="{StaticResource PageTitleStyle}" />
 
+            <TextBlock Text="Appearance" Style="{StaticResource SectionTitleStyle}" />
+            <Border Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8" Padding="20,16" Margin="0,0,0,8">
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <ToggleSwitch x:Name="DarkModeToggle" Header="Dark mode" MinHeight="48" Toggled="DarkModeToggle_Toggled" />
+                </StackPanel>
+            </Border>
+
             <!-- Architecture doc S6.2: "Settings to Ingestion Health (COM
                  ports / LAN endpoints status, endpoint-local, not in the
                  web app)". This is real, live data from the actual

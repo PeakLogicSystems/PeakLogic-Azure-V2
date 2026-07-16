@@ -4,12 +4,15 @@ using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
 using PeakLogicEdge.Core.Caching;
+using PeakLogicEdge.Core.Configuration;
 using PeakLogicEdge.Core.Ingestion;
 using PeakLogicEdge.Core.Normalization;
 
 namespace PeakLogicEdge.App.Services;
 
 public sealed record RecentReadingRow(string ThingName, string ObservedAt, string MetricsSummary);
+
+public sealed record AlertRow(long Id, string ThingName, string Severity, string Message, string RaisedAt);
 
 // Owns the real ingestion -> normalization -> durable-caching pipeline --
 // mirrors PeakLogicEdge.Host's Program.cs exactly (same
@@ -29,6 +32,7 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
     private const int MaxRecentReadings = 25;
 
     private readonly ILogger _log;
+    private readonly SiteIdentity _site;
     private readonly TelemetryBus _bus = new();
     private readonly IngestionOrchestrator _orchestrator;
     private readonly Dictionary<string, string> _thingNameByDeviceKey = new()
@@ -38,12 +42,20 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
 
     private DispatcherQueue? _dispatcher;
     private TelemetryCache? _cache;
+    private LocalAlertStore? _alerts;
     private int _pendingCount;
 
-    public EdgeRuntimeService(ILogger log)
+    public EdgeRuntimeService(ILogger log, SiteIdentity site)
     {
         _log = log;
+        _site = site;
         _orchestrator = new IngestionOrchestrator(log);
+
+        // Demo-only device, standing in for real sensor hardware -- this
+        // hub isn't wired to any real device yet (S2 "no real hardware
+        // yet" disclosure, unchanged). Attributed to whatever site this
+        // hub was commissioned for during Setup, not hardcoded to a
+        // specific customer.
         _orchestrator.Register(new SimulatedIngestionSource(
             deviceKey: "demo-chlorinator",
             metrics: new Dictionary<string, (double Base, double Spread)>
@@ -57,7 +69,11 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
             interval: TimeSpan.FromSeconds(5)));
     }
 
+    public string SiteDisplayName => _site.DisplayName;
+
     public ObservableCollection<RecentReadingRow> RecentReadings { get; } = new();
+
+    public ObservableCollection<AlertRow> ActiveAlerts { get; } = new();
 
     public IReadOnlyDictionary<string, string> IngestionHealth => _orchestrator.Health;
 
@@ -82,10 +98,40 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PeakLogicEdge");
         Directory.CreateDirectory(cacheDir);
         _cache = await TelemetryCache.OpenAsync(Path.Combine(cacheDir, "edge-cache.db"));
+        _alerts = await LocalAlertStore.OpenAsync(Path.Combine(cacheDir, "edge-alerts.db"));
+
+        await RefreshAlertsAsync();
 
         _ = _orchestrator.RunAsync(ct);
         _ = NormalizationLoopAsync(ct);
         _ = StatusPollLoopAsync(ct);
+    }
+
+    // Locally-cleared here means dismissed on THIS device only -- it does
+    // not claim the alert was acknowledged in any cloud system, since none
+    // is connected. A real cloud acknowledgment (PeakLogicApiClient.
+    // AcknowledgeAlertAsync) is a separate, already-designed call this
+    // method does not attempt to make.
+    public async Task ClearAlertAsync(long id)
+    {
+        if (_alerts is null) return;
+        await _alerts.ClearAsync(id);
+        await RefreshAlertsAsync();
+    }
+
+    private async Task RefreshAlertsAsync()
+    {
+        if (_alerts is null) return;
+        var rows = await _alerts.ListActiveAsync();
+        var mapped = rows.Select(a => new AlertRow(
+            a.Id, a.ThingName, a.Severity, a.Message,
+            DateTimeOffset.FromUnixTimeSeconds(a.RaisedAtUnix).ToLocalTime().ToString("HH:mm:ss"))).ToList();
+
+        _dispatcher?.TryEnqueue(() =>
+        {
+            ActiveAlerts.Clear();
+            foreach (var row in mapped) ActiveAlerts.Add(row);
+        });
     }
 
     private async Task NormalizationLoopAsync(CancellationToken ct)
@@ -105,6 +151,21 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
                 thingName,
                 reading.ObservedAt.ToLocalTime().ToString("HH:mm:ss"),
                 string.Join("  ", reading.Metrics.Select(kv => $"{kv.Key}={kv.Value:0.##}")));
+
+            // A deliberately minimal, clearly-labeled DEMO threshold check --
+            // NOT the real alerting pipeline. Real alert evaluation lives
+            // server-side by design (backend/ingest/rules.ts's
+            // RULES_BY_CATEGORY) and is not duplicated here; this exists
+            // solely so the local-clear mechanism (LocalAlertStore, S6.4-
+            // adjacent) has something real to demonstrate against before a
+            // real backend or a real cloud-alert-delivery channel exists.
+            // Remove once real alerts flow to this device instead.
+            if (reading.Metrics.TryGetValue("salt_ppm", out var salt) && (salt < 2700 || salt > 3400))
+            {
+                await _alerts!.RaiseAsync(thingName, "warning",
+                    $"salt_ppm={salt:0} is outside the expected 2700-3400 range (demo threshold check)");
+                await RefreshAlertsAsync();
+            }
 
             _dispatcher?.TryEnqueue(() =>
             {

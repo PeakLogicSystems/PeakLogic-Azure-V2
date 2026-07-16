@@ -1,0 +1,55 @@
+<UserControl
+    x:Class="PeakLogicEdge.App.Controls.BrandHeader"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      Correct alignment convention for this lockup, established here since
+      no other place in the codebase defines a side-by-side icon+wordmark
+      treatment (marketing/index.html stacks them vertically instead, so
+      there was nothing to copy this from, so this IS the source now).
+
+      The path data below is marketing/favicon.svg's mountain-peak mark
+      TRANSLATED so its bounding box starts at (0,0). The original data
+      (M4,28 L12,10 ... in a 32x32 canvas) has 4px/10px of left/top margin
+      baked in from that file's own 32x32 viewBox, which favicon.svg's own
+      svg viewBox="4 10 24 18" crops away at render time. Reproducing the
+      RAW, untranslated coordinates inside a Viewbox that doesn't match
+      that same crop is exactly what caused the original bug: content
+      whose true extent is 24x18 got centered inside a naively-sized
+      28x28 box, floating the mountain shape with phantom padding above
+      and below instead of sitting flush at the bottom. Translating the
+      coordinates to a tight 0,0-24,18 bounding box and sizing the Viewbox
+      to that same 24x18 ratio makes the icon fill it with zero padding on
+      any side, at which point Bottom-aligning both the icon and the
+      text against the StackPanel's cross-axis genuinely aligns the
+      wordmark's baseline with the mountain's own base line, not just
+      with the icon's arbitrary bounding box center.
+
+      "Peak" is a fixed white brush, not a ThemeResource that adapts to
+      light/dark. A second real bug, found by actually toggling the
+      theme and watching the word turn illegibly dark: marketing/
+      index.html's own CSS (".wordmark .peak { color: #FFFFFF }") already
+      establishes this as a fixed brand color, not something that was ever
+      meant to react to a surrounding theme. This only stays legible
+      because this control is only ever placed on a permanently dark
+      background (ShellPage.xaml's NavigationView pane, fixed dark
+      regardless of the user's content-area theme choice; SetupPage,
+      which always renders before any theme choice exists). If this
+      control is ever reused somewhere with a theme-adaptive background,
+      that placement needs its own real contrast decision, not an
+      assumption that this fixed white will still work.
+    -->
+    <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Bottom">
+        <Viewbox Width="32" Height="24" VerticalAlignment="Bottom">
+            <Grid>
+                <Path Data="M0,18 L8,0 L14,10 L19,2 L24,18 Z" Fill="{StaticResource BrandPurpleBrush}" />
+                <Path Data="M14,10 L19,2 L24,18 Z" Fill="{StaticResource BrandGreenBrush}" Opacity="0.85" />
+            </Grid>
+        </Viewbox>
+        <TextBlock VerticalAlignment="Bottom" FontSize="20" FontWeight="ExtraBold" LineHeight="20">
+            <Run Text="Peak" Foreground="{StaticResource BrandWhiteBrush}" />
+            <Run Text="Logic" Foreground="{StaticResource BrandPurpleBrush}" />
+        </TextBlock>
+    </StackPanel>
+</UserControl>

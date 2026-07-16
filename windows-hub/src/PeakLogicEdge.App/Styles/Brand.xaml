@@ -1,0 +1,50 @@
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+      PeakLogic brand palette, reused exactly from frontend/tailwind.config.ts's
+      "brand" colors and marketing/index.html's wordmark treatment, not
+      invented independently, so the kiosk UI actually looks like the same
+      product as the tenant web app and marketing site.
+    -->
+
+    <Color x:Key="BrandPurpleColor">#7C3AED</Color>
+    <Color x:Key="BrandPurpleMidColor">#8B5CF6</Color>
+    <Color x:Key="BrandPurpleSoftColor">#EDE9FE</Color>
+    <Color x:Key="BrandGreenColor">#22C55E</Color>
+    <Color x:Key="BrandGreenSoftColor">#DCFCE7</Color>
+    <Color x:Key="BrandBlackColor">#0F172A</Color>
+    <!-- marketing/index.html's ".wordmark .peak { color: #FFFFFF }": a
+         fixed brand color, not theme-adaptive. On the marketing site this
+         never has to account for a light background because that page's
+         own canvas is permanently dark (plain "background: #0F172A", no
+         light mode at all). This app's nav pane is deliberately kept the
+         same way (see ShellPage.xaml's fixed RequestedTheme="Dark" +
+         PaneBackground) specifically so this fixed white stays legible
+         regardless of whichever theme the user has picked for the main
+         content area. -->
+    <Color x:Key="BrandWhiteColor">#FFFFFF</Color>
+
+    <SolidColorBrush x:Key="BrandPurpleBrush" Color="{StaticResource BrandPurpleColor}" />
+    <SolidColorBrush x:Key="BrandPurpleMidBrush" Color="{StaticResource BrandPurpleMidColor}" />
+    <SolidColorBrush x:Key="BrandPurpleSoftBrush" Color="{StaticResource BrandPurpleSoftColor}" />
+    <SolidColorBrush x:Key="BrandGreenBrush" Color="{StaticResource BrandGreenColor}" />
+    <SolidColorBrush x:Key="BrandGreenSoftBrush" Color="{StaticResource BrandGreenSoftColor}" />
+    <SolidColorBrush x:Key="BrandBlackBrush" Color="{StaticResource BrandBlackColor}" />
+    <SolidColorBrush x:Key="BrandWhiteBrush" Color="{StaticResource BrandWhiteColor}" />
+
+    <!-- The mountain-peak mark from marketing/favicon.svg. The actual
+         path data lives inline on the Path elements in
+         Controls/BrandHeader.xaml (its only usage site), not as a
+         resource here. An earlier attempt defined it as a PathGeometry
+         resource with a string Figures value, which WinUI 3 rejects
+         (WMC0055: Path.Data's string shorthand for this mini-language
+         does not carry over to PathGeometry.Figures). -->
+
+    <Style x:Key="AppAccentButtonStyle" TargetType="Button" BasedOn="{StaticResource TouchButtonStyle}">
+        <Setter Property="Background" Value="{StaticResource BrandPurpleBrush}" />
+        <Setter Property="Foreground" Value="White" />
+    </Style>
+
+</ResourceDictionary>

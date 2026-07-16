@@ -1,0 +1,39 @@
+<Page
+    x:Class="PeakLogicEdge.App.Views.SetupPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:PeakLogicEdge.App.Controls">
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <StackPanel Grid.Row="0" Padding="32,32,32,0">
+            <controls:BrandHeader />
+        </StackPanel>
+
+        <ScrollViewer Grid.Row="1" Padding="32">
+            <StackPanel MaxWidth="520" HorizontalAlignment="Left" Spacing="4">
+                <TextBlock Text="Set up this hub" Style="{StaticResource PageTitleStyle}" Margin="0,24,0,4" />
+                <TextBlock TextWrapping="Wrap" Opacity="0.75" Margin="0,0,0,24"
+                           Text="This device hasn't been commissioned yet. Enter the site details for this hub — this only needs to happen once." />
+
+                <TextBlock Text="Site name" FontWeight="SemiBold" Margin="0,8,0,4" />
+                <TextBox x:Name="SiteNameBox" PlaceholderText="e.g. Lakeside Pool Route" MinHeight="48" />
+
+                <TextBlock Text="Tenant / claim code" FontWeight="SemiBold" Margin="0,16,0,4" />
+                <TextBox x:Name="TenantCodeBox" PlaceholderText="Provided by your PeakLogic account manager" MinHeight="48" />
+
+                <InfoBar x:Name="StatusBar" Margin="0,20,0,0" IsOpen="False" />
+
+                <Button x:Name="RegisterButton" Content="Register this hub" Style="{StaticResource AppAccentButtonStyle}"
+                        Click="RegisterButton_Click" Margin="0,20,0,0" HorizontalAlignment="Left" />
+
+                <TextBlock TextWrapping="Wrap" Opacity="0.6" FontSize="12" Margin="0,24,0,0"
+                           Text="Backend connection details (API endpoint, IoT Core certificate) are normally provisioned automatically once this hub is deployed against a real PeakLogic cloud account. No cloud backend is deployed yet, so this step saves your site details locally and proceeds — the real registration call will run automatically the first time a backend exists." />
+            </StackPanel>
+        </ScrollViewer>
+    </Grid>
+</Page>

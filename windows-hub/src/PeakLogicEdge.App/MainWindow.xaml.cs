@@ -1,55 +1,31 @@
-using Microsoft.Extensions.Logging;
 using Microsoft.UI.Xaml;
-using Microsoft.UI.Xaml.Controls;
 using PeakLogicEdge.App.Services;
 using PeakLogicEdge.App.Views;
+using PeakLogicEdge.Core.Configuration;
 
 namespace PeakLogicEdge.App;
 
 public sealed partial class MainWindow : Window
 {
-    private readonly CancellationTokenSource _cts = new();
-    private readonly EdgeRuntimeService _runtime;
-
     public MainWindow()
     {
         InitializeComponent();
 
-        using var loggerFactory = LoggerFactory.Create(builder => builder
-            .AddDebug()
-            .SetMinimumLevel(LogLevel.Information));
-        _runtime = new EdgeRuntimeService(loggerFactory.CreateLogger("PeakLogicEdge"));
+        var cacheDir = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PeakLogicEdge");
+        Directory.CreateDirectory(cacheDir);
+        var configPath = Path.Combine(cacheDir, "hub-config.json");
 
-        Closed += (_, _) => _cts.Cancel();
-    }
+        // EdgeConfig.Load() itself documents this as the correct signal: a
+        // missing config means this device was never commissioned, not an
+        // error to work around. First-run detection is exactly that check.
+        EdgeConfig? existing = null;
+        try { existing = EdgeConfig.Load(configPath); }
+        catch (FileNotFoundException) { /* expected on a fresh device -- fall through to Setup */ }
 
-    private async void Nav_Loaded(object sender, RoutedEventArgs e)
-    {
-        // Same real pipeline PeakLogicEdge.Host runs (S2.1's "no AWS
-        // backend, no real hardware yet" disclosure still applies -- see
-        // EdgeRuntimeService's own header comment) -- started once,
-        // shared across every page via the Frame navigation parameter
-        // below, not re-created per page.
-        await _runtime.StartAsync(DispatcherQueue, _cts.Token);
+        var theme = new ThemeService(configPath, existing);
+        theme.Apply(RootFrame);
 
-        ContentFrame.Navigate(typeof(DashboardPage), _runtime);
-        Nav.SelectedItem = Nav.MenuItems[0];
-    }
-
-    private void Nav_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
-    {
-        if (args.SelectedItemContainer is not NavigationViewItem item) return;
-
-        var pageType = (item.Tag as string) switch
-        {
-            "dashboard" => typeof(DashboardPage),
-            "sites" => typeof(SitesPage),
-            "alerts" => typeof(AlertsPage),
-            "tickets" => typeof(TicketsPage),
-            "settings" => typeof(SettingsPage),
-            _ => typeof(DashboardPage),
-        };
-
-        ContentFrame.Navigate(pageType, _runtime);
+        RootFrame.Navigate(existing is null ? typeof(SetupPage) : typeof(ShellPage), configPath);
     }
 }

@@ -25,25 +25,49 @@ Two real, disclosed reasons, not oversights:
 
 What it *does* prove, right now, without either of those: real ingestion → real normalization → real durable SQLite queueing, the actual mechanism that makes telemetry delivery guaranteed rather than best-effort once a real backend and real hardware both exist. Run it and watch the queue grow — that's the offline-durability behavior working exactly as designed.
 
-## Kiosk UI (`PeakLogicEdge.App`, added 2026-07-16)
+## Kiosk UI (`PeakLogicEdge.App`, added 2026-07-16, extended same day)
 
-Real WinUI 3 app (unpackaged, `WindowsPackageType=None` — MSIX packaging is step 7, deliberately later per the architecture doc's own §11.1 sequencing), verified running end-to-end on real hardware (screenshotted, not just compiled): navigation shell, live Dashboard, live Ingestion Health.
+Real WinUI 3 app (unpackaged, `WindowsPackageType=None` — MSIX packaging is step 7, deliberately later per the architecture doc's own §11.1 sequencing), verified running end-to-end on real hardware via actual screenshots and UI Automation-driven interaction (not just compiled): first-run commissioning, branded navigation shell, live Dashboard, live Ingestion Health, local alert clearing, light/dark theming.
 
 **Built against the real, already-working data layer, not mocked separately** — `Services/EdgeRuntimeService.cs` owns the exact same `IngestionOrchestrator`/`TelemetryBus`/`TelemetryCache` pipeline `PeakLogicEdge.Host` runs, just driving UI-bound observable state instead of `Console.WriteLine`. The Dashboard's "readings durably queued" count and Recent Readings list, and Settings' Ingestion Health list, are real, live data — not placeholders.
 
-**Screen inventory per architecture doc §6.2:**
+### First-run commissioning (`Views/SetupPage.xaml`)
+
+A device with no local config shows a branded setup form (site name + tenant/claim code) instead of the normal shell — `EdgeConfig.Load()`'s own existing `FileNotFoundException` behavior ("this file is written once at commissioning... a missing config means this device was never properly commissioned") is the exact signal used to detect first run, not a new mechanism.
+
+**No real backend registration call is attempted** — there is no deployed backend anywhere to call, and no hub-registration API contract has even been designed yet (Domain Model doesn't model a hub as a claimable entity the way it does individual Devices). Site details are saved locally via the existing `EdgeConfig.Save()`, and the UI discloses plainly that cloud registration is deferred until both a backend and that API contract exist — inventing a fake URL to probe against would have been less honest than this. Once saved, `ShellPage` loads the config and the Dashboard shows the real configured site name, not a hardcoded value.
+
+### Branding & theming
+
+Real PeakLogic brand identity (`Styles/Brand.xaml`), not invented independently — the purple/green mountain-peak mark and the "Peak"/"Logic" wordmark colors are reused exactly from `marketing/favicon.svg` and `frontend/tailwind.config.ts`'s `brand` palette, so the kiosk UI looks like the same product as the marketing site and tenant web app. `Controls/BrandHeader.xaml` is the reusable icon+wordmark lockup (nav pane header, setup screen) — its own header comment documents the correct bottom-alignment convention (translate the path data to a tight bounding box, `VerticalAlignment="Bottom"` on both elements) after an initial version got this visibly wrong by using an untranslated `Viewbox` that floated the icon with phantom padding.
+
+Light/dark mode is user-toggled (Settings → Appearance), not the OS media-query strategy — mirrors the tenant web app's own SET-4 `ThemeContext` decision exactly. `Services/ThemeService.cs` persists the choice through `EdgeConfig.Ui.Theme`.
+
+**The toggle only applies to the main content area — the nav pane is permanently dark-branded, matching marketing/index.html's own fixed-dark canvas.** Two real bugs, both found by actually toggling the switch and looking, not assumed correct from the API surface: (1) the wordmark's "Peak" text was originally bound to a theme-reactive brush and turned illegibly dark in light mode — marketing/index.html's own CSS (`.wordmark .peak { color: #FFFFFF }`) already establishes this as a fixed brand color, never meant to adapt to a surrounding theme, so it's now a fixed white brush instead (`Styles/Brand.xaml`'s `BrandWhiteBrush`). (2) Fixing that properly meant the nav pane's background can no longer follow the toggle either (a light pane would make that fixed-white text illegible again) — `ShellPage.xaml`'s `NavigationView` is pinned to `RequestedTheme="Dark"` permanently, and since that would otherwise cascade its fixed Dark down into `ContentFrame` too (NavigationView's own Content), `ThemeService` explicitly re-sets `RequestedTheme` directly on `ContentFrame` on every toggle to override that inherited value back to the user's real choice. Net effect: dark sidebar always, content area follows the toggle — verified via UI-Automation-driven interaction (not just code review) that both the pane stays legible and the content area genuinely changes.
+
+### Local alert clearing (`PeakLogicEdge.Core/Caching/LocalAlertStore.cs`)
+
+A genuinely new mechanism, not part of the original architecture doc — real alerting is, by design, computed server-side (`backend/ingest/rules.ts`'s `RULES_BY_CATEGORY`), not duplicated on the hub. This exists for a narrower, real need: once alerts eventually reach this hub (a future REST poll or cloud-pushed list once a backend exists), a technician standing at the kiosk needs to be able to locally dismiss ones that aren't real issues. "Cleared" is deliberately local-only state — it does not claim the cloud's own alert record was acknowledged (a separate, already-designed `PeakLogicApiClient.AcknowledgeAlertAsync` call this store does not attempt to make).
+
+To give the Alerts screen something real to demonstrate against before a real alert source exists, `EdgeRuntimeService` runs a minimal, clearly-labeled **demo-only** threshold check (`salt_ppm` outside 2700–3400) on the simulated device's own readings — explicitly commented as not the real alerting pipeline, to be removed once real alerts flow to this device instead.
+
+### Screen inventory per architecture doc §6.2
+
 | Screen | Status |
 |---|---|
-| Dashboard | Real — live pending-queue count + recent readings, both sourced from the actual running pipeline |
+| Dashboard | Real — live pending-queue count + recent readings + configured site name, all sourced from the actual running pipeline |
+| Alerts | Real — local alert store with a working Clear action, fed by a disclosed demo-only threshold check pending real alerts |
+| Settings → Appearance | Real — light/dark toggle, persisted |
 | Settings → Ingestion Health | Real — live `IngestionOrchestrator.Health` per source |
-| Sites / Alerts / Tickets | Honest placeholder ("requires a connected backend") — this data lives in the cloud backend, which doesn't exist yet. Deliberately **not** faked, per this project's standing rule against repeating the tenant frontend's mock-data mistake |
+| Sites / Tickets | Honest placeholder ("requires a connected backend") — this data lives in the cloud backend, which doesn't exist yet. Deliberately **not** faked, per this project's standing rule against repeating the tenant frontend's mock-data mistake |
 | Site Detail / Asset Detail / Device Detail drill-down | Not built — no backend data to drill into yet |
 | Control Panel (command/actuation) | Not built — gated behind Device & Command Security Architecture §5, same as everywhere else in this project |
 
-**Real, disclosed gaps in this first pass, not oversights:**
+**Real, disclosed gaps in this pass, not oversights:**
 - **No runtime touch/pointer switching.** Architecture doc §6.3 specifies an `InputModeService` that swaps between `Styles.Touch.xaml`/`Styles.Pointer.xaml` based on the active input device. This pass ships one touch-first baseline (`Styles/Touch.xaml`, 48px+ tap targets) applied universally — functional for a touch display, but doesn't yet adapt when a mouse is plugged in.
-- **Code-behind data binding, not a ViewModels/ layer.** The architecture doc's recommended project structure (§11.2) includes a `ViewModels/` folder; this pass wires pages directly to `EdgeRuntimeService` in code-behind. A pragmatic simplification for a first pass, not a long-term design decision.
+- **Code-behind data binding, not a ViewModels/ layer.** The architecture doc's recommended project structure (§11.2) includes a `ViewModels/` folder; this pass wires pages directly to `EdgeRuntimeService`/`ShellContext` in code-behind. A pragmatic simplification for a first pass, not a long-term design decision.
 - **Default window title/icon** — still says "WinUI Desktop," the WinUI 3 template default. Cosmetic, not fixed yet.
+- **No revocation/edit path for a hub's site assignment once commissioned** — re-running Setup after `hub-config.json` already exists isn't wired up; would need to delete that file manually today.
 
 ## Building
 
@@ -113,9 +137,10 @@ windows-hub/
 │   ├── PeakLogicEdge.Core/       # framework-agnostic: envelopes, mappers, cache, backend clients
 │   ├── PeakLogicEdge.Host/       # console harness — still useful for headless testing
 │   └── PeakLogicEdge.App/        # WinUI 3 kiosk UI — the real eventual shell
-│       ├── Views/                # Dashboard, Sites, Alerts, Tickets, Settings
-│       ├── Services/             # EdgeRuntimeService — owns the real Core pipeline
-│       └── Styles/                # Touch.xaml (48px+ touch-first baseline)
+│       ├── Views/                # SetupPage, ShellPage, Dashboard, Sites, Alerts, Tickets, Settings
+│       ├── Controls/             # BrandHeader — reusable icon+wordmark lockup
+│       ├── Services/             # EdgeRuntimeService (owns the real Core pipeline), ThemeService, ShellContext
+│       └── Styles/                # Touch.xaml (48px+ touch-first baseline), Brand.xaml (PeakLogic palette)
 └── test/
     └── PeakLogicEdge.Core.Tests/
 ```

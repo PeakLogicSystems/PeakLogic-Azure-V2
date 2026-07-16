@@ -21,9 +21,12 @@ public sealed partial class DashboardPage : Page
     {
         base.OnNavigatedTo(e);
 
+        var ctx = (ShellContext)e.Parameter;
+        SiteNameText.Text = ctx.Site.DisplayName;
+
         if (_runtime is not null) return; // already wired from a prior navigation to this page instance
 
-        _runtime = (EdgeRuntimeService)e.Parameter;
+        _runtime = ctx.Runtime;
         ReadingsList.ItemsSource = _runtime.RecentReadings;
 
         PendingCountText.Text = _runtime.PendingCount.ToString();

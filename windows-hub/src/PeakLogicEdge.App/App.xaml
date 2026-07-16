@@ -6,7 +6,12 @@
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />
+                <!-- Order matters: Touch.xaml first, since Brand.xaml's
+                     AppAccentButtonStyle is BasedOn Touch.xaml's
+                     TouchButtonStyle. A dictionary can only reference
+                     keys from ones merged before it, not after. -->
                 <ResourceDictionary Source="Styles/Touch.xaml" />
+                <ResourceDictionary Source="Styles/Brand.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

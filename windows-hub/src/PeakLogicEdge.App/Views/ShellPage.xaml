@@ -1,0 +1,52 @@
+<Page
+    x:Class="PeakLogicEdge.App.Views.ShellPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:PeakLogicEdge.App.Controls">
+
+    <!-- The pane is permanently dark-branded (RequestedTheme="Dark"),
+         matching marketing/index.html's own fixed-dark canvas, NOT the
+         user's light/dark toggle (Settings). Found by actually toggling
+         the theme and watching the wordmark's "Peak" text (fixed white,
+         Controls/BrandHeader.xaml) become illegible on a pane that had
+         switched to a light background. NavigationView has no direct
+         PaneBackground property in this WinUI 3 version (a real
+         WMC0011 build error caught that, not assumed). RequestedTheme
+         alone is enough here, since WinUI 3's own dark-theme pane
+         background already renders close enough to brand black to be
+         indistinguishable in practice; revisit with an explicit theme-
+         resource override only if that assumption ever proves wrong.
+         Only the content area (ContentFrame, explicitly re-themed in
+         code-behind, see Nav_Loaded/ThemeService) follows the user's
+         actual choice; the pane's fixed RequestedTheme would otherwise
+         cascade down into ContentFrame too, since it's NavigationView's
+         own Content. -->
+    <NavigationView x:Name="Nav"
+                     IsBackButtonVisible="Collapsed"
+                     IsSettingsVisible="False"
+                     RequestedTheme="Dark"
+                     SelectionChanged="Nav_SelectionChanged"
+                     Loaded="Nav_Loaded">
+        <NavigationView.PaneHeader>
+            <controls:BrandHeader Margin="4,8" />
+        </NavigationView.PaneHeader>
+
+        <NavigationView.MenuItems>
+            <!-- Screen inventory per architecture doc S6.2, mirrors the
+                 tenant web app's Dashboard/Sites/Alerts/Tickets/Settings,
+                 plus Ingestion Health under Settings (endpoint-local, no
+                 web-app equivalent). Site/Asset/Device drill-down needs
+                 real backend data that doesn't exist yet, so Sites shows
+                 an honest "not available" placeholder rather than fake
+                 mock data, per this project's own established rule
+                 against repeating the tenant frontend's mock-data gap. -->
+            <NavigationViewItem Content="Dashboard" Tag="dashboard" Icon="Home" />
+            <NavigationViewItem Content="Sites" Tag="sites" Icon="MapPin" />
+            <NavigationViewItem Content="Alerts" Tag="alerts" Icon="Important" />
+            <NavigationViewItem Content="Tickets" Tag="tickets" Icon="Repair" />
+            <NavigationViewItem Content="Settings" Tag="settings" Icon="Setting" />
+        </NavigationView.MenuItems>
+
+        <Frame x:Name="ContentFrame" />
+    </NavigationView>
+</Page>
