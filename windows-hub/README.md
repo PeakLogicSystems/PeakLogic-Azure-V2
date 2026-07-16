@@ -2,16 +2,16 @@
 
 Implementation of `docs/architecture/windows-endpoint-application.md`. This is a **separate application** from the rest of the PeakLogicSystems monorepo — it runs on customer-site Windows hardware, not in AWS.
 
-## Status (2026-07-12)
+## Status (2026-07-16)
 
-**Building now, first pass.** Not the full spec — see the doc's §11.1 build sequence. This pass covers steps 1–4 (Configuration, Security, Caching, Ingestion, Publishing, Backend client) as a real, compilable class library plus a runnable console harness. The WinUI 3 kiosk UI (step 5), Watchdog service + Assigned Access (step 6), and MSIX packaging (step 7) are not started yet.
+**Building now, second pass.** Not the full spec — see the doc's §11.1 build sequence. Steps 1–4 (Configuration, Security, Caching, Ingestion, Publishing, Backend client) and step 5 (Kiosk UI, first pass) are real and runnable. Watchdog service + Assigned Access (step 6) and MSIX packaging (step 7) are not started yet.
 
 | Piece | Status |
 |---|---|
 | `PeakLogicEdge.Core` — Configuration, Security (DPAPI), Ingestion (Serial/REST-poll/Simulated), Normalization, Caching (SQLite durable queue), Publishing (MQTT), Backend (Cognito auth + REST client) | Real, compiling code |
 | `PeakLogicEdge.Host` — console harness proving the pipeline works end to end | Real, runnable today |
-| `PeakLogicEdge.Core.Tests` — unit tests for the pure/testable pieces (envelope shape, mappers, backoff, cache) | Real tests written |
-| `PeakLogicEdge.App` (WinUI 3 kiosk UI) | Not started |
+| `PeakLogicEdge.App` — WinUI 3 kiosk UI, first pass (Dashboard/Ingestion Health real and live; Sites/Alerts/Tickets honest placeholders, not mock data) | Real, runnable today — see §"Kiosk UI" below |
+| `PeakLogicEdge.Core.Tests` — unit tests for the pure/testable pieces (envelope shape, mappers, backoff, cache) | Real tests written, 17/17 passing |
 | `PeakLogicEdge.Watchdog` (supervisor service) | Not started |
 | `PeakLogicEdge.ConfigTool` | Not started |
 | MSIX packaging, Assigned Access provisioning | Not started |
@@ -25,15 +25,44 @@ Two real, disclosed reasons, not oversights:
 
 What it *does* prove, right now, without either of those: real ingestion → real normalization → real durable SQLite queueing, the actual mechanism that makes telemetry delivery guaranteed rather than best-effort once a real backend and real hardware both exist. Run it and watch the queue grow — that's the offline-durability behavior working exactly as designed.
 
+## Kiosk UI (`PeakLogicEdge.App`, added 2026-07-16)
+
+Real WinUI 3 app (unpackaged, `WindowsPackageType=None` — MSIX packaging is step 7, deliberately later per the architecture doc's own §11.1 sequencing), verified running end-to-end on real hardware (screenshotted, not just compiled): navigation shell, live Dashboard, live Ingestion Health.
+
+**Built against the real, already-working data layer, not mocked separately** — `Services/EdgeRuntimeService.cs` owns the exact same `IngestionOrchestrator`/`TelemetryBus`/`TelemetryCache` pipeline `PeakLogicEdge.Host` runs, just driving UI-bound observable state instead of `Console.WriteLine`. The Dashboard's "readings durably queued" count and Recent Readings list, and Settings' Ingestion Health list, are real, live data — not placeholders.
+
+**Screen inventory per architecture doc §6.2:**
+| Screen | Status |
+|---|---|
+| Dashboard | Real — live pending-queue count + recent readings, both sourced from the actual running pipeline |
+| Settings → Ingestion Health | Real — live `IngestionOrchestrator.Health` per source |
+| Sites / Alerts / Tickets | Honest placeholder ("requires a connected backend") — this data lives in the cloud backend, which doesn't exist yet. Deliberately **not** faked, per this project's standing rule against repeating the tenant frontend's mock-data mistake |
+| Site Detail / Asset Detail / Device Detail drill-down | Not built — no backend data to drill into yet |
+| Control Panel (command/actuation) | Not built — gated behind Device & Command Security Architecture §5, same as everywhere else in this project |
+
+**Real, disclosed gaps in this first pass, not oversights:**
+- **No runtime touch/pointer switching.** Architecture doc §6.3 specifies an `InputModeService` that swaps between `Styles.Touch.xaml`/`Styles.Pointer.xaml` based on the active input device. This pass ships one touch-first baseline (`Styles/Touch.xaml`, 48px+ tap targets) applied universally — functional for a touch display, but doesn't yet adapt when a mouse is plugged in.
+- **Code-behind data binding, not a ViewModels/ layer.** The architecture doc's recommended project structure (§11.2) includes a `ViewModels/` folder; this pass wires pages directly to `EdgeRuntimeService` in code-behind. A pragmatic simplification for a first pass, not a long-term design decision.
+- **Default window title/icon** — still says "WinUI Desktop," the WinUI 3 template default. Cosmetic, not fixed yet.
+
 ## Building
 
-Requires .NET 8 SDK (or later) — installed via `winget install Microsoft.VisualStudio.2022.Community` this session, which bundles it. Visual Studio itself (not just the SDK) is needed once the WinUI 3 project exists, for the XAML designer.
+Requires .NET 8 SDK (or later) — installed via `winget install Microsoft.VisualStudio.2022.Community` this session, which bundles it. Visual Studio itself (not just the SDK) is useful for `PeakLogicEdge.App`'s XAML designer, though not required — it was built and verified entirely from the CLI.
 
 ```
 cd windows-hub
-dotnet build PeakLogicEdge.sln
-dotnet test PeakLogicEdge.sln
-dotnet run --project src/PeakLogicEdge.Host
+dotnet build PeakLogicEdge.sln            # builds all 4 projects (do NOT pass -r win-x64 at the
+                                           # solution level — PeakLogicEdge.App already declares
+                                           # its own RuntimeIdentifiers; MSBuild rejects a
+                                           # solution-level RID override, NETSDK1134)
+dotnet test test/PeakLogicEdge.Core.Tests/PeakLogicEdge.Core.Tests.csproj
+dotnet run --project src/PeakLogicEdge.Host              # console harness
+```
+
+**Running the Kiosk UI directly** (not via `dotnet run`, since the built exe is what actually gets deployed to a hub device):
+```
+dotnet build src/PeakLogicEdge.App/PeakLogicEdge.App.csproj -c Debug -r win-x64
+& "src\PeakLogicEdge.App\bin\x64\Debug\net8.0-windows10.0.19041.0\PeakLogicEdge.App.exe"
 ```
 
 ## Setting up a new hub device (interim process)
@@ -82,7 +111,11 @@ windows-hub/
 ├── PeakLogicEdge.sln
 ├── src/
 │   ├── PeakLogicEdge.Core/       # framework-agnostic: envelopes, mappers, cache, backend clients
-│   └── PeakLogicEdge.Host/       # console harness — NOT the eventual WinUI 3 kiosk shell
+│   ├── PeakLogicEdge.Host/       # console harness — still useful for headless testing
+│   └── PeakLogicEdge.App/        # WinUI 3 kiosk UI — the real eventual shell
+│       ├── Views/                # Dashboard, Sites, Alerts, Tickets, Settings
+│       ├── Services/             # EdgeRuntimeService — owns the real Core pipeline
+│       └── Styles/                # Touch.xaml (48px+ touch-first baseline)
 └── test/
     └── PeakLogicEdge.Core.Tests/
 ```

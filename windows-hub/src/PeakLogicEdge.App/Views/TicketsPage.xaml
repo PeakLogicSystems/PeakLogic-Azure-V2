@@ -1,0 +1,12 @@
+<Page
+    x:Class="PeakLogicEdge.App.Views.TicketsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="32" MaxWidth="900" HorizontalAlignment="Left">
+        <TextBlock Text="Tickets" Style="{StaticResource PageTitleStyle}" />
+        <InfoBar IsOpen="True" Severity="Informational"
+                 Title="Requires a connected backend"
+                 Message="Service tickets are created and tracked in the cloud platform. This screen will show tickets relevant to this site once this hub is connected to a deployed backend." />
+    </StackPanel>
+</Page>

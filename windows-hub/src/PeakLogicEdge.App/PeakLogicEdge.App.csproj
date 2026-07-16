@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>PeakLogicEdge.App</RootNamespace>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <UseWinUI>true</UseWinUI>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Unpackaged (no MSIX) for now. Architecture doc S11.1's own
+         build sequence puts MSIX packaging last, step 7, once the app's
+         shape is stable. Bundling the Windows App SDK runtime into the
+         app itself (WindowsAppSDKSelfContained) avoids requiring a
+         separate runtime installer on a hub device, matching the
+         self-contained deploy approach already used for
+         PeakLogicEdge.Host. -->
+    <WindowsPackageType>None</WindowsPackageType>
+    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <RuntimeIdentifiers>win-x64</RuntimeIdentifiers>
+    <Platforms>x64</Platforms>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Microsoft.Windows.SDK.BuildTools is a transitive dependency of
+         Microsoft.WindowsAppSDK, left unpinned deliberately: a first,
+         explicit pin here caused a NU1605 package downgrade error against
+         what WindowsAppSDK 2.2.0 actually needs transitively; simpler and
+         more correct to let NuGet resolve it. -->
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PeakLogicEdge.Core\PeakLogicEdge.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+</Project>

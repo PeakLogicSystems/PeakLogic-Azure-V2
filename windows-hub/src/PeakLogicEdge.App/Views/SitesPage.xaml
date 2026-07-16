@@ -1,0 +1,18 @@
+<Page
+    x:Class="PeakLogicEdge.App.Views.SitesPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <StackPanel Padding="32" MaxWidth="900" HorizontalAlignment="Left">
+        <TextBlock Text="Sites" Style="{StaticResource PageTitleStyle}" />
+        <!-- Deliberately NOT fake/mock data. Site/asset/device hierarchy
+             lives in the cloud backend, which doesn't exist yet (no AWS
+             account deployed). Site Detail to Asset Detail to Device
+             Detail drill-down (architecture doc S6.2) is real, sequenced
+             work once that data actually exists to drill into, not
+             something to half-build against nothing. -->
+        <InfoBar IsOpen="True" Severity="Informational"
+                 Title="Requires a connected backend"
+                 Message="Sites, assets, and devices are managed in the cloud platform. This screen will show your real site list, with drill-down into assets and devices, once this hub is connected to a deployed PeakLogic backend." />
+    </StackPanel>
+</Page>
