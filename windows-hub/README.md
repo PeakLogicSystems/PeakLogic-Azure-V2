@@ -96,9 +96,9 @@ dotnet build src/PeakLogicEdge.App/PeakLogicEdge.App.csproj -c Debug -r win-x64
 **Current distribution mechanism: GitHub Releases**, tagged `edge-vX.Y.Z` (a separate tag namespace from the platform's own `vX.Y.Z` releases, since they share this repo). This is explicitly an interim choice, not the production path — see the note below.
 
 1. On the hub device, sign into GitHub in a browser (needs an account with access to this private repo).
-2. Go to the repo's Releases page and download the **latest** `edge-vX.Y.Z` asset (currently `edge-v0.1.1` — `edge-v0.1.0` has a known Windows Explorer extraction bug, see below, don't use it).
-3. Extract it to a folder (e.g. `C:\PeakLogicEdge`) — Windows' built-in "Extract All" should work fine as of v0.1.1.
-4. Run `PeakLogicEdge.Host.exe`. It's self-contained (bundles its own .NET runtime) — nothing else needs to be installed first.
+2. Go to the repo's Releases page and download the **latest** `edge-vX.Y.Z` asset (currently `edge-v0.2.0` — `edge-v0.1.0` has a known Windows Explorer extraction bug, see below, don't use it).
+3. Extract it to a folder (e.g. `C:\PeakLogicEdge`) — Windows' built-in "Extract All" should work fine as of v0.1.1+.
+4. Run `PeakLogicEdge.App.exe` — the real kiosk UI, not `PeakLogicEdge.Host.exe` (the console harness is still built and useful for headless testing, but isn't published as a release asset; build it from source if needed). First launch shows the Setup screen — fill in a site name and tenant/claim code, click "Register this hub," then you land on the Dashboard. It's self-contained (bundles its own .NET + Windows App SDK runtime) — nothing else needs to be installed first.
 
 **Known issue, fixed in `edge-v0.1.1` (2026-07-15): `edge-v0.1.0`'s zip fails to extract with Windows' built-in tool.** Root cause: that zip was built with `tar -a -cf` (bsdtar), a workaround for a broken `Microsoft.PowerShell.Archive` module at the time — the file was always byte-for-byte intact, but Windows Explorer's shell zip handler couldn't parse that zip's structure and reported "the compressed folder is empty." Fixed by rebuilding with **.NET's own `System.IO.Compression.ZipFile`** (the same zip-writing code Windows itself uses), verified via a full extract-and-check round trip before publishing. **Use this method for every future release**, not `tar`:
 ```powershell
@@ -108,10 +108,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
   [System.IO.Compression.CompressionLevel]::Optimal, $false)
 ```
 
-**To publish a new release build** (from the dev machine):
+**To publish a new release build** (from the dev machine) — publish the App (the real kiosk UI, `edge-v0.2.0`+); publish Host instead only if you specifically need the headless console harness:
 ```
 cd windows-hub
-dotnet publish src/PeakLogicEdge.Host -c Release -r win-x64 --self-contained true -o publish/PeakLogicEdge
+dotnet publish src/PeakLogicEdge.App -c Release -r win-x64 --self-contained true -o publish/PeakLogicEdge
 ```
 ```powershell
 # PowerShell — do NOT use `tar -a -cf` here, see the known-issue note above
