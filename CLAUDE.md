@@ -20,13 +20,14 @@ The goal of this discipline is a fully commercialized, enterprise-sellable produ
 
 ## Monorepo Structure
 
-Five sub-packages (four with their own `package.json`/`tsconfig.json`; `marketing/` is plain static HTML, no build tooling):
+Six sub-packages (five with their own `package.json`/`tsconfig.json`; `marketing/` is plain static HTML, no build tooling). `windows-hub/` (a separate .NET/C# codebase, PeakLogic Edge — the hub device app) is intentionally outside this table's Node/CDK conventions; see its own `windows-hub/README.md`.
 
 | Directory     | Purpose                                      | Runtime   |
 |---------------|-----------------------------------------------|-----------|
 | `infra/`      | AWS CDK v2 stacks (TypeScript)               | Node 20   |
 | `backend/`    | Lambda source (API + ingest)                 | Node 20   |
-| `frontend/`   | React SPA (Vite + Tailwind) — the authenticated app, served at `app.{domain}` | Browser   |
+| `frontend/`   | React SPA (Vite + Tailwind) — the authenticated tenant app, served at `app.{domain}` | Browser   |
+| `channel-partner-portal/` | Channel partner white-label portal — separate app, separate `PartnerPool` auth (Security Architecture §2.4), demo-only so far (login screen only, UX Wireframes §2.11) | Browser   |
 | `marketing/`  | Public marketing site (`peaklogicsolutions.com`) — plain static HTML/CSS, no build step, deployed via `infra/lib/marketing-stack.ts` | Browser   |
 | `scripts/`    | Admin tooling (device provisioning, DB migrations) | Node 20   |
 
@@ -42,6 +43,13 @@ cd frontend
 npm install
 npm run dev          # http://localhost:5173 (requires VITE_PREVIEW=true in .env.local)
 npm run build        # output to frontend/dist/
+npm run typecheck    # tsc --noEmit
+
+# Channel Partner Portal (demo — login screen only, no real PartnerPool auth wired up)
+cd channel-partner-portal
+npm install
+npm run dev          # http://localhost:5175 (5174 if free) — deliberately a different port
+                      # from frontend/, so both can run side by side
 npm run typecheck    # tsc --noEmit
 
 # Backend
