@@ -41,7 +41,7 @@ function SectionCard({ title, description, children }: { title: string; descript
 }
 
 export function Settings() {
-  const { theme, setTheme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
   const { clockFormat, timezone, setClockFormat, setTimezone } = usePreferences();
   const [displayName, setDisplayName] = useState('Jane Rodriguez');
   const [saved, setSaved] = useState(false);
@@ -129,28 +129,33 @@ export function Settings() {
         </div>
       </SectionCard>
 
-      {/* Theme — SET-4 */}
+      {/* Theme — SET-4. A single toggle, not two separate buttons — matches
+          the exact "Dark mode: On/Off" pattern the Windows Hub kiosk app
+          (windows-hub/src/PeakLogicEdge.App/Views/SettingsPage.xaml) uses,
+          per the user's explicit request to keep the two in sync. */}
       <SectionCard title="Appearance" description="Light or dark mode for the web app">
-        <div className="flex gap-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            {theme === 'dark' ? <Moon size={16} className="text-gray-400" /> : <Sun size={16} className="text-gray-400" />}
+            <div>
+              <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Dark mode</p>
+              <p className="text-xs text-gray-500 dark:text-gray-400">{theme === 'dark' ? 'On' : 'Off'}</p>
+            </div>
+          </div>
           <button
-            onClick={() => setTheme('light')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-              theme === 'light'
-                ? 'bg-brand-purple text-white border-brand-purple'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:border-brand-purple/50'
+            role="switch"
+            aria-checked={theme === 'dark'}
+            aria-label="Toggle dark mode"
+            onClick={toggleTheme}
+            className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-brand-purple/50 ${
+              theme === 'dark' ? 'bg-brand-purple' : 'bg-gray-300 dark:bg-gray-700'
             }`}
           >
-            <Sun size={15} /> Light
-          </button>
-          <button
-            onClick={() => setTheme('dark')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
-              theme === 'dark'
-                ? 'bg-brand-purple text-white border-brand-purple'
-                : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-300 dark:border-gray-700 hover:border-brand-purple/50'
-            }`}
-          >
-            <Moon size={15} /> Dark
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform ${
+                theme === 'dark' ? 'translate-x-6' : 'translate-x-1'
+              }`}
+            />
           </button>
         </div>
       </SectionCard>
