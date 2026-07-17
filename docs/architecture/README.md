@@ -1,6 +1,6 @@
 # Architecture Artifacts
 
-**⚠️ This repo is the Azure-targeted fork of `PeakLogicSystems`, forked 2026-07-17 at tag `aws-architecture-baseline`.** The table below still describes the AWS-native state as of the fork point. **Check [`azure-restructuring-plan.md`](azure-restructuring-plan.md) first** — it tracks which of these artifacts carry over as-is, which need Azure-specific amendment, and which need a full rewrite, plus the new feature backlog (site map, 3D facility rendering) being folded in along the way.
+**⚠️ This repo is the Azure-targeted fork of `PeakLogicSystems/PeakLogic-AWS`** (named `PeakLogicSystems/PeakLogicSystems` at fork time, since renamed for clarity — same GitHub account), forked 2026-07-17 at tag `aws-architecture-baseline`. The table below still describes the AWS-native state as of the fork point. **Check [`azure-restructuring-plan.md`](azure-restructuring-plan.md) first** — it tracks which of these artifacts carry over as-is, which need Azure-specific amendment, and which need a full rewrite, plus the new feature backlog (site map, 3D facility rendering) being folded in along the way.
 
 Documents are produced in dependency order — each one builds on decisions locked in by the ones before it. Later documents may force revisions to earlier ones (a doc's own governing rule, mirrored from the IronQuill project); check this table for live status before assuming anything is final.
 

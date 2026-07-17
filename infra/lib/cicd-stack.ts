@@ -6,7 +6,7 @@ interface CiCdStackProps extends cdk.StackProps {
   stage: string;
 }
 
-const GITHUB_ORG_REPO = 'PeakLogicSystems/PeakLogicSystems';
+const GITHUB_ORG_REPO = 'PeakLogicSystems/PeakLogic-Azure';
 const GITHUB_OIDC_URL = 'https://token.actions.githubusercontent.com';
 
 // CI/CD Pipeline §4 — GitHub Actions authenticates via OIDC federation, not

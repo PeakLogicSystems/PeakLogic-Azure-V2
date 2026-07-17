@@ -1,15 +1,17 @@
 # Azure Restructuring Plan
 
 **Status:** Draft v0.1
-**Purpose:** Steers the sequenced effort to restructure PeakLogic's architecture for Azure, forked from `PeakLogicSystems` (AWS-native) as part of exploring a merger/common commercialization roadmap with Purple Standard (Azure/Microsoft-based, product **MooreView**). See `docs/business/platform-commercialization-roadmap.md` for the business-level context.
-**Forked from:** `PeakLogicSystems` at tag `aws-architecture-baseline` (dev branch, commit `49ee2a6`) — that tag is the permanent, unmodified reference point for the AWS-native architecture. Nothing from that repo has been deleted; this is a parallel effort, not a replacement, until a real decision is made.
+**Purpose:** Steers the sequenced effort to restructure PeakLogic's architecture for Azure, forked from the AWS-native repo as part of exploring a merger/common commercialization roadmap with Purple Standard (Azure/Microsoft-based, product **MooreView**). See `docs/business/platform-commercialization-roadmap.md` for the business-level context.
+**Forked from:** `PeakLogicSystems/PeakLogic-AWS` at tag `aws-architecture-baseline` (dev branch, commit `49ee2a6`) — named `PeakLogicSystems/PeakLogicSystems` at the time of the fork, renamed 2026-07-17 (same GitHub account) so the AWS and Azure repos are easy to tell apart. That tag is the permanent, unmodified reference point for the AWS-native architecture. Nothing from that repo has been deleted; this is a parallel effort, not a replacement, until a real decision is made.
 **Last updated:** 2026-07-17
 
 ---
 
 ## 1. Method
 
-This repo starts as a full copy of `PeakLogicSystems`, not a blank slate — most of the 27 existing architecture artifacts describe the *product* (what it does, who it's for, how tenants/data are modeled), not the cloud it runs on. Re-deriving those from zero would be wasted, redundant work. Only the artifacts that actually encode AWS-specific services, APIs, or mechanisms need a genuine rewrite.
+This repo starts as a full copy of `PeakLogic-AWS`, not a blank slate — most of the 27 existing architecture artifacts describe the *product* (what it does, who it's for, how tenants/data are modeled), not the cloud it runs on. Re-deriving those from zero would be wasted, redundant work. Only the artifacts that actually encode AWS-specific services, APIs, or mechanisms need a genuine rewrite.
+
+**Naming note:** the 27 inherited artifacts (and the sysadmin/user guides, CHANGELOG, and `infra/lib/cicd-stack.ts`) still say "PeakLogicSystems" in many places — that's almost always the **GitHub account/company/engineering-brand name**, which hasn't changed and still owns both repos. It is *not* a stale pointer to the old AWS repo slug, except in the small number of places that literally name the repo (fork banners here and in `CLAUDE.md`/`README.md`, already updated, plus the OIDC repo string in `cicd-stack.ts`). Don't bulk-rewrite the inherited docs' "PeakLogicSystems" mentions — they're still correct as company-name references, and the ones describing historical AWS-side work (archived sysadmin/user guides, `CHANGELOG.md`) must stay untouched per this project's own archiving rules anyway.
 
 Each artifact below gets one of three dispositions:
 
