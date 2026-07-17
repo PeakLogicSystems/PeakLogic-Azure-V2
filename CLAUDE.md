@@ -2,6 +2,8 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+> **⚠️ Fork notice (2026-07-17):** This repo (`PeakLogic-Azure`) is a fork of `PeakLogicSystems`, created to restructure PeakLogic's architecture for Azure while exploring a merger and common commercialization roadmap with **Purple Standard** (product **MooreView**), a Microsoft/Azure-centric partner company. It was seeded as a full copy of `PeakLogicSystems` at tag `aws-architecture-baseline` — the rest of this file still describes the **AWS-native** architecture as of that fork point, and remains accurate for anything not yet touched by the restructuring effort. **Read `docs/architecture/azure-restructuring-plan.md` first** for what's been re-derived for Azure vs. what's still describing AWS. The original AWS-native repo (`PeakLogicSystems`) is untouched and continues to exist in parallel — this is not a replacement until a real decision is made.
+
 ## Naming
 
 - **Company:** PeakLogic
