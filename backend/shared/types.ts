@@ -130,6 +130,12 @@ export interface ServiceTicket {
   status: 'open' | 'assigned' | 'in_progress' | 'completed' | 'cancelled';
   webhook_url: string | null;
   external_ref: string | null;
+  // CMMS dispatch attribution (migration 1783875900000; reporting-and-kpi-design.md §2.2)
+  source: 'automated' | 'manual' | 'api';
+  channel_partner_id: string | null;
+  cmms_connector_id: string | null;
+  dispatched_at: Date | null;
+  accepted_at: Date | null;
   due_at: Date | null;
   resolved_at: Date | null;
   created_at: Date;

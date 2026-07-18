@@ -2,8 +2,9 @@ import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
 import { evaluateRuleSet, sanitizeMetrics, RULES_BY_CATEGORY, type Rule, type FiredRule } from './rules';
 import { resolvePolicyRules } from './policy-resolver';
-import { postWebhook } from '../shared/webhook';
-import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared/types';
+import { resolveConnector, buildWorkOrder } from '../shared/cmms/dispatch';
+import { getAdapter } from '../shared/cmms/adapters';
+import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert, ServiceTicket } from '../shared/types';
 
 // Policy Engine cutover (Policy Engine Design §8 step 3). When
 // POLICY_ENGINE_ENABLED is 'true', alert thresholds are resolved from the DB
@@ -226,37 +227,62 @@ async function createTicketForAlert(
   device: Device & { category: string },
   alert: Alert,
 ): Promise<void> {
-  // Get tenant webhook URL from settings
-  const { rows: [tenant] } = await client.query<{ settings: { webhook_url?: string } }>(
-    'SELECT settings FROM tenants WHERE id = $1',
-    [device.tenant_id],
-  );
+  const tenantId = device.tenant_id!; // non-null here — checked in processIngestEvent
 
-  const webhookUrl = tenant?.settings?.webhook_url ?? null;
+  // Resolve the CMMS connector for this tenant's attributed partner (or the
+  // legacy tenant webhook_url as an implicit generic_webhook) — CMMS Dispatch
+  // §2. Runs inside the tenant-scoped ingest txn; the connector read uses the
+  // ingest_context read policy (migration 1783875900000).
+  const { connector, channelPartnerId } = await resolveConnector(client, tenantId);
 
-  const { rows: [ticket] } = await client.query(
+  // Insert the ticket with dispatch attribution stamped transactionally: it's
+  // an automated (alert-generated) ticket, dispatched to `channelPartnerId`
+  // via `connector`. dispatched_at is set optimistically when there's a
+  // connector to send to — matching the fire-and-forget delivery below; a
+  // durable retry sweep for dispatches that never confirm is the next
+  // increment (CMMS Dispatch §6 phase 1 outbox).
+  const { rows: [ticket] } = await client.query<ServiceTicket>(
     `INSERT INTO service_tickets
-       (tenant_id, alert_id, asset_id, title, description, priority, webhook_url)
-     VALUES ($1, $2, $3, $4, $5, 'emergency', $6)
+       (tenant_id, alert_id, asset_id, title, description, priority, source,
+        channel_partner_id, cmms_connector_id, dispatched_at, webhook_url)
+     VALUES ($1, $2, $3, $4, $5, 'emergency', 'automated', $6, $7, $8, $9)
      RETURNING *`,
     [
-      device.tenant_id,
+      tenantId,
       alert.id,
       alert.asset_id,
       `Critical alert: ${alert.message}`,
       `Auto-generated from alert ${alert.id} — ${alert.type} on device ${device.thing_name}`,
-      webhookUrl,
+      channelPartnerId,
+      connector?.id ?? null,
+      connector ? new Date() : null,
+      connector?.vendor === 'generic_webhook' ? connector.baseUrl : null,
     ],
   );
 
-  // postWebhook validates the URL (Threat Model §4 — SSRF guard) before ever
-  // calling fetch(). Not directly reachable via any API today (nothing sets
-  // tenants.settings.webhook_url yet — Multi-Tenant Architecture found no
-  // tenant-settings endpoint exists), but the same unguarded pattern as
-  // tickets.ts's POST /v1/tickets webhookUrl, closed here too so it doesn't
-  // become live the moment a settings endpoint is built.
-  if (webhookUrl && ticket) {
-    postWebhook(webhookUrl, { event: 'ticket.created', ticket })
-      .catch((err: unknown) => console.error('Webhook delivery failed', err));
+  if (connector && ticket) {
+    const adapter = getAdapter(connector.vendor);
+    if (!adapter) {
+      console.error(`No CMMS adapter for vendor "${connector.vendor}" — ticket ${ticket.id} not dispatched`);
+      return;
+    }
+    const workOrder = buildWorkOrder({
+      id: ticket.id,
+      title: ticket.title,
+      description: ticket.description ?? '',
+      priority: ticket.priority,
+      assetId: ticket.asset_id,
+      deviceThingName: device.thing_name,
+    });
+    // Fire-and-forget — same non-blocking semantics as the prior direct
+    // webhook post, so the external call never holds the ingest txn open.
+    // generic_webhook needs no secret; credential-backed vendors resolve
+    // connector.credentialRef from Key Vault when those adapters are added.
+    adapter
+      .send(connector, workOrder, null)
+      .then((r) => {
+        if (!r.ok) console.error(`CMMS dispatch failed for ticket ${ticket.id}: ${r.error}`);
+      })
+      .catch((err: unknown) => console.error('CMMS dispatch threw', err));
   }
 }

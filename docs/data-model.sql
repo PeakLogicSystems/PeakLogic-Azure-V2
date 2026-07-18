@@ -353,6 +353,45 @@ CREATE POLICY tenant_isolation ON alerts
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
 
 -- ─────────────────────────────────────────────────────────────
+-- CMMS CONNECTORS  (reporting-and-kpi-design.md §2; migration
+-- 1783875900000) — per-org config for pushing automated tickets into a
+-- channel partner's (or tenant's) CMMS as work orders. credential_ref is a
+-- Key Vault secret NAME, never the secret. Defined before service_tickets so
+-- its cmms_connector_id FK resolves.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE cmms_connectors (
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  channel_partner_id UUID        REFERENCES channel_partners(id) ON DELETE CASCADE,
+  tenant_id          UUID        REFERENCES tenants(id) ON DELETE CASCADE,
+  vendor             TEXT        NOT NULL
+                     CHECK (vendor IN ('generic_webhook','upkeep','fiix','limble','maintainx','maximo','servicetitan')),
+  base_url           TEXT,
+  credential_ref     TEXT,
+  field_mapping      JSONB       NOT NULL DEFAULT '{}',
+  inbound_mode       TEXT        NOT NULL DEFAULT 'none' CHECK (inbound_mode IN ('webhook','poll','none')),
+  enabled            BOOLEAN     NOT NULL DEFAULT TRUE,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT cmms_connector_owner_check CHECK (
+    (channel_partner_id IS NOT NULL AND tenant_id IS NULL)
+    OR (channel_partner_id IS NULL AND tenant_id IS NOT NULL)
+  )
+);
+ALTER TABLE cmms_connectors ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cmms_connectors FORCE ROW LEVEL SECURITY;
+CREATE POLICY cmms_connector_partner ON cmms_connectors
+  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+CREATE POLICY cmms_connector_tenant ON cmms_connectors
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+-- System read for the ingest dispatch path (same pattern as devices/assets ingest_lookup).
+CREATE POLICY cmms_connector_ingest_read ON cmms_connectors FOR SELECT
+  USING (current_setting('app.ingest_context', true) = 'true');
+CREATE UNIQUE INDEX cmms_connector_one_active_partner
+  ON cmms_connectors (channel_partner_id) WHERE enabled AND channel_partner_id IS NOT NULL;
+CREATE UNIQUE INDEX cmms_connector_one_active_tenant
+  ON cmms_connectors (tenant_id) WHERE enabled AND tenant_id IS NOT NULL;
+
+-- ─────────────────────────────────────────────────────────────
 -- SERVICE TICKETS
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE service_tickets (
@@ -368,7 +407,14 @@ CREATE TABLE service_tickets (
   status       TEXT        NOT NULL DEFAULT 'open'
                CHECK (status IN ('open','assigned','in_progress','completed','cancelled')),
   webhook_url  TEXT,                         -- partner endpoint; POST on create
-  external_ref TEXT,                         -- partner's ticket ID
+  external_ref TEXT,                         -- CMMS work-order id (partner's ticket ID)
+  -- CMMS dispatch attribution + funnel stages (migration 1783875900000)
+  source             TEXT        NOT NULL DEFAULT 'manual'
+                     CHECK (source IN ('automated','manual','api')),
+  channel_partner_id UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,
+  cmms_connector_id  UUID        REFERENCES cmms_connectors(id) ON DELETE SET NULL,
+  dispatched_at      TIMESTAMPTZ,            -- pushed to the CMMS
+  accepted_at        TIMESTAMPTZ,            -- CMMS accepted the work order (inbound sync, step 2)
   due_at       TIMESTAMPTZ,
   resolved_at  TIMESTAMPTZ,
   created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),

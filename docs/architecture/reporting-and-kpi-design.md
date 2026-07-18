@@ -192,7 +192,7 @@ A saved **report definition** — `{ domain, filters, group_by, metrics, date_ra
 
 ## 6. Delivery phases
 
-1. **Connector framework + outbound push** — `cmms_connectors`, the `service_tickets` attribution columns, the vendor-adapter interface with **`generic_webhook`** (today's `postWebhook`) as adapter #1, and a durable/idempotent dispatch outbox. Every auto-ticket now becomes an attributable work order.
+1. **Connector framework + outbound push** — `cmms_connectors`, the `service_tickets` attribution columns, the vendor-adapter interface with **`generic_webhook`** (today's `postWebhook`) as adapter #1, and a durable/idempotent dispatch. **Every auto-ticket now becomes an attributable work order.** *(Shipped: migration `1783875900000`, `backend/shared/cmms/*`, ingest wiring, 12 unit tests — behaviour preserved, dispatch stamped transactionally. Remaining sub-items: the durable **retry sweep** for dispatches that never confirm, the one-time **backfill** reclassifying existing alert-generated rows to `source='automated'`, and per-vendor **secret resolution** from Key Vault as credential-backed adapters are added.)*
 2. **Inbound sync + `service_visits`** — the callback endpoint and/or poller for the first real partner's CMMS vendor; the numerator starts filling with real data.
 3. **The KPI** — the conversion endpoint (fan-out) + Fleet Overview card + partner funnel.
 4. **Reports section** — the standard catalog (seeded) + export.
