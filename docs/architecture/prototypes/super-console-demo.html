@@ -342,6 +342,30 @@
 
   .grow { animation: fade .2s ease; }
 
+  /* ---------- Conversion funnel ---------- */
+  .kpi-hero { display: flex; flex-wrap: wrap; gap: 28px; padding: 20px; align-items: center; }
+  .kpi-hero__num { font-size: 46px; font-weight: 780; letter-spacing: -.03em; color: var(--good-ink); font-variant-numeric: tabular-nums; line-height: 1; }
+  .kpi-hero__side { min-width: 210px; }
+  .kpi-hero__funnel { flex: 1; min-width: 300px; }
+  .funnel { display: flex; flex-direction: column; gap: 3px; }
+  .funnel__row { display: flex; align-items: center; gap: 12px; }
+  .funnel__label { width: 178px; flex: none; font-size: 12.5px; color: var(--text-muted); display: flex; align-items: center; gap: 7px; }
+  .funnel__track { flex: 1; height: 22px; min-width: 70px; background: var(--surface-3); border-radius: 6px; overflow: hidden; }
+  .funnel__fill { height: 100%; border-radius: 6px; transition: width .45s cubic-bezier(.2,.7,.3,1); }
+  .funnel__count { width: 48px; text-align: right; font-family: var(--mono); font-size: 13px; font-weight: 650; font-variant-numeric: tabular-nums; }
+  .funnel__rate { margin-left: 190px; font-size: 11px; color: var(--text-faint); padding: 1px 0; }
+  @media (max-width: 640px) { .funnel__label { width: 104px; } .funnel__rate { margin-left: 116px; } }
+
+  /* ---------- Report catalog ---------- */
+  .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  @media (max-width: 820px) { .report-grid { grid-template-columns: 1fr; } }
+  .report-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px 18px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 8px; cursor: pointer; transition: border-color .12s ease, transform .06s ease; }
+  .report-card:hover { border-color: var(--border-strong); }
+  .report-card:active { transform: translateY(1px); }
+  .report-card__title { font-weight: 700; font-size: 14px; letter-spacing: -.01em; text-wrap: balance; }
+  .report-card__desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; flex: 1; }
+  .report-card__foot { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+
   /* ---------- Overlay / drawer / modal / toast ---------- */
   .overlay { position: fixed; inset: 0; background: rgba(8,12,23,.55); backdrop-filter: blur(2px); z-index: 40; opacity: 0; animation: ovfade .16s ease forwards; }
   @keyframes ovfade { to { opacity: 1; } }
@@ -439,6 +463,12 @@
       <button class="nav__item" data-action="nav:audit">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h4"/></svg>
         <span>Audit Log</span>
+      </button>
+
+      <div class="nav__label">Insights</div>
+      <button class="nav__item" data-action="nav:reports">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg>
+        <span>Reports</span>
       </button>
     </nav>
 
@@ -560,6 +590,7 @@
 
   const PARTNERS = [
     { id: "bluewave", name: "BlueWave Pool Service", region: "Pacific Northwest", accounts: 3, techs: 14, routes: 6, health: "good", brand: "#0891b2",
+      funnel: { dispatched: 128, accepted: 119, onsite: 94, completed: 86 },
       subdomain: "portal.bluewavepools.com",
       accountList: ["Cascade Aquatics Group", "Harbor Point Resorts", "Lakeside Wellness"],
       territories: [
@@ -576,6 +607,7 @@
         { name: "Route SEA-2", stops: 6, tech: "Maya Serrano", status: "in-progress" },
         { name: "Route TAC-1", stops: 7, tech: "Derek Cho", status: "scheduled" } ] },
     { id: "thermotech", name: "ThermoTech HVAC Partners", region: "Mountain West", accounts: 5, techs: 22, routes: 9, health: "warn", brand: "#ea580c",
+      funnel: { dispatched: 205, accepted: 168, onsite: 116, completed: 103 },
       subdomain: "service.thermotechhvac.com",
       accountList: ["Meridian Property Mgmt", "Cedar Ridge Schools", "Granite Peak Brewing", "Sterling Facilities Co", "Northwind Cold Storage"],
       territories: [
@@ -592,6 +624,7 @@
         { name: "Route DEN-2", stops: 7, tech: "Sofia Rendón", status: "in-progress" },
         { name: "Route DEN-3", stops: 5, tech: "Isaac Feldman", status: "delayed" } ] },
     { id: "summit", name: "Summit Mechanical Group", region: "Northern California", accounts: 2, techs: 8, routes: 3, health: "good", brand: "#16a34a",
+      funnel: { dispatched: 74, accepted: 71, onsite: 62, completed: 59 },
       subdomain: "portal.summitmech.io",
       accountList: ["Meridian Property Mgmt", "Harbor Point Resorts"],
       territories: [
@@ -632,6 +665,26 @@
     decommissioned: { label: "Decommissioned", pill: "neutral" }
   };
   const CAT_LABEL = { pool_system: "Pool system", hvac: "HVAC", refrigeration: "Refrigeration", energy_meter: "Energy meter", leak_sensor: "Leak sensor", pump: "Pump" };
+
+  // Standard report catalog (reporting-and-kpi-design.md §4.1)
+  const STANDARD_REPORTS = [
+    { id: "conversion", name: "Automated Dispatch → Service Call Conversion", vertical: "Value story",
+      desc: "The full CMMS funnel (dispatched → accepted → on-site → completed) with each stage-to-stage rate, by partner and period. Headline: dispatched → on-site." },
+    { id: "cmms-log", name: "CMMS Dispatch Log", vertical: "Channel",
+      desc: "Every automated work order pushed to a partner's CMMS, its work-order ref, and current status." },
+    { id: "scorecard", name: "Partner Scorecard", vertical: "Channel",
+      desc: "Work orders received, response time, conversion, and outcomes — per channel partner." },
+    { id: "alert-response", name: "Alert & Response Summary", vertical: "All",
+      desc: "Alerts by severity, category, and site; mean time to acknowledge and resolve." },
+    { id: "fleet-health", name: "Fleet Health & Uptime", vertical: "All",
+      desc: "Device online/offline, silent devices, and reporting compliance across the estate." },
+    { id: "energy", name: "Energy Performance", vertical: "Energy",
+      desc: "Consumption and demand trends, peak demand, and estimated cost savings." },
+    { id: "refrigeration", name: "Refrigeration Compliance", vertical: "Refrigeration",
+      desc: "Product-temperature excursions vs. FDA cold-holding limits; food-safety log." },
+    { id: "pool-chem", name: "Pool Chemistry Compliance", vertical: "Pool",
+      desc: "pH, free chlorine, and TDS vs. CDC MAHC ranges; time out of range." },
+  ];
 
   // ---------- App state ----------
   const S = { view: "fleet", actingAs: null, partner: null, tab: "sites", ptab: "accounts", query: "" };
@@ -675,6 +728,41 @@
       <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
       <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2" fill="${color}"></circle>
     </svg>`;
+  }
+
+  // Headline conversion = dispatched → on-site (reporting-and-kpi-design.md §3)
+  function conversionPct(f) { return f.dispatched ? Math.round((f.onsite / f.dispatched) * 100) : 0; }
+  // Fan-out: the fleet funnel is the sum of each partner's own funnel, merged here.
+  function fleetFunnel() {
+    return PARTNERS.reduce((a, p) => {
+      a.dispatched += p.funnel.dispatched; a.accepted += p.funnel.accepted;
+      a.onsite += p.funnel.onsite; a.completed += p.funnel.completed; return a;
+    }, { dispatched: 0, accepted: 0, onsite: 0, completed: 0 });
+  }
+  function renderFunnel(f) {
+    const stages = [
+      { key: "dispatched", label: "Dispatched to CMMS", color: "var(--accent)" },
+      { key: "accepted", label: "Accepted in CMMS", color: "var(--info)" },
+      { key: "onsite", label: "On-site service call", color: "var(--good)", headline: true },
+      { key: "completed", label: "Completed / resolved", color: "var(--good)", faded: true },
+    ];
+    const max = f.dispatched || 1;
+    const rate = (n, d) => (d ? Math.round((n / d) * 100) : 0);
+    const rateFor = { accepted: rate(f.accepted, f.dispatched), onsite: rate(f.onsite, f.accepted), completed: rate(f.completed, f.onsite) };
+    const rateLabel = { accepted: "accepted", onsite: "conversion", completed: "resolved" };
+    let html = '<div class="funnel">';
+    stages.forEach((s, i) => {
+      const w = Math.round((f[s.key] / max) * 100);
+      html += `<div class="funnel__row">
+        <div class="funnel__label">${s.label}${s.headline ? ' <span class="pill pill--good" style="padding:0 7px"><span class="dot"></span>headline</span>' : ''}</div>
+        <div class="funnel__track"><div class="funnel__fill" style="width:${w}%;background:${s.color}${s.faded ? ';opacity:.5' : ''}"></div></div>
+        <div class="funnel__count">${f[s.key].toLocaleString()}</div></div>`;
+      if (i < stages.length - 1) {
+        const nk = stages[i + 1].key;
+        html += `<div class="funnel__rate">↓ ${rateFor[nk]}% ${rateLabel[nk]}</div>`;
+      }
+    });
+    return html + "</div>";
   }
 
   // ---------- Derived aggregates (fan-out, computed per-org then merged) ----------
@@ -759,6 +847,8 @@
     const na = needsAttention();
     const orgCount = TENANTS.length + PARTNERS.length;
     const offline = T.total - T.online;
+    const ff = fleetFunnel();
+    const ff_conv = conversionPct(ff);
 
     const stats = [
       { label: "Organizations", value: orgCount, sub: `${TENANTS.length} tenants · ${PARTNERS.length} partners`, accent: "var(--accent)" },
@@ -788,9 +878,23 @@
       <div class="page-head"><h1>Fleet Overview</h1>
         <p>Global health across every account you manage. Superadmin — all organizations in view.</p></div>
       <div class="stats">${stats}</div>
+      <div class="panel" style="margin-bottom:22px">
+        <div class="panel__head"><span class="panel__title">Automated dispatch → service calls</span>
+          <span class="panel__note">CMMS conversion · this month</span></div>
+        <div class="kpi-hero">
+          <div class="kpi-hero__side">
+            <div class="readout__l">Conversion · dispatched → on-site</div>
+            <div class="kpi-hero__num">${ff_conv}%</div>
+            <div class="faint" style="font-size:12px;margin-top:6px">${ff.onsite.toLocaleString()} on-site service calls generated from ${ff.dispatched.toLocaleString()} auto-dispatched work orders</div>
+            <button class="btn btn--ghost" data-action="nav:reports" style="margin-top:14px">Open full report
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          </div>
+          <div class="kpi-hero__funnel">${renderFunnel(ff)}</div>
+        </div>
+      </div>
       <div class="callout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <div>This overview is assembled by <b>fanning out ${TENANTS.length} per-organization scoped reads</b> and merging them here — never a single cross-tenant query. Each org is opened through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
+        <div>Every number here — health rollups and the CMMS conversion funnel alike — is assembled by <b>fanning out per-organization scoped reads</b> and merging them here, never a single cross-tenant query. Each org opens through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
       </div>
       <div class="grid2">
         <div class="panel">
@@ -1076,9 +1180,74 @@
   }
 
   // ---------- Router / render ----------
-  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, staff: viewStaff, audit: viewAudit };
-  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", staff: "nav:staff", audit: "nav:audit" };
-  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", staff: "Staff & Access", audit: "Audit Log" };
+  function viewReports() {
+    const ff = fleetFunnel();
+    const conv = conversionPct(ff);
+    const partnerRows = PARTNERS.map(p => {
+      const c = conversionPct(p.funnel);
+      const cls = c >= 70 ? "good" : c >= 60 ? "warn" : "crit";
+      return `<tr class="clickable" data-action="manage-partner:${p.id}">
+        <td><div style="display:flex;align-items:center;gap:10px"><span style="width:9px;height:9px;border-radius:3px;background:${p.brand};flex:none"></span><span class="strong">${esc(p.name)}</span></div></td>
+        <td class="num muted">${p.funnel.dispatched}</td><td class="num muted">${p.funnel.accepted}</td>
+        <td class="num strong">${p.funnel.onsite}</td><td class="num muted">${p.funnel.completed}</td>
+        <td style="text-align:right"><span class="pill pill--${cls}"><span class="dot"></span>${c}%</span></td></tr>`;
+    }).join("");
+
+    const catalog = STANDARD_REPORTS.map(r => `
+      <div class="report-card" data-action="run-report:${r.id}">
+        <div class="report-card__title">${esc(r.name)}</div>
+        <div class="report-card__desc">${esc(r.desc)}</div>
+        <div class="report-card__foot"><span class="pill pill--neutral"><span class="dot"></span>${esc(r.vertical)}</span>
+          <span class="faint" style="margin-left:auto;font-size:12px;font-weight:650">Run report →</span></div>
+      </div>`).join("");
+
+    const opts = (arr) => arr.map(d => `<option>${esc(d)}</option>`).join("");
+
+    return `
+      <div class="page-head"><h1>Reports</h1>
+        <p>Standard, industry-typical reports plus a custom builder. Everything runs as a fan-out of per-organization scoped reads — never a cross-tenant query.</p></div>
+
+      <div class="panel" style="margin-bottom:24px">
+        <div class="panel__head"><span class="panel__title">Automated Dispatch → Service Call Conversion</span>
+          <span class="panel__note">headline = dispatched → on-site</span>
+          <button class="btn btn--ghost" data-action="run-report:conversion" style="margin-left:12px">Export</button></div>
+        <div class="kpi-hero">
+          <div class="kpi-hero__side">
+            <div class="readout__l">Fleet conversion</div>
+            <div class="kpi-hero__num">${conv}%</div>
+            <div class="faint" style="font-size:12px;margin-top:6px">${ff.onsite.toLocaleString()} of ${ff.dispatched.toLocaleString()} auto-dispatched work orders reached an on-site service call</div>
+          </div>
+          <div class="kpi-hero__funnel">${renderFunnel(ff)}</div>
+        </div>
+        <table class="tbl">
+          <thead><tr><th>Channel partner</th><th class="num">Dispatched</th><th class="num">Accepted</th><th class="num">On-site</th><th class="num">Completed</th><th style="text-align:right">Conversion</th></tr></thead>
+          <tbody>${partnerRows}</tbody></table>
+      </div>
+
+      <div class="page-head" style="margin-bottom:14px"><h1 style="font-size:16px">Standard reports</h1></div>
+      <div class="report-grid" style="margin-bottom:26px">${catalog}</div>
+
+      <div class="panel">
+        <div class="panel__head"><span class="panel__title">Custom report</span>
+          <span class="panel__note">bounded builder over canonical entities</span></div>
+        <div style="padding:18px;display:flex;flex-direction:column;gap:14px;max-width:640px">
+          <div class="field--row">
+            <div class="field"><label>Domain</label><select>${opts(["Tickets & CMMS dispatch","Service visits","Alerts","Devices","Telemetry"])}</select></div>
+            <div class="field"><label>Group by</label><select>${opts(["Channel partner","Tenant","Site","Asset category","Day","Week","Month"])}</select></div>
+          </div>
+          <div class="field--row">
+            <div class="field"><label>Date range</label><select>${opts(["Last 7 days","Last 30 days","This quarter","Year to date","Custom…"])}</select></div>
+            <div class="field"><label>Format</label><select>${opts(["CSV","PDF","On-screen table"])}</select></div>
+          </div>
+          <p class="hint">The builder composes a saved report definition over known entities — no raw SQL — so isolation and the no-injection posture hold. Saved reports can be scheduled and delivered via the notification channels.</p>
+          <div><button class="btn btn--primary" data-action="build-report">Build report</button></div>
+        </div>
+      </div>`;
+  }
+
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, staff: viewStaff, audit: viewAudit, reports: viewReports };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", staff: "Staff & Access", audit: "Audit Log", reports: "Reports" };
 
   function render() {
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
@@ -1320,6 +1489,11 @@
     else if (action === "register-open") openRegister();
     else if (action === "register-submit") submitRegister();
     else if (action === "method") runMethod(arg, arg2);
+    else if (action === "run-report") {
+      const r = STANDARD_REPORTS.find(x => x.id === arg);
+      toast(`Generating "${r ? r.name : arg}" — export ready`);
+    }
+    else if (action === "build-report") toast("Custom report queued — you'll be notified when it's ready");
     else if (action === "close-overlay") closeOverlay();
     else if (action === "toggle-theme") toggleTheme();
   });
