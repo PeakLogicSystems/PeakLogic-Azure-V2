@@ -47,6 +47,13 @@
             <NavigationViewItem Content="Settings" Tag="settings" Icon="Setting" />
         </NavigationView.MenuItems>
 
-        <Frame x:Name="ContentFrame" />
+        <!-- Background is a theme-aware brush (Styles/Brand.xaml): true white
+             in light mode, brand-black in dark mode. The pages themselves set
+             no background, so without this the content area shows WinUI's gray
+             #F3F3F3 default in light mode. ThemeService.ApplyToContentFrame
+             sets RequestedTheme directly on THIS Frame (the pane is pinned
+             Dark and would otherwise cascade into it), and that same
+             RequestedTheme is what re-resolves this ThemeResource on toggle. -->
+        <Frame x:Name="ContentFrame" Background="{ThemeResource AppContentBackgroundBrush}" />
     </NavigationView>
 </Page>

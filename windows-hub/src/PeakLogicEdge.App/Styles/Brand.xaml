@@ -3,6 +3,32 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
+      Theme-aware content-area background. WinUI's default content background
+      (NavigationViewContentBackground → SolidBackgroundFillColorBase) is an
+      off-white/light-gray (#F3F3F3) in the light theme, NOT pure white — a
+      real symptom the user caught ("light mode backgrounds should be white
+      and they're not"). The content area sets no background of its own, so
+      it falls through to that gray default. This brush pins it to true white
+      in light mode and brand-black (#0F172A, matching the tenant web app's
+      dark canvas) in dark mode, applied on ShellPage.xaml's ContentFrame.
+
+      GOTCHA baked in on purpose: ThemeDictionaries only recognizes the keys
+      "Default", "Light", and "HighContrast" — there is NO "Dark" key. The
+      DARK theme brush must live under x:Key="Default". Naming it "Dark"
+      silently no-ops (the resource is never found for the dark theme), which
+      is exactly the kind of quiet failure that looks correct in the XAML but
+      does nothing at runtime.
+    -->
+    <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Default">
+            <SolidColorBrush x:Key="AppContentBackgroundBrush" Color="#0F172A" />
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Light">
+            <SolidColorBrush x:Key="AppContentBackgroundBrush" Color="#FFFFFF" />
+        </ResourceDictionary>
+    </ResourceDictionary.ThemeDictionaries>
+
+    <!--
       PeakLogic brand palette, reused exactly from frontend/tailwind.config.ts's
       "brand" colors and marketing/index.html's wordmark treatment, not
       invented independently, so the kiosk UI actually looks like the same

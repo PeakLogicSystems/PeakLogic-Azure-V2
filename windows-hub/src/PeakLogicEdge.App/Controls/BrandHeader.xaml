@@ -47,9 +47,23 @@
                 <Path Data="M14,10 L19,2 L24,18 Z" Fill="{StaticResource BrandGreenBrush}" Opacity="0.85" />
             </Grid>
         </Viewbox>
-        <TextBlock VerticalAlignment="Bottom" FontSize="20" FontWeight="ExtraBold" LineHeight="20">
-            <Run Text="Peak" Foreground="{StaticResource BrandWhiteBrush}" />
-            <Run Text="Logic" Foreground="{StaticResource BrandPurpleBrush}" />
-        </TextBlock>
+        <!--
+          The two Runs MUST be adjacent with no whitespace between them.
+          XAML treats whitespace (including a newline + indentation) between
+          two inline Runs as significant, collapsing it to a single rendered
+          space — which produced "Peak Logic" instead of the correct
+          "PeakLogic". The web wordmark has no gap either
+          (<span class="peak">Peak</span><span class="logic">Logic</span>).
+
+          "Logic" is BrandPurpleMidBrush (#8B5CF6), NOT BrandPurpleBrush
+          (#7C3AED). Color-matched against the web app's own lockups:
+          on a DARK background (Sidebar.tsx's nav pane, and the marketing
+          site's ".wordmark .logic { color: #8B5CF6 }"), "Logic" is the
+          brighter purple-mid; the darker #7C3AED is only used on LIGHT
+          backgrounds (LoginBackground.tsx). This control is only ever on a
+          dark background, so purple-mid is the correct match. The icon mark
+          above already matches favicon.svg exactly (#7C3AED + #22C55E@0.85).
+        -->
+        <TextBlock VerticalAlignment="Bottom" FontSize="20" FontWeight="ExtraBold" LineHeight="20"><Run Text="Peak" Foreground="{StaticResource BrandWhiteBrush}" /><Run Text="Logic" Foreground="{StaticResource BrandPurpleMidBrush}" /></TextBlock>
     </StackPanel>
 </UserControl>
