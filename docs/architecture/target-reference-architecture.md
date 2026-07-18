@@ -99,6 +99,8 @@ The most common architecture mistake — the one the reviewed diagram made — i
 
 Three separate front-end apps, three separate issuers. A **shared UI component package** lets all three render the same Site→Asset→Device views without three divergent copies (roadmap item 9) — shared *code*, not shared *sessions*.
 
+> **Clickable prototype:** [`prototypes/super-console-demo.html`](prototypes/super-console-demo.html) is a self-contained, operable mockup of this console — fleet fan-out, tenant *and* partner act-as, the device-twin drawer (§8), and the ZTP registration flow (§9). It's the design target for roadmap items 8–9, not an implementation.
+
 ### 5.2 The Super-Console act-as model — **act-as, not impersonation**
 
 This is the correction the reviewed diagram most needed. There are two models; they are not the same, and the default matters enormously:

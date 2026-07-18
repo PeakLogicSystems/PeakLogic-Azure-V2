@@ -1,0 +1,1357 @@
+<title>PeakLogic Super-Console</title>
+<style>
+  :root {
+    --rail-bg: #0a0f1d;
+    --rail-surface: #121b30;
+    --rail-border: #1e2a44;
+    --rail-text: #e8ecf5;
+    --rail-muted: #7f8db0;
+    --rail-active-bg: rgba(139, 92, 246, .16);
+    --rail-active-bar: #8b5cf6;
+
+    --bg: #f5f5fb;
+    --surface: #ffffff;
+    --surface-2: #fbfaff;
+    --surface-3: #f2f1fa;
+    --border: #e7e5f1;
+    --border-strong: #d7d4e8;
+    --text: #10152a;
+    --text-muted: #5c6480;
+    --text-faint: #939ab5;
+    --accent: #7c3aed;
+    --accent-ink: #6d28d9;
+    --accent-soft: #ede9fe;
+
+    --good: #16a34a;
+    --good-soft: #dcfce7;
+    --good-ink: #15803d;
+    --warn: #d97706;
+    --warn-soft: #fef3c7;
+    --warn-ink: #b45309;
+    --crit: #dc2626;
+    --crit-soft: #fee2e2;
+    --crit-ink: #b91c1c;
+    --info: #2563eb;
+    --info-soft: #dbeafe;
+    --info-ink: #1d4ed8;
+
+    --shadow: 0 1px 2px rgba(16, 21, 42, .04), 0 4px 16px rgba(16, 21, 42, .05);
+    --shadow-lg: 0 12px 40px rgba(16, 21, 42, .16);
+    --radius: 12px;
+    --radius-sm: 8px;
+
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #080c17;
+      --surface: #10192b;
+      --surface-2: #0d1524;
+      --surface-3: #16223a;
+      --border: #223049;
+      --border-strong: #2c3c58;
+      --text: #eef2fb;
+      --text-muted: #93a0bd;
+      --text-faint: #66728f;
+      --accent: #8b5cf6;
+      --accent-ink: #a78bfa;
+      --accent-soft: #241d45;
+
+      --good: #34d399; --good-soft: #0c2a20; --good-ink: #6ee7b7;
+      --warn: #fbbf24; --warn-soft: #2e2408; --warn-ink: #fcd34d;
+      --crit: #f87171; --crit-soft: #2e1416; --crit-ink: #fca5a5;
+      --info: #60a5fa; --info-soft: #12203c; --info-ink: #93c5fd;
+      --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.35);
+      --shadow-lg: 0 12px 40px rgba(0,0,0,.55);
+    }
+  }
+
+  :root[data-theme="light"] {
+    --bg: #f5f5fb; --surface: #ffffff; --surface-2: #fbfaff; --surface-3: #f2f1fa;
+    --border: #e7e5f1; --border-strong: #d7d4e8; --text: #10152a; --text-muted: #5c6480;
+    --text-faint: #939ab5; --accent: #7c3aed; --accent-ink: #6d28d9; --accent-soft: #ede9fe;
+    --good: #16a34a; --good-soft: #dcfce7; --good-ink: #15803d;
+    --warn: #d97706; --warn-soft: #fef3c7; --warn-ink: #b45309;
+    --crit: #dc2626; --crit-soft: #fee2e2; --crit-ink: #b91c1c;
+    --info: #2563eb; --info-soft: #dbeafe; --info-ink: #1d4ed8;
+    --shadow: 0 1px 2px rgba(16,21,42,.04), 0 4px 16px rgba(16,21,42,.05);
+    --shadow-lg: 0 12px 40px rgba(16,21,42,.16);
+  }
+  :root[data-theme="dark"] {
+    --bg: #080c17; --surface: #10192b; --surface-2: #0d1524; --surface-3: #16223a;
+    --border: #223049; --border-strong: #2c3c58; --text: #eef2fb; --text-muted: #93a0bd;
+    --text-faint: #66728f; --accent: #8b5cf6; --accent-ink: #a78bfa; --accent-soft: #241d45;
+    --good: #34d399; --good-soft: #0c2a20; --good-ink: #6ee7b7;
+    --warn: #fbbf24; --warn-soft: #2e2408; --warn-ink: #fcd34d;
+    --crit: #f87171; --crit-soft: #2e1416; --crit-ink: #fca5a5;
+    --info: #60a5fa; --info-soft: #12203c; --info-ink: #93c5fd;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 4px 16px rgba(0,0,0,.35);
+    --shadow-lg: 0 12px 40px rgba(0,0,0,.55);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .app {
+    font-family: var(--sans);
+    color: var(--text);
+    background: var(--bg);
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: 248px 1fr;
+    -webkit-font-smoothing: antialiased;
+  }
+  @media (max-width: 760px) { .app { grid-template-columns: 68px 1fr; } }
+
+  /* ---------- Command rail (pinned dark, both themes) ---------- */
+  .rail {
+    background: var(--rail-bg);
+    border-right: 1px solid var(--rail-border);
+    display: flex; flex-direction: column;
+    position: sticky; top: 0; height: 100vh;
+    padding: 18px 12px;
+  }
+  .brand { display: flex; align-items: flex-end; gap: 9px; padding: 6px 8px 20px; }
+  .brand svg { width: 30px; height: 22px; display: block; }
+  .brand__word { font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+  .brand__word .peak { color: #ffffff; }
+  .brand__word .logic { color: #8b5cf6; }
+  @media (max-width: 760px) { .brand__word { display: none; } .brand { justify-content: center; padding: 6px 0 20px; } }
+
+  .nav { display: flex; flex-direction: column; gap: 2px; }
+  .nav__label {
+    font-size: 10.5px; text-transform: uppercase; letter-spacing: .12em;
+    color: var(--rail-muted); font-weight: 700; padding: 16px 10px 6px;
+  }
+  @media (max-width: 760px) { .nav__label { text-align: center; font-size: 8px; padding: 12px 0 4px; } }
+  .nav__item {
+    display: flex; align-items: center; gap: 11px;
+    padding: 9px 10px; border-radius: var(--radius-sm);
+    color: var(--rail-text); font-size: 13.5px; font-weight: 500;
+    cursor: pointer; border: none; background: none; width: 100%; text-align: left;
+    position: relative; font-family: inherit; transition: background .12s ease;
+  }
+  .nav__item:hover { background: rgba(255,255,255,.05); }
+  .nav__item svg { width: 17px; height: 17px; flex: none; opacity: .82; }
+  .nav__item--active { background: var(--rail-active-bg); color: #fff; font-weight: 600; }
+  .nav__item--active::before {
+    content: ""; position: absolute; left: -12px; top: 7px; bottom: 7px;
+    width: 3px; border-radius: 0 3px 3px 0; background: var(--rail-active-bar);
+  }
+  .nav__item--active svg { opacity: 1; color: #a78bfa; }
+  .nav__item--sub { padding-left: 38px; font-size: 13px; }
+  @media (max-width: 760px) {
+    .nav__item { justify-content: center; padding: 11px 0; gap: 0; }
+    .nav__item span, .nav__item--sub { display: none; }
+    .nav__item--sub { display: none !important; }
+  }
+  .nav__count {
+    margin-left: auto; font-size: 11px; font-family: var(--mono);
+    color: var(--rail-muted); background: rgba(255,255,255,.06);
+    padding: 1px 7px; border-radius: 20px; font-variant-numeric: tabular-nums;
+  }
+  @media (max-width: 760px) { .nav__count { display: none; } }
+
+  .rail__foot { margin-top: auto; padding: 12px 10px 4px; border-top: 1px solid var(--rail-border); }
+  .who { display: flex; align-items: center; gap: 10px; }
+  .who__avatar {
+    width: 30px; height: 30px; border-radius: 50%; flex: none;
+    background: linear-gradient(135deg, #8b5cf6, #22c55e);
+    display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px;
+  }
+  .who__name { font-size: 12.5px; font-weight: 600; color: var(--rail-text); line-height: 1.3; }
+  .who__role { font-size: 10.5px; color: var(--rail-muted); display: flex; align-items: center; gap: 4px; }
+  .who__role .dot { width: 5px; height: 5px; border-radius: 50%; background: #34d399; }
+  @media (max-width: 760px) { .who__name, .who__role { display: none; } .who { justify-content: center; } }
+
+  /* ---------- Main ---------- */
+  .main { min-width: 0; display: flex; flex-direction: column; }
+  .topbar {
+    display: flex; align-items: center; gap: 16px;
+    padding: 14px 28px; border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--surface) 82%, transparent);
+    backdrop-filter: blur(8px); position: sticky; top: 0; z-index: 20;
+  }
+  .crumb { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-muted); min-width: 0; }
+  .crumb b { color: var(--text); font-weight: 650; }
+  .crumb .sep { color: var(--text-faint); }
+  .topbar__spacer { flex: 1; }
+  .iconbtn {
+    display: grid; place-items: center; width: 34px; height: 34px;
+    border-radius: var(--radius-sm); border: 1px solid var(--border);
+    background: var(--surface); color: var(--text-muted); cursor: pointer;
+  }
+  .iconbtn:hover { color: var(--text); border-color: var(--border-strong); }
+  .iconbtn svg { width: 17px; height: 17px; }
+
+  /* Act-as banner */
+  .banner {
+    display: flex; align-items: center; gap: 14px;
+    padding: 11px 28px; background: var(--accent-soft);
+    border-bottom: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border));
+    font-size: 13px; color: var(--text);
+  }
+  .banner__pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: var(--accent); flex: none;
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 60%, transparent);
+    animation: pulse 2.2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent); }
+    70% { box-shadow: 0 0 0 9px transparent; }
+    100% { box-shadow: 0 0 0 0 transparent; }
+  }
+  @media (prefers-reduced-motion: reduce) { .banner__pulse { animation: none; } }
+  .banner b { font-weight: 700; }
+  .banner__meta { color: var(--accent-ink); font-family: var(--mono); font-size: 11.5px; }
+  .banner__exit {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 20px; border: 1px solid color-mix(in srgb, var(--accent) 40%, var(--border));
+    background: var(--surface); color: var(--accent-ink); font-weight: 650; font-size: 12.5px;
+    cursor: pointer; font-family: inherit;
+  }
+  .banner__exit:hover { background: var(--surface-2); }
+
+  .view { padding: 26px 28px 60px; max-width: 1240px; animation: fade .28s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .view, .banner__pulse { animation: none; } }
+
+  .page-head { margin-bottom: 20px; }
+  .page-head h1 { font-size: 22px; font-weight: 750; letter-spacing: -.02em; margin: 0 0 4px; text-wrap: balance; }
+  .page-head p { margin: 0; color: var(--text-muted); font-size: 13.5px; max-width: 68ch; }
+
+  /* Stat cards */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+  @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } }
+  .stat {
+    background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px 18px; box-shadow: var(--shadow); position: relative; overflow: hidden;
+  }
+  .stat__label { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted); font-weight: 650; }
+  .stat__value { font-size: 30px; font-weight: 760; letter-spacing: -.03em; margin-top: 8px; font-variant-numeric: tabular-nums; line-height: 1; }
+  .stat__sub { font-size: 12px; color: var(--text-faint); margin-top: 7px; font-variant-numeric: tabular-nums; }
+  .stat__accent { position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+
+  /* Panels */
+  .panel { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); overflow: hidden; }
+  .grid2 { display: grid; grid-template-columns: 1.55fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 940px) { .grid2 { grid-template-columns: 1fr; } }
+  .panel__head { display: flex; align-items: center; gap: 10px; padding: 15px 18px; border-bottom: 1px solid var(--border); }
+  .panel__title { font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
+  .panel__note {
+    margin-left: auto; font-size: 11px; color: var(--text-faint);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .panel__note code { font-family: var(--mono); color: var(--accent-ink); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
+
+  /* Tables */
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl th {
+    text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-faint); font-weight: 700; padding: 10px 16px; border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: var(--surface);
+  }
+  .tbl td { padding: 12px 16px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .tbl tr:last-child td { border-bottom: none; }
+  .tbl tbody tr { transition: background .1s ease; }
+  .tbl tbody tr.clickable { cursor: pointer; }
+  .tbl tbody tr.clickable:hover { background: var(--surface-3); }
+  .tbl .num { font-variant-numeric: tabular-nums; text-align: right; }
+  .mono { font-family: var(--mono); font-size: 12px; }
+  .muted { color: var(--text-muted); }
+  .faint { color: var(--text-faint); }
+  .sev-cell { width: 4px; padding: 0 !important; }
+  .sev-stripe { display: block; width: 4px; align-self: stretch; min-height: 44px; }
+  .strong { font-weight: 650; }
+  .row-main { display: flex; flex-direction: column; gap: 2px; }
+  .row-sub { font-size: 11.5px; color: var(--text-faint); }
+
+  /* Pills */
+  .pill {
+    display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px;
+    border-radius: 20px; font-size: 11.5px; font-weight: 650; white-space: nowrap;
+  }
+  .pill .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .pill--good { background: var(--good-soft); color: var(--good-ink); } .pill--good .dot { background: var(--good); }
+  .pill--warn { background: var(--warn-soft); color: var(--warn-ink); } .pill--warn .dot { background: var(--warn); }
+  .pill--crit { background: var(--crit-soft); color: var(--crit-ink); } .pill--crit .dot { background: var(--crit); }
+  .pill--info { background: var(--info-soft); color: var(--info-ink); } .pill--info .dot { background: var(--info); }
+  .pill--neutral { background: var(--surface-3); color: var(--text-muted); } .pill--neutral .dot { background: var(--text-faint); }
+  .pill--accent { background: var(--accent-soft); color: var(--accent-ink); } .pill--accent .dot { background: var(--accent); }
+
+  /* Rollup bar */
+  .rollup { display: flex; align-items: center; gap: 10px; }
+  .rollup__track { flex: 1; height: 7px; border-radius: 20px; background: var(--surface-3); overflow: hidden; display: flex; }
+  .rollup__fill { height: 100%; background: var(--good); }
+  .rollup__fill.warn { background: var(--warn); }
+  .rollup__fill.crit { background: var(--crit); }
+  .rollup__val { font-family: var(--mono); font-size: 11.5px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+  /* Buttons */
+  .btn {
+    display: inline-flex; align-items: center; gap: 7px; padding: 7px 14px; border-radius: var(--radius-sm);
+    font-size: 12.5px; font-weight: 650; cursor: pointer; font-family: inherit; border: 1px solid transparent;
+    transition: transform .06s ease, background .12s ease;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn--primary { background: var(--accent); color: #fff; }
+  .btn--primary:hover { background: var(--accent-ink); }
+  .btn--ghost { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  .btn--ghost:hover { background: var(--surface-2); }
+  .btn svg { width: 14px; height: 14px; }
+
+  .toolbar { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .search {
+    display: flex; align-items: center; gap: 8px; padding: 8px 13px; background: var(--surface);
+    border: 1px solid var(--border); border-radius: var(--radius-sm); flex: 1; min-width: 200px; max-width: 340px;
+  }
+  .search svg { width: 15px; height: 15px; color: var(--text-faint); flex: none; }
+  .search input { border: none; background: none; outline: none; font-family: inherit; font-size: 13px; color: var(--text); width: 100%; }
+  .search input::placeholder { color: var(--text-faint); }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+  .tab {
+    padding: 9px 14px; font-size: 13px; font-weight: 600; color: var(--text-muted);
+    cursor: pointer; border: none; background: none; font-family: inherit; white-space: nowrap;
+    border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab--active { color: var(--accent-ink); border-bottom-color: var(--accent); }
+  .tab__count { font-family: var(--mono); font-size: 11px; opacity: .7; margin-left: 5px; }
+
+  .spark { display: block; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 11.5px; color: var(--text-muted); margin-top: 14px; }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend .dot { width: 8px; height: 8px; border-radius: 50%; }
+
+  .callout {
+    display: flex; gap: 12px; padding: 13px 16px; border-radius: var(--radius);
+    background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border));
+    font-size: 12.5px; color: var(--text); margin-bottom: 20px; line-height: 1.5;
+  }
+  .callout svg { width: 18px; height: 18px; color: var(--accent); flex: none; margin-top: 1px; }
+  .callout b { font-weight: 700; }
+  .callout code { font-family: var(--mono); font-size: 11.5px; background: var(--surface); padding: 1px 5px; border-radius: 4px; color: var(--accent-ink); }
+
+  .empty { padding: 40px; text-align: center; color: var(--text-faint); font-size: 13px; }
+  .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 12.5px; }
+  .kv dt { color: var(--text-faint); }
+  .kv dd { margin: 0; font-weight: 600; }
+
+  .grow { animation: fade .2s ease; }
+
+  /* ---------- Overlay / drawer / modal / toast ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(8,12,23,.55); backdrop-filter: blur(2px); z-index: 40; opacity: 0; animation: ovfade .16s ease forwards; }
+  @keyframes ovfade { to { opacity: 1; } }
+  .drawer {
+    position: fixed; top: 0; right: 0; bottom: 0; width: min(468px, 96vw); background: var(--surface);
+    border-left: 1px solid var(--border); box-shadow: var(--shadow-lg); z-index: 50;
+    display: flex; flex-direction: column; animation: slidein .22s cubic-bezier(.2,.7,.3,1) forwards;
+  }
+  @keyframes slidein { from { transform: translateX(100%); } to { transform: none; } }
+  @media (prefers-reduced-motion: reduce) { .overlay, .drawer, .modal, .toast { animation: none; } }
+  .drawer__head { padding: 18px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: flex-start; gap: 12px; }
+  .drawer__title { font-size: 16px; font-weight: 720; letter-spacing: -.01em; }
+  .drawer__id { font-family: var(--mono); font-size: 12px; color: var(--text-faint); margin-top: 3px; }
+  .drawer__body { padding: 18px 20px 28px; overflow-y: auto; display: flex; flex-direction: column; gap: 22px; }
+  .dsec__label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-muted);
+    font-weight: 700; margin-bottom: 11px; display: flex; align-items: center; gap: 8px;
+  }
+  .dsec__label .arrow { font-family: var(--mono); color: var(--text-faint); font-weight: 500; text-transform: none; letter-spacing: 0; font-size: 11px; }
+  .twin { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  .twin td { padding: 8px 0; border-bottom: 1px solid var(--border); }
+  .twin td:first-child { color: var(--text-muted); padding-right: 12px; }
+  .twin td:last-child { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .twin tr:last-child td { border-bottom: none; }
+  .sync { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
+  .sync .dot { width: 6px; height: 6px; border-radius: 50%; }
+  .readout { display: flex; align-items: center; gap: 16px; padding: 15px 16px; background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); }
+  .readout__v { font-size: 23px; font-weight: 740; font-variant-numeric: tabular-nums; line-height: 1; }
+  .readout__l { font-size: 11px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .06em; font-weight: 650; margin-bottom: 5px; }
+  .methods { display: flex; flex-wrap: wrap; gap: 8px; }
+
+  .modal {
+    position: fixed; z-index: 50; top: 50%; left: 50%; transform: translate(-50%, -50%); width: min(540px, 95vw);
+    background: var(--surface); border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-lg);
+    animation: modalin .2s ease forwards; max-height: 92vh; overflow: auto;
+  }
+  @keyframes modalin { from { opacity: 0; transform: translate(-50%, -47%); } to { opacity: 1; transform: translate(-50%, -50%); } }
+  .modal__head { padding: 22px 24px 4px; }
+  .modal__head h2 { margin: 0; font-size: 18px; font-weight: 740; letter-spacing: -.02em; }
+  .modal__head p { margin: 7px 0 0; font-size: 13px; color: var(--text-muted); line-height: 1.5; }
+  .modal__body { padding: 18px 24px 6px; display: flex; flex-direction: column; gap: 15px; }
+  .modal__foot { padding: 16px 24px 22px; display: flex; gap: 10px; justify-content: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field > label { font-size: 12px; font-weight: 650; color: var(--text-muted); }
+  .field input, .field select {
+    padding: 9px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-sm);
+    background: var(--surface-2); font-family: inherit; font-size: 13px; color: var(--text); outline: none; width: 100%;
+  }
+  .field input:focus, .field select:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
+  .field--row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .hint { font-size: 11.5px; color: var(--text-faint); line-height: 1.5; }
+  .hint code { font-family: var(--mono); background: var(--surface-3); padding: 1px 5px; border-radius: 4px; color: var(--accent-ink); }
+
+  .toasts { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 60; display: flex; flex-direction: column; gap: 8px; align-items: center; pointer-events: none; }
+  .toast { display: flex; align-items: center; gap: 10px; padding: 11px 17px; background: var(--text); color: var(--surface); border-radius: 10px; font-size: 13px; font-weight: 600; box-shadow: var(--shadow-lg); animation: toastin .2s ease; }
+  .toast svg { width: 16px; height: 16px; color: var(--good); flex: none; }
+  @keyframes toastin { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+</style>
+
+<div class="app" id="app">
+  <aside class="rail">
+    <div class="brand">
+      <svg viewBox="0 0 24 18" aria-hidden="true">
+        <path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"></path>
+        <path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"></path>
+      </svg>
+      <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+    </div>
+
+    <nav class="nav" id="nav">
+      <button class="nav__item" data-action="nav:fleet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="1"/><rect x="14" y="3" width="7" height="5" rx="1"/><rect x="14" y="12" width="7" height="9" rx="1"/><rect x="3" y="16" width="7" height="5" rx="1"/></svg>
+        <span>Fleet Overview</span>
+      </button>
+
+      <div class="nav__label">Organizations</div>
+      <button class="nav__item" data-action="nav:tenants">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>
+        <span>Tenants</span><span class="nav__count" id="cnt-tenants"></span>
+      </button>
+      <button class="nav__item" data-action="nav:partners">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        <span>Channel Partners</span><span class="nav__count" id="cnt-partners"></span>
+      </button>
+
+      <div class="nav__label">Fleet</div>
+      <button class="nav__item" data-action="nav:devices">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
+        <span>Devices</span><span class="nav__count" id="cnt-devices"></span>
+      </button>
+      <button class="nav__item" data-action="nav:staff">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="4" width="20" height="16" rx="2"/><circle cx="8" cy="10" r="2"/><path d="M4 17c0-2 2-3 4-3s4 1 4 3M14 9h5M14 13h5"/></svg>
+        <span>Staff &amp; Access</span>
+      </button>
+      <button class="nav__item" data-action="nav:audit">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2M9 5a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2M9 5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2M9 12h6M9 16h4"/></svg>
+        <span>Audit Log</span>
+      </button>
+    </nav>
+
+    <div class="rail__foot">
+      <div class="who">
+        <div class="who__avatar">ML</div>
+        <div>
+          <div class="who__name">Marcus Lindqvist</div>
+          <div class="who__role"><span class="dot"></span>Superadmin · PIM</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <div class="crumb" id="crumb"></div>
+      <div class="topbar__spacer"></div>
+      <button class="iconbtn" data-action="toggle-theme" title="Toggle theme" aria-label="Toggle light or dark theme">
+        <svg id="theme-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+    </div>
+    <div id="banner-slot"></div>
+    <main id="view" class="view"></main>
+  </div>
+</div>
+<div id="overlay-root"></div>
+<div class="toasts" id="toasts"></div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---------- Demo data ----------
+  const ME = { name: "Marcus Lindqvist", email: "marcus.lindqvist@peaklogic.com", oid: "a7f3-91d2-4c8e" };
+
+  const STAFF = [
+    { name: "Marcus Lindqvist", email: "marcus.lindqvist@peaklogic.com", role: "superadmin", oid: "a7f3-91d2-4c8e", book: "All organizations", elevated: true },
+    { name: "Dana Whitfield", email: "dana.whitfield@peaklogic.com", role: "account_manager", oid: "b2c1-77af-0e13", book: ["cascade", "northwind", "sterling"] },
+    { name: "Raj Patel", email: "raj.patel@peaklogic.com", role: "account_manager", oid: "c9d4-1a2b-6f70", book: ["meridian", "harbor", "cedar"] },
+    { name: "Elena Márquez", email: "elena.marquez@peaklogic.com", role: "account_manager", oid: "d5e8-33cc-9b41", book: ["granite", "lakeside"] },
+    { name: "Priya Nair", email: "priya.nair@peaklogic.com", role: "support_engineer", oid: "e1f6-8a09-2d55", book: "Read-only, all orgs" }
+  ];
+
+  const TENANTS = [
+    { id: "cascade", name: "Cascade Aquatics Group", industry: "Municipal aquatics", mgr: "Dana Whitfield",
+      online: 142, total: 148, crit: 1, warn: 3, tickets: 4, health: "warn",
+      sites: [
+        { name: "Riverside Aquatic Center", assets: [
+          { name: "Main Pool Circulation", cat: "pool_system", health: "warn", devices: [
+            { id: "plx-4471-a", name: "Circulation Pump #1", state: "reporting", metric: "flow 412 GPM", spark: [40,41,39,42,44,43,45,44], health: "good" },
+            { id: "plx-4471-b", name: "Salt Chlorinator", state: "reporting", metric: "output 62%", spark: [60,61,63,62,64,66,63,62], health: "good" },
+            { id: "plx-4471-c", name: "Chem Controller", state: "silent", metric: "no data 3h", spark: [30,31,30,29,0,0,0,0], health: "crit" } ] },
+          { name: "Filtration Skid", cat: "pool_system", health: "good", devices: [
+            { id: "plx-4482-a", name: "Backwash Valve", state: "configured", metric: "idle", spark: [10,10,11,10,9,10,10,10], health: "good" } ] } ] },
+        { name: "Eastgate Community Pool", assets: [
+          { name: "Wading Pool Heater", cat: "hvac", health: "warn", devices: [
+            { id: "plx-5510-a", name: "Heat Exchanger", state: "reporting", metric: "88°F rising", spark: [82,83,84,85,86,87,88,89], health: "warn" } ] } ] } ] },
+    { id: "northwind", name: "Northwind Cold Storage", industry: "Refrigerated warehousing", mgr: "Dana Whitfield",
+      online: 96, total: 103, crit: 2, warn: 1, tickets: 3, health: "crit",
+      sites: [
+        { name: "Tacoma DC-1", assets: [
+          { name: "Freezer Bay A", cat: "refrigeration", health: "crit", devices: [
+            { id: "nwc-2201-a", name: "Product Probe A3", state: "reporting", metric: "18.4°F ▲", spark: [2,3,5,8,11,14,17,18], health: "crit" },
+            { id: "nwc-2201-b", name: "Compressor A", state: "reporting", metric: "amp draw 41A", spark: [38,39,40,42,41,43,44,45], health: "warn" } ] },
+          { name: "Dock Levelers", cat: "energy_meter", health: "good", devices: [
+            { id: "nwc-2240-a", name: "Panel Meter D2", state: "reporting", metric: "12.1 kW", spark: [11,12,12,13,12,12,11,12], health: "good" } ] } ] },
+        { name: "Kent DC-2", assets: [
+          { name: "Blast Freezer", cat: "refrigeration", health: "crit", devices: [
+            { id: "nwc-3105-a", name: "Evap Fan Bank", state: "silent", metric: "offline 46m", spark: [20,19,18,0,0,0,0,0], health: "crit" } ] } ] } ] },
+    { id: "meridian", name: "Meridian Property Mgmt", industry: "Commercial real estate", mgr: "Raj Patel",
+      online: 214, total: 218, crit: 0, warn: 2, tickets: 1, health: "good",
+      sites: [
+        { name: "One Financial Plaza", assets: [
+          { name: "Rooftop RTU-4", cat: "hvac", health: "good", devices: [
+            { id: "mer-8801-a", name: "Supply Air Sensor", state: "reporting", metric: "55°F", spark: [55,54,55,56,55,55,54,55], health: "good" },
+            { id: "mer-8801-b", name: "Return Air Sensor", state: "reporting", metric: "72°F", spark: [71,72,72,73,72,72,71,72], health: "good" } ] } ] },
+        { name: "Cedar Business Park", assets: [
+          { name: "Building C Chiller", cat: "hvac", health: "warn", devices: [
+            { id: "mer-9120-a", name: "Chilled Water Loop", state: "reporting", metric: "47°F", spark: [44,45,46,46,47,47,48,47], health: "warn" } ] } ] } ] },
+    { id: "harbor", name: "Harbor Point Resorts", industry: "Hospitality", mgr: "Raj Patel",
+      online: 178, total: 190, crit: 0, warn: 4, tickets: 2, health: "warn",
+      sites: [
+        { name: "Bayfront Resort & Spa", assets: [
+          { name: "Spa Pool System", cat: "pool_system", health: "good", devices: [
+            { id: "hbr-6600-a", name: "Spa Circulation", state: "reporting", metric: "104°F", spark: [103,104,104,103,104,105,104,104], health: "good" } ] },
+          { name: "Central Plant", cat: "energy_meter", health: "warn", devices: [
+            { id: "hbr-6710-a", name: "Main Switchgear", state: "reporting", metric: "peak 214 kW", spark: [180,190,200,210,214,208,205,212], health: "warn" } ] } ] } ] },
+    { id: "sterling", name: "Sterling Facilities Co", industry: "Facilities services", mgr: "Dana Whitfield",
+      online: 88, total: 90, crit: 0, warn: 0, tickets: 0, health: "good",
+      sites: [
+        { name: "Distribution Hub North", assets: [
+          { name: "Water Service Entry", cat: "leak_sensor", health: "good", devices: [
+            { id: "stg-1450-a", name: "Main Leak Sensor", state: "reporting", metric: "dry", spark: [0,0,0,0,0,0,0,0], health: "good" },
+            { id: "stg-1450-b", name: "Sub-meter", state: "reporting", metric: "3.2 GPM", spark: [3,3,4,3,3,3,4,3], health: "good" } ] } ] } ] },
+    { id: "granite", name: "Granite Peak Brewing", industry: "Food & beverage", mgr: "Elena Márquez",
+      online: 61, total: 63, crit: 0, warn: 1, tickets: 1, health: "good",
+      sites: [
+        { name: "Production Brewery", assets: [
+          { name: "Glycol Chiller", cat: "refrigeration", health: "warn", devices: [
+            { id: "gpb-7001-a", name: "Fermenter Jacket 3", state: "reporting", metric: "34°F", spark: [32,33,34,34,35,34,34,35], health: "warn" } ] },
+          { name: "Cold Room", cat: "refrigeration", health: "good", devices: [
+            { id: "gpb-7012-a", name: "Walk-in Probe", state: "reporting", metric: "38°F", spark: [37,38,38,37,38,38,39,38], health: "good" } ] } ] } ] },
+    { id: "lakeside", name: "Lakeside Wellness", industry: "Health & fitness", mgr: "Elena Márquez",
+      online: 44, total: 49, crit: 0, warn: 2, tickets: 2, health: "warn",
+      sites: [
+        { name: "Downtown Club", assets: [
+          { name: "Lap Pool", cat: "pool_system", health: "warn", devices: [
+            { id: "lkw-3300-a", name: "pH/ORP Controller", state: "reporting", metric: "pH 7.9 ▲", spark: [7.4,7.5,7.6,7.7,7.8,7.9,7.9,8.0].map(x=>x*10), health: "warn" } ] } ] } ] },
+    { id: "cedar", name: "Cedar Ridge Schools", industry: "Education", mgr: "Raj Patel",
+      online: 156, total: 160, crit: 0, warn: 1, tickets: 0, health: "good",
+      sites: [
+        { name: "Cedar Ridge High School", assets: [
+          { name: "Gymnasium AHU", cat: "hvac", health: "good", devices: [
+            { id: "crs-2100-a", name: "Mixed Air Sensor", state: "reporting", metric: "68°F", spark: [67,68,68,69,68,68,67,68], health: "good" } ] },
+          { name: "Boiler Room", cat: "energy_meter", health: "warn", devices: [
+            { id: "crs-2140-a", name: "Gas Meter", state: "provisioning", metric: "pending", spark: [0,0,0,0,0,0,0,0], health: "warn" } ] } ] } ] }
+  ];
+
+  const PARTNERS = [
+    { id: "bluewave", name: "BlueWave Pool Service", region: "Pacific Northwest", accounts: 3, techs: 14, routes: 6, health: "good", brand: "#0891b2",
+      subdomain: "portal.bluewavepools.com",
+      accountList: ["Cascade Aquatics Group", "Harbor Point Resorts", "Lakeside Wellness"],
+      territories: [
+        { name: "Seattle Metro", accounts: 2, techs: 6, health: "good" },
+        { name: "Tacoma–Olympia", accounts: 1, techs: 5, health: "good" },
+        { name: "Bellingham North", accounts: 0, techs: 3, health: "warn" } ],
+      technicians: [
+        { name: "Owen Brady", cert: "CPO certified", status: "on-route" },
+        { name: "Maya Serrano", cert: "CPO certified", status: "on-route" },
+        { name: "Derek Cho", cert: "AFO certified", status: "available" },
+        { name: "Nina Alvarez", cert: "CPO certified", status: "off-shift" } ],
+      routes: [
+        { name: "Route SEA-1", stops: 8, tech: "Owen Brady", status: "in-progress" },
+        { name: "Route SEA-2", stops: 6, tech: "Maya Serrano", status: "in-progress" },
+        { name: "Route TAC-1", stops: 7, tech: "Derek Cho", status: "scheduled" } ] },
+    { id: "thermotech", name: "ThermoTech HVAC Partners", region: "Mountain West", accounts: 5, techs: 22, routes: 9, health: "warn", brand: "#ea580c",
+      subdomain: "service.thermotechhvac.com",
+      accountList: ["Meridian Property Mgmt", "Cedar Ridge Schools", "Granite Peak Brewing", "Sterling Facilities Co", "Northwind Cold Storage"],
+      territories: [
+        { name: "Denver Front Range", accounts: 3, techs: 11, health: "warn" },
+        { name: "Boulder County", accounts: 1, techs: 6, health: "good" },
+        { name: "Colorado Springs", accounts: 1, techs: 5, health: "good" } ],
+      technicians: [
+        { name: "Grant Whitmore", cert: "EPA 608 Universal", status: "on-route" },
+        { name: "Sofia Rendón", cert: "NATE certified", status: "on-route" },
+        { name: "Isaac Feldman", cert: "EPA 608 Type II", status: "delayed" },
+        { name: "Priya Venkat", cert: "NATE certified", status: "available" } ],
+      routes: [
+        { name: "Route DEN-1", stops: 9, tech: "Grant Whitmore", status: "in-progress" },
+        { name: "Route DEN-2", stops: 7, tech: "Sofia Rendón", status: "in-progress" },
+        { name: "Route DEN-3", stops: 5, tech: "Isaac Feldman", status: "delayed" } ] },
+    { id: "summit", name: "Summit Mechanical Group", region: "Northern California", accounts: 2, techs: 8, routes: 3, health: "good", brand: "#16a34a",
+      subdomain: "portal.summitmech.io",
+      accountList: ["Meridian Property Mgmt", "Harbor Point Resorts"],
+      territories: [
+        { name: "Bay Area North", accounts: 1, techs: 5, health: "good" },
+        { name: "Sacramento Valley", accounts: 1, techs: 3, health: "good" } ],
+      technicians: [
+        { name: "Tomás Iglesias", cert: "EPA 608 Universal", status: "on-route" },
+        { name: "Rachel Kim", cert: "NATE certified", status: "available" } ],
+      routes: [
+        { name: "Route SF-1", stops: 6, tech: "Tomás Iglesias", status: "in-progress" } ] }
+  ];
+
+  // Category default device-twin configuration (ZTP desired properties)
+  const CAT_CONFIG = {
+    pool_system:  { interval: 60,  metrics: ["flow_gpm", "pressure_psi", "ph", "orp"], fw: "stable-4.2.1", thresholds: "ph 7.2–7.8 · orp ≥ 650mV" },
+    hvac:         { interval: 120, metrics: ["supply_temp_f", "return_temp_f"],        fw: "stable-4.2.1", thresholds: "supply 52–60°F" },
+    refrigeration:{ interval: 30,  metrics: ["product_temp_f", "compressor_amp"],      fw: "stable-4.2.1", thresholds: "product ≤ 40°F" },
+    energy_meter: { interval: 300, metrics: ["kw", "kwh", "pf"],                        fw: "stable-4.2.1", thresholds: "demand ≤ 220kW" },
+    leak_sensor:  { interval: 15,  metrics: ["moisture", "flow_gpm"],                   fw: "stable-4.2.1", thresholds: "moisture = dry" }
+  };
+
+  const AUDIT = [
+    { ts: "2026-07-17 14:22:08", actor: "Marcus Lindqvist", oid: "a7f3-91d2-4c8e", action: "act-as.enter", target: "Northwind Cold Storage", note: "Investigating Freezer Bay A critical" },
+    { ts: "2026-07-17 14:19:51", actor: "Dana Whitfield", oid: "b2c1-77af-0e13", action: "ticket.escalate", target: "Northwind Cold Storage", note: "TCK-3391 → priority: urgent" },
+    { ts: "2026-07-17 13:58:12", actor: "Raj Patel", oid: "c9d4-1a2b-6f70", action: "act-as.exit", target: "Harbor Point Resorts", note: "Session 6m 04s" },
+    { ts: "2026-07-17 13:40:30", actor: "Marcus Lindqvist", oid: "a7f3-91d2-4c8e", action: "device.command", target: "Cascade Aquatics Group", note: "reset → Chem Controller plx-4471-c" },
+    { ts: "2026-07-17 11:12:44", actor: "Marcus Lindqvist", oid: "a7f3-91d2-4c8e", action: "assignment.grant", target: "Elena Márquez", note: "+ Lakeside Wellness to book of business" },
+    { ts: "2026-07-17 09:05:19", actor: "Elena Márquez", oid: "d5e8-33cc-9b41", action: "act-as.enter", target: "Granite Peak Brewing", note: "Quarterly review" },
+    { ts: "2026-07-16 17:33:02", actor: "Priya Nair", oid: "e1f6-8a09-2d55", action: "device.register", target: "Cedar Ridge Schools", note: "intent row → Gas Meter crs-2140-a" }
+  ];
+
+  const STATE_META = {
+    reporting:   { label: "Reporting", pill: "good" },
+    configured:  { label: "Configured", pill: "info" },
+    provisioning:{ label: "Provisioning", pill: "warn" },
+    registered:  { label: "Registered", pill: "neutral" },
+    silent:      { label: "Silent", pill: "crit" },
+    decommissioned: { label: "Decommissioned", pill: "neutral" }
+  };
+  const CAT_LABEL = { pool_system: "Pool system", hvac: "HVAC", refrigeration: "Refrigeration", energy_meter: "Energy meter", leak_sensor: "Leak sensor", pump: "Pump" };
+
+  // ---------- App state ----------
+  const S = { view: "fleet", actingAs: null, partner: null, tab: "sites", ptab: "accounts", query: "" };
+
+  // ---------- Helpers ----------
+  const $ = (sel, root) => (root || document).querySelector(sel);
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const tenantById = (id) => TENANTS.find(t => t.id === id);
+  const partnerById = (id) => PARTNERS.find(p => p.id === id);
+
+  function healthPill(h, label) {
+    const map = { good: ["good", label || "Healthy"], warn: ["warn", label || "Degraded"], crit: ["crit", label || "Critical"] };
+    const [cls, txt] = map[h] || map.good;
+    return `<span class="pill pill--${cls}"><span class="dot"></span>${txt}</span>`;
+  }
+  function statePill(state) {
+    const m = STATE_META[state] || STATE_META.registered;
+    return `<span class="pill pill--${m.pill}"><span class="dot"></span>${m.label}</span>`;
+  }
+  function rollup(online, total) {
+    const pct = total ? Math.round((online / total) * 100) : 0;
+    const off = total - online;
+    const cls = off === 0 ? "" : (online / total < .9 ? "crit" : "warn");
+    return `<div class="rollup"><div class="rollup__track"><div class="rollup__fill ${cls}" style="width:${pct}%"></div></div>
+      <span class="rollup__val">${online}/${total}</span></div>`;
+  }
+  function sparkline(data, health) {
+    const w = 76, h = 22, pad = 2;
+    const min = Math.min(...data), max = Math.max(...data), rng = (max - min) || 1;
+    const pts = data.map((v, i) => {
+      const x = pad + (i / (data.length - 1)) * (w - pad * 2);
+      const y = pad + (1 - (v - min) / rng) * (h - pad * 2);
+      return [x, y];
+    });
+    const line = pts.map((p, i) => (i ? "L" : "M") + p[0].toFixed(1) + " " + p[1].toFixed(1)).join(" ");
+    const area = line + ` L${pts[pts.length-1][0].toFixed(1)} ${h-pad} L${pts[0][0].toFixed(1)} ${h-pad} Z`;
+    const color = health === "crit" ? "var(--crit)" : health === "warn" ? "var(--warn)" : "var(--good)";
+    const last = pts[pts.length - 1];
+    return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
+      <path d="${area}" fill="${color}" opacity="0.12"></path>
+      <path d="${line}" fill="none" stroke="${color}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+      <circle cx="${last[0].toFixed(1)}" cy="${last[1].toFixed(1)}" r="2" fill="${color}"></circle>
+    </svg>`;
+  }
+
+  // ---------- Derived aggregates (fan-out, computed per-org then merged) ----------
+  function fleetTotals() {
+    return TENANTS.reduce((a, t) => {
+      a.online += t.online; a.total += t.total; a.crit += t.crit; a.warn += t.warn; a.tickets += t.tickets; return a;
+    }, { online: 0, total: 0, crit: 0, warn: 0, tickets: 0 });
+  }
+  function needsAttention() {
+    const rows = [];
+    TENANTS.forEach(t => t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+      if (d.health === "crit" || d.health === "warn") {
+        rows.push({ health: d.health, org: t.name, orgId: t.id, site: s.name, asset: a.name, cat: a.cat, device: d.name, id: d.id, metric: d.metric, state: d.state });
+      }
+    }))));
+    return rows.sort((x, y) => (x.health === "crit" ? 0 : 1) - (y.health === "crit" ? 0 : 1));
+  }
+  function allDevices() {
+    const rows = [];
+    TENANTS.forEach(t => t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+      rows.push({ ...d, org: t.name, orgId: t.id, site: s.name, cat: a.cat });
+    }))));
+    return rows;
+  }
+  function deviceIndex() {
+    const idx = {};
+    TENANTS.forEach(t => t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+      idx[d.id] = { d: d, org: t.name, orgId: t.id, site: s.name, asset: a.name, cat: a.cat };
+    }))));
+    return idx;
+  }
+
+  // Device twin: desired (cloud→device) vs reported (device→cloud), keyed off lifecycle state
+  function twinFor(d, cat) {
+    const base = d.cfg || CAT_CONFIG[cat] || CAT_CONFIG.hvac;
+    const desired = {
+      "Reporting interval": base.interval + "s",
+      "Metrics": base.metrics.join(", "),
+      "Thresholds": base.thresholds,
+      "Firmware channel": base.fw,
+      "Command channel": "direct-methods"
+    };
+    let reported = null, sync;
+    if (d.state === "reporting") {
+      reported = { "Config version": "v7", "Firmware installed": base.fw, "Reporting interval": base.interval + "s", "Connectivity": "MQTT/TLS :443", "Last twin sync": "2m ago" };
+      sync = { cls: "good", label: "In sync" };
+    } else if (d.state === "configured") {
+      reported = { "Config version": "v7", "Firmware installed": base.fw, "Reporting interval": base.interval + "s", "Connectivity": "MQTT/TLS :443", "Last twin sync": "just now" };
+      sync = { cls: "good", label: "In sync" };
+    } else if (d.state === "provisioning") {
+      reported = { "Config version": "— applying", "Firmware installed": base.fw, "Reporting interval": "— pending", "Connectivity": "MQTT/TLS :443", "Last twin sync": "pushing…" };
+      sync = { cls: "warn", label: "Config push pending" };
+    } else if (d.state === "silent") {
+      reported = { "Config version": "v6", "Firmware installed": base.fw, "Reporting interval": base.interval + "s", "Connectivity": "last seen 46m ago", "Last twin sync": "stale" };
+      sync = { cls: "crit", label: "Device silent" };
+    } else if (d.state === "registered") {
+      sync = { cls: "neutral", label: "Awaiting first connection" };
+    } else {
+      sync = { cls: "neutral", label: "Decommissioned" };
+    }
+    return { desired: desired, reported: reported, sync: sync };
+  }
+
+  const ID_PREFIX = { pool_system: "pl", hvac: "hv", refrigeration: "rf", energy_meter: "em", leak_sensor: "lk", pump: "pm" };
+  function genId(cat) {
+    const p = ID_PREFIX[cat] || "dev";
+    const n = Math.floor(1000 + Math.random() * 8999);
+    const a = "abcdefgh"[Math.floor(Math.random() * 8)];
+    return `${p}-${n}-${a}`;
+  }
+  function toast(msg) {
+    const t = document.createElement("div");
+    t.className = "toast";
+    t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg><span>${esc(msg)}</span>`;
+    $("#toasts").appendChild(t);
+    setTimeout(() => { t.style.transition = "opacity .3s"; t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2600);
+  }
+
+  // ---------- Views ----------
+  function viewFleet() {
+    const T = fleetTotals();
+    const na = needsAttention();
+    const orgCount = TENANTS.length + PARTNERS.length;
+    const offline = T.total - T.online;
+
+    const stats = [
+      { label: "Organizations", value: orgCount, sub: `${TENANTS.length} tenants · ${PARTNERS.length} partners`, accent: "var(--accent)" },
+      { label: "Devices online", value: T.online.toLocaleString(), sub: `${offline} offline of ${T.total.toLocaleString()}`, accent: offline > 8 ? "var(--warn)" : "var(--good)" },
+      { label: "Open critical alerts", value: T.crit, sub: `${T.warn} warnings active`, accent: T.crit ? "var(--crit)" : "var(--good)" },
+      { label: "Open tickets", value: T.tickets, sub: "across all accounts", accent: "var(--info)" }
+    ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div>
+      <div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+
+    const attnRows = na.map(r => `
+      <tr class="clickable" data-action="manage-tenant:${r.orgId}">
+        <td class="sev-cell"><span class="sev-stripe" style="background:var(--${r.health})"></span></td>
+        <td><div class="row-main"><span class="strong">${esc(r.device)}</span><span class="row-sub">${esc(r.org)} · ${esc(r.site)}</span></div></td>
+        <td><span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[r.cat]}</span></td>
+        <td class="mono muted">${esc(r.metric)}</td>
+        <td>${statePill(r.state)}</td>
+      </tr>`).join("");
+
+    const orgHealth = TENANTS.slice().sort((a,b)=>({crit:0,warn:1,good:2}[a.health]-{crit:0,warn:1,good:2}[b.health])).map(t => `
+      <tr class="clickable" data-action="manage-tenant:${t.id}">
+        <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub">${esc(t.industry)}</span></div></td>
+        <td style="width:170px">${rollup(t.online, t.total)}</td>
+        <td style="text-align:right">${healthPill(t.health)}</td>
+      </tr>`).join("");
+
+    return `
+      <div class="page-head"><h1>Fleet Overview</h1>
+        <p>Global health across every account you manage. Superadmin — all organizations in view.</p></div>
+      <div class="stats">${stats}</div>
+      <div class="callout">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        <div>This overview is assembled by <b>fanning out ${TENANTS.length} per-organization scoped reads</b> and merging them here — never a single cross-tenant query. Each org is opened through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
+      </div>
+      <div class="grid2">
+        <div class="panel">
+          <div class="panel__head"><span class="panel__title">Needs attention</span>
+            <span class="panel__note">${na.length} items · sorted by severity</span></div>
+          <table class="tbl"><thead><tr><th class="sev-cell"></th><th>Device</th><th>System</th><th>Reading</th><th>State</th></tr></thead>
+            <tbody>${attnRows}</tbody></table>
+        </div>
+        <div class="panel">
+          <div class="panel__head"><span class="panel__title">Tenant health</span>
+            <span class="panel__note">online / total</span></div>
+          <table class="tbl"><tbody>${orgHealth}</tbody></table>
+        </div>
+      </div>`;
+  }
+
+  function viewTenants() {
+    const q = S.query.toLowerCase();
+    const rows = TENANTS.filter(t => !q || t.name.toLowerCase().includes(q) || t.industry.toLowerCase().includes(q)).map(t => `
+      <tr>
+        <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub mono">${t.id}</span></div></td>
+        <td class="muted">${esc(t.industry)}</td>
+        <td class="muted">${esc(t.mgr)}</td>
+        <td style="width:150px">${rollup(t.online, t.total)}</td>
+        <td>${t.crit ? `<span class="pill pill--crit"><span class="dot"></span>${t.crit} critical</span>` : t.warn ? `<span class="pill pill--warn"><span class="dot"></span>${t.warn} warning</span>` : healthPill("good")}</td>
+        <td style="text-align:right"><button class="btn btn--primary" data-action="manage-tenant:${t.id}">Manage
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
+      </tr>`).join("");
+
+    return `
+      <div class="page-head"><h1>Tenants</h1><p>Customer organizations. Open one to manage it in an audited act-as context — the same views the customer sees, scoped by row-level security.</p></div>
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input type="text" id="q" placeholder="Search tenants…" value="${esc(S.query)}" autocomplete="off"></div>
+      </div>
+      <div class="panel"><table class="tbl">
+        <thead><tr><th>Organization</th><th>Industry</th><th>Account manager</th><th>Devices</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="6"><div class="empty">No tenants match "${esc(S.query)}"</div></td></tr>`}</tbody>
+      </table></div>`;
+  }
+
+  function viewPartners() {
+    const rows = PARTNERS.map(p => `
+      <tr>
+        <td><div style="display:flex;align-items:center;gap:11px">
+          <span style="width:9px;height:9px;border-radius:3px;background:${p.brand};flex:none"></span>
+          <div class="row-main"><span class="strong">${esc(p.name)}</span><span class="row-sub mono">${p.id}</span></div></div></td>
+        <td class="muted">${esc(p.region)}</td>
+        <td class="num strong">${p.accounts}</td>
+        <td class="num muted">${p.techs}</td>
+        <td class="num muted">${p.routes}</td>
+        <td>${healthPill(p.health, p.health === "warn" ? "Route delay" : "Healthy")}</td>
+        <td style="text-align:right"><button class="btn btn--primary" data-action="manage-partner:${p.id}">Manage
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
+      </tr>`).join("");
+    return `
+      <div class="page-head"><h1>Channel Partners</h1><p>White-label partner organizations, authenticated in the separate <span class="mono">PeakLogicPartners</span> directory. Each sees only its attributed accounts. Open one to manage it in an audited act-as context.</p></div>
+      <div class="panel"><table class="tbl">
+        <thead><tr><th>Partner</th><th>Territory</th><th class="num">Accounts</th><th class="num">Techs</th><th class="num">Routes</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }
+
+  function viewPartnerDetail() {
+    const p = partnerById(S.partner);
+    if (!p) { S.view = "partners"; return viewPartners(); }
+    const tabs = [
+      { id: "accounts", label: "Accounts", count: p.accountList.length },
+      { id: "territories", label: "Territories", count: p.territories.length },
+      { id: "technicians", label: "Technicians", count: p.technicians.length },
+      { id: "routes", label: "Routes", count: p.routes.length },
+      { id: "branding", label: "Branding", count: null }
+    ].map(x => `<button class="tab ${S.ptab===x.id?'tab--active':''}" data-action="partner-tab:${x.id}">${x.label}${x.count!==null?`<span class="tab__count">${x.count}</span>`:''}</button>`).join("");
+    return `
+      <div class="page-head"><h1>${esc(p.name)}</h1>
+        <p>${esc(p.region)} · ${p.techs} technicians across ${p.territories.length} territories. Partner staff sign in through the <span class="mono">PeakLogicPartners</span> directory; you manage them via audited act-as.</p></div>
+      <div class="tabs">${tabs}</div>
+      <div class="grow">${partnerTab(p)}</div>`;
+  }
+
+  function partnerTab(p) {
+    if (S.ptab === "accounts") {
+      const rows = p.accountList.map(name => {
+        const t = TENANTS.find(x => x.name === name);
+        return `<tr class="${t?'clickable':''}" ${t?`data-action="manage-tenant:${t.id}"`:''}>
+          <td class="strong">${esc(name)}</td>
+          <td class="muted">${t ? esc(t.industry) : "External account"}</td>
+          <td>${t ? healthPill(t.health) : '<span class="pill pill--neutral"><span class="dot"></span>—</span>'}</td>
+          <td style="text-align:right" class="faint">${t ? "Open tenant →" : ""}</td></tr>`;
+      }).join("");
+      return `<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/></svg>
+        <div>This partner sees <b>only these attributed accounts</b> — enforced by the same row-level security as tenants, scoped by <code>channelPartnerId</code>. You can hop straight into any attributed tenant's own act-as context.</div></div>
+        <div class="panel"><table class="tbl"><thead><tr><th>Attributed account</th><th>Industry</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (S.ptab === "territories") {
+      const rows = p.territories.map(t => `<tr>
+        <td class="sev-cell"><span class="sev-stripe" style="background:var(--${t.health})"></span></td>
+        <td class="strong">${esc(t.name)}</td><td class="num muted">${t.accounts} accounts</td>
+        <td class="num muted">${t.techs} techs</td><td>${healthPill(t.health, t.health==="warn"?"Unstaffed":"Covered")}</td></tr>`).join("");
+      return `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Territory</th><th class="num">Accounts</th><th class="num">Techs</th><th>Coverage</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (S.ptab === "technicians") {
+      const st = { "on-route": "info", "available": "good", "delayed": "warn", "off-shift": "neutral" };
+      const rows = p.technicians.map(t => `<tr><td class="strong">${esc(t.name)}</td><td class="muted">${esc(t.cert)}</td>
+        <td><span class="pill pill--${st[t.status]}"><span class="dot"></span>${t.status.replace("-"," ")}</span></td></tr>`).join("");
+      return `<div class="panel"><table class="tbl"><thead><tr><th>Technician</th><th>Certification</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (S.ptab === "routes") {
+      const st = { "in-progress": "info", "scheduled": "neutral", "delayed": "warn" };
+      const rows = p.routes.map(r => `<tr><td class="mono strong">${esc(r.name)}</td><td class="num muted">${r.stops} stops</td>
+        <td class="muted">${esc(r.tech)}</td><td><span class="pill pill--${st[r.status]}"><span class="dot"></span>${r.status.replace("-"," ")}</span></td></tr>`).join("");
+      return `<div class="panel"><table class="tbl"><thead><tr><th>Route</th><th class="num">Stops</th><th>Technician</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
+    }
+    if (S.ptab === "branding") {
+      return `<div class="panel"><div class="panel__head"><span class="panel__title">White-label configuration</span></div>
+        <div style="padding:20px;display:flex;flex-direction:column;gap:18px">
+          <div style="display:flex;align-items:center;gap:14px">
+            <span style="width:44px;height:44px;border-radius:12px;background:${p.brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px">${esc(p.name[0])}</span>
+            <div><div class="strong" style="font-size:15px">${esc(p.name)}</div><div class="mono muted" style="font-size:12px">${esc(p.subdomain)}</div></div>
+          </div>
+          <dl class="kv">
+            <dt>Primary color</dt><dd><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:13px;height:13px;border-radius:3px;background:${p.brand}"></span><span class="mono">${p.brand.toUpperCase()}</span></span></dd>
+            <dt>Portal domain</dt><dd class="mono">${esc(p.subdomain)}</dd>
+            <dt>Identity source</dt><dd>PeakLogicPartners (Entra External ID)</dd>
+            <dt>Login page</dt><dd>Co-branded · PeakLogic footer</dd>
+          </dl>
+        </div></div>`;
+    }
+    return "";
+  }
+
+  function viewTenantDetail() {
+    const t = tenantById(S.actingAs);
+    if (!t) { S.view = "tenants"; return viewTenants(); }
+    const tabs = [
+      { id: "sites", label: "Sites", count: t.sites.length },
+      { id: "assets", label: "Assets", count: t.sites.reduce((a,s)=>a+s.assets.length,0) },
+      { id: "devices", label: "Devices", count: t.sites.reduce((a,s)=>a+s.assets.reduce((b,x)=>b+x.devices.length,0),0) },
+      { id: "alerts", label: "Alerts", count: t.crit + t.warn },
+      { id: "tickets", label: "Tickets", count: t.tickets },
+      { id: "users", label: "Users", count: 6 }
+    ].map(x => `<button class="tab ${S.tab===x.id?'tab--active':''}" data-action="tenant-tab:${x.id}">${x.label}<span class="tab__count">${x.count}</span></button>`).join("");
+
+    return `
+      <div class="page-head"><h1>${esc(t.name)}</h1>
+        <p>${esc(t.industry)} · Account manager ${esc(t.mgr)} · ${t.online}/${t.total} devices online. You are viewing this org exactly as its own operators do.</p></div>
+      <div class="tabs">${tabs}</div>
+      <div class="grow">${tenantTab(t)}</div>`;
+  }
+
+  function tenantTab(t) {
+    if (S.tab === "sites") {
+      return `<div class="panel"><table class="tbl">
+        <thead><tr><th>Site</th><th class="num">Assets</th><th class="num">Devices</th><th>Status</th></tr></thead>
+        <tbody>${t.sites.map(s => {
+          const dev = s.assets.reduce((a,x)=>a+x.devices.length,0);
+          const worst = s.assets.some(a=>a.health==="crit")?"crit":s.assets.some(a=>a.health==="warn")?"warn":"good";
+          return `<tr><td class="strong">${esc(s.name)}</td><td class="num muted">${s.assets.length}</td>
+            <td class="num muted">${dev}</td><td>${healthPill(worst)}</td></tr>`;
+        }).join("")}</tbody></table></div>`;
+    }
+    if (S.tab === "assets") {
+      const rows = [];
+      t.sites.forEach(s => s.assets.forEach(a => rows.push(`
+        <tr><td class="sev-cell"><span class="sev-stripe" style="background:var(--${a.health})"></span></td>
+          <td><div class="row-main"><span class="strong">${esc(a.name)}</span><span class="row-sub">${esc(s.name)}</span></div></td>
+          <td><span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[a.cat]}</span></td>
+          <td class="num muted">${a.devices.length} devices</td><td>${healthPill(a.health)}</td></tr>`)));
+      return `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset</th><th>Category</th><th class="num">Devices</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+    }
+    if (S.tab === "devices") {
+      const rows = [];
+      t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => rows.push(`
+        <tr class="clickable" data-action="device:${d.id}"><td class="mono muted">${d.id}</td>
+          <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(a.name)}</span></div></td>
+          <td>${statePill(d.state)}</td>
+          <td class="mono" style="color:${d.health==='crit'?'var(--crit-ink)':d.health==='warn'?'var(--warn-ink)':'var(--text-muted)'}">${esc(d.metric)}</td>
+          <td>${sparkline(d.spark, d.health)}</td></tr>`))));
+      return `<div class="panel"><table class="tbl"><thead><tr><th>Device ID</th><th>Name</th><th>State</th><th>Latest reading</th><th>Trend</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+    }
+    if (S.tab === "alerts") {
+      const rows = [];
+      t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+        if (d.health !== "good") rows.push(`
+          <tr><td class="sev-cell"><span class="sev-stripe" style="background:var(--${d.health})"></span></td>
+            <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(s.name)} · ${esc(a.name)}</span></div></td>
+            <td>${d.health==="crit"?'<span class="pill pill--crit"><span class="dot"></span>Critical</span>':'<span class="pill pill--warn"><span class="dot"></span>Warning</span>'}</td>
+            <td class="mono muted">${esc(d.metric)}</td></tr>`);
+      })));
+      return rows.length ? `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Alert</th><th>Severity</th><th>Reading</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`
+        : `<div class="panel"><div class="empty">No open alerts — every device reporting within threshold.</div></div>`;
+    }
+    if (S.tab === "tickets") {
+      if (!t.tickets) return `<div class="panel"><div class="empty">No open service tickets.</div></div>`;
+      const sample = [
+        { id: "TCK-3391", subj: "Freezer Bay A product temp rising", sev: "crit", age: "38m" },
+        { id: "TCK-3372", subj: "Chem controller offline", sev: "warn", age: "3h" },
+        { id: "TCK-3355", subj: "Chiller loop above setpoint", sev: "warn", age: "1d" },
+        { id: "TCK-3340", subj: "Scheduled probe calibration", sev: "info", age: "2d" }
+      ].slice(0, t.tickets);
+      return `<div class="panel"><table class="tbl"><thead><tr><th>Ticket</th><th>Subject</th><th>Priority</th><th class="num">Age</th></tr></thead>
+        <tbody>${sample.map(k => `<tr><td class="mono strong">${k.id}</td><td>${esc(k.subj)}</td>
+          <td><span class="pill pill--${k.sev}"><span class="dot"></span>${k.sev==="crit"?"Urgent":k.sev==="warn"?"High":"Normal"}</span></td>
+          <td class="num muted">${k.age}</td></tr>`).join("")}</tbody></table></div>`;
+    }
+    if (S.tab === "users") {
+      const users = [
+        { n: "Operations Manager", e: "ops@"+t.id+".example", r: "Admin" },
+        { n: "Facilities Lead", e: "facilities@"+t.id+".example", r: "Operator" },
+        { n: "Night Shift Tech", e: "nightshift@"+t.id+".example", r: "Operator" }
+      ];
+      return `<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v4l3 2"/></svg>
+        <div>These users authenticate in the <b>PeakLogicCustomers</b> directory — a separate token issuer from your staff sign-in. You manage them via act-as; you never hold their credentials.</div></div>
+        <div class="panel"><table class="tbl"><thead><tr><th>User</th><th>Email</th><th>Role</th></tr></thead>
+        <tbody>${users.map(u => `<tr><td class="strong">${esc(u.n)}</td><td class="mono muted">${esc(u.e)}</td><td><span class="pill pill--accent"><span class="dot"></span>${u.r}</span></td></tr>`).join("")}</tbody></table></div>`;
+    }
+    return "";
+  }
+
+  function viewDevices() {
+    const q = S.query.toLowerCase();
+    const devs = allDevices().filter(d => !q || d.id.includes(q) || d.name.toLowerCase().includes(q) || d.org.toLowerCase().includes(q));
+    const byState = {};
+    allDevices().forEach(d => byState[d.state] = (byState[d.state]||0)+1);
+    const legend = Object.keys(STATE_META).map(k => `<span><span class="dot" style="background:var(--${STATE_META[k].pill==='neutral'?'text-faint':STATE_META[k].pill})"></span>${STATE_META[k].label}${byState[k]?` · ${byState[k]}`:''}</span>`).join("");
+
+    const rows = devs.map(d => `
+      <tr class="clickable" data-action="device:${d.id}"><td class="mono muted">${d.id}</td>
+        <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(d.site)}</span></div></td>
+        <td class="muted">${esc(d.org)}</td>
+        <td><span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[d.cat]}</span></td>
+        <td>${statePill(d.state)}</td>
+        <td class="mono" style="color:${d.health==='crit'?'var(--crit-ink)':d.health==='warn'?'var(--warn-ink)':'var(--text-muted)'}">${esc(d.metric)}</td>
+        <td>${sparkline(d.spark, d.health)}</td></tr>`).join("");
+
+    return `
+      <div class="page-head"><h1>Devices</h1><p>Global inventory across every organization. Lifecycle states carry the zero-touch provisioning model — from cloud registration through reporting to silence. Select any device to inspect its twin.</p></div>
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input type="text" id="q" placeholder="Search by ID, name, or org…" value="${esc(S.query)}" autocomplete="off"></div>
+        <span class="faint" style="font-size:12.5px">${devs.length} of ${allDevices().length} devices shown</span>
+        <button class="btn btn--primary" data-action="register-open" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Register devices</button>
+      </div>
+      <div class="panel"><table class="tbl">
+        <thead><tr><th>Device ID</th><th>Name</th><th>Organization</th><th>Category</th><th>State</th><th>Reading</th><th>Trend</th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="7"><div class="empty">No devices match "${esc(S.query)}"</div></td></tr>`}</tbody></table></div>
+      <div class="legend">${legend}</div>`;
+  }
+
+  function viewStaff() {
+    const rows = STAFF.map(s => {
+      const book = Array.isArray(s.book) ? s.book.map(id => tenantById(id) ? tenantById(id).name : id).join(", ") : s.book;
+      const roleClass = s.role === "superadmin" ? "accent" : s.role === "support_engineer" ? "info" : "neutral";
+      return `<tr>
+        <td><div class="row-main"><span class="strong">${esc(s.name)}</span><span class="row-sub mono">oid ${s.oid}</span></div></td>
+        <td class="mono muted">${esc(s.email)}</td>
+        <td><span class="pill pill--${roleClass}"><span class="dot"></span>${s.role.replace("_"," ")}</span>${s.elevated?' <span class="pill pill--warn"><span class="dot"></span>PIM active</span>':''}</td>
+        <td class="muted" style="max-width:280px">${esc(book)}</td></tr>`;
+    }).join("");
+    return `
+      <div class="page-head"><h1>Staff &amp; Access</h1><p>PeakLogic staff authenticate in the corporate Entra ID workforce tenant. Each account manager sees only their book of business; superadmin is elevated just-in-time through PIM.</p></div>
+      <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
+        <div>Identity is keyed on the stable Entra <code>oid</code>, not the per-app <code>sub</code> — so one person stays one identity across the console, mobile app, and hub.</div></div>
+      <div class="panel"><table class="tbl">
+        <thead><tr><th>Staff member</th><th>Sign-in</th><th>Role</th><th>Book of business</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }
+
+  function viewAudit() {
+    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "ticket.escalate": "warn", "assignment.grant": "good" };
+    const rows = AUDIT.map(a => `
+      <tr><td class="mono faint" style="white-space:nowrap">${a.ts}</td>
+        <td><div class="row-main"><span class="strong">${esc(a.actor)}</span><span class="row-sub mono">oid ${a.oid}</span></div></td>
+        <td><span class="pill pill--${actionPill[a.action]||'neutral'}"><span class="dot"></span>${a.action}</span></td>
+        <td class="muted">${esc(a.target)}</td>
+        <td class="faint" style="font-size:12px">${esc(a.note)}</td></tr>`).join("");
+    return `
+      <div class="page-head"><h1>Audit Log</h1><p>Append-only. Every act-as session, device command, and access change is attributed to a real staff identity — nothing here can be edited or deleted.</p></div>
+      <div class="panel"><div class="panel__head"><span class="panel__title">Recent activity</span>
+        <span class="panel__note"><code>audit_log_entries</code> · newest first</span></div>
+        <table class="tbl"><thead><tr><th>Timestamp (UTC)</th><th>Actor</th><th>Action</th><th>Target</th><th>Detail</th></tr></thead>
+        <tbody>${rows}</tbody></table></div>`;
+  }
+
+  // ---------- Router / render ----------
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, staff: viewStaff, audit: viewAudit };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", staff: "nav:staff", audit: "nav:audit" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", staff: "Staff & Access", audit: "Audit Log" };
+
+  function render() {
+    $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
+    // nav active
+    document.querySelectorAll(".nav__item").forEach(b => b.classList.toggle("nav__item--active", b.getAttribute("data-action") === NAV_FOR[S.view]));
+    // crumb
+    let crumb = `<b>${TITLE[S.view] || "Fleet Overview"}</b>`;
+    if (S.view === "tenant-detail" && S.actingAs) {
+      const t = tenantById(S.actingAs);
+      crumb = `<span class="sep">Tenants</span><span class="sep">/</span><b>${esc(t.name)}</b>`;
+    } else if (S.view === "partner-detail" && S.partner) {
+      const p = partnerById(S.partner);
+      crumb = `<span class="sep">Channel Partners</span><span class="sep">/</span><b>${esc(p.name)}</b>`;
+    }
+    $("#crumb").innerHTML = crumb;
+    renderBanner();
+    // focus search if present
+    const q = $("#q"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
+  }
+
+  function renderBanner() {
+    const slot = $("#banner-slot");
+    let name = null;
+    if (S.view === "tenant-detail" && S.actingAs) name = tenantById(S.actingAs).name;
+    else if (S.view === "partner-detail" && S.partner) name = partnerById(S.partner).name;
+    if (name) {
+      slot.innerHTML = `<div class="banner">
+        <span class="banner__pulse"></span>
+        <span>Acting as <b>${esc(name)}</b></span>
+        <span class="banner__meta">audit → ${ME.oid} · every action logged</span>
+        <button class="banner__exit" data-action="exit-actas">Exit context
+          <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>`;
+    } else { slot.innerHTML = ""; }
+  }
+
+  // update sidebar counts
+  function setCounts() {
+    $("#cnt-tenants").textContent = TENANTS.length;
+    $("#cnt-partners").textContent = PARTNERS.length;
+    $("#cnt-devices").textContent = allDevices().length;
+  }
+
+  function enterActAs(id) {
+    const t = tenantById(id); if (!t) return;
+    closeOverlay();
+    S.view = "tenant-detail"; S.actingAs = id; S.partner = null; S.tab = "sites";
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "act-as.enter", target: t.name, note: "Opened from Super-Console" });
+    render();
+  }
+  function enterActAsPartner(id) {
+    const p = partnerById(id); if (!p) return;
+    S.view = "partner-detail"; S.partner = id; S.actingAs = null; S.ptab = "accounts";
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "act-as.enter", target: p.name, note: "Partner context · Super-Console" });
+    render();
+  }
+  function exitActAs() {
+    let name = null, back = "tenants";
+    if (S.actingAs) { name = tenantById(S.actingAs).name; back = "tenants"; }
+    else if (S.partner) { name = partnerById(S.partner).name; back = "partners"; }
+    if (name) AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "act-as.exit", target: name, note: "Returned to console" });
+    S.actingAs = null; S.partner = null; S.view = back; render();
+  }
+
+  // ---------- Overlay: device drawer + register modal ----------
+  function closeOverlay() { $("#overlay-root").innerHTML = ""; }
+
+  function openDeviceDrawer(id) {
+    const idx = deviceIndex();
+    const ctx = idx[id]; if (!ctx) return;
+    renderDrawer(ctx);
+  }
+
+  function renderDrawer(ctx) {
+    const d = ctx.d;
+    const tw = twinFor(d, ctx.cat);
+    const desiredRows = Object.keys(tw.desired).map(k => `<tr><td>${k}</td><td>${esc(tw.desired[k])}</td></tr>`).join("");
+    const reportedRows = tw.reported
+      ? Object.keys(tw.reported).map(k => `<tr><td>${k}</td><td>${esc(tw.reported[k])}</td></tr>`).join("")
+      : `<tr><td colspan="2" style="text-align:center;color:var(--text-faint);font-family:var(--sans);padding:14px 0">No reported state yet — device has not connected.</td></tr>`;
+    const canPush = d.state === "registered" || d.state === "provisioning";
+    const nonNumeric = /[^\d.\-]/.test(d.metric) || d.state === "registered";
+
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <aside class="drawer" role="dialog" aria-label="Device detail">
+        <div class="drawer__head">
+          <div>
+            <div class="drawer__title">${esc(d.name)}</div>
+            <div class="drawer__id">${d.id} · ${esc(ctx.org)}</div>
+          </div>
+          <button class="iconbtn" data-action="close-overlay" aria-label="Close" style="margin-left:auto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="drawer__body">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${statePill(d.state)}
+            <span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[ctx.cat]}</span>
+            <span class="faint" style="font-size:12px">${esc(ctx.site)} · ${esc(ctx.asset)}</span>
+          </div>
+
+          <div class="readout">
+            <div>
+              <div class="readout__l">Latest reading</div>
+              <div class="readout__v" style="color:${d.health==='crit'?'var(--crit-ink)':d.health==='warn'?'var(--warn-ink)':'var(--text)'}">${nonNumeric ? esc(d.metric) : esc(d.metric)}</div>
+            </div>
+            <div style="margin-left:auto">${sparkline(d.spark, d.health)}</div>
+          </div>
+
+          <div>
+            <div class="dsec__label">Device twin — desired properties <span class="arrow">cloud → device</span></div>
+            <table class="twin"><tbody>${desiredRows}</tbody></table>
+          </div>
+
+          <div>
+            <div class="dsec__label">Device twin — reported properties <span class="arrow">device → cloud</span>
+              <span class="sync sync--${tw.sync.cls}" style="margin-left:auto;background:var(--${tw.sync.cls==='neutral'?'surface-3':tw.sync.cls+'-soft'});color:var(--${tw.sync.cls==='neutral'?'text-muted':tw.sync.cls+'-ink'})">
+                <span class="dot" style="background:var(--${tw.sync.cls==='neutral'?'text-faint':tw.sync.cls})"></span>${tw.sync.label}</span>
+            </div>
+            <table class="twin"><tbody>${reportedRows}</tbody></table>
+          </div>
+
+          <div>
+            <div class="dsec__label">Direct methods <span class="arrow">imperative · audited</span></div>
+            <div class="methods">
+              ${canPush ? `<button class="btn btn--primary" data-action="method:push:${d.id}">Push config now</button>` : ``}
+              <button class="btn btn--ghost" data-action="method:ping:${d.id}">Ping</button>
+              <button class="btn btn--ghost" data-action="method:reset:${d.id}">Reset device</button>
+            </div>
+            <p class="hint" style="margin:12px 0 0">Twins carry <b>declarative</b> desired state (auto-applied on connect); direct methods are <b>imperative</b> one-shot commands. Both write to <code>audit_log_entries</code>. Safety-critical actuation stays local-first.</p>
+          </div>
+        </div>
+      </aside>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
+  function runMethod(method, id) {
+    const idx = deviceIndex();
+    const ctx = idx[id]; if (!ctx) return;
+    const d = ctx.d;
+    if (method === "push") {
+      d.state = "configured";
+      d.metric = d.metric === "awaiting first connection" || d.metric === "pending" ? "config applied" : d.metric;
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.command", target: ctx.org, note: `push config → ${d.id}` });
+      toast(`Configuration pushed to ${d.id}`);
+      render(); renderDrawer(deviceIndex()[id]);
+    } else if (method === "ping") {
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.command", target: ctx.org, note: `ping → ${d.id}` });
+      toast(`Ping ack from ${d.id} · 42 ms`);
+    } else if (method === "reset") {
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.command", target: ctx.org, note: `reset → ${d.id}` });
+      toast(`Reset command sent to ${d.id}`);
+    }
+  }
+
+  function openRegister() {
+    const tenantOpts = TENANTS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+    const catOpts = Object.keys(CAT_LABEL).filter(c => c !== "pump").map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join("");
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Register devices">
+        <div class="modal__head">
+          <h2>Register devices</h2>
+          <p>Create cloud <b>intent records</b> with desired configuration attached. Devices self-provision and pull this config on first field connection — no per-unit cloud step at connect time.</p>
+        </div>
+        <div class="modal__body">
+          <div class="field"><label for="rf-org">Organization</label><select id="rf-org">${tenantOpts}</select></div>
+          <div class="field--row">
+            <div class="field"><label for="rf-name">Device name</label><input id="rf-name" type="text" placeholder="e.g. Circulation Pump" value="Circulation Pump"></div>
+            <div class="field"><label for="rf-cat">Category</label><select id="rf-cat">${catOpts}</select></div>
+          </div>
+          <div class="field--row">
+            <div class="field"><label for="rf-qty">Quantity</label><input id="rf-qty" type="number" min="1" max="50" value="3"></div>
+            <div class="field"><label for="rf-fw">Firmware channel</label>
+              <select id="rf-fw"><option value="stable-4.2.1">stable-4.2.1</option><option value="beta-4.3.0">beta-4.3.0</option></select></div>
+          </div>
+          <div class="field"><label for="rf-enroll">Enrollment</label>
+            <select id="rf-enroll"><option value="group">DPS enrollment group (batch / zero-touch)</option><option value="individual">Individual enrollment (one-off)</option></select></div>
+          <p class="hint">Intent rows are created in state <code>registered</code> with <code>tenant_id</code> set and desired-config staged. Group enrollment lets any device with a leaf cert signed by the family CA self-provision — the real fleet-scale ZTP path.</p>
+        </div>
+        <div class="modal__foot">
+          <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="register-submit">Create intent records</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+    const n = $("#rf-name"); if (n) n.focus();
+  }
+
+  function submitRegister() {
+    const orgId = $("#rf-org").value;
+    const name = ($("#rf-name").value || "New device").trim();
+    const cat = $("#rf-cat").value;
+    const qty = Math.max(1, Math.min(50, parseInt($("#rf-qty").value, 10) || 1));
+    const fw = $("#rf-fw").value;
+    const enroll = $("#rf-enroll").value;
+    const t = tenantById(orgId); if (!t) return;
+
+    // find or create the ZTP intake site
+    let site = t.sites.find(s => s.name === "ZTP Intake");
+    if (!site) { site = { name: "ZTP Intake", assets: [] }; t.sites.push(site); }
+    const cfg = { interval: CAT_CONFIG[cat].interval, metrics: CAT_CONFIG[cat].metrics, thresholds: CAT_CONFIG[cat].thresholds, fw: fw };
+    const asset = { name: name + (qty > 1 ? " (batch)" : ""), cat: cat, health: "good", devices: [] };
+    for (let i = 0; i < qty; i++) {
+      asset.devices.push({
+        id: genId(cat), name: qty > 1 ? `${name} #${i + 1}` : name, state: "registered",
+        metric: "awaiting first connection", spark: [0, 0, 0, 0, 0, 0, 0, 0], health: "good", cfg: cfg
+      });
+    }
+    site.assets.push(asset);
+    t.total += qty;
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.register",
+      target: t.name, note: `${qty}× ${CAT_LABEL[cat]} · ${enroll === "group" ? "enrollment group" : "individual"} intent` });
+    closeOverlay();
+    setCounts();
+    S.view = "devices"; S.query = "";
+    render();
+    toast(`${qty} intent record${qty > 1 ? "s" : ""} created for ${t.name}`);
+  }
+  function nowStamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+  }
+
+  // ---------- Events ----------
+  document.addEventListener("click", (e) => {
+    const el = e.target.closest("[data-action]");
+    if (!el) return;
+    const parts = el.getAttribute("data-action").split(":");
+    const action = parts[0], arg = parts[1], arg2 = parts[2];
+    if (action === "nav") { closeOverlay(); S.view = arg; S.query = ""; S.actingAs = null; S.partner = null; render(); }
+    else if (action === "manage-tenant") enterActAs(arg);
+    else if (action === "manage-partner") enterActAsPartner(arg);
+    else if (action === "exit-actas") exitActAs();
+    else if (action === "tenant-tab") { S.tab = arg; render(); }
+    else if (action === "partner-tab") { S.ptab = arg; render(); }
+    else if (action === "device") openDeviceDrawer(arg);
+    else if (action === "register-open") openRegister();
+    else if (action === "register-submit") submitRegister();
+    else if (action === "method") runMethod(arg, arg2);
+    else if (action === "close-overlay") closeOverlay();
+    else if (action === "toggle-theme") toggleTheme();
+  });
+
+  document.addEventListener("input", (e) => {
+    if (e.target.id === "q") { S.query = e.target.value; render(); }
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeOverlay();
+  });
+
+  // ---------- Theme ----------
+  function currentTheme() {
+    const attr = document.documentElement.getAttribute("data-theme");
+    if (attr) return attr;
+    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  }
+  function setThemeIcon(theme) {
+    const sun = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+    const moon = '<path d="M21 12.8A9 9 0 1111.2 3 7 7 0 0021 12.8z"/>';
+    $("#theme-icon").innerHTML = theme === "dark" ? sun : moon;
+  }
+  function toggleTheme() {
+    const next = currentTheme() === "dark" ? "light" : "dark";
+    document.documentElement.setAttribute("data-theme", next);
+    setThemeIcon(next);
+  }
+
+  // ---------- Init ----------
+  setCounts();
+  setThemeIcon(currentTheme());
+  render();
+})();
+</script>
