@@ -228,17 +228,24 @@ export function sanitizeMetrics(raw: Record<string, number>): SanitizeMetricsRes
 }
 
 /**
- * Evaluates every rule for a device's category against a single telemetry
- * reading. Pure — no DB access, no side effects. Rules whose metric isn't
- * present in `metrics` are skipped (matches handler.ts's original
+ * Evaluates an explicit list of rules against a single telemetry reading.
+ * Pure — no DB access, no side effects. Rules whose metric isn't present in
+ * `metrics` are skipped (matches handler.ts's original
  * `if (value === undefined) continue`), not treated as a missing-data alert.
+ *
+ * This is the rule-source-agnostic core: it neither knows nor cares whether
+ * the rules came from the compiled-in `RULES_BY_CATEGORY` or from the Policy
+ * Engine resolver (Policy Engine Design §4). Split out from evaluateRules()
+ * as a pure refactor — evaluateRules() is now a thin wrapper over it, so the
+ * existing signature and behavior are byte-for-byte unchanged, but the
+ * resolver and the golden-baseline test can evaluate a resolved rule set
+ * through the exact same math.
  */
-export function evaluateRules(
-  category: string,
+export function evaluateRuleSet(
+  rules: Rule[],
   metrics: Record<string, number>,
   specs: AssetSpecs | null,
 ): FiredRule[] {
-  const rules = RULES_BY_CATEGORY[category] ?? [];
   const fired: FiredRule[] = [];
 
   for (const rule of rules) {
@@ -255,4 +262,18 @@ export function evaluateRules(
   }
 
   return fired;
+}
+
+/**
+ * Evaluates every rule for a device's category against a single telemetry
+ * reading, using the compiled-in default rule set. Unchanged in behavior —
+ * now delegates to evaluateRuleSet() (see its doc). Still the path ingest
+ * uses while the Policy Engine feature flag is off.
+ */
+export function evaluateRules(
+  category: string,
+  metrics: Record<string, number>,
+  specs: AssetSpecs | null,
+): FiredRule[] {
+  return evaluateRuleSet(RULES_BY_CATEGORY[category] ?? [], metrics, specs);
 }

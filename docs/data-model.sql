@@ -78,6 +78,7 @@ CREATE TABLE tenants (
                      CHECK (status IN ('active','suspended','trial')),
   channel_partner_id UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,  -- CH-1.1
   settings           JSONB       NOT NULL DEFAULT '{}',
+  policy_epoch       INTEGER     NOT NULL DEFAULT 1,   -- Policy Engine cache-invalidation stamp (Design §4.2)
   created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -742,6 +743,65 @@ CREATE POLICY staff_tenant_access ON tenants
 -- 7). Superadmin-only channel-partner creation (IA-3.1) is enforced at
 -- the application layer for now -- a disclosed scope decision, not a
 -- silent gap.
+
+-- ─────────────────────────────────────────────────────────────
+-- POLICY ENGINE (Policy Engine Design §3) — config-driven alert rules /
+-- device-config templates / notification rules. Seeded from the compiled-in
+-- RULES_BY_CATEGORY (backend/ingest/rules.ts) as platform defaults; tenants
+-- inherit and override. INERT at first (nothing reads it until the resolver +
+-- POLICY_ENGINE_ENABLED flag land). Isolation is the standard tenant model
+-- PLUS a global-read allowance for the platform-default catalog (tenant_id NULL).
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE policies (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    UUID        REFERENCES tenants(id) ON DELETE CASCADE,   -- NULL = platform default
+  scope_level  TEXT        NOT NULL CHECK (scope_level IN ('platform','tenant','site','asset')),
+  scope_id     UUID,
+  category     TEXT        NOT NULL,
+  kind         TEXT        NOT NULL CHECK (kind IN ('threshold','config_template','notification')),
+  definition   JSONB       NOT NULL,
+  enabled      BOOLEAN     NOT NULL DEFAULT TRUE,
+  version      INTEGER     NOT NULL DEFAULT 1,
+  created_by   TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CONSTRAINT policies_scope_check CHECK (
+    (scope_level = 'platform' AND tenant_id IS NULL)
+    OR (scope_level = 'tenant' AND tenant_id IS NOT NULL)
+    OR (scope_level IN ('site','asset') AND tenant_id IS NOT NULL AND scope_id IS NOT NULL)
+  )
+);
+ALTER TABLE policies ENABLE ROW LEVEL SECURITY;
+ALTER TABLE policies FORCE ROW LEVEL SECURITY;
+-- Every tenant reads the platform-default catalog (tenant_id NULL)...
+CREATE POLICY policies_platform_read ON policies FOR SELECT
+  USING (tenant_id IS NULL);
+-- ...and reads/writes ONLY its own scoped rows (blocks writing another
+-- tenant's or a platform row, since tenant_id NULL never equals a set id).
+CREATE POLICY policies_tenant_rw ON policies FOR ALL
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+CREATE INDEX policies_resolve_idx ON policies (category, kind, tenant_id, scope_level);
+
+-- Append-only change history (Design §3.5) — safety-critical config must be
+-- reconstructable. Empty until override CRUD lands.
+CREATE TABLE policy_history (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  policy_id   UUID        NOT NULL,
+  tenant_id   UUID        REFERENCES tenants(id) ON DELETE CASCADE,
+  version     INTEGER     NOT NULL,
+  definition  JSONB       NOT NULL,
+  enabled     BOOLEAN     NOT NULL,
+  changed_by  TEXT,
+  changed_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  reason      TEXT
+);
+ALTER TABLE policy_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE policy_history FORCE ROW LEVEL SECURITY;
+CREATE POLICY policy_history_platform_read ON policy_history FOR SELECT
+  USING (tenant_id IS NULL);
+CREATE POLICY policy_history_tenant_rw ON policy_history FOR ALL
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+CREATE INDEX policy_history_policy_idx ON policy_history (policy_id, version);
 
 -- ─────────────────────────────────────────────────────────────
 -- RLS HELPER — call at the start of every DB transaction
