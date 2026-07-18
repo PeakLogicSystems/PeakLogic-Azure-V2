@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PeakLogic — Asset Map (real tiles)</title>
+<!--
+  Standalone REAL-MAP version of the Super-Console asset map.
+
+  Why this is a separate file: the published Super-Console artifact runs under a
+  strict Content-Security-Policy that blocks ALL external requests (map tiles,
+  CDN scripts, fonts). So a real tile map (Google, Mapbox, Leaflet/OSM) cannot
+  load inside the artifact — the artifact's map is a self-contained schematic.
+
+  This file has no such restriction: open it directly in a browser (double-click,
+  or `file://`) and it loads a REAL map from OpenStreetMap via Leaflet — no API
+  key required. It's also the reference for the real Super-Console frontend,
+  which uses a real tile provider (Mapbox is the decided vendor; Google Maps or
+  Leaflet/OSM work the same way). Swap the tile URL below for Mapbox/Google when
+  wiring the production app.
+-->
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<style>
+  :root { --purple:#7C3AED; --purple-mid:#8B5CF6; --ink:#0F172A; --muted:#64748B; }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); }
+  #app { display: flex; flex-direction: column; height: 100%; }
+  header { display: flex; align-items: center; gap: 12px; padding: 12px 18px; background: #0a0f1d; color: #fff; }
+  header svg { width: 26px; height: 19px; }
+  .word { font-size: 17px; font-weight: 800; letter-spacing: -.02em; }
+  .word .peak { color: #fff; } .word .logic { color: var(--purple-mid); }
+  header .sub { color: #7f8db0; font-size: 12.5px; margin-left: 4px; }
+  header .legend { margin-left: auto; display: flex; gap: 16px; font-size: 12.5px; color: #cbd5e1; }
+  header .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  header .legend i { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
+  #map { flex: 1; }
+  .note { background: #fef3c7; color: #92400e; font-size: 12.5px; padding: 7px 18px; border-bottom: 1px solid #fcd34d; }
+  .pl-pop b { font-size: 13.5px; }
+  .pl-pop .row { display: flex; justify-content: space-between; gap: 16px; font-size: 12.5px; margin-top: 3px; }
+  .pl-pop .row span:first-child { color: var(--muted); }
+  .pl-pop .status { font-weight: 700; text-transform: capitalize; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"></path><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"></path></svg>
+    <span class="word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+    <span class="sub">Asset Map · Purple Standard · Tampa Bay, FL</span>
+    <div class="legend">
+      <span><i style="background:#22c55e"></i>Healthy</span>
+      <span><i style="background:#f59e0b"></i>Warning</span>
+      <span><i style="background:#ef4444"></i>Critical</span>
+    </div>
+  </header>
+  <div class="note">Real OpenStreetMap tiles (Leaflet, no API key). This is the reference for the production map — the sandboxed console artifact can’t load external tiles, so it uses a schematic instead.</div>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+  // Purple Standard sites (health is the worst device state at the site).
+  const SITES = [
+    { site:"Coastal Kitchen — Riverview", tenant:"Coastal Kitchen Restaurants", partner:"ACE Septic & Waste", lat:27.861, lng:-82.326, devices:2, health:"crit" },
+    { site:"Coastal Kitchen — Brandon", tenant:"Coastal Kitchen Restaurants", partner:"ACE Septic & Waste", lat:27.938, lng:-82.286, devices:1, health:"warn" },
+    { site:"Ballast Point Lift Station", tenant:"Bayfront Municipal District", partner:"ACE Septic & Waste", lat:27.897, lng:-82.487, devices:2, health:"good" },
+    { site:"Gandy Blvd Station", tenant:"Bayfront Municipal District", partner:"ACE Septic & Waste", lat:27.881, lng:-82.523, devices:1, health:"warn" },
+    { site:"FishHawk Booster Station #2", tenant:"FishHawk Water District", partner:"Boyette Pump & Well", lat:27.833, lng:-82.212, devices:3, health:"warn" },
+    { site:"Boyette Rd Well Field", tenant:"FishHawk Water District", partner:"Boyette Pump & Well", lat:27.849, lng:-82.288, devices:2, health:"good" },
+    { site:"South Field Irrigation", tenant:"Riverview Ag & Irrigation", partner:"Boyette Pump & Well", lat:27.812, lng:-82.302, devices:2, health:"crit" },
+    { site:"Gulfstream Plaza — Tampa", tenant:"Gulfstream Retail Centers", partner:"Purple Current", lat:27.951, lng:-82.459, devices:2, health:"warn" },
+    { site:"Gulfstream Plaza — Clearwater", tenant:"Gulfstream Retail Centers", partner:"Purple Current", lat:27.965, lng:-82.800, devices:1, health:"good" },
+    { site:"Port Tampa DC", tenant:"Tampa Cold Logistics", partner:"Purple Current", lat:27.858, lng:-82.552, devices:2, health:"crit" },
+    { site:"Sunset Club — St. Pete", tenant:"Sunset Aquatic Clubs", partner:"WTR DR", lat:27.771, lng:-82.640, devices:2, health:"warn" },
+    { site:"Harborview Downtown", tenant:"Harborview Hotels", partner:"WTR DR", lat:27.947, lng:-82.458, devices:2, health:"warn" },
+    { site:"Meridian Tower — Tampa", tenant:"Meridian Commercial Plaza", partner:"Rodrigues Roofing, LLC", lat:27.945, lng:-82.452, devices:2, health:"warn" },
+    { site:"QSR #214 — Wesley Chapel", tenant:"Brisa Pilot — QSR Group", partner:"Brisa Climate Solutions", lat:28.239, lng:-82.328, devices:2, health:"warn" },
+  ];
+  const COLOR = { good:"#22c55e", warn:"#f59e0b", crit:"#ef4444" };
+
+  const map = L.map("map").setView([27.92, -82.45], 10);
+  // Real map tiles from OpenStreetMap. Swap this URL for Mapbox/Google in prod.
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors",
+  }).addTo(map);
+
+  const bounds = [];
+  SITES.forEach(s => {
+    bounds.push([s.lat, s.lng]);
+    const m = L.circleMarker([s.lat, s.lng], {
+      radius: 9, color: "#fff", weight: 2, fillColor: COLOR[s.health], fillOpacity: 0.95,
+    }).addTo(map);
+    m.bindPopup(`<div class="pl-pop">
+      <b>${s.site}</b>
+      <div class="row"><span>Customer</span><span>${s.tenant}</span></div>
+      <div class="row"><span>Channel partner</span><span>${s.partner}</span></div>
+      <div class="row"><span>Devices</span><span>${s.devices}</span></div>
+      <div class="row"><span>Status</span><span class="status" style="color:${COLOR[s.health]}">${s.health}</span></div>
+    </div>`);
+    m.bindTooltip(`${s.site} — ${s.tenant}`, { direction: "top" });
+  });
+  map.fitBounds(bounds, { padding: [50, 50] });
+</script>
+</body>
+</html>

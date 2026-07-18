@@ -929,8 +929,24 @@
     return html + "</div>";
   }
 
+  // ---------- Health rollups (ALWAYS derived from device health, bottom-up) ----------
+  // Fix: previously site/tenant status read a manually-set asset/tenant `health`
+  // field that could disagree with the devices inside — a site with a critical
+  // device could show green. Now every rollup is computed from the actual
+  // device states, so it can never drift.
+  const HRANK = { good: 0, warn: 1, crit: 2 };
+  const RANKH = ["good", "warn", "crit"];
+  function worstHealth(list) { return RANKH[list.reduce((m, h) => Math.max(m, HRANK[h] || 0), 0)]; }
+  function assetDeviceHealth(a) { return worstHealth(a.devices.map(d => d.health)); }
+  function siteHealth(s) { return worstHealth(s.assets.flatMap(a => a.devices.map(d => d.health))); }
+  function tenantHealthOf(t) { return worstHealth(t.sites.flatMap(s => s.assets.flatMap(a => a.devices.map(d => d.health)))); }
+  function tenantCountsOf(t) {
+    let crit = 0, warn = 0;
+    t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => { if (d.health === "crit") crit++; else if (d.health === "warn") warn++; })));
+    return { crit, warn };
+  }
+
   // ---------- Map (self-contained — no external tiles; sandbox blocks them) ----------
-  const siteHealth = (s) => s.assets.some(a => a.health === "crit") ? "crit" : s.assets.some(a => a.health === "warn") ? "warn" : "good";
   function sitePointsFor(tenants) {
     const pts = [];
     tenants.forEach(t => {
@@ -977,7 +993,7 @@
         <span><span class="dot" style="background:var(--good)"></span>Healthy</span>
         <span><span class="dot" style="background:var(--warn)"></span>Warning</span>
         <span><span class="dot" style="background:var(--crit)"></span>Critical</span>
-        <span class="faint" style="margin-left:auto">${points.length} sites · hover a pin for detail · click to open</span>
+        <span class="faint" style="margin-left:auto">${points.length} sites · hover for detail · click to open · schematic (real tiles in the deployed app)</span>
       </div>
     </div>`;
   }
@@ -1020,7 +1036,7 @@
   // ---------- Derived aggregates (fan-out, computed per-org then merged) ----------
   function fleetTotals() {
     return TENANTS.reduce((a, t) => {
-      a.online += t.online; a.total += t.total; a.crit += t.crit; a.warn += t.warn; a.tickets += t.tickets; return a;
+      const c = tenantCountsOf(t); a.online += t.online; a.total += t.total; a.crit += c.crit; a.warn += c.warn; a.tickets += t.tickets; return a;
     }, { online: 0, total: 0, crit: 0, warn: 0, tickets: 0 });
   }
   function needsAttention() {
@@ -1119,11 +1135,11 @@
         <td>${statePill(r.state)}</td>
       </tr>`).join("");
 
-    const orgHealth = TENANTS.slice().sort((a,b)=>({crit:0,warn:1,good:2}[a.health]-{crit:0,warn:1,good:2}[b.health])).map(t => `
+    const orgHealth = TENANTS.slice().sort((a,b)=>HRANK[tenantHealthOf(b)]-HRANK[tenantHealthOf(a)]).map(t => `
       <tr class="clickable" data-action="manage-tenant:${t.id}">
         <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub">${esc(t.industry)}</span></div></td>
         <td style="width:170px">${rollup(t.online, t.total)}</td>
-        <td style="text-align:right">${healthPill(t.health)}</td>
+        <td style="text-align:right">${healthPill(tenantHealthOf(t))}</td>
       </tr>`).join("");
 
     return `
@@ -1179,7 +1195,7 @@
         <td>${p ? `<span style="display:inline-flex;align-items:center;gap:8px">${partnerLogo(p, 20)}<span class="muted">${esc(p.name)}</span></span>` : '<span class="faint">Direct</span>'}</td>
         <td class="muted">${esc(t.mgr)}</td>
         <td style="width:140px">${rollup(t.online, t.total)}</td>
-        <td>${t.crit ? `<span class="pill pill--crit"><span class="dot"></span>${t.crit} critical</span>` : t.warn ? `<span class="pill pill--warn"><span class="dot"></span>${t.warn} warning</span>` : healthPill("good")}</td>
+        <td>${(() => { const c = tenantCountsOf(t); return c.crit ? `<span class="pill pill--crit"><span class="dot"></span>${c.crit} critical</span>` : c.warn ? `<span class="pill pill--warn"><span class="dot"></span>${c.warn} warning</span>` : healthPill("good"); })()}</td>
         <td style="text-align:right"><button class="btn btn--primary" data-action="manage-tenant:${t.id}">Manage
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
       </tr>`;
@@ -1249,7 +1265,7 @@
         return `<tr class="${t?'clickable':''}" ${t?`data-action="manage-tenant:${t.id}"`:''}>
           <td class="strong">${esc(name)}</td>
           <td class="muted">${t ? esc(t.industry) : "External account"}</td>
-          <td>${t ? healthPill(t.health) : '<span class="pill pill--neutral"><span class="dot"></span>—</span>'}</td>
+          <td>${t ? healthPill(tenantHealthOf(t)) : '<span class="pill pill--neutral"><span class="dot"></span>—</span>'}</td>
           <td style="text-align:right" class="faint">${t ? "Open tenant →" : ""}</td></tr>`;
       }).join("");
       return `<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4M12 3l7 3v6c0 4-3 7-7 8-4-1-7-4-7-8V6z"/></svg>
@@ -1307,7 +1323,7 @@
       { id: "sites", label: "Sites", count: t.sites.length },
       { id: "assets", label: "Assets", count: t.sites.reduce((a,s)=>a+s.assets.length,0) },
       { id: "devices", label: "Devices", count: t.sites.reduce((a,s)=>a+s.assets.reduce((b,x)=>b+x.devices.length,0),0) },
-      { id: "alerts", label: "Alerts", count: t.crit + t.warn },
+      { id: "alerts", label: "Alerts", count: (() => { const c = tenantCountsOf(t); return c.crit + c.warn; })() },
       { id: "tickets", label: "Tickets", count: t.tickets },
       { id: "users", label: "Users", count: 6 }
     ].map(x => `<button class="tab ${S.tab===x.id?'tab--active':''}" data-action="tenant-tab:${x.id}">${x.label}<span class="tab__count">${x.count}</span></button>`).join("");
@@ -1336,11 +1352,11 @@
     }
     if (S.tab === "assets") {
       const rows = [];
-      t.sites.forEach(s => s.assets.forEach(a => rows.push(`
-        <tr><td class="sev-cell"><span class="sev-stripe" style="background:var(--${a.health})"></span></td>
+      t.sites.forEach(s => s.assets.forEach(a => { const ah = assetDeviceHealth(a); rows.push(`
+        <tr><td class="sev-cell"><span class="sev-stripe" style="background:var(--${ah})"></span></td>
           <td><div class="row-main"><span class="strong">${esc(a.name)}</span><span class="row-sub">${esc(s.name)}</span></div></td>
           <td><span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[a.cat]}</span></td>
-          <td class="num muted">${a.devices.length} devices</td><td>${healthPill(a.health)}</td></tr>`)));
+          <td class="num muted">${a.devices.length} devices</td><td>${healthPill(ah)}</td></tr>`); }));
       return `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset</th><th>Category</th><th class="num">Devices</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
     }
     if (S.tab === "devices") {
