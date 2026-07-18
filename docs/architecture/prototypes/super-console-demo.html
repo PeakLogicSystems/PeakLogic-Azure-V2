@@ -466,6 +466,33 @@
   .switch.on { background: var(--good); }
   .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 19px; height: 19px; border-radius: 50%; background: #fff; transition: left .15s ease; }
   .switch.on::after { left: 19px; }
+
+  /* ---------- Map ---------- */
+  .map { position: relative; width: 100%; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--border); background: var(--surface-2); }
+  .map svg { display: block; width: 100%; height: auto; }
+  .map__land { fill: var(--surface-3); }
+  .map__water { fill: color-mix(in srgb, var(--info) 15%, var(--surface-2)); }
+  .map__grid { stroke: var(--border); stroke-width: .5; opacity: .5; }
+  .map__label { fill: var(--text-faint); font-size: 12px; font-family: var(--sans); font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
+  .map__pin { cursor: pointer; }
+  .map__pin circle.halo { opacity: .16; }
+  .map__pin:hover circle.dot { stroke-width: 3; }
+  .map__pulse { transform-origin: center; animation: mappulse 2s ease-out infinite; }
+  @keyframes mappulse { 0% { r: 6; opacity: .5; } 100% { r: 18; opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .map__pulse { animation: none; } }
+  .map__tip { position: absolute; pointer-events: none; z-index: 6; background: var(--text); color: var(--surface); padding: 9px 12px; border-radius: 9px; font-size: 12px; box-shadow: var(--shadow-lg); min-width: 190px; opacity: 0; transition: opacity .1s ease; }
+  .map__tip.show { opacity: 1; }
+  .map__tip .t-site { font-weight: 700; margin-bottom: 4px; }
+  .map__tip .t-row { display: flex; justify-content: space-between; gap: 14px; margin-top: 2px; }
+  .map__tip .t-row span:first-child { opacity: .7; }
+  .map__legend { display: flex; gap: 16px; padding: 10px 14px; font-size: 12px; color: var(--text-muted); border-top: 1px solid var(--border); }
+  .map__legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .map__legend .dot { width: 9px; height: 9px; border-radius: 50%; }
+
+  /* ---------- Overlay chart (energy / risk) ---------- */
+  .chart-legend { display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); margin-top: 10px; flex-wrap: wrap; }
+  .chart-legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .chart-legend i { width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
 </style>
 
 <div class="app" id="app">
@@ -806,7 +833,9 @@
     { id: "fleet-health", name: "Fleet Health & Uptime", vertical: "All",
       desc: "Device online/offline, silent devices, and reporting compliance across the estate." },
     { id: "energy", name: "Energy Performance", vertical: "Energy",
-      desc: "Consumption and demand trends, peak demand, and estimated cost savings." },
+      desc: "Normalized vs. current draw overlay, peak demand, deviation flags, and estimated cost savings." },
+    { id: "risk", name: "Risk Reduction Summary", vertical: "Cross-cutting",
+      desc: "Assets flagged at-risk, then normalized to reduce risk — the prevention story, by org and period." },
     { id: "refrigeration", name: "Refrigeration Compliance", vertical: "Refrigeration",
       desc: "Product-temperature excursions vs. FDA cold-holding limits; food-safety log." },
     { id: "pool-chem", name: "Pool Chemistry Compliance", vertical: "Pool",
@@ -896,6 +925,94 @@
         const nk = stages[i + 1].key;
         html += `<div class="funnel__rate">↓ ${rateFor[nk]}% ${rateLabel[nk]}</div>`;
       }
+    });
+    return html + "</div>";
+  }
+
+  // ---------- Map (self-contained — no external tiles; sandbox blocks them) ----------
+  const siteHealth = (s) => s.assets.some(a => a.health === "crit") ? "crit" : s.assets.some(a => a.health === "warn") ? "warn" : "good";
+  function sitePointsFor(tenants) {
+    const pts = [];
+    tenants.forEach(t => {
+      const p = partnerFor(t);
+      t.sites.forEach(s => {
+        if (s.lat == null) return;
+        pts.push({ lat: s.lat, lng: s.lng, site: s.name, tenant: t.name, tenantId: t.id,
+          partner: p ? p.name : "Direct", health: siteHealth(s),
+          devices: s.assets.reduce((a, x) => a + x.devices.length, 0) });
+      });
+    });
+    return pts;
+  }
+  function projectLL(lat, lng, w, h) {
+    const latMax = 28.35, latMin = 27.25, lngMin = -82.98, lngMax = -82.05;
+    return [((lng - lngMin) / (lngMax - lngMin)) * w, ((latMax - lat) / (latMax - latMin)) * h];
+  }
+  function renderMap(points, height) {
+    const W = 900, H = height || 380;
+    const grid = [];
+    for (let x = 0; x <= W; x += 90) grid.push(`<line class="map__grid" x1="${x}" y1="0" x2="${x}" y2="${H}"/>`);
+    for (let y = 0; y <= H; y += 76) grid.push(`<line class="map__grid" x1="0" y1="${y}" x2="${W}" y2="${y}"/>`);
+    const pins = points.map(p => {
+      const [x, y] = projectLL(p.lat, p.lng, W, H);
+      const c = p.health === "crit" ? "var(--crit)" : p.health === "warn" ? "var(--warn)" : "var(--good)";
+      const data = esc(JSON.stringify({ site: p.site, tenant: p.tenant, partner: p.partner, status: p.health, devices: p.devices }));
+      const pulse = p.health === "crit" ? `<circle class="map__pulse" r="6" fill="${c}"></circle>` : "";
+      return `<g class="map__pin" data-pin="${data}" ${p.tenantId ? `data-action="manage-tenant:${p.tenantId}"` : ""} transform="translate(${x.toFixed(1)},${y.toFixed(1)})">
+        <circle class="halo" r="14" fill="${c}"></circle>${pulse}
+        <circle class="dot" r="5.5" fill="${c}" stroke="var(--surface)" stroke-width="2"></circle></g>`;
+    }).join("");
+    return `<div class="map">
+      <svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="xMidYMid meet">
+        <rect width="${W}" height="${H}" class="map__land"></rect>
+        <path class="map__water" d="M0,0 H240 Q246,140 196,236 Q150,320 214,${H} H0 Z"></path>
+        <path class="map__water" d="M338,${H} Q360,300 430,286 Q516,274 520,${H} Z"></path>
+        <g>${grid.join("")}</g>
+        <text x="54" y="${H - 22}" class="map__label">Gulf of Mexico</text>
+        <text x="386" y="${H - 14}" class="map__label">Tampa Bay</text>
+        ${pins}
+      </svg>
+      <div class="map__tip" id="map-tip"></div>
+      <div class="map__legend">
+        <span><span class="dot" style="background:var(--good)"></span>Healthy</span>
+        <span><span class="dot" style="background:var(--warn)"></span>Warning</span>
+        <span><span class="dot" style="background:var(--crit)"></span>Critical</span>
+        <span class="faint" style="margin-left:auto">${points.length} sites · hover a pin for detail · click to open</span>
+      </div>
+    </div>`;
+  }
+
+  // ---------- Overlay line chart (normalized/expected vs current) ----------
+  function overlayChart(baseline, actual, opts) {
+    opts = opts || {};
+    const W = 860, H = 220, pad = 34;
+    const all = baseline.concat(actual);
+    const min = Math.min(...all) * 0.9, max = Math.max(...all) * 1.05, rng = (max - min) || 1;
+    const px = (i, arr) => pad + (i / (arr.length - 1)) * (W - pad * 2);
+    const py = (v) => pad / 2 + (1 - (v - min) / rng) * (H - pad * 1.5);
+    const line = (arr) => arr.map((v, i) => (i ? "L" : "M") + px(i, arr).toFixed(1) + " " + py(v).toFixed(1)).join(" ");
+    // shade where actual exceeds baseline (spikes = cost / anomaly)
+    const overArea = actual.map((v, i) => `${px(i, actual).toFixed(1)},${py(Math.max(v, baseline[i])).toFixed(1)}`).join(" ");
+    const baseArea = baseline.slice().reverse().map((v, i) => `${px(baseline.length - 1 - i, baseline).toFixed(1)},${py(v).toFixed(1)}`).join(" ");
+    const yTicks = [min, (min + max) / 2, max].map(v => `<text x="4" y="${py(v).toFixed(1)}" class="map__label" style="text-transform:none;letter-spacing:0;font-size:10px">${Math.round(v)}${opts.unit || ""}</text>`).join("");
+    return `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" style="width:100%;height:auto">
+      <polygon points="${overArea} ${baseArea}" fill="var(--warn)" opacity="0.14"></polygon>
+      <path d="${line(baseline)}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-dasharray="5 4" stroke-linejoin="round"></path>
+      <path d="${line(actual)}" fill="none" stroke="var(--good)" stroke-width="2.25" stroke-linejoin="round"></path>
+      ${yTicks}
+    </svg>`;
+  }
+
+  // Generic labelled stage bars (used by the risk-reduction report).
+  function renderStages(stages) {
+    const max = stages[0].count || 1;
+    let html = '<div class="funnel">';
+    stages.forEach((s, i) => {
+      const w = Math.round((s.count / max) * 100);
+      html += `<div class="funnel__row"><div class="funnel__label">${s.label}</div>
+        <div class="funnel__track"><div class="funnel__fill" style="width:${w}%;background:${s.color || 'var(--accent)'}"></div></div>
+        <div class="funnel__count">${s.count}</div></div>`;
+      if (i < stages.length - 1 && s.rate) html += `<div class="funnel__rate">↓ ${s.rate}</div>`;
     });
     return html + "</div>";
   }
@@ -1027,9 +1144,14 @@
           <div class="kpi-hero__funnel">${renderFunnel(ff)}</div>
         </div>
       </div>
+      <div class="panel" style="margin-bottom:22px">
+        <div class="panel__head"><span class="panel__title">Asset locations</span>
+          <span class="panel__note">every site · all organizations · Tampa Bay</span></div>
+        ${renderMap(sitePointsFor(TENANTS))}
+      </div>
       <div class="callout">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
-        <div>Every number here — health rollups and the CMMS conversion funnel alike — is assembled by <b>fanning out per-organization scoped reads</b> and merging them here, never a single cross-tenant query. Each org opens through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
+        <div>Every number here — health rollups, the CMMS conversion funnel, and the map alike — is assembled by <b>fanning out per-organization scoped reads</b> and merging them here, never a single cross-tenant query. Each org opens through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
       </div>
       <div class="grid2">
         <div class="panel">
@@ -1199,12 +1321,16 @@
 
   function tenantTab(t) {
     if (S.tab === "sites") {
-      return `<div class="panel"><table class="tbl">
+      const mapped = t.sites.filter(s => s.lat != null);
+      const mapPanel = mapped.length ? `<div class="panel" style="margin-bottom:16px">
+        <div class="panel__head"><span class="panel__title">Site map</span><span class="panel__note">${mapped.length} located sites · click a pin to drill in</span></div>
+        ${renderMap(sitePointsFor([t]), 320)}</div>` : "";
+      return `${mapPanel}<div class="panel"><table class="tbl">
         <thead><tr><th>Site</th><th class="num">Assets</th><th class="num">Devices</th><th>Status</th></tr></thead>
         <tbody>${t.sites.map(s => {
           const dev = s.assets.reduce((a,x)=>a+x.devices.length,0);
-          const worst = s.assets.some(a=>a.health==="crit")?"crit":s.assets.some(a=>a.health==="warn")?"warn":"good";
-          return `<tr><td class="strong">${esc(s.name)}</td><td class="num muted">${s.assets.length}</td>
+          const worst = siteHealth(s);
+          return `<tr class="clickable" data-action="tenant-tab:assets"><td class="strong">${esc(s.name)}</td><td class="num muted">${s.assets.length}</td>
             <td class="num muted">${dev}</td><td>${healthPill(worst)}</td></tr>`;
         }).join("")}</tbody></table></div>`;
     }
@@ -1396,6 +1522,45 @@
         <table class="tbl">
           <thead><tr><th>Channel partner</th><th class="num">Dispatched</th><th class="num">Accepted</th><th class="num">On-site</th><th class="num">Completed</th><th style="text-align:right">Conversion</th></tr></thead>
           <tbody>${partnerRows}</tbody></table>
+      </div>
+
+      <div class="panel" style="margin-bottom:24px">
+        <div class="panel__head"><span class="panel__title">Energy — normalized vs. current draw</span>
+          <span class="panel__note">Purple Current · Gulfstream Plaza — Tampa · last 24h</span>
+          <button class="btn btn--ghost" data-action="run-report:energy" style="margin-left:12px">Export</button></div>
+        <div style="padding:16px 20px 18px">
+          <div style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:12px">
+            <div><div class="readout__l">Peak vs. normalized</div><div style="font-size:26px;font-weight:760;color:var(--warn-ink);font-variant-numeric:tabular-nums">+12%</div></div>
+            <div><div class="readout__l">Avoidable cost / mo</div><div style="font-size:26px;font-weight:760;font-variant-numeric:tabular-nums">$1,840</div></div>
+            <div><div class="readout__l">Off-peak savings captured</div><div style="font-size:26px;font-weight:760;color:var(--good-ink);font-variant-numeric:tabular-nums">$620</div></div>
+          </div>
+          ${overlayChart([120,118,116,115,116,120,140,175,205,215,218,216,214,215,214,210,205,200,190,175,160,145,132,125],
+                         [122,119,117,116,118,124,148,182,214,232,255,268,250,228,216,209,206,201,188,172,150,140,131,126], { unit: "kW" })}
+          <div class="chart-legend">
+            <span><i style="border-color:var(--accent);border-top-style:dashed"></i>Normalized (expected) profile</span>
+            <span><i style="border-color:var(--good)"></i>Current draw</span>
+            <span><span style="width:15px;height:10px;background:var(--warn);opacity:.25;border-radius:2px;display:inline-block"></span>Deviation — a midday spike above the normalized profile flags cost / non-normal behavior to investigate</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" style="margin-bottom:24px">
+        <div class="panel__head"><span class="panel__title">Risk reduction — assets flagged &amp; normalized</span>
+          <span class="panel__note">this quarter · all organizations</span>
+          <button class="btn btn--ghost" data-action="run-report:risk" style="margin-left:12px">Export</button></div>
+        <div class="kpi-hero">
+          <div class="kpi-hero__side">
+            <div class="readout__l">Risk reduced · flagged → normalized</div>
+            <div class="kpi-hero__num">83%</div>
+            <div class="faint" style="font-size:12px;margin-top:6px">39 of 47 at-risk assets brought back within safe range this quarter; 8 still open</div>
+          </div>
+          <div class="kpi-hero__funnel">${renderStages([
+            { label: "Assets monitored", count: 214, color: "var(--accent)", rate: "22% flagged at-risk" },
+            { label: "At-risk detected", count: 47, color: "var(--warn)", rate: "96% flagged & dispatched" },
+            { label: "Flagged & dispatched", count: 45, color: "var(--info)", rate: "87% resolved" },
+            { label: "Normalized (risk reduced)", count: 39, color: "var(--good)" },
+          ])}</div>
+        </div>
       </div>
 
       <div class="page-head" style="margin-bottom:14px"><h1 style="font-size:16px">Standard reports</h1></div>
@@ -1908,6 +2073,25 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeOverlay();
+  });
+
+  // Map pin hover tooltip
+  document.addEventListener("mousemove", (e) => {
+    const tip = document.getElementById("map-tip");
+    if (!tip) return;
+    const pin = e.target.closest(".map__pin");
+    if (!pin) { tip.classList.remove("show"); return; }
+    const d = JSON.parse(pin.getAttribute("data-pin"));
+    const rect = pin.closest(".map").getBoundingClientRect();
+    tip.innerHTML = `<div class="t-site">${esc(d.site)}</div>
+      <div class="t-row"><span>Customer</span><span>${esc(d.tenant)}</span></div>
+      <div class="t-row"><span>Channel partner</span><span>${esc(d.partner)}</span></div>
+      <div class="t-row"><span>Devices</span><span>${d.devices}</span></div>
+      <div class="t-row"><span>Status</span><span style="text-transform:capitalize;font-weight:700">${esc(d.status)}</span></div>`;
+    let x = e.clientX - rect.left + 16, y = e.clientY - rect.top + 16;
+    if (x > rect.width - 210) x -= 226;
+    tip.style.left = x + "px"; tip.style.top = y + "px";
+    tip.classList.add("show");
   });
 
   // ---------- Theme ----------
