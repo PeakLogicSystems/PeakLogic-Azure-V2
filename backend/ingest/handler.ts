@@ -1,8 +1,23 @@
 import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
-import { evaluateRules, sanitizeMetrics, type FiredRule } from './rules';
+import { evaluateRuleSet, sanitizeMetrics, RULES_BY_CATEGORY, type Rule, type FiredRule } from './rules';
+import { resolvePolicyRules } from './policy-resolver';
 import { postWebhook } from '../shared/webhook';
 import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared/types';
+
+// Policy Engine cutover (Policy Engine Design §8 step 3). When
+// POLICY_ENGINE_ENABLED is 'true', alert thresholds are resolved from the DB
+// `policies` table (platform defaults + tenant/site/asset overrides); when it
+// is anything else, ingest uses the compiled-in RULES_BY_CATEGORY exactly as
+// before. Read per-call (not at module load) so it can be toggled in tests
+// and per environment without a redeploy.
+function policyEngineEnabled(): boolean {
+  return process.env.POLICY_ENGINE_ENABLED === 'true';
+}
+
+// Device shape after the ingest lookup join (category/specs/site_id come from
+// the linked asset).
+type IngestDevice = Device & { category: string; specs: AssetSpecs | null; site_id: string | null };
 
 // Alert rule definitions moved to rules.ts (Test Strategy §3) — pure logic,
 // exported, unit-testable in isolation from this file's DB I/O.
@@ -73,9 +88,11 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
     await client.query("SET LOCAL app.ingest_context = 'true'");
 
     // 1. Look up device + linked asset by thing_name — the one read that
-    // must run before any tenant is known.
-    const { rows: [device] } = await client.query<Device & { category: string; specs: AssetSpecs | null }>(
-      `SELECT d.*, a.category, a.specs
+    // must run before any tenant is known. a.site_id is pulled through for the
+    // Policy Engine resolver's site-scope lookups (Design §4.1); it's granted
+    // by the same assets ingest_lookup policy as a.category/a.specs.
+    const { rows: [device] } = await client.query<IngestDevice>(
+      `SELECT d.*, a.category, a.specs, a.site_id AS site_id
        FROM devices d
        LEFT JOIN assets a ON a.id = d.asset_id
        WHERE d.thing_name = $1`,
@@ -121,7 +138,10 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
 
     // 4. Evaluate alert rules if device is linked to an asset with known category
     if (device.asset_id && device.category) {
-      const fired = evaluateRules(device.category, metrics, device.specs);
+      const rules = policyEngineEnabled()
+        ? await resolveRulesForDevice(client, device)
+        : RULES_BY_CATEGORY[device.category] ?? [];
+      const fired = evaluateRuleSet(rules, metrics, device.specs);
       for (const f of fired) {
         await maybeCreateAlert(client, device, f, time);
       }
@@ -134,6 +154,24 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
   } finally {
     client.release();
   }
+}
+
+// Resolve the effective threshold rules for a device via the Policy Engine.
+// Runs after app.current_tenant_id is set, so both the epoch read and the
+// resolver's policy read are tenant-scoped by RLS. The epoch is a cheap PK
+// lookup that keys the resolver's warm-instance cache (Design §4.2).
+async function resolveRulesForDevice(client: PoolClient, device: IngestDevice): Promise<Rule[]> {
+  const { rows: [row] } = await client.query<{ policy_epoch: number }>(
+    'SELECT policy_epoch FROM tenants WHERE id = $1',
+    [device.tenant_id],
+  );
+  return resolvePolicyRules(client, {
+    tenantId: device.tenant_id!,
+    category: device.category,
+    siteId: device.site_id,
+    assetId: device.asset_id ?? null,
+    epoch: row?.policy_epoch ?? 0,
+  });
 }
 
 // ── Alert deduplication + creation ────────────────────────────────────────
