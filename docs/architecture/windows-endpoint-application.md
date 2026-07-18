@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.1 — specification only, no code shipped
-**Depends on:** [Device & Command Security Architecture](device-command-security-architecture.md) (Approved v1), [Security Architecture](security-architecture.md) (Approved v1.2), [API Specification](api-specification.md) (Approved v1.2), [Database Schema](database-schema.md) (Approved v1.2), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Approved v1.1)
-**Last updated:** 2026-07-12 (v1.1 — added §1.5 dual telemetry path clarification, §10 Hub Fleet Management/Patch Governance/VPN)
+**Status:** Draft v1.2 — specification only, no code shipped (amendment pending review — see Revision History, end of document)
+**Depends on:** [Device & Command Security Architecture](device-command-security-architecture.md) (Draft v2.0, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending), [API Specification](api-specification.md) (Draft v1.4, pending), [Database Schema](database-schema.md) (Draft v1.4, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4, pending)
+**Last updated:** 2026-07-17 (v1.2 — Azure fork amendment)
+**Fork note (v1.2):** `azure-restructuring-plan.md` item 25 flagged this 🔵 amendment: "backend client points at a different API/auth endpoint (Entra ID token format vs. Cognito); core hub logic (ingestion sources, durable queue) is unaffected." **This amendment targets exactly that boundary** — §5 (device/backend identity), §8.1–8.3 (config/commissioning), §9.3 (secret storage), and §10.1 (VPN concentrator host) are corrected for Azure; §1–4, §6–7, §9.1–9.2/9.4–9.5 (ingestion, normalization, caching, kiosk UI, process isolation, audit logging, hardening) are **unchanged, confirmed cloud-agnostic** — none of that logic touches AWS or Azure APIs directly. The AWS-native `PeakLogic-AWS` repo's own Draft v1.1 is unaffected.
 
 ---
 
@@ -13,10 +14,10 @@
 
 This document specifies a **new, physically separate application** — a Windows process/binary that runs on customer-site hardware. It is not part of `backend/`, `frontend/`, or `infra/`, and it does not change any of them. Every integration point below targets an endpoint, topic, or contract that **already exists and already ships**:
 
-- AWS IoT Core device identity (one Thing per device, mutual TLS X.509, `PeakLogicDevicePolicy`) — `infra/lib/iot-stack.ts`, `scripts/provision-devices.ts`.
-- The MQTT topic contract — `peaklogic/{thingName}/telemetry` (publish), `peaklogic/{thingName}/commands` (subscribe/receive only, **currently unused — see §4 gate**).
-- The REST API (`/v1/sites`, `/v1/assets`, `/v1/devices`, `/v1/alerts`, `/v1/tickets`, `/v1/telemetry`, `/v1/settings`) — Cognito-authenticated, tenant pool.
-- The existing device provisioning + claim lifecycle (`scripts/provision-devices.ts` → `POST /v1/devices`).
+- **Azure IoT Hub + DPS device identity** *(corrected v1.2 — previously AWS IoT Core)* (one device identity per device, mutual TLS X.509 via DPS individual enrollment, topic access scoped to the authenticated identity itself — Device & Command Security Architecture §2).
+- The device-to-cloud topic contract — `devices/{deviceId}/messages/events` (publish/telemetry), cloud-to-device via Direct Methods (Device & Command Security Architecture §4.3, **currently unused — see §4 gate**) rather than a receive-only `commands` topic subscription.
+- The REST API (`/v1/sites`, `/v1/assets`, `/v1/devices`, `/v1/alerts`, `/v1/tickets`, `/v1/telemetry`, `/v1/settings`) — **Entra External ID-authenticated** *(corrected v1.2 — previously Cognito)*, `PeakLogicCustomers` tenant.
+- The existing device provisioning + claim lifecycle, ported to DPS enrollment (`scripts/provision-devices.ts`'s Azure equivalent → `POST /v1/devices`).
 
 **One binding constraint carried over from Device & Command Security Architecture §5, not re-litigated here:** CC-3.1/CC-4.1 forbid any code path that publishes to a device's `commands` topic, and forbid any shutoff/actuation endpoint, until that document's §5 gate is explicitly lifted by a future roadmap decision. This endpoint app's Command Dispatch Layer (§4) is therefore specified but **built inert** — wired for the day that gate lifts, not live today.
 
@@ -88,13 +89,13 @@ The alternative design — the Windows box authenticates as *itself* (one Thing,
                                    │  Cross-cutting: Configuration Layer · Security Layer         │
                                    │  (DPAPI secrets, cert store) · Update/Deployment Layer (MSIX) │
                                    └────────────────────────────────────────────────────────────────┘
-                                           │ MQTT/TLS (per-device cert)   │ HTTPS/TLS (Cognito JWT)
+                                           │ MQTT/TLS (per-device cert)   │ HTTPS/TLS (Entra token)
                                            ▼                               ▼
                                    ┌──────────────────┐            ┌──────────────────┐
-                                   │  AWS IoT Core      │            │  API Gateway →    │
-                                   │  (existing)         │            │  peaklogic-api     │
-                                   │  peaklogic/{thing}/  │            │  Lambda (existing) │
-                                   │  telemetry|commands  │            │                    │
+                                   │  Azure IoT Hub      │            │  API layer →       │  *(corrected v1.2 —
+                                   │  (DPS-enrolled)      │            │  peaklogic-api      │   previously AWS IoT
+                                   │  devices/{id}/        │            │  Azure Function     │   Core / API Gateway /
+                                   │  messages/events       │            │                    │   Lambda)
                                    └──────────────────┘            └──────────────────┘
 ```
 
@@ -505,9 +506,11 @@ public sealed class TelemetryFlusher : BackgroundService
 
 Two entirely separate credential/transport stacks, matching the two things this app talks to — deliberately not unified into one "backend client," since they have different identity models (per-device X.509 vs. per-kiosk Cognito user) and mixing them would blur an important trust boundary.
 
-### 5.1 MQTT / IoT Core — per-device mutual TLS (existing model, reused)
+### 5.1 MQTT / Azure IoT Hub — per-device mutual TLS (rewritten for Azure, same durable-queue/publisher-pool design)
 
-Each claimed child device's cert bundle (`certificate.pem`, `private.key`, `device-config.json` — the exact output of `scripts/provision-devices.ts`, §1.2) is delivered to the endpoint out of band at commissioning time (via the Configuration Layer's provisioning import, §8) and stored using Windows' **Certificate Store** (`CurrentUser\My` or `LocalMachine\My` depending on the kiosk's single-user-vs-shared posture), imported with the private key marked non-exportable where the hardware/OS combination supports it. Raw `.pem`/`.key` files on disk are a transitional/dev-only mode, not the production posture.
+**Corrected v1.2 — previously AWS IoT Core.** Each claimed child device's cert bundle is delivered to the endpoint out of band at commissioning time (via the Configuration Layer's provisioning import, §8), generated the same way, registered via DPS individual enrollment instead of `CreateKeysAndCertificateCommand` (Device & Command Security Architecture §2) — the cert-generation tooling and delivery mechanism are unaffected; only the registration API call changes. Stored using Windows' **Certificate Store**, same as before — non-exportable private keys where supported. Raw `.pem`/`.key` files on disk remain a transitional/dev-only mode, not the production posture.
+
+**A real, disclosed verification gap, not silently assumed**: the exact root CA Azure IoT Hub's TLS endpoint chains to (for the `CertificateValidationHandler` pinning below, replacing the AWS version's pin to Amazon Root CA1) should be confirmed against current Microsoft documentation at implementation time, not assumed to be a specific certificate here — Microsoft's own IoT Hub TLS documentation names the expected root(s) explicitly and has changed roots before (a real, documented migration event), so this is exactly the kind of claim this project's own discipline says to verify fresh, not carry forward from a general impression.
 
 ```csharp
 public sealed class DeviceMqttClientFactory
@@ -525,7 +528,7 @@ public sealed class DeviceMqttClientFactory
                 UseTls = true,
                 Certificates = new[] { cert },
                 SslProtocol = SslProtocols.Tls12,
-                CertificateValidationHandler = ctx => ValidateAgainstRootCa(ctx, cfg.RootCaThumbprint), // pins to AmazonRootCA1, not the OS trust store wholesale
+                CertificateValidationHandler = ctx => ValidateAgainstRootCa(ctx, cfg.RootCaThumbprint), // pins to IoT Hub's published root CA (exact identity to be confirmed against current Microsoft docs at implementation time — §5.1), not the OS trust store wholesale
             })
             .WithCleanSession(false) // persistent session — queued QoS1 messages survive a brief reconnect
             .Build();
@@ -535,17 +538,19 @@ public sealed class DeviceMqttClientFactory
 }
 ```
 
-**Certificate pinning:** `CertificateValidationHandler` explicitly checks the presented chain terminates at Amazon's published Root CA thumbprint (`rootCaUrl` in `device-config.json`) rather than trusting any CA in the Windows root store — the exact same principle `backend/shared/db.ts`'s RDS TLS validation already applies server-side (`ssl: { ca: RDS_CA_BUNDLE, rejectUnauthorized: true }`), mirrored here for the device-side leg.
+**Certificate pinning, corrected v1.2:** `CertificateValidationHandler` explicitly checks the presented chain terminates at Azure IoT Hub's published root CA thumbprint (`rootCaUrl` in the device config, exact identity per §5.1's flagged verification gap) rather than trusting any CA in the Windows root store — the same principle Security Architecture §4.2's Azure Database for PostgreSQL CA-bundle validation applies server-side (`ssl: { ca: AZURE_POSTGRES_CA_BUNDLE, rejectUnauthorized: true }`), mirrored here for the device-side leg.
 
-### 5.2 REST API — Cognito, per-kiosk service identity
+### 5.2 REST API — Entra External ID, per-kiosk service identity *(corrected v1.2 — previously Cognito)*
 
-The kiosk needs its own real Cognito identity to call the REST API — **not a shared/hardcoded credential, and not a new backend auth mode.** Recommendation: one dedicated tenant user per kiosk, created through the *existing* `POST /v1/settings/team` endpoint (tenant admin invites a "user" whose email is a site-scoped alias, e.g. `kiosk-riverside@tenant-domain`, role `operator`) — zero backend changes, reuses the real RBAC model, and gives each site's audit trail (`actor_id`) a distinct, attributable identity instead of one shared kiosk account across every site.
+The kiosk needs its own real `PeakLogicCustomers` Entra External ID identity to call the REST API — **not a shared/hardcoded credential, and not a new backend auth mode**, same principle as the AWS version. Recommendation, unchanged in shape: one dedicated tenant user per kiosk, created through the *existing* `POST /v1/settings/team` endpoint (tenant admin invites a "user" whose email is a site-scoped alias, role `operator` via App Role assignment, Security Architecture §2.1) — zero backend changes beyond what Security Architecture already redesigned, reuses the real RBAC model, and gives each site's audit trail a distinct, attributable identity instead of one shared kiosk account across every site.
+
+**A real, disclosed token-flow difference, not assumed identical to Cognito's `REFRESH_TOKEN_AUTH`**: Entra External ID's OIDC token refresh uses the standard `grant_type=refresh_token` token-endpoint flow (not a Cognito-specific `AuthFlow` parameter) — the code sketch below reflects this; the underlying pattern (cache a long-lived refresh token, DPAPI-protect it, exchange for a short-lived access token on demand, no interactive login on a kiosk) is unchanged.
 
 ```csharp
 public sealed class BackendAuthClient
 {
     private readonly ISecretStore _secrets; // DPAPI-backed, §9.3
-    private readonly HttpClient _cognitoHttp;
+    private readonly HttpClient _entraHttp; // corrected v1.2 — previously _cognitoHttp
 
     public async Task<string> GetValidAccessTokenAsync(CancellationToken ct)
     {
@@ -553,19 +558,21 @@ public sealed class BackendAuthClient
         if (cached is { } t && t.ExpiresAt > DateTimeOffset.UtcNow.AddMinutes(2))
             return t.AccessToken;
 
-        // REFRESH_TOKEN_AUTH — no interactive login on a kiosk; the refresh
-        // token (30-day validity, matching auth-stack.ts's SPA client config)
-        // was seeded once at commissioning and DPAPI-protected ever since.
+        // Standard OIDC refresh_token grant against PeakLogicCustomers' token
+        // endpoint — no interactive login on a kiosk; the refresh token was
+        // seeded once at commissioning and DPAPI-protected ever since.
+        // Corrected v1.2 — previously Cognito's AuthFlow-based REFRESH_TOKEN_AUTH.
         var refreshToken = await _secrets.GetRequiredAsync("kiosk_refresh_token");
-        var resp = await _cognitoHttp.PostAsJsonAsync("/", new
+        var resp = await _entraHttp.PostAsync("/oauth2/v2.0/token", new FormUrlEncodedContent(new Dictionary<string, string>
         {
-            AuthFlow = "REFRESH_TOKEN_AUTH",
-            ClientId = _cfg.CognitoClientId,
-            AuthParameters = new { REFRESH_TOKEN = refreshToken },
-        }, ct);
+            ["grant_type"] = "refresh_token",
+            ["client_id"] = _cfg.EntraClientId,
+            ["refresh_token"] = refreshToken,
+            ["scope"] = _cfg.EntraApiScope,
+        }), ct);
         resp.EnsureSuccessStatusCode();
 
-        var result = await resp.Content.ReadFromJsonAsync<CognitoAuthResult>(ct);
+        var result = await resp.Content.ReadFromJsonAsync<EntraTokenResult>(ct);
         var newTokens = new CachedTokens(result.AccessToken, result.IdToken, DateTimeOffset.UtcNow.AddSeconds(result.ExpiresIn));
         await _secrets.SetAsync("kiosk_tokens", newTokens);
         return newTokens.AccessToken;
@@ -598,7 +605,7 @@ public sealed class PeakLogicApiClient
 }
 ```
 
-**TLS to API Gateway:** standard public-CA validated HTTPS (API Gateway's own managed cert, no pinning needed here — unlike the RDS/IoT legs, this endpoint isn't a fixed, operator-controlled host with a known CA the way the RDS bundle is). `HttpClient` default cert validation is correct and sufficient.
+**TLS to the API layer, corrected v1.2:** standard public-CA validated HTTPS (whichever Azure API-hosting service's own managed cert — Infrastructure as Code §3's compute choice — no pinning needed here, same reasoning as the AWS version). `HttpClient` default cert validation is correct and sufficient.
 
 ---
 
@@ -749,10 +756,11 @@ The watchdog runs as a Windows service (starts before user logon, survives the k
     "assignedAccessMode": "shellLauncher"
   },
   "backend": {
-    "apiBaseUrl": "https://xxxx.execute-api.us-east-1.amazonaws.com/v1",
-    "cognitoClientId": "xxxxxxxxxxxxxxxxxxxxxxxxxx",
-    "cognitoAuthDomain": "https://cognito-idp.us-east-1.amazonaws.com/us-east-1_xxxx",
-    "iotEndpoint": "xxxxxxxxxxxxxx-ats.iot.us-east-1.amazonaws.com"
+    "apiBaseUrl": "https://xxxx.azurewebsites.net/v1",
+    "entraClientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "entraTenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+    "entraApiScope": "api://xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx/.default",
+    "iotHubEndpoint": "peaklogic-dev-iothub.azure-devices.net"
   },
   "devices": [
     {
@@ -783,13 +791,13 @@ The watchdog runs as a Windows service (starts before user logon, survives the k
 
 ### 8.2 Remote configuration updates
 
-The config file's non-secret fields (`devices[].mapper`/`transport`/`fieldMap`, `ui.*`) are treated as a small, versioned document fetchable from a dedicated, low-traffic S3 object per site (`s3://peaklogic-{stage}-edge-config/{siteId}/config.json`, CloudFront-fronted, same account/infra pattern already used for the tenant frontend bucket — **new bucket, not a backend/API change**, since this is static config delivery, not a new data model). The endpoint app polls it on a long interval (default 1 hour) plus on-demand via a kiosk-UI "Check for updates" action, diffs against the local copy, and applies non-disruptively (new device entries spin up new ingestion sources without an app restart; UI-affecting changes take effect on next idle-timeout return to Dashboard).
+**Corrected v1.2 — previously an S3 object/CloudFront distribution.** The config file's non-secret fields are treated as a small, versioned document fetchable from a dedicated, low-traffic Azure Blob Storage object per site (`{stage}-edge-config` container, `{siteId}/config.json`), fronted by whichever CDN/Front Door service Infrastructure as Code (#16) selects for static asset delivery — same account/infra pattern as the tenant frontend's own static hosting, **new blob container, not a backend/API change**, since this is static config delivery, not a new data model. The endpoint app's polling/diff/apply behavior is unchanged — cloud-agnostic client logic.
 
 ### 8.3 Deployment strategy
 
 - **Packaging: MSIX**, signed with an EV code-signing cert — required for silent/unattended install via provisioning package and for Windows' own SmartScreen/Defender trust without per-device manual overrides.
-- **Initial commissioning:** a provisioning package (`.ppkg`, built via Windows Configuration Designer) bundles the MSIX, the Assigned Access/Shell Launcher profile, the kiosk account creation, and a *bootstrap* config containing only `siteIdentity`+`backend`+the Cognito refresh token (delivered once, out-of-band, DPAPI-sealed on first run) — device cert bundles for any devices known at commissioning time are included the same way; devices added later go through the ordinary claim flow from the kiosk UI itself.
-- **Updates: a background update agent** (part of the Watchdog service, §7.3) checks an MSIX update feed (App Installer's `.appinstaller` URI pattern, self-hosted on the same CloudFront distribution as §8.2's config) on a scheduled interval, downloads and stages the update, and applies it during a configured low-traffic maintenance window (default 3–4 AM local, using the site's own `timezone` — reusing the exact same IANA timezone concept already shipped in the tenant web app's Settings page, not a new one) rather than interrupting an active kiosk session.
+- **Initial commissioning:** a provisioning package (`.ppkg`, built via Windows Configuration Designer) bundles the MSIX, the Assigned Access/Shell Launcher profile, the kiosk account creation, and a *bootstrap* config containing only `siteIdentity`+`backend`+**the Entra refresh token** *(corrected v1.2 — previously Cognito)* (delivered once, out-of-band, DPAPI-sealed on first run) — device cert bundles for any devices known at commissioning time are included the same way; devices added later go through the ordinary claim flow from the kiosk UI itself.
+- **Updates: a background update agent** (part of the Watchdog service, §7.3) checks an MSIX update feed (App Installer's `.appinstaller` URI pattern, self-hosted on the same CDN distribution as §8.2's config, corrected v1.2) on a scheduled interval, downloads and stages the update, and applies it during a configured low-traffic maintenance window — cloud-agnostic scheduling logic, unaffected by the cloud switch.
 - **Versioning:** MSIX package version follows the same platform SemVer as the rest of PeakLogicSystems (`CHANGELOG.md` convention) — this app's releases are tracked as their own line item in that same changelog once implementation begins, not a separate versioning scheme.
 - **Rollback:** the update agent retains the previous MSIX package on disk and reverts automatically if the new version fails a post-update health check (main app fails to reach `Running` heartbeat state within 2 minutes of the update-triggered restart) — mirrors the "redeploy from known-good" philosophy of the platform's own Rollback Procedure (`CLAUDE.md`), applied at the single-device scale instead of the fleet/stack scale.
 
@@ -809,17 +817,17 @@ Three separate OS processes, not one monolith:
 
 ### 9.2 Role-based access (viewer vs. technician)
 
-Two local roles, **deliberately not re-implementing the backend's `admin`/`operator` model** — this is a *device-presence* distinction (who's physically standing at the kiosk), not a tenant-data-access distinction, which stays entirely governed by whichever Cognito identity the kiosk itself authenticates as (§5.2) for anything that touches backend data.
+Two local roles, **deliberately not re-implementing the backend's `admin`/`operator` model** — this is a *device-presence* distinction (who's physically standing at the kiosk), not a tenant-data-access distinction, which stays entirely governed by whichever Entra identity the kiosk itself authenticates as *(corrected v1.2 — previously Cognito)* (§5.2) for anything that touches backend data.
 
 - **Viewer (default):** dashboard, sites/assets/devices/alerts/tickets browsing — read-only, no PIN required.
-- **Technician:** unlocked via a local PIN (stored as a salted hash, DPAPI-protected, **not** a Cognito credential — this gate exists to prevent a passerby from fiddling with local config/ingestion settings, it is not a tenant-security boundary) — grants access to Ingestion Health, the ConfigTool launch, and acknowledging local-only diagnostic state. **Does not grant any additional backend API scope** — that's still bounded by the kiosk's own fixed `operator`-role Cognito identity regardless of local PIN state, so a technician unlock can never let someone do something server-side the kiosk account itself isn't already permitted to do.
+- **Technician:** unlocked via a local PIN (stored as a salted hash, DPAPI-protected, **not** an Entra credential — this gate exists to prevent a passerby from fiddling with local config/ingestion settings, it is not a tenant-security boundary) — grants access to Ingestion Health, the ConfigTool launch, and acknowledging local-only diagnostic state. **Does not grant any additional backend API scope** — that's still bounded by the kiosk's own fixed `operator`-role Entra identity regardless of local PIN state, so a technician unlock can never let someone do something server-side the kiosk account itself isn't already permitted to do.
 
 ### 9.3 Secure local storage
 
 | Secret | Storage mechanism |
 |---|---|
 | Device X.509 private keys | Windows Certificate Store, non-exportable where supported (§5.1) |
-| Cognito refresh token, cached access/ID tokens | `ProtectedData.Protect` (DPAPI), `DataProtectionScope.LocalMachine` (survives the fixed kiosk account, not tied to a roaming user profile that doesn't apply here) |
+| Entra refresh token, cached access/ID tokens *(corrected v1.2 — previously Cognito)* | `ProtectedData.Protect` (DPAPI), `DataProtectionScope.LocalMachine` (survives the fixed kiosk account, not tied to a roaming user profile that doesn't apply here) |
 | Technician PIN hash | DPAPI-protected, salted PBKDF2/Argon2 hash — never the raw PIN |
 | Local SQLite cache (§4) | File-level: NTFS permissions scoped to the kiosk account + Watchdog service account only; no plaintext secrets are ever written into it (telemetry payloads only, which are not sensitive credential material) |
 
@@ -836,7 +844,7 @@ A local, append-only SQLite table (`local_audit_log`) — **distinct from and co
 - [ ] Kiosk account: standard user, no admin rights, password not required to be known by site staff (auto-logon via provisioning package)
 - [ ] Windows Update: configured for security-only updates on a maintenance window, not arbitrary feature updates that could disrupt Assigned Access config
 - [ ] Windows Defender (or fleet-standard AV) active, with an exclusion only for the SQLite cache file path (performance, not a security bypass)
-- [ ] Local firewall: outbound-only egress rules matching exactly what the app needs (API Gateway host, IoT Core endpoint, MSIX update feed host, config S3/CloudFront host) — no general outbound allow
+- [ ] Local firewall: outbound-only egress rules matching exactly what the app needs (API host, IoT Hub endpoint, MSIX update feed host, config blob/CDN host — corrected v1.2) — no general outbound allow
 - [ ] RDP disabled; remote management, if needed, via the same MDM channel used for provisioning, not ad hoc RDP
 - [ ] Physical: device in a locked enclosure/mount where site conditions warrant it (matches the "no-login opaque-token" Field Service Partner physical-security posture already assumed elsewhere in this platform's design)
 - [ ] Outbound firewall allowlist updated to also include the VPN concentrator host (§10.1) alongside the API Gateway/IoT Core/MSIX-feed/config hosts already listed above
@@ -853,14 +861,15 @@ Everything in §8 (MSIX packaging, background update agent) governs **PeakLogic 
 
 ```
 ┌──────────────┐  outbound WireGuard, always-on   ┌───────────────────────────┐
-│ PeakLogic Edge │──────────────────────────────────▶│ VPN Concentrator (AWS)     │
-│ (per site)      │◀──────────────────────────────────│ - assigns stable private   │
+│ PeakLogic Edge │──────────────────────────────────▶│ VPN Concentrator (Azure)   │  *(corrected v1.2 —
+│ (per site)      │◀──────────────────────────────────│ - assigns stable private   │   previously AWS)
 │                  │        UDP/51820                  │   IP per hub (by pubkey)    │
 │ Local Management │                                    │ - WireGuard server on a     │
-│ API (§10.3),      │                                    │   small EC2/Fargate task,   │
-│ bound ONLY to the  │                                    │   or a managed offering     │
-│ WireGuard interface,│                                   │   if available at the time  │
-│ never the public NIC │                                  └───────────┬───────────────┘
+│ API (§10.3),      │                                    │   small Container Instance  │
+│ bound ONLY to the  │                                    │   / Container App task,     │
+│ WireGuard interface,│                                   │   or a managed offering     │
+│ never the public NIC │                                  │   if available at the time  │
+│                       │                                  └───────────┬───────────────┘
 └──────────────────┘                                                  │
                                                                         ▼
                                                           ┌───────────────────────────┐
@@ -873,7 +882,7 @@ Everything in §8 (MSIX packaging, background update agent) governs **PeakLogic 
                                                           └───────────────────────────┘
 ```
 
-**Why WireGuard, not a full AWS Client VPN / Site-to-Site setup:** those are built for routing an entire customer network into AWS, which is far more than one small hub process needs and would require customer network changes this project has no standing to request. A per-device WireGuard tunnel is device-initiated, needs zero customer-side network configuration (it's outbound UDP, same firewall-friendliness posture as the port-443 preference elsewhere in this document), and each hub's tunnel is independently revocable (delete its peer entry) without touching any other hub — a clean match for the decommissioning discipline Device & Command Security Architecture §3.2 already established for device certs.
+**Why WireGuard, not a full Azure VPN Gateway / Site-to-Site setup** *(corrected v1.2 — previously AWS Client VPN)*: those are built for routing an entire customer network into the cloud, which is far more than one small hub process needs and would require customer network changes this project has no standing to request. A per-device WireGuard tunnel is device-initiated, needs zero customer-side network configuration (it's outbound UDP, same firewall-friendliness posture as the port-443 preference elsewhere in this document), and each hub's tunnel is independently revocable (delete its peer entry) without touching any other hub — a clean match for the decommissioning discipline Device & Command Security Architecture §3.2 already established for device certs.
 
 **Authentication:** WireGuard's own keypair, generated at commissioning, private key DPAPI/Cert-Store-protected exactly like the device certs (§9.3) — a second, independent credential from the Cognito/IoT identities, so compromising one doesn't imply compromising the others.
 
@@ -934,11 +943,11 @@ Workflow, mirroring the same "draft → review → approve → promote" discipli
 3. After a configurable bake period (default 72h) with no regression signal (hub still reporting normal heartbeat/telemetry — regression detection here is intentionally simple: "did the hub go dark," not a sophisticated health-scoring system), the admin **promotes the KB to `broad`**, then eventually **`production`** — each promotion is a deliberate console action, never automatic, and every promotion is written to the local audit log (§9.4) on the affected hubs plus a corresponding fleet-level audit record.
 4. **Targeted push** outside the ring model — e.g. "patch only the 12 hubs in Texas" — is just a saved filter over the same hub inventory (by `siteId`/region metadata already in `EdgeConfig.siteIdentity`), not a separate mechanism.
 
-**Critical-patch notification:** the moment the Patch Reporting Agent reports a new `Critical`/`Security`-classified KB from *any* hub, the fleet-management plane fires a notification to whoever holds the compliance/monitoring-owner role (reuses the same SNS-topic-plus-owner-email pattern the platform's own CloudWatch alarms already use, §12 Monitoring & Logging of the SysAdmin Guide) — this is the "direct connections and notifications... so these can be flagged and tested in dev" requirement: the flag is automatic and immediate, the dev-ring rollout is a deliberate human action taken in response to it, not automated.
+**Critical-patch notification:** the moment the Patch Reporting Agent reports a new `Critical`/`Security`-classified KB from *any* hub, the fleet-management plane fires a notification to whoever holds the compliance/monitoring-owner role (reuses the same Action-Group-plus-owner-email pattern the platform's own Azure Monitor Alerts already use, SOC 2 Control Mapping §4 — corrected v1.2, previously CloudWatch/SNS) — this is the "direct connections and notifications... so these can be flagged and tested in dev" requirement: the flag is automatic and immediate, the dev-ring rollout is a deliberate human action taken in response to it, not automated.
 
 ### 10.5 What this section does *not* solve (real, disclosed gaps)
 
-- **The fleet-management backend (hub inventory, patch-status ingestion endpoint, ring/promotion API, VPN concentrator infrastructure) does not exist yet.** Everything in §10.1–§10.4 is a design, the same "specified, not shipped" status as the rest of this document (§0) — but worth restating here specifically because this section, unlike most of the rest of the document, **does** require new backend/infra work (a small new API surface + the VPN concentrator stack), not a zero-backend-change bridge like the telemetry design in §1–§9. Scope it as its own implementation phase, likely its own CDK stack (`FleetManagementStack`) and a handful of new `/v1/admin/hubs/*`-style endpoints under the existing Internal Administration Console surface (`/v1/admin/*`, Security Architecture §2.5) — reusing StaffPool auth, not inventing a fourth identity surface.
+- **The fleet-management backend (hub inventory, patch-status ingestion endpoint, ring/promotion API, VPN concentrator infrastructure) does not exist yet.** Everything in §10.1–§10.4 is a design, the same "specified, not shipped" status as the rest of this document (§0) — but worth restating here specifically because this section, unlike most of the rest of the document, **does** require new backend/infra work (a small new API surface + the VPN concentrator stack), not a zero-backend-change bridge like the telemetry design in §1–§9. Scope it as its own implementation phase, likely its own Bicep module (`fleet-management.bicep`, corrected v1.2 — previously `FleetManagementStack`) and a handful of new `/v1/admin/hubs/*`-style endpoints under the existing Internal Administration Console surface (`/v1/admin/*`, Security Architecture §2.5) — reusing PeakLogic's own Entra ID workforce-tenant staff auth, not inventing a fourth identity surface.
 - **WireGuard concentrator sizing/HA** is not specified — a single small instance is fine for a pilot fleet, but this needs real capacity planning once hub count is nontrivial.
 - **Rollback of an already-installed OS patch** (vs. simply not promoting a pending one) is out of scope here — Windows' own patch-uninstall mechanics apply, but there's no fleet-orchestrated "revert this KB across the canary ring" flow designed yet.
 
@@ -951,7 +960,7 @@ Workflow, mirroring the same "draft → review → approve → promote" discipli
 1. **Configuration + Security Layer skeleton** — config file schema, DPAPI secret store, Cert Store integration. Everything else depends on this existing first.
 2. **Local Caching Layer** — SQLite schema + `TelemetryCache`/`TelemetryFlusher`, tested standalone against a mock MQTT client before any real ingestion exists.
 3. **Serial + Network Ingestion Layers** — one mapper per pilot device type, wired to the Telemetry Bus (§2.1).
-4. **MQTT Publisher Pool + REST API Client** — real backend integration; this is the point at which the app can be validated end-to-end against a real (dev-stage) AWS environment using devices provisioned via the unmodified `provision-devices.ts`.
+4. **MQTT Publisher Pool + REST API Client** — real backend integration; this is the point at which the app can be validated end-to-end against a real (dev-stage) Azure environment (corrected v1.2) using devices provisioned via the DPS-ported `provision-devices.ts`.
 5. **Kiosk UI (WinUI 3)** — screens per §6.2, built against the now-working data layer, not mocked separately (avoids the tenant frontend's own "mock data" gap being repeated here).
 6. **Watchdog service + Assigned Access/Shell Launcher provisioning package** — turns the app into an actual kiosk, not just a windowed app.
 7. **MSIX packaging + update agent** — last, once the app's shape is stable enough that update/rollback mechanics have something real to exercise.
@@ -1007,7 +1016,7 @@ PeakLogicEdge/
 │   └── msix/                            # packaging manifest, signing config, .appinstaller feed template
 └── test/
     ├── PeakLogicEdge.Core.Tests/         # mappers, cache durability, backoff policy — unit
-    └── PeakLogicEdge.Integration.Tests/  # against a real dev-stage AWS IoT Core + API (mirrors backend's own integration-test discipline)
+    └── PeakLogicEdge.Integration.Tests/  # against a real dev-stage Azure IoT Hub + API (corrected v1.2; mirrors backend's own integration-test discipline)
 ```
 
 ### 10.3 Example class responsibilities (summary table)
@@ -1039,7 +1048,7 @@ PeakLogicEdge/
 ## 12. Open Questions
 
 1. **Certificate delivery mechanism at scale** — this document assumes commissioning-time bundling via provisioning package for known devices and normal claim-flow provisioning for devices added later, but doesn't specify the operational tooling for *bulk* pre-provisioning many kiosks' worth of device certs before truck-roll. Worth a follow-up operational runbook, not an architecture change.
-2. **`s3://peaklogic-{stage}-edge-config/` is a new bucket** — real infra, not yet created. Small (`FrontendStack`-adjacent) CDK addition when implementation begins; flagged here so it isn't assumed to already exist.
+2. **The `{stage}-edge-config` blob container is new infra** *(corrected v1.2 — previously an S3 bucket)* — not yet created. A small addition to `infra-azure/frontend.bicep` (or a sibling module) when implementation begins; flagged here so it isn't assumed to already exist.
 3. **Command Dispatch Layer's actual activation path** is intentionally undesigned beyond "subscribe, currently inert" — when Device & Command Security Architecture §5's gate lifts, this document needs a corresponding amendment to specify how the endpoint app's UI (§6.4) goes from disabled to live, not just how the backend does.
 4. **Kiosk-per-site Cognito account provisioning is manual today** (via `POST /v1/settings/team`, same as any team invite) — at fleet scale this likely wants a dedicated admin-console flow (`/v1/admin/tenants/{tenantId}/users`, already real per the Internal Administration Console) rather than a tenant admin doing it by hand per site; worth revisiting once kiosk deployment count is nontrivial.
 5. **Local Rule Engine / fail-safe-locally scope** — §0/§4.2 of Device & Command Security Architecture establishes the principle that safety-critical actuation must trip locally, not depend on cloud round-trips. This document doesn't yet specify whether/how PeakLogic Edge itself would host such local logic (e.g. a direct relay wired to the Windows box) versus that always living in device-native firmware — real product scoping needed before this is architected, not assumed here.
@@ -1053,18 +1062,38 @@ PeakLogicEdge/
 
 | Section | Traces to |
 |---|---|
-| §1.2–§1.3, §5.1 | Device & Command Security Architecture §2 (device identity, existing, reconciled) |
-| §2.4, §4.3 (MQTT QoS) | `infra/lib/iot-stack.ts` `PeakLogicDevicePolicy`, `TelemetryRule` |
-| §3.1 | `backend/shared/types.ts` `IoTIngestEvent`, `backend/ingest/rules.ts` `RULES_BY_CATEGORY` |
-| §4 | General guaranteed-delivery discipline — no direct backend-doc precedent, endpoint-specific |
-| §5.1 (cert pinning) | `backend/shared/db.ts`'s RDS CA-bundle pinning — same principle, mirrored |
-| §5.2 | `backend/api/routes/settings-team.ts` (`POST /v1/settings/team`), Security Architecture §2 (Cognito tenant pool model) |
-| §6.4, §11 item 3 | Device & Command Security Architecture §4/§5 (command channel design + MVP gate) |
+| §1.2–§1.3, §5.1 | Device & Command Security Architecture §2 (Azure IoT Hub/DPS device identity, corrected v1.2) |
+| §2.4, §4.3 (MQTT QoS) | Device & Command Security Architecture §2 (IoT Hub per-device topic scoping — corrected v1.2, previously `iot-stack.ts`) |
+| §3.1 | `backend/shared/types.ts` `IoTIngestEvent`, `backend/ingest/rules.ts` `RULES_BY_CATEGORY` — unchanged, cloud-agnostic |
+| §4 | General guaranteed-delivery discipline — endpoint-specific, unaffected by cloud switch |
+| §5.1 (cert pinning) | Security Architecture §4.2's Azure Database for PostgreSQL CA-bundle pinning — same principle, mirrored (corrected v1.2) |
+| §5.2 | `backend/api/routes/settings-team.ts` (`POST /v1/settings/team`), Security Architecture §2.1 (Entra External ID tenant model, corrected v1.2) |
+| §6.4, §11 item 3 | Device & Command Security Architecture §4/§5 (Direct-Methods-based command channel design + MVP gate, corrected v1.2) |
 | §8.3 (versioning/rollback) | `CLAUDE.md` → Version Control Standards, Rollback Procedure |
 | §9.2 | Deliberately independent of `admin`/`operator` RBAC — device-presence gate, not a tenant-data gate |
+| §10.1 | Deployment Architecture §2 (resource-group-per-stage), corrected v1.2 (previously AWS account model) |
 
 ---
 
 ## 14. Review Log
 
 Not yet reviewed — Draft v1.0, first pass. Recommend a dedicated review pass before implementation begins, focused on: (1) confirming the "N concurrent per-device MQTT identities" design (§1.2) is acceptable from an ops/commissioning-burden standpoint versus its architectural cleanliness, since it does mean every locally-bridged sensor needs its own real cert bundle physically delivered to the site; (2) re-verifying §0's CC-3.1/CC-4.1 gate against Device & Command Security Architecture at the time implementation actually starts, in case that document's own §5 gate has since been lifted by a roadmap decision.
+
+**v1.2 (2026-07-17), the first review pass specific to the `PeakLogic-Azure` fork.** Checked every AWS-specific reference against this document's own stated boundary (§0's fork note) — identity/networking sections corrected, core hub logic confirmed untouched, not re-verified line-by-line since none of it depends on cloud APIs.
+
+1. **Confirmed the amendment's own scope claim, not assumed**: grepped this document for every AWS-service mention (Cognito, IoT Core, S3, CloudFront, SNS, CloudWatch, EC2/Fargate, AWS Client VPN) and corrected each one at its actual location (§0, §1.3, §5.1, §5.2, §8.1–8.3, §9.2–9.3, §10.1, §10.4–10.5, §11, §12, §13) — none were missed, none were over-corrected into sections that don't actually reference AWS (§1–4, §6–7, §9.1/9.4–9.5 confirmed untouched).
+2. **A real, disclosed verification gap flagged rather than guessed**: §5.1's Azure IoT Hub root-CA identity was explicitly NOT asserted without a fresh check — Microsoft has changed IoT Hub's TLS root before, so this is named as a real, open verification item for implementation time, not filled in with an unverified guess the way a less careful pass might have.
+3. **The Entra token-refresh flow (§5.2) was corrected to the real OIDC `grant_type=refresh_token` shape**, not left as a renamed Cognito `AuthFlow` call — checked against Security Architecture §2.1's own already-verified Entra External ID design rather than assumed to be a drop-in parameter swap.
+
+---
+
+## Revision History
+
+**v1.2 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, per `azure-restructuring-plan.md` item 25: a 🔵 amendment targeting exactly the identity/networking boundary that item named, not a full rewrite.
+
+- **§0/§1.3 corrected**: Azure IoT Hub + DPS replaces AWS IoT Core; Entra External ID replaces Cognito, in the document's own scope statement and system diagram.
+- **§5.1 rewritten**: DPS individual enrollment replaces `CreateKeysAndCertificateCommand`; a real, disclosed verification gap flagged for the IoT Hub root-CA identity rather than guessed.
+- **§5.2 rewritten**: Entra External ID's standard OIDC refresh-token grant replaces Cognito's `REFRESH_TOKEN_AUTH`, same underlying pattern (cached refresh token, DPAPI-protected, no interactive kiosk login).
+- **§8.1–8.3, §9.3 corrected**: config schema fields, commissioning bootstrap, and secret-storage table all reference Entra/Azure Blob Storage instead of Cognito/S3.
+- **§10.1, §10.4–10.5 corrected**: the fleet-management VPN concentrator, patch-notification mechanism, and future backend implementation references all point at their real Azure equivalents (Azure Monitor Action Groups, a Bicep module instead of a CDK stack, PeakLogic's own Entra ID workforce tenant instead of `StaffPool`).
+- **Confirmed unchanged, not silently assumed**: §1–4 (ingestion, normalization, local caching/durable-queue design), §6–7 (kiosk UI, Assigned Access/Shell Launcher, watchdog), and §9.1/9.4–9.5 (process isolation, local audit logging, hardening checklist minus the one corrected firewall-host line) — none of this logic touches a cloud API directly, verified by grep rather than assumed from the plan's own disposition note alone.

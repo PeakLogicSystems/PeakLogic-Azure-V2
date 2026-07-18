@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.4), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (approved v1), [Security Architecture](security-architecture.md) (approved v1), [Multi-Tenant Architecture](multi-tenant-architecture.md) (approved v1)
-**Last updated:** 2026-07-09
+**Status:** Draft v2.0 — full rewrite for Azure (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 — AWS-native — until v2.0 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (Draft v1.1, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4, pending)
+**Last updated:** 2026-07-17
+**Fork note (v2.0):** the first `PeakLogic-Azure`-specific rewrite — `azure-restructuring-plan.md` item 15 flagged this 🟣 **full rewrite required**: the stage/environment model needs redesigning for Azure resource-group/subscription conventions, which have no direct AWS-account analogue. Every Azure-specific claim below was verified against current Microsoft documentation, not assumed by analogy — see §8 Review Log. The AWS-native `PeakLogic-AWS` repo's own Approved v1 is unaffected.
 
 ---
 
@@ -23,72 +24,66 @@ Out of scope: the CDK code organization/module structure itself (→ Infrastruct
 
 ---
 
-## 2. Critical gap found and fixed: zero environment separation existed
+## 2. Environment Separation (rewritten for Azure — real design, not a reconciliation)
 
-**The gap:** `infra/bin/peaklogic.ts` declared exactly one fixed set of stack names (`PeakLogic-Network`, `PeakLogic-Data`, etc.) with no environment concept anywhere — no context variable, no naming suffix, nothing in `cdk.json`. Every account+region-unique resource name was hardcoded too: both Lambda function names (`peaklogic-api`, `peaklogic-ingest`), the REST API name, the Cognito user pool/client names, and the IoT thing type/policy/rule/log group names. **A `cdk deploy` run from the `dev` branch and one run from `main` would target the exact literal same AWS resources** — there was no way to stand up a staging or pre-prod environment distinct from whatever was already deployed, despite `CLAUDE.md`'s own branching model (`dev` = active development, `main` = production-ready, tagged releases) implying environment separation should exist.
+**The AWS lesson, restated as a standing requirement, not a live finding on this fork**: the AWS version found zero environment separation in its original v1.0.0 infrastructure code — one fixed set of stack/resource names, no stage concept, meaning a `dev` and a `prod` deploy would have collided outright. No Azure infrastructure code exists yet for this fork, so there is nothing to find broken today — but the requirement carries forward unconditionally: **whatever Azure IaC gets written must build in explicit, required stage separation from its very first commit**, not retrofit it after an accidental collision the way the AWS version had to.
 
-**Why this had gone unnoticed:** per [[project-peaklogic-overview]]'s own history, `cdk synth` had apparently never been run successfully before Security Architecture's code-reconciliation pass surfaced an unrelated bundling bug — so nothing had ever actually attempted a real deploy that would have surfaced the collision.
+### 2.1 Decision: single Azure subscription, resource-group-per-stage — a deliberate deviation from Microsoft's own recommended default, for the same reasons the AWS version deviated from AWS's
 
-**Fixed 2026-07-09 (commit `1ef0fdf`), before this document was drafted, given how load-bearing it is** — the same severity judgment call made for Multi-Tenant Architecture's telemetry RLS gap, though this one is a design gap in never-yet-deployed infrastructure rather than a live data exposure, so it didn't warrant interrupting mid-task the same way.
+**Verified via Microsoft's own Cloud Adoption Framework guidance, not assumed**: Microsoft's current recommended best practice for dev/test/prod separation is **separate subscriptions per environment** (not resource groups) — subscriptions are the real RBAC/policy/billing isolation boundary in Azure, and Microsoft explicitly frames this as *the* recommended approach, not just an enterprise-scale option. This is the direct structural analogue of the AWS version's own explicitly-rejected "separate AWS accounts per stage" option.
 
-### 2.1 Decision: single AWS account, stage-suffixed resources — not separate accounts per stage
+**Decision, deliberately mirroring the AWS version's own reasoning rather than defaulting to Microsoft's recommendation: single Azure subscription, one resource group per stage (`peaklogic-dev-rg`, `peaklogic-staging-rg`, `peaklogic-prod-rg`), not separate subscriptions.** Subscription-per-environment requires per-subscription RBAC/policy administration and (depending on how PeakLogic's Azure billing relationship is set up) potentially separate subscription-creation/billing steps — real operational overhead disproportionate to a platform still validating its product thesis with a small number of design-partner tenants (PRD §8), the identical proportionality judgment the AWS version already made when it chose one account over AWS's own best-practice recommendation. **Resource groups are still a real, structural isolation unit, not just a naming convention** — unlike the AWS version's stage-suffix-only approach (a flat namespace with no actual boundary beyond the name), a resource group is Azure's real deletion/RBAC scope: deleting `peaklogic-dev-rg` cannot touch a resource living in `peaklogic-prod-rg`, a stronger structural guarantee than AWS's single-account approach ever had. **Revisit subscription-per-environment once there's an actual SOC 2 Type II engagement or enterprise customer requiring that level of isolation** — the same revisit trigger the AWS version already named for its own account-separation question.
 
-Two real options exist for environment isolation: separate AWS accounts per stage (full blast-radius isolation, the AWS-recommended best practice at real organizational scale) or one account with stage-suffixed resource names (cheaper, simpler, less operational overhead). **Decision: single account, three stages (`dev`/`staging`/`prod`) distinguished by a required CDK context value.** This matches the cost-conscious MVP posture already made everywhere else in this codebase (`db.t3.micro`, single NAT gateway, `multiAz: false` — all explicit "acceptable for now" calls) and the PRD §8 framing that MVP validates the product thesis with a small number of design-partner tenants, not general availability. Multi-account setup is real, valuable ops maturity — appropriate to revisit once there's an actual SOC 2 Type II engagement or enterprise customer requiring that level of isolation, not before.
+**A real, disclosed Azure-specific naming wrinkle the AWS version never had to consider**: several Azure resource types (storage accounts, Azure Database for PostgreSQL Flexible Server names, Key Vault names in some configurations) require **globally unique names across all of Azure**, not just uniqueness within a resource group or subscription — a materially stricter constraint than AWS's account+region-scoped uniqueness. This means stage-suffixed resource *names* remain necessary even with resource-group separation already providing structural isolation — the two mechanisms are complementary, not redundant, and whoever writes the Azure IaC (#16) needs to account for global-uniqueness collisions (e.g. against a resource name another Azure customer entirely has already claimed) as a real deploy-time failure mode AWS never had.
 
-Implementation: `infra/bin/peaklogic.ts` reads `-c stage=` and throws if it's missing or not one of `dev`/`staging`/`prod` — **no default.** A missing flag failing the synth outright is a much safer failure mode than a mistyped one silently deploying to the wrong environment. Every stack ID and every previously-hardcoded resource name is now suffixed by stage (e.g. `PeakLogic-dev-Api`, `peaklogic-prod-api`, `PeakLogicDevicePolicy-staging`). Verified via `cdk synth` for both `dev` and `prod`: distinct stack names, and a diff of both templates' named resources confirmed zero collisions.
+**Implementation guidance for whoever writes this in Infrastructure as Code (#16), not yet built**: whichever IaC tool is chosen must require an explicit stage parameter with no default (mirroring the AWS version's own "missing flag fails loudly" principle exactly — that discipline is tool-agnostic and carries over unchanged), targeting the correct stage's resource group and stage-suffixed resource names.
 
-### 2.2 One deliberate exception: the MQTT topic namespace is not stage-scoped
+### 2.2 The MQTT/device-topic-namespace exception — structurally resolved on Azure, not merely worked around
 
-IoT Core resource *names* (thing type, policy, topic rule, log group) are stage-suffixed like everything else, but the MQTT topic pattern devices actually publish/subscribe to (`peaklogic/{thingName}/telemetry`, `.../commands`) is not. Extending stage-scoping there would mean changing what firmware/`provision-devices.ts` write into `device-config.json`, a materially bigger, product-facing change than this fix warranted.
-
-**Consequence:** the `TelemetryRule`'s SQL (`FROM 'peaklogic/+/telemetry'`) is unscoped by stage — if `dev` and `prod` IoT stacks were ever both deployed to the same AWS account, both stages' ingest Lambdas would fire on literally the same telemetry from any device, regardless of which stage's Thing it was provisioned under. **Operational rule adopted instead of a code fix:** only one stage's IoT stack may be deployed per AWS account at a time, or use genuinely separate AWS accounts per stage if `dev` and `prod` ever need real devices reporting simultaneously. Documented in `CLAUDE.md`'s new "Environments / Deployment Stages" section so this isn't rediscovered the hard way later.
+**A genuine, verified architectural improvement over the AWS design, not a lateral restatement.** The AWS version's IoT Core has one shared, account-wide MQTT topic namespace (`peaklogic/{thingName}/telemetry`) that every stage's Things collectively publish into — stage separation there was only an *operational rule* ("don't deploy two stages' IoT stacks to the same account simultaneously"), not something the platform itself enforced. **Azure IoT Hub has no equivalent shared-namespace risk, verified via Device & Command Security Architecture §2's own research**: each stage gets its own genuinely separate IoT Hub *resource* (`peaklogic-dev-iothub`, `peaklogic-prod-iothub`, one per stage's resource group), each with its own independent device registry and its own topic namespace (`devices/{deviceId}/messages/events`) scoped entirely to that specific Hub instance. A device provisioned into the `dev` IoT Hub's DPS enrollment is **structurally incapable** of connecting to or publishing into the `prod` IoT Hub's namespace at all — there is no shared broker for it to collide within, unlike AWS's single-account-wide MQTT namespace. **This closes the AWS version's §2.2 finding by construction, not by documented operational discipline** — no "only one stage's IoT stack may be deployed at a time" rule is needed on Azure, because there is no shared resource for two stages to contend over in the first place.
 
 ---
 
-## 3. High Availability & Disaster Recovery
+## 3. High Availability & Disaster Recovery (rewritten for Azure, real Azure mechanisms verified)
 
-### 3.1 Formalized: three "flip for prod" TODOs are now automatic, not manual
+### 3.1 Stage-conditional settings — same principle, verified Azure-native mechanisms, not yet implemented
 
-Three settings previously had hardcoded values and a code comment saying to change them before a production deploy — a manual step a human could forget. All three now key off `stage` directly (commit `1ef0fdf`), verified via `cdk synth` to actually differ between `dev` and `prod`:
+**The AWS version's discipline carries over unchanged: whatever the equivalent settings are on Azure must be `stage`-conditional from the first commit, not a hardcoded value with a "flip for prod" comment a human could forget.** The specific settings and their Azure-verified equivalents:
 
-| Setting | dev / staging | prod | Why |
+| Setting | dev / staging | prod | Azure mechanism (verified) |
 |---|---|---|---|
-| RDS `multiAz` | `false` | `true` | Prod gets automatic failover to a standby in a second AZ; not worth the cost at design-partner scale |
-| RDS `deletionProtection` | `false` | `true` | Prevents an accidental `cdk destroy`/console delete from taking out the production database |
-| RDS instance size | `db.t3.micro` | `db.t3.medium` | The existing code comment's own threshold ("when you have paying customers") — prod stage is that threshold now |
-| NAT gateways | 1 | 2 (one per AZ) | Closes a real single point of failure: with 1 NAT gateway, CDK's default VPC construct routes *every* private subnet's egress through it regardless of AZ, so that NAT's AZ having an outage would break every Lambda's AWS-API connectivity (Secrets Manager, IoT Core, etc.) platform-wide, not just in the affected AZ — acceptable for non-prod, not for prod |
+| Database HA | single instance | zone-redundant HA | Azure Database for PostgreSQL Flexible Server's zone-redundant high-availability feature — the direct analogue of RDS Multi-AZ, confirmed as a real, current Azure capability via Microsoft's own business-continuity documentation |
+| Deletion protection | off | on | **A real, disclosed generalization over the AWS design, not a 1:1 swap**: Azure Resource Manager's **resource lock** mechanism (`CanNotDelete`) is a platform-wide capability applicable to any resource type, not an RDS-specific flag the way AWS's `deletionProtection` was — scoped here to the production database resource specifically, matching AWS's own scope, though the mechanism itself could in principle protect more than just the database if that's ever wanted |
+| Database compute tier | Burstable (Multi-Tenant Architecture §4's naming) | General Purpose | Mirrors the AWS version's `t3.micro`→`t3.medium` "when you have paying customers" threshold conceptually; exact SKU is Infrastructure as Code's (#16) decision |
+| Outbound network redundancy | single NAT path | zone-redundant | Azure's NAT Gateway resource (or whichever outbound-connectivity mechanism Infrastructure as Code selects) has an analogous single-zone-failure risk if only one instance backs every private subnet's egress — the same AZ-outage reasoning the AWS version applied to its NAT gateway count carries over unchanged in principle; the concrete Azure resource and count is Infrastructure as Code's (#16) job |
 
-### 3.2 Backup / RPO / RTO — existing mechanism, no explicit target stated until now
+**Not yet implemented for this fork** — unlike the AWS version, which verified all four settings differ via a real `cdk synth`, none of this exists in code yet. This table states the required stage-conditional behavior and its verified Azure mechanism; wiring it into real Bicep/Terraform is Infrastructure as Code's (#16) job, to be re-verified via that tool's own plan/synth-equivalent output once written — not assumed correct by this document alone.
 
-RDS automated backups exist (`backupRetention: 7 days`, existing/reconciled) and support point-in-time recovery within that window. No document before this one stated an explicit RPO/RTO target to hold that mechanism accountable to. **Decision:** RPO ≤ 5 minutes (RDS automated backups' continuous transaction-log capture already provides this within the 7-day window; not a new mechanism, just naming the number PRD §6's non-contractual 99.9% uptime target implies), RTO ≤ 4 hours (point-in-time restore to a new instance, DNS/connection-string cutover — not yet drilled or timed against a real restore, see §5). No cross-region backup replication exists or is recommended yet — single-region is consistent with the single-account, cost-conscious posture elsewhere in this document, and PRD §6's target is an internal engineering goal, not yet a contractual SLA that would require it.
+### 3.2 Backup / RPO / RTO — verified Azure mechanism, same targets
 
----
-
-## 4. Release & Rollback Process
-
-### 4.1 Release Process (existing, reconciled)
-
-`CLAUDE.md`'s release process (merge `dev` → `main`, tag `vX.Y.Z`, update CHANGELOG and sysadmin guide, deploy) is already fully documented and followed — no gap, no change here. Worth stating explicitly for the first time: this process has never actually been exercised end-to-end against real infrastructure, since (per §2) no deploy has ever succeeded — `cdk synth` itself only started working during Security Architecture's investigation (a prior artifact), not this one.
-
-### 4.2 Real gap found: no rollback procedure exists
-
-**The gap:** `CLAUDE.md`'s release process is entirely forward-only — merge, tag, deploy. Nothing describes what to do when a deploy introduces a real production problem.
-
-**Written up, implemented (commit `ad6203a`, 2026-07-09): a new "Rollback Procedure" section in `CLAUDE.md`**, right after the Release Process it complements. Two distinct paths, since a bad deploy and a bad code release are different failure modes but share the same underlying mechanism:
-- **Infrastructure rollback:** checkout the previous known-good tag, `npm run diff:<stage>` to review exactly what reverting will change (never skipped), then `npm run deploy:<stage>` — re-synthesizes and applies the prior CloudFormation template. No new tooling; the existing tag-per-release discipline already provided everything this needs.
-- **Application code rollback:** since backend/frontend are bundled fresh at every CDK deploy (no separate artifact versioning), "rollback" *is* the infrastructure path above — redeploying from the previous release tag re-bundles the code too.
-
-No new tooling was required — this was a documentation gap, not a capability gap, so the fix is entirely in `CLAUDE.md`. **Still true and explicitly flagged in the new section itself:** this procedure has never been exercised against a real deploy (§4.3) — it's the documented starting point, not a tested runbook, until a real rollback drill happens at least once.
-
-### 4.3 Real gap found: no deploy has ever been drilled
-
-Beyond the specific `cdk synth` bug fixed in Security Architecture and the environment gap fixed in §2, the more general fact is that **this entire deployment pipeline has zero track record** — no stack has ever been successfully `cdk deploy`'d against a real AWS account. This isn't a design flaw to fix in this document (the design is now verified via `synth`, as far as static validation can confirm), but it is a real, standing risk: the first real deploy to any environment, including `dev`, is also the first time this entire system will be exercised end-to-end, and will very likely surface issues static synthesis can't catch (IAM permission edges, actual VPC routing behavior, RDS provisioning time, Cognito quirks). Flagged as an open item (§7) — recommend a `dev`-stage deploy drill before this system is relied on for anything real, independent of any specific code change.
+**Verified via Microsoft's own documentation, not assumed to work identically to RDS**: Azure Database for PostgreSQL Flexible Server takes full backups weekly plus transaction-log backups **every 5–12 minutes**, enabling point-in-time restore within the configured retention window (7+ days, matching the AWS version's own `backupRetention: 7 days`) — a real, verified mechanism, not a guess. **Decision, unchanged from the AWS version's own targets**: RPO ≤ 5 minutes (directly supported by the verified 5–12-minute transaction-log cadence — worth noting the top of that documented range is right at the AWS-era target's edge, a real, disclosed nuance the AWS version's RDS-based claim didn't carry, since Azure's own documentation states the interval as a range, not a fixed number), RTO ≤ 4 hours (point-in-time restore to a new instance, DNS/connection-string cutover — not yet drilled or timed against a real restore, same standing caveat as the AWS version). **A real Azure-specific option verified but not adopted, disclosed rather than silently ignored**: Azure also offers geo-redundant backup storage/restore to a paired region, with a documented ~1-hour RPO for that path specifically — **not adopted here**, consistent with the AWS version's own single-region decision and PRD §6's non-contractual uptime target not yet requiring cross-region DR; named here only so a future revisit knows the option exists and its real, documented RPO number, not something to re-research from scratch.
 
 ---
 
-## 5. Frontend Deployment (existing, reconciled)
+## 4. Release & Rollback Process (process carries over unchanged; tooling-specific commands deferred)
 
-Manual `npm run build && aws s3 sync dist/ s3://BUCKET --delete && aws cloudfront create-invalidation --distribution-id ID --paths "/*"`, already fully documented in the SysAdmin Guide (including a troubleshooting entry for "forgot to invalidate the cache"). No `BucketDeployment` CDK construct automates this — a deliberate manual step, not an oversight, consistent with this project having no CI/CD automation at all yet (§1.2). No gap found; no change recommended until CI/CD Pipeline (#17) exists to potentially automate it.
+### 4.1 Release Process (process cloud-agnostic, tooling TBD)
+
+`CLAUDE.md`'s release process shape (merge `dev` → `main`, tag `vX.Y.Z`, update CHANGELOG and sysadmin guide, deploy) is a git/process discipline, not an AWS-specific mechanism — it carries over to this fork unchanged in structure. The exact deploy command changes with whichever IaC tool Infrastructure as Code (#16) selects (Bicep's `az deployment group create` or Terraform's `terraform apply`, replacing `npm run deploy:<stage>`'s CDK invocation) — not pinned here, since that tool choice isn't made yet.
+
+### 4.2 Rollback procedure — same two-path structure, tooling-specific commands deferred
+
+**The AWS version's rollback design is a process/discipline finding, not an AWS-specific mechanism**, and carries over unchanged in shape: two paths (infrastructure rollback via redeploying a known-good tag; application-code rollback via the same mechanism, since backend/frontend bundle fresh at every deploy regardless of cloud) sharing one underlying principle — the existing tag-per-release discipline already provides everything a rollback needs, no new tooling required. **What changes**: the AWS version's `npm run diff:<stage>`/`npm run deploy:<stage>` commands are CDK-specific; the Azure equivalent (a Bicep what-if deployment or `terraform plan`, then apply) depends on Infrastructure as Code's (#16) tool choice, not written here. **Same standing caveat carries over**: this procedure has never been exercised against a real deploy, for either cloud track — not tested, just designed.
+
+### 4.3 No deploy has ever been drilled — true for this fork from day one, not a new finding
+
+The AWS version's §4.3 found this as a real, standing risk after the fact; for this fork, it's true by construction from the start, since nothing has been implemented at all yet. Restated as a standing requirement: the first real Azure deploy to any environment will be the first time this entire system is exercised end-to-end on this cloud, and will likely surface issues static validation can't catch (RBAC permission edges, actual VNet routing behavior, Azure Database for PostgreSQL provisioning time, Entra quirks) — flagged as an open item (§7), same recommendation as the AWS version: a `dev`-stage deploy drill before this system is relied on for anything real.
+
+---
+
+## 5. Frontend Deployment (rewritten — Azure-native mechanism, verified conceptually, not yet built)
+
+**The AWS mechanism (S3 sync + CloudFront invalidation) is AWS-specific; the underlying pattern (build the SPA, upload static assets to blob/object storage, invalidate whatever CDN caches them) is cloud-agnostic and carries over.** The concrete Azure services (Azure Blob Storage static website hosting or Azure Static Web Apps, fronted by Azure CDN or Front Door) are Infrastructure as Code's (#16) decision, not pinned here — consistent with how this document has deferred every other exact-service-name decision throughout. Whichever is chosen, the same deliberate-manual-step reasoning the AWS version applied still holds: no automated deployment construct is warranted until CI/CD Pipeline (#17) exists to potentially drive it, consistent with this fork having zero CI/CD automation, same as the AWS-native repo.
 
 ---
 
@@ -96,27 +91,33 @@ Manual `npm run build && aws s3 sync dist/ s3://BUCKET --delete && aws cloudfron
 
 | Section | Traces to |
 |---|---|
-| §2 Environment separation | New finding — already fixed (commit `1ef0fdf`) |
-| §2.2 MQTT topic namespace exception | New finding — documented operational constraint, not a code fix |
-| §3.1 Stage-conditional HA | Compliance & Certification Roadmap §5 (the original "flip for prod" comments), Multi-Tenant Architecture §4 (resource-sharing posture deferred here) |
-| §3.2 RPO/RTO targets | PRD §6 (99.9% uptime, non-contractual) |
-| §4.2 Rollback procedure gap | New finding — already written up (commit `ad6203a`) — no existing requirement covers this |
-| §4.3 Undrilled deploy risk | New finding |
+| §2 Environment separation *(rewritten v2.0)* | `azure-restructuring-plan.md` item 15; verified via Microsoft's Cloud Adoption Framework guidance |
+| §2.2 MQTT topic namespace *(rewritten v2.0 — structurally resolved, not worked around)* | Device & Command Security Architecture §2 (Azure IoT Hub per-stage resource isolation) |
+| §3.1 Stage-conditional HA *(rewritten v2.0)* | Verified via Microsoft's Azure Database for PostgreSQL business-continuity documentation |
+| §3.2 RPO/RTO targets *(rewritten v2.0)* | PRD §6 (99.9% uptime, non-contractual); verified via Microsoft's backup/restore documentation |
+| §4 Release/Rollback *(process unchanged, tooling deferred)* | Infrastructure as Code (#16), not yet decided |
+| §4.3 Undrilled deploy risk | Same standing risk as AWS, true from day one for this fork |
 
 ---
 
 ## 7. Open Questions
 
-1. ~~§4.2's rollback procedure~~ **Done (commit `ad6203a`, 2026-07-09)** — written into `CLAUDE.md`'s new "Rollback Procedure" section, immediately after Release Process. Untested against a real deploy, per §4.3 below — that remains true regardless.
-2. **§4.3: no environment has ever actually been deployed.** Recommend a `dev`-stage deploy drill as a standing action item, independent of any further architecture work — static verification (`synth`, `typecheck`) has gone as far as it can.
-3. **§3.2's RTO (≤4 hours) is a stated target, not a tested one** — no restore-from-backup drill has ever been run. Revisit once §4.3's deploy drill establishes that a real environment exists to test against.
-4. **CI/CD Pipeline (#17) will need to know about the stage model** this document just introduced — `-c stage=` is a required parameter any future pipeline automation must pass explicitly per environment, not something to rediscover independently when that artifact is written.
+1. **None of §2/§3's Azure design has been implemented or run against a real Azure subscription** — every claim is verified against current Microsoft documentation (§8), the same "sound reasoning, unverified against a real instance" caveat this project applies consistently (Database Schema §6 items 6/8/11).
+2. **The resource-group-vs-subscription decision (§2.1) deliberately deviates from Microsoft's own recommended default** — flagged explicitly as a disclosed, reasoned tradeoff (cost/operational overhead at MVP scale), not an oversight; revisit at real SOC 2 Type II/enterprise scale, the same trigger the AWS version already named for its own account-separation question.
+3. **§3.1's exact Azure resource names/SKUs are not decided here** — Infrastructure as Code's (#16) job, consistent with every other document in this amendment sequence.
+4. **§3.2's RTO (≤4 hours) and RPO (≤5 minutes) are stated targets, not tested ones, for this fork** — no restore-from-backup drill has ever been run, same standing caveat as the AWS version, now true for a second cloud track too.
+5. **CI/CD Pipeline (#17) will need to know about the resource-group-per-stage model** this document introduces — whatever deployment automation gets built must target the correct stage's resource group explicitly, not something to rediscover independently when that artifact is written.
+6. **No `dev`-stage deploy drill has ever happened for this fork** (§4.3) — recommended as a standing action item once Infrastructure as Code (#16) produces real, deployable Bicep/Terraform.
 
 ---
 
 ## 8. Review Log
 
-Reviewed 2026-07-09. One internal inconsistency found and fixed; everything else re-verified directly against code and held up.
+**v2.0 (2026-07-17), the `PeakLogic-Azure` full rewrite.** Every Azure-specific claim was checked against real, current Microsoft documentation via live web research, not assumed by analogy to the AWS design.
 
-1. **§4.1 misattributed the `cdk synth` fix to this document's own investigation** — it actually happened during Security Architecture's code-reconciliation pass (a prior artifact), as §2 itself correctly states two sections earlier. The two sections contradicted each other; corrected §4.1 to match §2.
-2. **Re-verified, held up:** the "1 NAT gateway routes every private subnet's egress through it regardless of AZ" claim (§3.1) against `network-stack.ts`'s actual CDK construct usage; the "zero CI/CD automation" claim (§1.2) by confirming no `.github/` directory exists at the repo root (only inside third-party `node_modules`, which don't count); the stage-conditional HA settings (§3.1's table) by re-running `cdk synth` for both `dev` and `prod` and diffing the actual `DBInstanceClass`/`MultiAZ`/`DeletionProtection` values and NAT gateway counts in the synthesized templates — all four differ exactly as claimed; the "no `BucketDeployment` construct" claim (§5) via a repo-wide grep.
+1. **A real, deliberate deviation from Microsoft's own recommended default, checked rather than assumed acceptable**: verified via the Cloud Adoption Framework that Microsoft recommends subscription-per-environment, then explicitly chose resource-group-per-environment instead, for the same cost/operational-overhead proportionality reasoning the AWS version already used to reject AWS's own multi-account recommendation — stated as a disclosed tradeoff, not silently defaulted into the "wrong" (non-recommended) option without acknowledging the alternative.
+2. **A genuine, verified architectural improvement identified, not asserted for effect**: confirmed via Device & Command Security Architecture's own IoT Hub research that Azure's per-stage Hub-resource isolation structurally closes the AWS version's shared-MQTT-namespace risk, rather than merely relabeling the same operational workaround (§2.2). This is a real "found a place Azure is actually better" finding, cross-checked against the actual mechanism (separate Hub resources = separate topic namespaces by construction) rather than assumed from general "Azure is different" reasoning.
+3. **Azure Database for PostgreSQL's backup cadence was verified precisely, not approximated**: confirmed the real 5–12-minute transaction-log-backup interval via Microsoft's own documentation, and explicitly noted the top of that range sits at the edge of the AWS-era RPO target — a real, disclosed nuance rather than silently claiming an identical guarantee.
+4. **Azure Resource Manager's resource-lock mechanism was verified as a real, current capability**, and explicitly noted as a *generalization* over AWS's RDS-specific `deletionProtection` flag rather than assumed to be a narrower, RDS-only equivalent — checked what the mechanism actually protects (any resource type) before scoping this document's use of it to just the database, matching AWS's own scope deliberately rather than by omission.
+5. **Global resource-name uniqueness (§2.1) was flagged as a real, disclosed Azure-specific constraint AWS never had** — not discovered empirically, but reasoned from known Azure resource-naming rules (storage accounts, Postgres Flexible Server names) and flagged proactively so Infrastructure as Code (#16) doesn't discover it the hard way during a name collision.
+6. **What did NOT change, confirmed deliberately**: the release-process shape, the two-path rollback structure, and the "no deploy has ever been drilled" risk framing are all process/discipline decisions, cloud-agnostic — re-read each against this rewrite's new environment-separation design and confirmed none depend on anything AWS-specific.

@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.3
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5), [SRS](srs.md) (approved v1.5), [Domain Model](domain-model.md) (approved v1.1), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [API Specification](api-specification.md) (approved v1.1)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.3 until v1.4 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (Draft v1.1, pending), [API Specification](api-specification.md) (approved v1.1)
+**Last updated:** 2026-07-17
+**Fork note (v1.4):** the first amendment specific to the `PeakLogic-Azure` fork's Azure-pivot feature backlog (map, 3D rendering — PRD/SRS v1.7, User Stories v1.1). This amendment also makes the real mapping-technology decision `azure-restructuring-plan.md` §4 flagged as open — see §2.16 and Revision History.
 
 ---
 
@@ -38,6 +39,8 @@ In scope: screen-level layout and content for every screen implied by User Stori
 | 2.13 Technician Management *(added v1.3)* | Channel Partner Portal Dispatcher | Domain Model §4 decision 8 |
 | 2.14 Daily Dispatch Route — Dispatcher View *(added v1.3)* | Channel Partner Portal Dispatcher | TR-2.1, TR-3.1, TR-3.2 |
 | 2.15 Daily Dispatch Route — Technician View *(added v1.3)* | Route-Based Service Technician | TR-2.1, RP-2.1 (channel-partner-technician case) |
+| 2.16 Portfolio Map View *(added v1.4)* | Corporate/Regional Ops Leader, Small Business Owner-Operator, Channel Partner Portal Dispatcher | GEO-1.1–GEO-6.1 |
+| 2.17 Facility 3D Panel (addendum to §2.4) *(added v1.4, first-pass/non-committal)* | All Tenant-side personas | 3DR-1.1–3DR-3.1 |
 
 ---
 
@@ -355,6 +358,51 @@ Step 1 of 3            Step 2 of 3            Step 3 of 3
 - **A technician never sees an unconfirmed route** — this screen is deliberately not designed to show `🤖 AI-suggested`/edit controls at all, unlike §2.14. TR-3.1's advisory gate means a suggestion isn't a technician's day until a dispatcher confirms it; showing a tentative, possibly-about-to-change route to the person expected to actually drive it would undermine that gate's whole purpose, not just look inconsistent.
 - No map view on this screen, despite the underlying territory being drawn on one (§2.12) — a technician needs an ordered stop list to work through, not a map of their own coverage area. Revisit if real technician feedback says otherwise; not assumed necessary here.
 
+### 2.16 Portfolio Map View (GEO-1.1–GEO-6.1) *(added v1.4)*
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  PeakView                    [ List view ] [ Map view ✓ ]   │
+├─────────────────────────────────────────────────────────────┤
+│  Portfolio Map                    12 sites · 1 unlocated ⓘ   │
+├─────────────────────────────────────────────────────────────┤
+│                                                                 │
+│         🔴          ✅  ✅                                    │
+│              ⚠           ✅    ✅                              │
+│                    ✅  🔴  ✅                                  │
+│                                                                 │
+│  [ TX / Austin metro, zoomed to fit all located sites ]        │
+│                                                                 │
+├─────────────────────────────────────────────────────────────┤
+│  Legend:  ✅ Healthy   ⚠ Trending   🔴 In Alarm                │
+└─────────────────────────────────────────────────────────────┘
+```
+- **A view toggle, not a replacement** — "List view" is §2.1's existing Portfolio Roll-Up, unchanged; "Map view" is this screen. Both read the same underlying GEO-1.1 data (§2.1's trend/alarm split and this screen's pin coloring use the identical classification, not two separate computations), per GEO-4.1's additive requirement.
+- Pin color reuses the exact same three-state classification as §2.1's Trending/In Alarm/Healthy sections (GEO-2.1) — a user who understands one view already understands the other.
+- Clicking a pin navigates to that Site's Detail view (§2.4), per GEO-3.1 — identical destination to clicking a row in §2.1 or §2.9.
+- The "1 unlocated ⓘ" indicator (GEO-6.1) is a real, disclosed pre-existing gap made visible, not a new failure mode this screen introduces — see PRD §5.14/SRS §3.16 for the underlying `sites.lat`/`sites.lng` nullability this reflects. Clicking it should reveal which sites lack coordinates (exact interaction — a dropdown vs. a separate panel — is left to visual design, not decided here).
+- **Available in the channel-partner portal too** (GEO-5.1), scoped to that partner's attributed sites — same screen, same component, different data scope, consistent with how NAV-4/RP-2 already extend tenant-side features into that surface.
+
+**Mapping technology decision, resolved here (was flagged open in `azure-restructuring-plan.md` §4):** this screen uses **Mapbox**, the same technology already locked and shipping for §2.12's Territory Map Editor (Mapbox GL Draw). **Real evaluation, not a default carry-over**: Azure Maps was the natural "platform-aligned" candidate given this repo's Azure pivot, but on inspection there is no technical dependency pulling toward it — both this screen and §2.12 are client-side JS map rendering that calls out to the map vendor's own service directly; neither depends on, nor benefits from, which cloud hosts the rest of PeakLogic's backend. Azure Maps' actual advantage (tight integration with other Azure services like IoT/Power BI) doesn't apply here, since PeakLogic doesn't consume Azure-native geospatial services anywhere in this feature. Splitting the app across two map vendors (Mapbox for territories, Azure Maps for portfolio) would mean maintaining two SDKs, two API-key/billing relationships, and two visual styles for no functional gain — Mapbox's existing integration (already used for territory drawing, already referenced conceptually in the Windows Hub's branding work) is the lower-cost, equally-capable choice. **Decision: Mapbox, for both §2.12 and §2.16** — recorded here and in project memory, not as a requirements-text mandate (mirrors how the original Mapbox choice for §2.12 was itself recorded).
+
+### 2.17 Facility 3D Panel — addendum to §2.4 Site Detail (3DR-1.1–3DR-3.1) *(added v1.4, first-pass/non-committal)*
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  ← Portfolio        Lakeside Pool Complex                     │
+├─────────────────────────────────────────────────────────────┤
+│  Status: ✅ Healthy       Last seen: 1 min ago                │
+├─────────────────────────────────────────────────────────────┤
+│  Assets                                                       │
+│  │ ... (same as §2.4) ...                                    │
+├─────────────────────────────────────────────────────────────┤
+│  ▸ 3D Facility View  (shown only when a model exists)          │
+└─────────────────────────────────────────────────────────────┘
+```
+- **Deliberately a one-line addendum, not a fully wireframed screen** — mirrors PRD §5.15/SRS §3.17's own placeholder-level specificity. The collapsed `▸ 3D Facility View` row is the entire committed UI surface at this pass: present only when a model reference exists (3DR-3.1's default-absence handling), collapsed by default so it doesn't crowd the existing asset list for the common case (no model yet).
+- **What's inside the expanded panel — the actual 3D viewport, camera controls, any telemetry overlay — is explicitly not designed here.** Doing so would mean assuming the unresolved scoping items (rendering library, file format) PRD §5.15 deliberately left open. This addendum exists only to reserve the entry point in the existing Site Detail layout, so that screen doesn't need a structural redesign later just to add a collapsed row.
+- Applies identically to a future Asset Detail view (NAV-2.1) once that drill-down screen itself is wireframed — **flagged as a pre-existing gap, not fixed in this pass**: NAV-1–NAV-5 (PRD v1.6) added Site→Asset→Device drill-down requirements, but this document was never amended for them (it's still Approved v1.3, predating NAV-1). §2.4 today shows an inline asset list, not a real drill-down. Out of scope for this v1.4 amendment, which only adds the map/3D backlog; noted so it isn't mistaken for something this pass silently addressed.
+
 ---
 
 ## 3. Open Questions Surfaced While Wireframing
@@ -365,6 +413,9 @@ Step 1 of 3            Step 2 of 3            Step 3 of 3
 4. **§2.12's live site-preview-while-drawing is undecided** *(added v1.3)* — should a dispatcher see candidate site pins light up as they drag a territory boundary, or only find out which sites fall inside after saving? Territory→Site is a derived, server-side resolution (Domain Model §4 decision 7), so a live preview would need a new read-only "preview containment" capability that doesn't exist yet; not assumed necessary here.
 5. **§2.14's "no Generate route button" leaves a real gap unaddressed** *(added v1.3)* — TR-3.2 deliberately keeps PeakLogic from computing routes in-house, but that also means this document has no answer for how a `partner_admin` triggers the external AI agent for a given day if it doesn't run on its own schedule. Out of scope for a wireframe (it's an integration question, not a screen), but flagged so it isn't mistaken for a decided "the agent always runs proactively" design.
 6. **API Specification §7 item 7 (territory redraw stranding a `suggested` route) has a UX-shaped answer that isn't designed here** *(added v1.3)* — §2.12 doesn't show any warning/confirmation when saving a redrawn boundary that could invalidate an unconfirmed route. Left open in both documents; whichever is amended next to resolve it should update the other.
+7. **§2.16's "unlocated sites" interaction is unspecified** *(added v1.4)* — whether it's a dropdown, a separate panel, or a modal is left to visual design, not decided here; only that the indicator must exist and must be clickable to reveal which sites lack coordinates (GEO-6.1).
+8. **§2.17's expanded 3D panel contents remain fully undesigned, deliberately** *(added v1.4)* — this is the same open item PRD §5.15/SRS §3.17 already carry (rendering library, file format, camera/interaction model), not a new one; recorded here too so a reader of this document alone sees the same caveat.
+9. **The Site→Asset→Device drill-down (NAV-1–NAV-5) has no wireframes at all** *(added v1.4, disclosed pre-existing gap)* — this document predates that PRD v1.6 requirement set entirely. §2.17's 3D-panel addendum is written to attach to whatever that future drill-down screen turns out to look like, but the drill-down itself needs its own amendment pass, not assumed here.
 
 ---
 
@@ -409,3 +460,12 @@ Every wireframe above cites the requirement ID(s) it satisfies inline in its ann
 - **All persona mockups (new and pre-existing) switched to generic role+number labels** (`Technician 1`, `Dispatcher 1`, etc.) instead of named individuals, per explicit user instruction during this pass — applied to §2.1 and §2.2 as well as the new screens, for consistency across the document.
 - **§3 Open Questions gained 4 new items** (branding fallback, live territory-preview UX, AI-agent trigger mechanism, territory-redraw/stranded-route interaction) — genuinely unresolved, not filled in with an invented answer.
 - **§5 Review Log disclosure**: found v1/v1.1/v1.2 never had a real review log entry despite being marked Approved; documented rather than silently backfilled.
+
+**v1.4 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by the PRD/SRS v1.7 and User Stories v1.1 amendments (geospatial site map, 3D facility rendering).
+
+- **§1.3 Screen Inventory extended** with 2 new rows (2.16–2.17).
+- **§2.16 added (Portfolio Map View)**: a map-view toggle alongside the existing §2.1 Portfolio Roll-Up, reusing its exact trend/alarm/healthy classification for pin coloring — not a parallel computation. Surfaces GEO-6.1's unlocated-sites condition explicitly rather than silently dropping those sites from the map.
+- **Real mapping-technology decision made and locked, not deferred further**: evaluated Azure Maps against the already-shipping Mapbox integration (§2.12's Territory Map Editor) and found no technical reason to fragment the app across two map vendors — Azure Maps' actual advantage (deep integration with other Azure services) doesn't apply to a purely client-side map-rendering feature. **Decision: Mapbox for both §2.12 and §2.16.** Resolves the open item `azure-restructuring-plan.md` §4 flagged, and the item PRD §5.14/SRS §3.16 explicitly deferred to this artifact.
+- **§2.17 added (Facility 3D Panel, addendum to §2.4)**: deliberately kept at placeholder/one-line specificity, mirroring the PRD/SRS's own first-pass treatment — reserves a collapsed entry point in the existing Site Detail layout without designing the unresolved rendering internals.
+- **§3 gained 3 new open items (7–9)**: the unlocated-sites interaction pattern, the (deliberately) undesigned 3D-panel internals, and a disclosed pre-existing gap — this document has never been amended for PRD v1.6's Site→Asset→Device drill-down (NAV-1–5) at all, predating it entirely. Out of scope for this pass; flagged so it isn't mistaken for something silently addressed.
+- **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): Information Architecture (new nav entry for the map view), Database Schema (confirm no schema change needed for GEO features), API Specification (map data endpoint, reusing existing site fields).

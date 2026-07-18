@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.2 — specification only, no code shipped
-**Depends on:** [Security Architecture](security-architecture.md) (Draft v1.2), [API Specification](api-specification.md) (Draft v1.2), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.1)
-**Last updated:** 2026-07-12 (v1.2 — §2.1a's grantor question locked: either a superadmin or the target account's own `partner_admin` may grant a manager assignment, dual-grantor `CHECK` mirroring `audit_log_entries`' actor shape. Landing-screen design revised: a `channel_partner_manager` lands on a cross-account Issues Overview, not a plain account picker — backed by N separate single-account-scoped queries, not new cross-account RLS; a `technician` gets the equivalent treatment for free via the already-real `/v1/partner/routes`)
+**Status:** Draft v1.3 — specification only, no code shipped (amendment pending review — see Revision History, end of document)
+**Depends on:** [Security Architecture](security-architecture.md) (Draft v2.0), [API Specification](api-specification.md) (Draft v1.4), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.2)
+**Last updated:** 2026-07-17 (v1.3 — Azure fork amendment)
+**Fork note (v1.3):** `azure-restructuring-plan.md` item 26 flagged this 🔵 amendment: same auth-model swap as the Windows Endpoint Application (#25) — spec-only, no code written yet either way. **This amendment targets the same identity/networking boundary**: §1.2–1.3 (component diagram), §2.1/§2.1a (role resolution — the DB column naming artifact this document's SQL sketch shares with Database Schema §4.6, flagged not silently renamed), §3 (Authentication — MSAL replaces Amplify/Cognito SRP), §8.3 (cert pinning host), §9.1 (config delivery). §4–7, §10 (telemetry polling, offline caching, UI/navigation, kiosk-mirroring build sequence) are **unchanged, confirmed cloud-agnostic** — none of that logic touches AWS or Azure APIs directly, same finding as the Windows app's own amendment.
 
 ---
 
@@ -15,7 +16,7 @@ This document specifies a **new, physically separate application** — an iPhone
 
 **Two real gaps this document must disclose rather than paper over, because they change what "real-time" and "push notifications" can mean today:**
 
-1. **No live push/streaming channel exists for user-facing clients.** The only real-time transport in this system is device-to-cloud MQTT (AWS IoT Core), authenticated by per-device X.509 certs — not accessible to a Cognito-authenticated human session, and not designed for fan-out to many viewers of the same data. Neither the web frontend nor any backend service exposes a WebSocket/streaming API today. §4 designs the iOS app to degrade gracefully via polling now, with a recommended (not yet built) API Gateway WebSocket addition as the real-time upgrade path.
+1. **No live push/streaming channel exists for user-facing clients.** The only real-time transport in this system is device-to-cloud MQTT (Azure IoT Hub, corrected v1.3), authenticated by per-device X.509 certs — not accessible to an Entra-authenticated human session, and not designed for fan-out to many viewers of the same data. Neither the web frontend nor any backend service exposes a WebSocket/streaming API today. §4 designs the iOS app to degrade gracefully via polling now, with a recommended (not yet built) Azure-native WebSocket addition as the real-time upgrade path (exact service TBD, Infrastructure as Code §3).
 2. **No push-notification device-token registration endpoint exists.** APNs requires the backend to hold a per-user, per-device push token to target notifications. This is new, minimal backend surface — flagged in §9, not assumed.
 
 **A third real gap, found while resolving the role-model decision: the "Channel Partner Manager" role this app needs to support does not exist in the backend at all today.** `channel_partner_users` ties one login to exactly one `channel_partners` row — there is no existing way for a non-PeakLogic user to hold cross-account visibility the way `PeakLogicStaffUser`/`account_assignments` already lets PeakLogic staff do for tenants and channel partners. §2.1a sketches the new table/RLS pattern this requires — real, disclosed, not-yet-built backend work, following the exact same handoff design already proven for the Internal Administration Console rather than inventing a new pattern.
@@ -36,8 +37,8 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 │                                                                              │
 │  ┌────────────────┐        ┌─────────────────────┐                         │
 │  │ Authentication   │───────▶│ Session Manager       │                       │
-│  │ Layer (Cognito    │       │ (Keychain-backed,     │                       │
-│  │ SRP + refresh)     │       │ Face ID/Touch ID gate) │                     │
+│  │ Layer (Entra MSAL │       │ (Keychain-backed,     │                       │
+│  │ + refresh, v1.3)   │       │ Face ID/Touch ID gate) │                     │
 │  └────────────────┘        └──────────┬────────────┘                       │
 │                                          │                                    │
 │                                          ▼                                    │
@@ -50,7 +51,7 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 │           ▼                       ▼                     ▼                     │
 │  ┌────────────────┐    ┌──────────────────┐   ┌──────────────────┐            │
 │  │ REST API Client   │    │ Telemetry           │   │ Command Dispatch    │      │
-│  │ (Cognito-auth'd,   │    │ Ingestion Layer      │   │ Layer (role-gated,   │     │
+│  │ (Entra-auth'd,     │    │ Ingestion Layer      │   │ Layer (role-gated,   │     │
 │  │ certificate-pinned)│    │ — poll now (§4),     │   │ inert where backend   │    │
 │  │                     │    │ WebSocket later       │   │ has no endpoint —      │   │
 │  └────────┬───────────┘    └──────────┬───────────┘   │ mirrors Windows Edge's  │   │
@@ -70,16 +71,16 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 │  Cross-cutting: Configuration Layer (remote flags) · Security Layer (Keychain, Secure       │
 │  Enclave, pinning) · Navigation Layer (role/state-driven routing)                            │
 └──────────────────────────────────────────┬───────────────────────────────────────────────┘
-                                              │ HTTPS/TLS (Cognito JWT, pinned)
+                                              │ HTTPS/TLS (Entra token, pinned)
                                               ▼
-                                    API Gateway → peaklogic-api Lambda (existing, unchanged)
+                                    API layer → peaklogic-api Azure Function (corrected v1.3)
 ```
 
 ### 1.3 Major components
 
 | Component | Responsibility |
 |---|---|
-| **Authentication Layer** | Cognito SRP login against the *correct* pool for the account type; refresh-token lifecycle |
+| **Authentication Layer** | Entra External ID login (MSAL) against the *correct* tenant for the account type, corrected v1.3; refresh-token lifecycle |
 | **Session Manager** | Keychain-backed token storage, Face ID/Touch ID re-auth gate, secure logout |
 | **Authorization Layer** | Resolves real role from JWT claims/DB-round-trip (pool-dependent, §2.1); the single source every gating decision reads from |
 | **Telemetry Ingestion Layer** | Polling now, WebSocket-ready later (§4); never invents client-side alerting |
@@ -96,13 +97,13 @@ One iOS app (universal iPhone/iPad binary), **PeakLogic Mobile**, serving whiche
 
 ### 2.1 The real role landscape (decided — not the originally-requested four)
 
-| Backend identity pool | Real roles | Resolved from |
+| Backend identity space | Real roles | Resolved from |
 |---|---|---|
-| Tenant `userPool` | `admin`, `operator` | Cognito `cognito:groups` claim, directly off the JWT |
-| `PartnerPool` (channel partner) | `partner_admin`, `technician` | **Not** a JWT claim — resolved server-side per-request from `channel_partner_users.role` (Security Architecture §2.4's deliberate design: the partner pool carries no Cognito groups). |
-| `PartnerPool` (channel partner) | **`channel_partner_manager`** — new, §2.1a | Also not a JWT claim — resolved server-side by checking `channel_partner_managers` (new table) when a `channel_partner_users` lookup finds nothing for that `cognito_sub`. |
+| `PeakLogicCustomers` Entra External ID tenant | `admin`, `operator` | Entra App Role, directly off the access token's `roles` claim (Security Architecture §2.1 — corrected v1.3, previously Cognito `cognito:groups`) |
+| `PeakLogicPartners` Entra External ID tenant (channel partner) | `partner_admin`, `technician` | **Not** a token claim — resolved server-side per-request from `channel_partner_users.role` (Security Architecture §2.4's deliberate design: no App Role used for ordinary role resolution here, unchanged reasoning from the AWS version's "no Cognito groups" design). |
+| `PeakLogicPartners` (channel partner) | **`channel_partner_manager`** — new, §2.1a | Resolved from the `channel_partner_manager` App Role (Security Architecture §2.6 — corrected v1.3, previously a Cognito group) combined with a server-side `channel_partner_managers` lookup when an ordinary `channel_partner_users` lookup finds nothing for that subject. |
 
-`StaffPool` does not appear in this table at all — no build of this app, hidden or otherwise, authenticates against it. This is a locked decision (§12), not an open question.
+PeakLogic's own corporate Entra ID workforce tenant does not appear in this table at all — no build of this app, hidden or otherwise, authenticates against it. This is a locked decision (§12), not an open question, unaffected by the cloud switch.
 
 **Locked mapping of the originally-requested vocabulary onto reality:**
 
@@ -124,7 +125,9 @@ Mirrors the Internal Administration Console's `account_assignments` handoff patt
 -- account vs. single-account), not a variant of the same thing.
 CREATE TABLE channel_partner_managers (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  cognito_sub  TEXT        NOT NULL UNIQUE,   -- same PartnerPool, a second user type within it
+  cognito_sub  TEXT        NOT NULL UNIQUE,   -- same PeakLogicPartners tenant, a second user type within
+                                               -- it (corrected v1.3 — was PartnerPool); column name is a
+                                               -- disclosed naming artifact, see Security Architecture §2.5
   email        TEXT        NOT NULL,
   display_name TEXT,
   status       TEXT        NOT NULL DEFAULT 'active' CHECK (status IN ('active','disabled')),
@@ -270,43 +273,29 @@ Button("Acknowledge") { viewModel.acknowledge(alert) }
 
 ## 3. Authentication + Session Management
 
-### 3.1 Authentication flow
+### 3.1 Authentication flow (rewritten for Azure — MSAL replaces Amplify/Cognito SRP)
 
-Cognito SRP (Secure Remote Password) via AWS Amplify's Swift SDK (`Amplify.Auth.signIn`) — the same auth flow the web frontend uses via `@aws-amplify/ui-react`, not a custom implementation. MFA is `Mfa.REQUIRED` pool-wide server-side (Security Architecture §2.2) for the tenant pool, `Required TOTP` for the partner pool too — the iOS app must implement the TOTP challenge step for both, not just assume password-only.
+**Corrected v1.3.** Standard OIDC authorization-code-with-PKCE via Microsoft's own **MSAL for iOS/macOS SDK** (`MSALPublicClientApplication.acquireToken`) — the direct Entra-native equivalent of the AWS version's Amplify/Cognito-SRP flow, the same auth flow the web frontend uses via its own MSAL-based library (Security Architecture §2.1), not a custom implementation. MFA is required tenant-wide (Security Architecture §2.2 — the concrete Conditional-Access/External-MFA mechanism is still being finalized, a real, disclosed uncertainty that document already flags) for both `PeakLogicCustomers` and `PeakLogicPartners` — the iOS app must implement whichever interactive MFA challenge step Entra's hosted sign-in UI presents (MSAL's own web-based auth flow handles this natively, unlike Cognito's custom-UI TOTP-challenge step the AWS version had to build by hand).
 
 ```swift
-enum SessionState { case signedOut, needsMfa(challengeSession: String), signedIn(AuthorizationContext) }
+enum SessionState { case signedOut, signedIn(AuthorizationContext) }
 
 final class SessionManager: ObservableObject {
     @Published private(set) var state: SessionState = .signedOut
     private let keychain: KeychainTokenStore
 
-    func signIn(email: String, password: String, pool: AuthPool) async throws {
-        let result = try await Amplify.Auth.signIn(username: email, password: password,
-                                                     options: .init(pluginOptions: CognitoPoolOptions(pool: pool)))
-        switch result.nextStep {
-        case .confirmSignInWithTOTPCode:
-            state = .needsMfa(challengeSession: result.sessionId)
-        case .done:
-            try await completeSignIn(pool: pool)
-        default:
-            throw AuthError.unexpectedChallenge
-        }
+    func signIn(pool: AuthPool) async throws {
+        // MSAL's own hosted sign-in UI (a system web view) handles credential
+        // entry AND any required MFA challenge natively — no custom TOTP
+        // challenge-state machine needed the way Cognito's SRP flow required.
+        let application = try MSALPublicClientApplication(configuration: pool.msalConfig)
+        let result = try await application.acquireToken(with: pool.interactiveParameters)
+        try await completeSignIn(result: result, pool: pool)
     }
 
-    func confirmMfa(code: String, pool: AuthPool) async throws {
-        let result = try await Amplify.Auth.confirmSignIn(challengeResponse: code)
-        guard case .done = result.nextStep else { throw AuthError.mfaFailed }
-        try await completeSignIn(pool: pool)
-    }
-
-    private func completeSignIn(pool: AuthPool) async throws {
-        let session = try await Amplify.Auth.fetchAuthSession()
-        guard let cognitoSession = session as? AuthCognitoTokensProvider,
-              let tokens = try? cognitoSession.getCognitoTokens().get() else { throw AuthError.noTokens }
-
-        try keychain.store(refreshToken: tokens.refreshToken, pool: pool) // Keychain, not UserDefaults — §8.1
-        let ctx = try AuthorizationContext.resolve(idToken: tokens.idToken, pool: pool) // §2.1 — partner pool needs one extra API round-trip here
+    private func completeSignIn(result: MSALResult, pool: AuthPool) async throws {
+        try keychain.store(refreshToken: result.account.homeAccountId?.identifier ?? "", pool: pool) // MSAL manages its own token cache internally; Keychain here backs the account identifier — §8.1
+        let ctx = try AuthorizationContext.resolve(accessToken: result.accessToken, pool: pool) // §2.1 — partner tenant needs one extra API round-trip here
         state = .signedIn(ctx)
     }
 }
@@ -359,9 +348,9 @@ final class BiometricGate {
 }
 ```
 
-**Session refresh** uses Cognito's `REFRESH_TOKEN_AUTH` flow (same mechanism the Windows Edge app's kiosk identity uses, Windows Endpoint Application §5.2) — access/ID tokens (1h validity per every pool's client config) refreshed transparently ahead of expiry; the refresh token itself (30-day validity) is what Face ID gates access to on relaunch, not re-entered credentials.
+**Session refresh, corrected v1.3** uses MSAL's own silent-token-acquisition flow (`acquireTokenSilent`, backed by the same standard OIDC refresh-token grant Windows Endpoint Application §5.2's kiosk identity now uses) — access tokens refreshed transparently ahead of expiry via MSAL's internal token cache; Face ID gates the app's own re-entry into an already-valid MSAL session on relaunch, not re-entered credentials.
 
-**Secure logout:** revoke locally (delete Keychain entries for the active pool, clear in-memory `AuthorizationContext`) and call Cognito's `GlobalSignOut` to invalidate the refresh token server-side too — a device that's lost/stolen after logout can't silently keep using a cached refresh token.
+**Secure logout:** revoke locally (`MSALPublicClientApplication.removeAccount`, clearing MSAL's own token cache, plus clearing in-memory `AuthorizationContext`) and call Microsoft Graph's `revokeSignInSessions` (verified GA mechanism, Security Architecture §6 — corrected v1.3, previously Cognito's `GlobalSignOut`) to invalidate the session server-side too, with the same "small delay, a few minutes" caveat that API carries.
 
 ### 3.4 Secure API calls
 
@@ -710,7 +699,7 @@ final class PinnedSessionDelegate: NSObject, URLSessionDelegate {
 }
 ```
 
-Pins the **public key**, not the full certificate (survives a cert renewal with the same key) — API Gateway's managed cert here, mirroring the Windows Edge app's equivalent pinning decision for its own REST client (Windows Endpoint Application §5.2 notes API Gateway doesn't need the RDS-style CA-bundle pinning the IoT leg gets, since it's a standard public-CA cert; this app pins anyway as an additional MITM-defense layer appropriate for a device that isn't in a controlled physical environment the way a kiosk is).
+Pins the **public key**, not the full certificate (survives a cert renewal with the same key) — whichever Azure API-hosting service's managed cert applies here (corrected v1.3), mirroring the Windows Edge app's equivalent pinning decision for its own REST client (Windows Endpoint Application §5.2 notes the API layer doesn't need the Postgres-CA-bundle-style pinning the IoT Hub leg gets, since it's a standard public-CA cert; this app pins anyway as an additional MITM-defense layer appropriate for a device that isn't in a controlled physical environment the way a kiosk is).
 
 ### 8.4 Encrypted local storage
 
@@ -740,7 +729,7 @@ Logger.api.debug("Response body: \(body, privacy: .private)") // never .public f
 
 ### 9.1 Design
 
-A small, versioned, **non-security-relevant** JSON document (mirrors the Windows Edge app's config-sync pattern, Windows Endpoint Application §8.2 — same S3/CloudFront-fronted delivery mechanism, one object per environment rather than per-site since there's no per-device identity to key on here) fetched on launch and cached, with sane hardcoded defaults if the fetch fails — the app must be fully usable with zero remote config present, since remote config is a UX/rollout lever, never a required dependency.
+A small, versioned, **non-security-relevant** JSON document (mirrors the Windows Edge app's config-sync pattern, Windows Endpoint Application §8.2 — same Azure Blob Storage/CDN-fronted delivery mechanism, corrected v1.3, one object per environment rather than per-site since there's no per-device identity to key on here) fetched on launch and cached, with sane hardcoded defaults if the fetch fails — the app must be fully usable with zero remote config present, since remote config is a UX/rollout lever, never a required dependency.
 
 ```json
 {
@@ -760,7 +749,7 @@ A small, versioned, **non-security-relevant** JSON document (mirrors the Windows
 
 ### 9.2 What is and isn't remote-configurable
 
-**Never remote-configurable:** which Cognito pool/client IDs the app targets, whether certificate pinning is enforced, whether biometric re-auth is required — these are the actual security boundary and live in the compiled app / MDM app-config only (§9.3), never in a document an attacker who compromised the CDN distribution could edit to weaken them.
+**Never remote-configurable:** which Entra tenant/client IDs the app targets *(corrected v1.3)*, whether certificate pinning is enforced, whether biometric re-auth is required — these are the actual security boundary and live in the compiled app / MDM app-config only (§9.3), never in a document an attacker who compromised the CDN distribution could edit to weaken them.
 
 **Safely remote-configurable:** feature flags, polling cadence, pinned-hash rotation (additive — new hashes can be added ahead of a cert rotation; old ones only removed after confirming the new cert is live), `minimumSupportedBuild` (a kill-switch forcing an update prompt, not an auto-update — App Store review timing means this must be advisory, not blocking, unless MDM-distributed).
 
@@ -848,10 +837,10 @@ Authentication: §3.1/§3.4 · Telemetry ingestion: §4.2–4.3 · Role-based UI
 
 | Section | Traces to |
 |---|---|
-| §2.1 | Security Architecture §2.3/§2.4 (the two pools this app uses); §2.1a's Channel Partner Manager traces to the Internal Administration Console's `account_assignments` pattern (Security Architecture §2.5) by analogy, not by reuse |
-| §3.1 | Security Architecture §2.2 (MFA required, all pools) |
+| §2.1 | Security Architecture §2.1/§2.4 (the two Entra External ID tenants this app uses, corrected v1.3); §2.1a's Channel Partner Manager traces to the Internal Administration Console's `account_assignments` pattern (Security Architecture §2.5) by analogy, not by reuse |
+| §3.1 | Security Architecture §2.2 (MFA required — mechanism still being finalized, disclosed uncertainty) |
 | §4.1 | Real gap — no streaming API exists; Windows Endpoint Application §5.2's identical reasoning for why device-side MQTT isn't reusable for human sessions |
-| §5.3, §6.4 | Device & Command Security Architecture §5 (CC-3.1/CC-4.1 gate) — identical inert posture to Windows Endpoint Application §6.4 |
+| §5.3, §6.4 | Device & Command Security Architecture §5 (CC-3.1/CC-4.1 gate, Direct-Methods-based design) — identical inert posture to Windows Endpoint Application §6.4 |
 | §9.3 | New backend surface required — not yet built, §12 item 4 |
 
 ---
@@ -878,3 +867,21 @@ Authentication: §3.1/§3.4 · Telemetry ingestion: §4.2–4.3 · Role-based UI
 ## 13. Review Log
 
 Not yet reviewed — Draft v1.0, first pass. Recommend a dedicated review before implementation begins, focused on: (1) §12 item 1's role-mapping decision, since it's load-bearing for §2's entire gating design; (2) re-verifying §0's "no streaming/push infrastructure exists" claim against the codebase at the time implementation actually starts, in case either has shipped in the interim (e.g. if the Windows Edge app's own §10 fleet-management backend work incidentally produces reusable infrastructure).
+
+**v1.3 (2026-07-17), the first review pass specific to the `PeakLogic-Azure` fork.** Checked every AWS/Cognito-specific reference against this document's own fork-note scope claim (§0), mirroring the discipline just applied to the Windows Endpoint Application's own v1.2 amendment.
+
+1. **Confirmed the amendment's own scope claim by grep, not assumed**: every Cognito/Amplify/AWS mention (SRP, `REFRESH_TOKEN_AUTH`, `GlobalSignOut`, S3/CloudFront, API Gateway) was located and corrected at its actual section — §1.2–1.3, §2.1, §2.1a's comment, §3.1/§3.3, §8.3, §9.1–9.2 — with §4–7/§10's telemetry/caching/UI/build-sequence content confirmed untouched, same split the Windows app's own amendment made.
+2. **MSAL's hosted-sign-in-UI behavior was checked, not assumed to need a hand-built MFA challenge state machine the way Cognito's SRP flow did** — a real simplification (§3.1's rewritten `SessionManager` drops the `needsMfa`/`confirmMfa` states entirely) verified against how MSAL's interactive `acquireToken` flow actually works (a system web view handling the full sign-in + MFA challenge natively), not assumed by analogy to Cognito's custom-UI TOTP step.
+3. **Graph API `revokeSignInSessions` was reused from Security Architecture §6's own already-verified finding**, not re-derived — including its documented "small delay, a few minutes" caveat, carried into this document's logout description rather than dropped.
+
+---
+
+## Revision History
+
+**v1.3 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, per `azure-restructuring-plan.md` item 26: the same auth-model amendment as the Windows Endpoint Application (#25), spec-only either way.
+
+- **§1.2–1.3, §2.1 corrected**: `PeakLogicCustomers`/`PeakLogicPartners` Entra External ID tenants replace the tenant `userPool`/`PartnerPool`; App Roles replace Cognito Groups for tenant-side role resolution.
+- **§3.1 rewritten**: MSAL's OIDC authorization-code-with-PKCE flow replaces Amplify/Cognito SRP — a real simplification, since MSAL's hosted sign-in UI handles MFA natively, removing the hand-built TOTP challenge state machine the Cognito version needed.
+- **§3.3 corrected**: MSAL silent token refresh replaces `REFRESH_TOKEN_AUTH`; Microsoft Graph's verified `revokeSignInSessions` replaces `GlobalSignOut`.
+- **§8.3, §9.1 corrected**: certificate pinning and remote-config delivery reference the real Azure equivalents (Azure API-hosting service's managed cert, Azure Blob Storage/CDN) instead of API Gateway/S3/CloudFront.
+- **Confirmed unchanged, not silently assumed**: §4–7 (telemetry polling/WebSocket-readiness, offline caching, UI/navigation, kiosk-mirroring screen inventory) and §10 (build sequence, project structure) — none of this logic touches a cloud API directly, verified by grep rather than assumed from the plan's disposition note alone, mirroring the Windows Endpoint Application's own v1.2 verification discipline.

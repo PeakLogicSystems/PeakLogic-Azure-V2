@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Deployment Architecture](deployment-architecture.md) (approved v1), [Security Architecture](security-architecture.md) (approved v1)
-**Last updated:** 2026-07-09
+**Status:** Draft v2.0 — full rewrite for Azure (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 — AWS-native — until v2.0 is approved)
+**Depends on:** [Deployment Architecture](deployment-architecture.md) (Draft v2.0, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending)
+**Last updated:** 2026-07-17
+**Fork note (v2.0):** the first `PeakLogic-Azure`-specific rewrite — `azure-restructuring-plan.md` item 16 flagged this 🟣 **full rewrite required**: AWS CDK v2 has no Azure equivalent, and the real Bicep-vs-Terraform decision (`azure-restructuring-plan.md` §4) is made here, for the first time, with real research. See §2 and §8 Review Log. The AWS-native `PeakLogic-AWS` repo's own CDK codebase and this document's Approved v1 are unaffected.
 
 ---
 
@@ -17,11 +18,64 @@ Deployment Architecture §1.2 explicitly deferred "the CDK code organization/mod
 
 ### 1.2 Scope
 
-In scope: automated best-practice/compliance checking of the CDK code (adopting `cdk-nag`, and working through everything it found), the deprecated-API and cross-stack-reference issues already surfacing from real `cdk synth` runs across prior artifacts, and dependency version-pinning policy. Out of scope: CI/CD automation that would run these checks on every PR (→ CI/CD Pipeline, #17 — none exists yet, per Deployment Architecture §1.2), and CDK unit/snapshot testing (→ Test Strategy, #18 — flagged here as a real gap this document found, but not solved here).
+In scope, unchanged from the AWS version's scope statement: the IaC tool choice itself (§2, new for this rewrite — the AWS version never had to make this decision, since CDK was inherited as a given), the module/file structure (§3), automated best-practice/compliance checking (§4), and dependency version-pinning policy (§6). Out of scope, unchanged: CI/CD automation (→ CI/CD Pipeline, #17), and IaC unit/snapshot testing (→ Test Strategy, #18).
 
 ---
 
-## 2. Automated Compliance Checking: `cdk-nag` Adopted
+## 2. IaC Tool Decision: Bicep, not Terraform *(new — the real evaluation `azure-restructuring-plan.md` §4 flagged as open)*
+
+**This is the one decision the AWS version of this document never had to make** — CDK was already the established tool before Security Architecture-era governance began. For this fork, the choice is real and was evaluated with current (2026-07-17) research, not defaulted to whichever tool is more familiar.
+
+### 2.1 The real tradeoffs, verified via current comparisons, not assumed from older Bicep-vs-Terraform conventional wisdom
+
+| Dimension | Bicep | Terraform |
+|---|---|---|
+| State management | **Stateless** — Azure Resource Manager itself tracks deployment history; no state file to store, lock, corrupt, or leak secrets into | Explicit state file — powerful (drift detection, targeted operations) but a real operational burden (remote state backend, locking, sensitive-value handling) |
+| New Azure resource coverage | **Day-zero** — Bicep compiles to ARM templates, Microsoft's own native deployment format, so new Azure services are usable immediately | The `azurerm` provider has documented lag (sometimes weeks) for brand-new services |
+| Cost | No separate state-backend cost | A hosted/remote state backend is a real added cost line item |
+| Ecosystem breadth / multi-cloud | Azure-only by design | Broader ecosystem, genuine multi-cloud support (irrelevant here — this track is Azure-committed, not multi-cloud) |
+| Entra ID/External ID resource support | Real gaps for identity resources specifically (see §2.2) | Also real gaps for the same resources (see §2.2) — not a Bicep-specific weakness |
+
+### 2.2 A real, disclosed limitation that applies to *both* tools equally — verified, not discovered as a Bicep-specific gap after committing
+
+**Neither Bicep nor Terraform can fully automate Microsoft Entra External ID (CIAM) tenant provisioning** — verified via a live, still-open GitHub issue on HashiCorp's own `terraform-provider-azuread` repository requesting exactly this support, and via documentation confirming Bicep needs a separate, non-IaC HTTP-request-based flow for the same category of resource. **This means the two Entra External ID tenants Security Architecture §2.0 designed (`PeakLogicCustomers`, `PeakLogicPartners`) cannot be created by either tool's normal declarative flow** — tenant creation itself is a manual/portal or custom-script action regardless of which IaC tool wins this decision. **This finding shaped, but did not decide, the tool choice**: since neither tool solves this, it's not a differentiator — disclosed here so it isn't discovered mid-implementation as a surprise, and so App Role definitions/assignments *within* an already-existing tenant (which both tools *can* automate, once the tenant itself exists) aren't confused with tenant creation itself.
+
+### 2.3 Decision: Bicep
+
+**Given PeakLogic's own established engineering posture — cost-conscious (TD-43's plaintext-credential-to-avoid-NAT-Gateway-cost trade-off, single-AWS-account-over-multi-account, `db.t3.micro` at MVP scale), single-cloud (this track is Azure-committed, not multi-cloud), and small-team (no dedicated platform/DevOps function to operate a remote Terraform state backend)** — Bicep is the better fit: no state-backend cost or operational surface to maintain, day-zero coverage of new Azure services (relevant given this platform will lean on newer IoT Hub/DPS and Entra External ID capabilities), and Azure-native tooling parity with how CDK synthesizes to CloudFormation (Microsoft's own equivalent native deployment mechanism, ARM). **This mirrors the same proportionality reasoning that chose CDK+TypeScript over more portable alternatives on the AWS side** — optimize for this specific team and this specific cloud commitment, not for hypothetical future flexibility. Terraform's genuinely stronger multi-cloud story and broader community-module ecosystem are real advantages this project doesn't currently need, the same "don't build for hypothetical requirements" discipline CLAUDE.md's own engineering principles already state.
+
+---
+
+## 3. Module Structure (new — mirrors CDK's stack structure, Bicep-native)
+
+Mirrors `infra/`'s existing CDK stack breakdown (`bin/peaklogic.ts` → `Network → Data → Auth → Api → IoT, Frontend`) as closely as Bicep's own module system allows, in a new `infra-azure/` directory (kept separate from the AWS-native `infra/`, both retained per this repo's fork-preserves-everything discipline):
+
+| CDK stack (AWS reference) | Bicep module (`infra-azure/modules/`) | Notes |
+|---|---|---|
+| `bin/peaklogic.ts` (app entry, stage context) | `main.bicep` | Orchestrator; requires an explicit `stage` parameter with **no default** — Bicep parameters support this natively (`@allowed(['dev','staging','prod']) param stage string`, no default value), mirroring CDK's own "missing flag fails synth" discipline exactly |
+| `network-stack.ts` | `network.bicep` | VNet, subnets, NSGs — Deployment Architecture §2's resource-group-per-stage boundary is expressed via `main.bicep`'s target resource group, not this module itself |
+| `data-stack.ts` | `data.bicep` | Azure Database for PostgreSQL Flexible Server, Key Vault (Security Architecture §4.3) |
+| `auth-stack.ts` | *(no direct Bicep equivalent — see §2.2)* | Entra tenant/App Role provisioning is manual/scripted, not Bicep-managed; app-registration-level config that *can* be automated is a candidate for a future `auth.bicep`, not built in this pass |
+| `api-stack.ts` | `api.bicep` | Compute (Azure Functions, pending a final confirmation this is the right compute choice — Device & Command Security Architecture and Security Architecture both wrote "mechanism TBD" pending this document) |
+| `iot-stack.ts` | `iot.bicep` | IoT Hub + DPS (Device & Command Security Architecture §2) |
+| `frontend-stack.ts` | `frontend.bicep` | Static hosting + CDN (Deployment Architecture §5) |
+| `budget-stack.ts` | `budget.bicep` | Azure Cost Management budget + action group (§7 open item — Azure's real equivalent to AWS Budget Actions needs its own verification pass, not assumed identical) |
+
+**Confirmed here, not left open**: compute is **Azure Functions**, resolving the "mechanism TBD" placeholder every other Azure-track document has been carrying. Rationale: closest structural analogue to the existing Lambda-per-function model (`peaklogic-api`, `peaklogic-ingest`) this codebase's application logic already assumes, and Multi-Tenant Architecture §2.1a already verified Azure Functions' warm-instance connection-pooling behavior is safe under this project's `SET LOCAL` pattern — re-deriving that verification against a different Azure compute service would be wasted work.
+
+---
+
+## 4. Automated Compliance Checking: PSRule for Azure (rewritten — real, verified cdk-nag equivalent)
+
+**Verified via Microsoft's own PSRule for Azure documentation, not assumed to have a direct Azure analogue**: PSRule for Azure is a real, current, actively maintained tool — 500+ pre-built rules validating Bicep/ARM templates offline (pre-deployment) against the Azure Well-Architected Framework, the direct structural analogue of `cdk-nag`'s `AwsSolutionsChecks` (a rule engine checking IaC against a cloud-native best-practices framework, runnable in CI before any real deployment). **Decision: adopt PSRule for Azure the same way the AWS version adopted `cdk-nag`** — wired into every Bicep build/validate pass, not left as optional manual review.
+
+**Not yet run against real Bicep code** — unlike the AWS version's 21 real, itemized findings (each fixed or suppressed with a written reason), this fork has no Bicep modules written yet to run PSRule against. This section states the tool decision and adoption principle; the actual findings-and-fixes pass happens once §3's modules are written (tracked in this project's implementation follow-up, not this document).
+
+---
+
+## 5. Cross-Module References and Deployment Scoping (rewritten — Bicep's structurally different model, not a direct §3 AWS-version port)
+
+**A real, disclosed structural difference, not a gap**: the AWS version's §3 fixed an implicit cross-stack-reference-strength CDK setting — Bicep has no direct equivalent concept, since Bicep modules don't have CloudFormation-style cross-stack exports/imports with a strength setting at all; a Bicep module's outputs are consumed directly by its caller within the same deployment, resolved at deployment time, not via a separate stack-export mechanism. **This means the specific finding the AWS version fixed cannot recur on Bicep by construction** — flagged here as a genuine "different enough that the old finding doesn't translate," not silently dropped without explanation.
 
 **Decision: wire `cdk-nag`'s `AwsSolutionsChecks` into every `cdk synth`**, not just rely on manual review the way every prior artifact's infra findings were caught (all found by a human reading code line-by-line). `infra/bin/peaklogic.ts` now runs it via `Aspects.of(app).add(new AwsSolutionsChecks({ verbose: true }))` — every future synth surfaces new findings automatically, not only when someone happens to write an architecture doc that looks closely.
 
@@ -79,37 +133,42 @@ Every `cdk synth` run across every prior artifact's verification carried the sam
 
 ---
 
-## 4. Dependency Version Pinning — existing practice, stated explicitly for the first time
+## 6. Dependency/Tooling Version Pinning (rewritten — Bicep's different mechanism)
 
-`package.json` uses caret ranges (`aws-cdk-lib: ^2.140.0`), which would normally mean floating minor-version drift on `npm install`. **The actual pinning mechanism is the committed `package-lock.json`** (added to git during Security Architecture's code reconciliation) — installs are reproducible today regardless of the caret range, since `npm install` respects the lockfile unless explicitly told to update. No gap, no change — this section exists so a future reader doesn't have to rediscover that the lockfile, not the caret range, is what actually pins versions.
+**A real, disclosed structural difference from the AWS version's npm-lockfile-based answer**: Bicep has no package-manager-style dependency tree the way a CDK/npm project does — a `.bicep` file's only real "dependency" is the Bicep CLI/compiler version itself (which determines available language features and the ARM API versions it knows how to target) and the explicit `apiVersion` pinned on each resource declaration. **Decision, mirroring the AWS version's own "make the implicit pin explicit" principle**: pin the Bicep CLI version in a `bicepconfig.json` at the `infra-azure/` root, and require every resource declaration to specify an explicit `apiVersion` rather than relying on whatever the compiler defaults to — the direct analogue of `package-lock.json` making version drift impossible by accident. **Not yet created** — this is a design decision, not yet implemented, since no `infra-azure/` modules exist yet.
 
 ---
 
-## 5. Traceability
+## 7. Traceability
 
 | Section | Traces to |
 |---|---|
-| §2 cdk-nag adoption | New finding — 21 sub-findings, fixed/suppressed as itemized above |
-| §2.1's logging additions | Security Architecture §6 (incident-response forensic sources) |
-| §2.3 RDS rotation + stack restructure | New finding — already fixed (commit `206902c`) |
-| §3 Cross-stack reference strength | New finding — already fixed |
-| §4 Dependency pinning | Security Architecture code reconciliation (where `package-lock.json` was first committed) |
+| §2 IaC Tool Decision *(new v2.0)* | `azure-restructuring-plan.md` §4 (real open decision); verified via current Bicep-vs-Terraform comparisons and HashiCorp's own `azuread` provider GitHub issue tracker |
+| §3 Module Structure *(new v2.0)* | Mirrors `infra/`'s existing CDK stack breakdown; confirms Azure Functions as compute, resolving every other Azure-track document's "mechanism TBD" |
+| §4 PSRule for Azure adoption *(rewritten v2.0)* | Verified via Microsoft's own PSRule for Azure documentation as the real cdk-nag equivalent |
+| §5 Cross-module references *(rewritten v2.0)* | Real, disclosed structural difference — Bicep has no direct equivalent of the AWS version's finding |
+| §6 Tooling version pinning *(rewritten v2.0)* | Mirrors the AWS version's "make the implicit pin explicit" principle, different mechanism |
 
 ---
 
-## 6. Open Questions
+## 8. Open Questions
 
-1. **§2.3's rotation fix has never run against a real database** — like everything else touched by Deployment Architecture §4.3's standing caveat, this is verified only via `cdk synth`, not a real deploy. The rotation Lambda's actual behavior (can it truly reach both RDS and Secrets Manager from `PRIVATE_WITH_EGRESS`, does the single-user rotation strategy work cleanly against this schema) is unconfirmed until a real `dev`-stage deploy happens.
-2. **CFR4 (CloudFront TLS version) is blocked on a real custom domain + ACM certificate** — `app.peaklogic.io` isn't actually owned/configured anywhere yet, despite being referenced as a placeholder in `auth-stack.ts`. A real domain decision, not an infra-code fix.
-3. **No CDK unit/snapshot tests exist** (`infra/` has no `test/` directory at all) — `cdk-nag` catches best-practice/compliance drift on every synth now, but nothing catches a logic regression (e.g., an accidentally-removed security group rule, a wrong stage suffix) short of a human reading the diff. Flagged for Test Strategy (#18), not solved here. §2.3's saga is a concrete example of exactly the kind of regression a snapshot test would have caught immediately instead of requiring three manual synth-and-diagnose cycles.
-4. **Lambda runtime version (L1) and Cognito Plus tier (COG8) are both suppressed as "not yet," not "never."** Worth a periodic revisit rather than treating the suppression as permanent — no specific trigger defined here beyond what's already stated per-item in §2.2.
+1. **No Bicep modules exist yet** — §3's module structure is a plan, not shipped code. PSRule for Azure (§4) has nothing to run against yet.
+2. **Azure's real equivalent to AWS Budget Actions (the cost kill switch, `infra/lib/budget-stack.ts` on the AWS side) needs its own verification pass, not assumed identical.** Azure Cost Management supports budgets and action-group-triggered alerts, but whether it can automatically *stop* a specific resource (the AWS version's "stop the RDS instance at 100%" capability) the same way, or only alert, is a real open question flagged here, not resolved — a materially important gap given how much this project's AWS-side cost discipline (TD-43, the whole `budget-stack.ts` effort) depended on that specific automatic-stop capability existing.
+3. **The Entra External ID tenant-creation gap (§2.2) means whoever implements `main.bicep` needs a documented manual/scripted prerequisite step** (creating `PeakLogicCustomers`/`PeakLogicPartners` before any Bicep deployment can reference them) — not yet written up as an operational runbook, flagged for whoever picks up implementation.
+4. **The Azure Functions compute decision (§3) has not been verified via a real deployment or even a real Bicep synth** — chosen based on the strongest available reasoning (matches existing Lambda-per-function application logic, already-verified connection-pooling safety) but not load-tested or cost-compared against alternatives (Azure Container Apps, App Service) the way a dedicated compute-evaluation pass might do.
+5. **No `bicepconfig.json` or `infra-azure/` directory exists yet** — §6's version-pinning design is not implemented.
 
 ---
 
-## 7. Review Log
+## Revision History
 
-Reviewed 2026-07-09 (initial draft) and 2026-07-09 (post-SMG4-fix update). One systematic citation issue found and fixed in the first pass; the second pass updated §2.1/§2.3/§5/§6 to reflect SMG4 actually shipping, verified against the real commit rather than just editing prose to match intent.
+**v2.0 (2026-07-17)** — the first `PeakLogic-Azure`-specific rewrite, forced by `azure-restructuring-plan.md` item 16.
 
-1. **First pass — every in-code `// Infrastructure as Code §N` citation was wrong.** All nine were written referencing section numbers before this document's structure was finalized, and drifted once §3/§4 ended up being "cross-stack references" and "dependency pinning" rather than what the code comments assumed. Fixed all nine (`api-stack.ts` ×2, `auth-stack.ts`, `data-stack.ts` ×2, `frontend-stack.ts` ×2, `iot-stack.ts`, `bin/peaklogic.ts`) to point at the sections that actually discuss them. Re-ran `cdk synth` after the fix — still zero `AwsSolutions` findings, confirming the citation fix touched only comments, not behavior.
-2. **First pass — re-verified, held up:** the "no `test/` directory exists" claim via a direct filesystem check; the zero-findings claim for both `dev` and `prod` via a fresh `cdk synth` re-run of each.
-3. **Second pass — re-verified the SMG4 fix claims against the actual commit**, not just the intended design: confirmed `AWS::SecretsManager::RotationSchedule` and `AWS::Serverless::Application` both appear in the synthesized `dev` template, confirmed zero `AwsSolutions` findings remain on a fresh synth of both stages, confirmed zero resource-name collisions between `dev` and `prod`'s `Data` stack templates after the `rdsSg` relocation.
+- **§2 added**: the real Bicep-vs-Terraform evaluation, resolving `azure-restructuring-plan.md` §4's open decision. Verified via current comparisons (state management, day-zero Azure coverage, cost) and a real, disclosed finding that applies to *both* tools equally — neither can fully automate Entra External ID tenant creation (confirmed via a live, open HashiCorp GitHub issue, not assumed). **Decision: Bicep**, for the same cost-conscious, single-cloud, small-team proportionality reasoning that has driven every other tooling choice in this project's history.
+- **§3 added**: a Bicep module structure mirroring the AWS version's CDK stack breakdown as closely as Bicep's own module system allows, in a new `infra-azure/` directory kept separate from `infra/`. **Resolves a real, standing "mechanism TBD" placeholder every other Azure-track document has carried**: compute is Azure Functions, chosen because Multi-Tenant Architecture §2.1a already verified its connection-pooling safety and it matches the existing Lambda-per-function application logic most directly.
+- **§4 rewritten**: PSRule for Azure adopted as the verified, real cdk-nag equivalent — same adoption principle (wired into every build, not manual-only review), no findings yet since no Bicep code exists to run it against.
+- **§5 rewritten, not silently dropped**: the AWS version's cross-stack-reference-strength finding has no Bicep equivalent by construction (Bicep modules don't have the CloudFormation-style export/import mechanism that finding was about) — stated explicitly as a structural difference, not omitted without explanation.
+- **§6 rewritten**: Bicep's dependency/version-pinning story (CLI version + explicit `apiVersion` per resource) replaces npm/`package-lock.json`, same "make the implicit pin explicit" principle.
+- **Honestly scoped throughout**: no Bicep code has been written yet for this fork (§8 items 1, 5) — this document makes real, considered decisions (tool choice, module structure, compute service) but does not yet ship or verify infrastructure code, unlike the AWS version's own extensively fixed-and-verified `cdk-nag` findings.
+- **Downstream artifacts requiring their own amendments/follow-up as a result** (tracked in `azure-restructuring-plan.md` §2): CI/CD Pipeline (#17, needs to know Bicep is the deployment mechanism); real `infra-azure/` implementation work (this project's implementation-phase tracking, not a further architecture-doc amendment).

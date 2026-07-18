@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.2), [SRS](srs.md) (approved v1.2), [Domain Model](domain-model.md) (approved v1), [User Personas](user-personas.md) (approved v1)
-**Last updated:** 2026-07-04
+**Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 until v1.1 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending), [User Personas](user-personas.md) (approved v1)
+**Last updated:** 2026-07-17
+**Fork note (v1.1):** the first amendment specific to the `PeakLogic-Azure` fork's Azure-pivot feature backlog (map, 3D rendering — PRD/SRS v1.7). See Revision History. **Also discloses a pre-existing gap, not fixed in this pass**: this document was never amended for the AWS-side channel-partner-portal (PRD v1.5) or Administration Console (PRD v1.6) requirements either — it still depends on "PRD approved v1.2." That gap predates this fork and is out of scope for this amendment (which only adds the two new Azure-era feature stories); flagged here so it isn't mistaken for something this pass silently ignored.
 
 ---
 
@@ -34,6 +35,9 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 **US-3.** As a Corporate/Regional Ops Leader, I want an eventual aggregate savings/avoided-loss estimate across my portfolio, so that I can justify the platform's cost to my own leadership.
 - Acceptance: RP-3 — explicitly **Won't** at MVP (requires real usage data this PRD's horizon doesn't have yet). Included here so the need is on record even though it isn't being built now.
 
+**US-18.** *(added v1.1)* As a Corporate/Regional Ops Leader, I want to see my entire site portfolio plotted on a map, so that I can spot regional clustering of risk without cross-referencing addresses from a list one at a time.
+- Acceptance: GEO-1.1, GEO-2.1. Priority: Must.
+
 ### 2.2 Small Business Owner-Operator (Tenant Admin)
 
 **US-4.** As a Small Business Owner-Operator, I want to see every customer site and every technician's current status in one place, so that I'm not calling around to find out what's happening across my business.
@@ -44,6 +48,12 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 
 **US-6.** As a Small Business Owner-Operator, I want my channel-partner relationship (e.g. my chemical supplier) correctly attributed on my account, so that revenue-share reporting reflects reality without manual reconciliation on my end.
 - Acceptance: CH-1.1, CH-2.1. Priority: Must (CH-1.1) / Should (CH-2.1).
+
+**US-19.** *(added v1.1)* As a Small Business Owner-Operator, I want to click a site's marker on the map to jump straight into that site's detail view, so that I don't have to search a list separately once I've already spotted it visually.
+- Acceptance: GEO-3.1, NAV-1. Priority: Must.
+
+**US-20.** *(added v1.1)* As a Small Business Owner-Operator, I want to see a 3D rendering of a facility (e.g. my pool) when one is available, so that I can visually understand equipment context without relying on a photo or memory of the site layout.
+- Acceptance: 3DR-1.1. Priority: Should — matches 3DR-1's own PRD priority, deliberately not upgraded here since the underlying feature scope itself is still a first pass, per PRD §5.15.
 
 ### 2.3 Site-Level Facility Operator
 
@@ -77,6 +87,9 @@ Each story: `As a [persona/role], I want [goal], so that [benefit].` Acceptance 
 **US-14.** As a Channel Partner, I want a simple report of which tenants/devices are attributed to my referral relationship, so that I can reconcile revenue share without needing my own account on the platform.
 - Acceptance: CH-2.1. Priority: Should.
 
+**US-21.** *(added v1.1)* As a Channel Partner dispatch admin, I want the same portfolio map view scoped to my attributed tenants' sites, so that I can visually reason about geographic coverage the same way I already draw territory boundaries.
+- Acceptance: GEO-5.1. Priority: Should.
+
 ### 2.7 External AI/Agent Consumer *(system actor, not a persona — see User Personas §3)*
 
 **US-15.** As an external AI/agent system, I want to query devices, alerts, and telemetry through a standard tool interface, so that I can incorporate PeakView data into a customer's own automation or reporting without a custom integration.
@@ -100,6 +113,7 @@ Both resolved — confirmed and back-ported to the PRD/SRS (v1.2) rather than le
 
 1. **US-2 (trend-flag visibility in the roll-up view)**: confirmed. RP-1.1 now explicitly requires separating trend/anomaly-flagged sites from threshold-alarmed sites.
 2. **US-11 (pre-arrival chemical/equipment status)**: confirmed. RP-2.1 now explicitly requires per-site adapter-specific readings, not just a health summary.
+3. **Pre-existing gap, disclosed not resolved, added v1.1**: this document has no stories at all for the channel-partner-portal (PRD v1.5: territory/dispatch, CH-3/TR-1–3) or Administration Console (PRD v1.6: IA-1–8) requirement sets — it was never amended when those PRD amendments landed on the AWS side, and that gap simply carried over into this fork. Out of scope for this v1.1 amendment (scoped only to the Azure-pivot map/3D backlog); flagged so a future session doesn't assume US-1–US-17's coverage is complete.
 
 ---
 
@@ -112,3 +126,15 @@ Every story above cites its PRD/SRS requirement ID(s) inline in its Acceptance l
 ## 6. Review Log
 
 1. **US-2 / US-11 open items (§4)**: both confirmed "yes" and back-ported as explicit PRD v1.2 / SRS v1.2 amendments (RP-1.1, RP-2.1 reworded) rather than left as an assumption in this document alone.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by the PRD/SRS v1.7 amendment (geospatial site map, 3D facility rendering).
+
+- **US-18, US-19 added** (§2.1, §2.2): Corporate/Regional Ops Leader and Small Business Owner-Operator stories for the portfolio map view and map-to-detail navigation (GEO-1.1–GEO-3.1).
+- **US-20 added** (§2.2): Small Business Owner-Operator story for optional 3D facility rendering, deliberately kept at the PRD's own Should priority rather than upgraded, since 3DR-1's underlying scope is still a first pass.
+- **US-21 added** (§2.6): Channel Partner story for the same map view scoped to their attributed sites (GEO-5.1).
+- **§4 item 3 added**: disclosed, not fixed, a pre-existing gap — this document was never amended for the AWS-side channel-partner-portal or Administration Console PRD amendments, predating this fork. Explicitly out of scope for this pass.
+- **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): UX Wireframes (new map/3D screens these stories imply), Information Architecture (new nav entries).

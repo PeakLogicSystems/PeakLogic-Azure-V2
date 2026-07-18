@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6 is approved)
+**Status:** Draft v1.7 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6/v1.7 are approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1)
-**Last updated:** 2026-07-11
+**Last updated:** 2026-07-17
+**Fork note (v1.7):** this amendment folds in the Azure-pivot feature backlog (`docs/architecture/azure-restructuring-plan.md` §3) into the PeakLogic-Azure fork specifically — see Revision History for what changed and why. The AWS-native `PeakLogic-AWS` repo's own PRD is unaffected and continues independently.
 
 ---
 
@@ -56,7 +57,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 ### In scope for MVP
 
-- Multi-tenant cloud SaaS on the existing stack (AWS IoT Core, Lambda, RDS Postgres + RLS, Cognito, API Gateway, CloudFront/S3) — **reconciled and kept**, not rebuilt
+- Multi-tenant cloud SaaS, **re-platformed onto Azure-native infrastructure for this track** *(corrected v1.7 — this line previously described the AWS-native stack verbatim; see `azure-restructuring-plan.md`)*: device ingestion, serverless compute, managed Postgres + RLS, identity/auth, an API layer, and CDN/static hosting. The multi-tenant RLS pattern and outbound-only device networking model are **reconciled and kept as-is** — concrete Azure service selection is Infrastructure as Code's (#16), Device & Command Security Architecture's (#12), and Security Architecture's (#13) job, not named at this level
 - Existing sensing categories retained: `pump`, `hvac`, `pool_system`, `refrigeration`, `leak_sensor`, `energy_meter`
 - New sensing modalities: water chemistry (pool), gas leak detection, air quality — added as new device-adapter categories (see §5.2)
 - A formalized **device-adapter contract** (see §5.1) — MVP proves the pattern is config-shaped and documented; full dynamic third-party self-registration is deferred (see Out of Scope)
@@ -66,6 +67,8 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - Channel-partner attribution (tagging) for all verticals; **for the pool-servicing vertical**, additionally a scoped operational dispatch portal — white-label branded partner login, technician territory management (map-drawn boundaries), AI-assisted daily dispatch suggestions (§5.10) *(added v1.5 — see Out of Scope for what remains excluded)*
 - **An internal PeakLogic Administration Console** *(added v1.6)* — a genuinely new, PeakLogic-staff-only identity surface with two roles (Superadmin, Account Manager) for creating and operating tenant/channel-partner accounts (§5.11). This is **not** customer or partner self-service signup — see the narrowed Out of Scope item below.
 - **A Settings & Preferences area in the main web application** *(added v1.6)* — a standard, discoverable location for profile, security, display (clock format, timezone, light/dark theme), and (for Tenant Admins) team/user management (§5.12)
+- **Geospatial site portfolio visualization** *(added v1.7)* — an interactive map plotting a tenant's sites by location, additive to the existing roll-up (RP-1) and directory (RP-4) views (§5.14)
+- **3D facility rendering, first-pass/Should-priority** *(added v1.7, deliberately high-uncertainty)* — optional 3D visualization of facility/equipment for a Site or Asset, when a model exists (§5.15)
 - Architecture that does not preclude SOC 2 certification later (not certified at MVP)
 
 ### Explicitly out of scope for MVP
@@ -81,6 +84,9 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 - **Native mobile app** — MVP is a responsive web dashboard; a native Android/iOS app is not required to prove the product thesis
 - **Predictive/ML-trained analytics models** — baseline trend/anomaly detection is in scope (AI-3); custom-trained predictive maintenance models are not
 - **Per-tenant custom branding/theming of the main tenant web app** *(added v1.6)* — the light/dark mode toggle (§5.12, SET-5) is a personal display preference available to every user, not a white-label branding system; that concept is already scoped narrowly to the channel-partner portal's own branding (CH-3, §5.10) and is not being extended to the tenant-side app here
+- **3D model authoring/CAD tooling** *(added v1.7)* — PeakLogic consumes pre-authored 3D models (§5.15); it does not build a modeling/CAD/asset-creation tool
+- **Real-time telemetry overlay onto a 3D model** *(added v1.7)* — a plausible future extension of §5.15 (e.g. color-coding equipment by live alert status), not committed at this pass
+- **The specific mapping technology for §5.14** *(added v1.7)* — Azure Maps vs. a third-party option (e.g. Mapbox, PeakLogic's existing choice for the AWS-side channel-partner portal's territory drawing) is an implementation decision, not a product requirement; it is evaluated and locked before UX Wireframes/API Specification are amended (`azure-restructuring-plan.md` §4), not decided here
 
 ---
 
@@ -230,6 +236,35 @@ Surfaced by direct product use: the existing Sites/Assets/Devices pages (§5.4) 
 
 **Error/edge conditions:** a Site with zero Assets, or an Asset with zero Devices (NAV-1/NAV-2 shall render an empty, valid state, not an error — a newly-added site legitimately has nothing yet); a Device with zero telemetry history yet (NAV-3 shall show "no data yet," not an error).
 
+### 5.14 Geospatial Site Portfolio Visualization *(added v1.7 — see Revision History)*
+
+Surfaced by comparing against Purple Standard's MooreView platform during Azure-pivot scoping (`azure-restructuring-plan.md` §3) — a real interactive map showing the physical geographic locations of a tenant's sites. Distinct from RP-1's risk/health roll-up (list-based) and RP-4's plain address-sortable directory (also list-based): this is genuinely geospatial. Reuses existing `sites.lat`/`sites.lng` (already present in the schema, and already load-bearing for Territory→Site geographic containment — Domain Model §2.7) — a new *view* over largely existing data, not a new data-collection requirement.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| GEO-1 | An interactive map view shall be available from the tenant dashboard, plotting every Site in the tenant's portfolio at its geographic location | Must |
+| GEO-2 | Map markers shall visually distinguish site risk status using the same three-way classification RP-1 already established (healthy / trending-toward-risk / currently-alarmed) — no new alerting/classification logic, just a new visual surface over existing data | Must |
+| GEO-3 | Selecting a map marker shall navigate to that Site's existing Site Detail view (NAV-1) | Must |
+| GEO-4 | The map view is additive — RP-1 (roll-up list) and RP-4 (sortable directory) remain available; a user may use whichever view suits the task | Must |
+| GEO-5 | The same map view shall be available within the channel-partner portal, scoped to a partner's attributed tenants' sites — mirrors how RP-1/RP-2/NAV-4 already extend to that surface | Should |
+| GEO-6 | A Site with no recorded lat/long shall be visually indicated as "unlocated" (e.g. a separate list/panel), not silently omitted or plotted at a default/incorrect coordinate | Must |
+
+**Error/edge conditions:** zero sites (empty map, a valid state, not an error). **A real, pre-existing gap this feature surfaces more visibly, not one it introduces**: `sites.lat`/`sites.lng` are nullable in the existing schema and were already silently load-bearing for Territory→Site containment (Domain Model §2.7) — a site missing coordinates already failed silently for territory assignment before this feature existed. GEO-6 makes that gap visible in the UI for the first time; it does not fix the root cause (whether site creation should require coordinates going forward). Flagged as an open item for the UX Wireframes/Database Schema amendments, not resolved here.
+
+**Deliberately undecided at this level**: the specific mapping technology (Azure Maps vs. a third-party option) is an implementation choice, not a product requirement — see the Out of Scope note in §4 and `azure-restructuring-plan.md` §4.
+
+### 5.15 3D Facility Rendering *(added v1.7 — first pass, deliberately high-uncertainty; see Revision History)*
+
+Also surfaced by the MooreView comparison. Explicitly the higher-uncertainty of the two new features (`azure-restructuring-plan.md` §3) — no existing precedent anywhere in this platform's architecture. This section scopes it at the product-requirement level only; asset format, rendering approach, authoring workflow, and storage are **explicitly not decided here** and must go through their own scoping pass before Domain Model/Database Schema can design against it.
+
+| ID | Requirement | Priority |
+|---|---|---|
+| 3DR-1 | A Site or Asset detail view may optionally display an associated 3D model of the facility or equipment (explicitly named examples: pools, water treatment plants), when one exists | Should |
+| 3DR-2 | 3D models are authored/produced out-of-band (not generated by PeakLogic) and associated with a Site or Asset via a stored reference | Must (once built) |
+| 3DR-3 | Absence of a 3D model for a given Site/Asset is the expected default state, not an error — most sites will not have one, especially at initial launch | Must |
+
+**This is deliberately a placeholder-level requirement set, not a fully-specified one** — matching `azure-restructuring-plan.md`'s own instruction not to assume scope for this feature. Downstream artifacts should treat 3DR-1–3DR-3 as the full extent of what's committed until a dedicated scoping pass (or a further amendment to this PRD) resolves file format, web-vs-native rendering, the authoring/CAD-import workflow, and storage — see §4 Out of Scope for what's explicitly excluded from this pass.
+
 ---
 
 ## 6. Non-Functional Requirements
@@ -250,7 +285,7 @@ Surfaced by direct product use: the existing Sites/Assets/Devices pages (§5.4) 
 
 - **Web dashboard** (React SPA, existing stack): primary and only human-facing client at MVP. No native mobile app is required to prove the product thesis.
 - **Device firmware**: the actual "platform" surface that matters most for this product is the device side, not a choice of human OS/client — outbound MQTT/TLS per CC-1/CC-2 is the requirement, not a specific OS.
-- **Existing infrastructure retained**: AWS IoT Core, Lambda (API + ingest), RDS Postgres, Cognito, API Gateway, CloudFront/S3, all via CDK — reconciled, not re-platformed.
+- **Infrastructure re-platformed to Azure for this track** *(corrected v1.7 — this line previously said "reconciled, not re-platformed," describing the AWS-native repo this was forked from)*: the underlying pattern (managed Postgres + RLS, IoT device ingestion, serverless compute, identity/auth, CDN/static hosting) is reconciled and kept; concrete Azure service names and the IaC tool choice are Infrastructure as Code's (#16) decision, not this PRD's.
 
 ---
 
@@ -259,8 +294,8 @@ Surfaced by direct product use: the existing Sites/Assets/Devices pages (§5.4) 
 - **Beachhead verticals for MVP demo (confirmed): pool servicing and QSR (gas station convenience stores, fast food).** Both are real, active sales opportunities, not hypothetical — both must be easily demoable at MVP. QSR/gas-station-convenience scope for MVP is the **convenience store building's facility conditions only** (coolers, restroom/plumbing leaks, kitchen gas appliances, energy usage).
 - **Confirmed roadmap, explicitly not MVP, for the gas-station vertical specifically**: (a) fuel-dispenser/fuel-pump monitoring, and (b) underground fuel storage tank leak detection — the latter is a separate, heavily regulated EPA UST compliance program (financial responsibility rules, etc.), a materially larger and distinct product decision from this PRD's horizon. **Keep this conceptually separate from "industrial pumping stations"** (§ below) — that term refers to water/wastewater pump infrastructure (the existing `pump` category), a different vertical entirely from gas-station fuel dispensers, even though both use the word "pumping."
 - **Industrial (water/wastewater) pumping stations are the next vertical after MVP** (not required for the MVP demo), building on the already-existing `pump` category.
-- Existing v1.0.0 code's validated patterns (RLS tenant isolation, CDK stack structure, MQTT/IoT Core networking) are assumed sound and are being reconciled, not rebuilt from scratch, per `docs/architecture/README.md`.
-- AWS as the cloud provider (IoT Core, Lambda, RDS, Cognito) is a constraint already made by the existing implementation, not re-litigated in this PRD.
+- Existing v1.0.0 code's validated *patterns* (RLS tenant isolation, outbound-only MQTT device networking, stage/environment separation) are assumed sound and are being reconciled onto Azure, not rebuilt from scratch, per `docs/architecture/README.md` and `azure-restructuring-plan.md`.
+- **Azure as the cloud provider is the constraint for this track** *(corrected v1.7 — this line previously named AWS/IoT Core/Lambda/RDS/Cognito as the constraint, describing the repo this was forked from; the AWS-native `PeakLogic-AWS` repo is unaffected and continues in parallel, see `azure-restructuring-plan.md`)*. Concrete Azure service selection (compute, IoT device identity/provisioning, auth, IaC tool) is deferred to Infrastructure as Code (#16), Device & Command Security Architecture (#12), and Security Architecture (#13) — not re-litigated in this PRD.
 - MVP validates the product thesis with a small number of design-partner tenants, not general availability — billing automation remains intentionally out of scope. **Narrowed v1.6**: "self-serve tenant onboarding" is no longer blanket out-of-scope — §5.11's Administration Console brings PeakLogic-*staff*-operated tenant/partner provisioning into MVP scope, replacing the manual SQL/AWS-CLI process. What remains explicitly out of scope is *customer or partner* self-service signup (see §4) — that boundary is unchanged.
 
 ---
@@ -323,3 +358,11 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 - **§8 narrowed, not reversed**: "self-serve tenant onboarding" is no longer blanket out-of-scope — it's now in scope specifically as *PeakLogic-staff-operated* provisioning through §5.11's console. *Customer/partner* self-service signup remains exactly as out-of-scope as before; this amendment does not touch that boundary.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass, same sequenced pattern as v1.5's channel-partner-portal amendment): SRS (this document's own pass, done alongside), Domain Model (new entities: PeakLogicStaffUser or equivalent, account-manager-to-tenant/partner assignment), Database Schema (a third RLS-scoping dimension — staff sessions need cross-tenant read/**write** access, a materially harder problem than the channel-partner portal's read-mostly pattern, and directly intersects the already-flagged TD-7 gap — no non-owning application DB role exists yet), Security Architecture (a third Cognito pool or equivalent), Multi-Tenant Architecture, API Specification, User Personas, UX Wireframes.
 - **§5.13 added (NAV-1–NAV-5), same v1.6 pass**: full Site → Asset → Device drill-down, plus per-device telemetry detail — surfaced by direct product use finding the three existing list pages (Sites/Assets/Devices) have no navigation between them at all. Explicitly documents that an Asset can have multiple Devices (verified against the schema, not assumed — no uniqueness constraint on `devices.asset_id`), and that the same drill-down applies inside the channel-partner portal, not just the tenant-side app. **A real, verified API gap found in the same pass, not hypothetical**: `GET /v1/devices` currently ignores all query parameters and always returns the tenant's entire device list — NAV-5 requires adding `assetId`/`siteId` filters before the drill-down UI can be built without over-fetching.
+
+**v1.7 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by two things at once: (1) the Azure-pivot feature backlog (`azure-restructuring-plan.md` §3), surfaced by comparing against Purple Standard's MooreView platform during merger exploration; (2) this document's own AWS-specific platform-constraint language (§4, §7, §8) having gone stale the moment this repo forked for an Azure track, per the same non-silent-amendment discipline used for every prior revision.
+
+- **§5.14 added (GEO-1–GEO-6)**: an interactive geospatial map of a tenant's site portfolio, additive to the existing RP-1 (risk roll-up) and RP-4 (address directory) list views. Reuses existing `sites.lat`/`sites.lng` — a new view, not new data collection. **A real, pre-existing gap surfaced, not introduced, while scoping this**: those columns are nullable and were already silently load-bearing for Territory→Site geographic containment (Domain Model §2.7); GEO-6 makes an already-existing gap visible in the UI for the first time rather than fixing its root cause.
+- **§5.15 added (3DR-1–3DR-3)**: 3D facility/equipment rendering, deliberately scoped at placeholder/first-pass level and marked **Should**, not Must — per `azure-restructuring-plan.md`'s explicit instruction that this feature is higher-uncertainty than the map feature and must not have scope assumed into it prematurely. File format, rendering approach, authoring workflow, and storage are named as explicitly undecided, not silently deferred.
+- **§4 In/Out of Scope updated**: both new features added to In Scope; four new Out-of-Scope items added — 3D authoring/CAD tooling, real-time telemetry-to-3D-model overlay, and (deliberately) the specific mapping-technology choice for §5.14, which is named here as an implementation decision for a later artifact, not a product requirement, mirroring how Mapbox was "locked... recorded in project memory, not requirements text" for v1.5's territory-drawing feature rather than named in this document.
+- **§4/§7/§8 corrected, not just extended**: this document's platform-constraint language still named AWS services (IoT Core, Lambda, RDS, Cognito, CDK) as "the existing implementation... not re-litigated" — accurate for the repo this was forked from, wrong for this fork's own track. Corrected to name Azure as the constraint and generalize the described stack to cloud-agnostic pattern language (managed Postgres + RLS, IoT device ingestion, serverless compute, identity/auth, CDN/static hosting), explicitly deferring concrete Azure service selection to Infrastructure as Code (#16), Device & Command Security Architecture (#12), and Security Architecture (#13) — this PRD does not itself pick Azure services, the same boundary it already held for AWS.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass, tracked in `azure-restructuring-plan.md` §2 and project memory): SRS (this document's own pass, done alongside), Domain Model (new entities/attributes for site geo-coordinates already existing but newly load-bearing, plus a 3D-model-asset-reference entity), User Stories, UX Wireframes (new dashboard map view, new 3D facility render view, plus the mapping-technology evaluation itself), Information Architecture (new nav items), Database Schema, API Specification (map data + 3D asset delivery endpoints).

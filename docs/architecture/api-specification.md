@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [Domain Model](domain-model.md) (Draft v1.3, pending), [Database Schema](database-schema.md) (Draft v1.3, pending), [Security Architecture](security-architecture.md) (Draft v1.3, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (approved v1), [UX Wireframes](ux-wireframes.md) (approved v1.3), [Information Architecture](information-architecture.md) (approved v1), [iOS Application](ios-application.md) (Draft v1.1)
-**Last updated:** 2026-07-13
+**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3/v1.4 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending), [Database Schema](database-schema.md) (Draft v1.4, pending), [Security Architecture](security-architecture.md) (Draft v1.3, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.2, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (Draft v1.1, pending), [UX Wireframes](ux-wireframes.md) (Draft v1.4, pending), [Information Architecture](information-architecture.md) (Draft v1.1, pending), [iOS Application](ios-application.md) (Draft v1.1)
+**Last updated:** 2026-07-17
+**Fork note (v1.4):** the first amendment specific to the `PeakLogic-Azure` fork's Azure-pivot feature backlog (map, 3D rendering). See §4.11/§4.12 and Revision History.
 
 ---
 
@@ -92,6 +93,15 @@ Full request/response implementation lives in `backend/api/routes/*.ts`; this ta
 | Invite-or-link/revoke (`superadmin`-initiated) | `POST /v1/admin/channel-partners/{partnerId}/managers`, `DELETE /v1/admin/channel-partners/{partnerId}/managers/{channelPartnerManagerId}` | `routes/admin-partners.ts` |
 
 2 genuinely new resource paths, 2 new methods on an existing admin resource. See §4.10.
+
+**Added v1.4 — no new tenant-side resource path; `GET /v1/portfolio` (§4.1) gains additive fields. One genuinely new partner-side endpoint.**
+
+| Domain | Endpoints | Source |
+|---|---|---|
+| Portfolio map data | `GET /v1/portfolio` *(existing, response extended — see §4.11)* | `routes/portfolio.ts` |
+| Partner portfolio map | `GET /v1/partner/portfolio` *(new)* | `routes/partner-portfolio.ts` *(new)* |
+
+1 new endpoint, 1 extended response shape. See §4.11. **3D facility asset delivery has no endpoint at all in this pass — see §4.12.**
 
 ---
 
@@ -307,6 +317,26 @@ DELETE /v1/admin/channel-partners/{partnerId}/managers/{channelPartnerManagerId}
 ```
 Both delete the matching `channel_partner_manager_assignments` row (not the `channel_partner_managers` row itself — a manager who loses access to one account keeps their identity and any other accounts' assignments, the same "assignment ≠ identity" separation `account_assignments`/`peaklogic_staff_users` already model). `manager_assignment_visibility` (Database Schema §4.6) already scopes which rows each caller can see/delete — a `partner_admin` can only ever match a row for their own `channel_partner_id`, so no additional application-layer ownership check is needed beyond what RLS already enforces, the same pattern `staff_tenant_access` already established for `/v1/admin/tenants`.
 
+### 4.11 Portfolio Map Data (new — added v1.4, GEO-1.1–GEO-6.1)
+
+**Extends `GET /v1/portfolio` (§4.1) additively — no new tenant-side endpoint.** UX Wireframes §2.16 established the map is a view-mode toggle on the existing Portfolio Roll-Up, not a separate screen; the API follows the same shape. Every site object in `trending`/`alarmed`/`healthy` gains `lat`/`lng` (nullable, mirroring `sites.lat`/`sites.lng` exactly — Database Schema §4.7 confirmed no schema change was needed):
+
+```json
+{
+  "trending": [{ "site_id": "...", "name": "...", "alert_summary": "pH drifting low", "lat": 30.2672, "lng": -97.7431 }],
+  "alarmed":  [{ "site_id": "...", "name": "...", "alert_summary": "Pressure critical", "lat": null, "lng": null }],
+  "healthy":  [{ "site_id": "...", "name": "...", "lat": 32.7767, "lng": -96.7970 }],
+  "unlocated_count": 1
+}
+```
+`unlocated_count` is a derived count (sites across all three buckets where `lat`/`lng` is null) — GEO-6.1's "unlocated" indicator, computed server-side in the same query rather than requiring the client to scan three arrays itself. No new role/auth path — identical `admin`-group access §4.1 already established for Portfolio Roll-Up.
+
+**`GET /v1/partner/portfolio` — a genuinely new endpoint, unlike the tenant-side case, since no equivalent flat "every site attributed to me" endpoint existed on the partner side to extend.** Existing `/v1/partner/*` endpoints are territory-scoped (`GET /v1/partner/territories`) or route-scoped (`GET /v1/partner/routes`) — neither returns a flat, portfolio-style list of every site a partner is attributed to. Mirrors `GET /v1/portfolio`'s exact response shape (same `trending`/`alarmed`/`healthy`/`unlocated_count` fields) for frontend consistency (GEO-5.1's "same screen, different data scope" requirement, UX Wireframes §2.16). **Requires no new RLS** — the query runs through `withChannelPartner()` exactly like every other `/v1/partner/*` route, and reads `sites`/`alerts` through the `channel_partner_read` permissive policies Database Schema §4.4 already built (backed by `channel_partner_can_read_site()`), the same mechanism `GET /v1/partner/routes/{routeId}`'s per-stop readings already use. For a `technician`-role session, this is automatically restricted to their assigned territory's sites (the same RLS-driven role-branching-free pattern §4.5 already established for `GET /v1/partner/routes` — the endpoint doesn't need to know which role is asking).
+
+### 4.12 3D Facility Asset Delivery — deliberately not designed (added v1.4, 3DR-1.1–3DR-3.1)
+
+**No endpoint is specified here, on purpose.** Domain Model §6.7 and Database Schema §4.7 both declined to model a concrete 3D-model-asset-reference shape (format, storage, cardinality all unresolved pending a dedicated scoping pass) — designing a delivery endpoint on top of an entity that doesn't exist yet would mean inventing the very shape those documents deliberately deferred, one layer further downstream. UX Wireframes §2.17's collapsed panel is the entire committed UI surface; there is nothing for this document to specify a contract against yet. **Action for whoever picks up the 3D-rendering scoping pass**: return here once Domain Model/Database Schema have a concrete entity to design an endpoint against — likely a signed-URL-style delivery pattern (given a model file is a static asset, not a queryable record) similar in spirit to how a CDN-fronted static asset would normally be served, but not assumed or named here.
+
 ---
 
 ## 5. Unauthenticated Access: Two Screens With No Login (open, not yet resolved)
@@ -353,6 +383,8 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 | §4.8 Settings & Preferences *(added v1.2)* | Domain Model §2.1, PRD §5.12/SRS §3.14 (SET-1–SET-8) |
 | §4.9 Site→Asset→Device Drill-Down *(added v1.2)* | PRD §5.13/SRS §3.15 (NAV-1–NAV-5) |
 | §4.10 Channel Partner Manager Endpoints *(added v1.3)* | Domain Model §2.9, Database Schema §4.6, Security Architecture §2.6, iOS Application doc §2.1a (no PRD/SRS requirement ID yet — Domain Model §6.6) |
+| §4.11 Portfolio Map Data *(added v1.4)* | PRD §5.14/SRS §3.16 (GEO-1.1–GEO-6.1), UX Wireframes §2.16, Database Schema §4.7 |
+| §4.12 3D Facility Asset Delivery *(added v1.4, deliberately undesigned)* | PRD §5.15/SRS §3.17 (3DR-1.1–3DR-3.1), Domain Model §6.7, Database Schema §4.7 |
 
 ---
 
@@ -370,6 +402,8 @@ GET /v1/public/partners/{partnerId}/attribution?token=...
 10. **§4.10's `POST /v1/partner/managers`/`POST /v1/admin/channel-partners/{partnerId}/managers` share item 6's non-atomicity risk, added v1.3** — same `AdminCreateUserCommand`-then-DB-insert shape, same disclosed limitation, not a new risk category. Whichever fix items 6/8 eventually get should cover this third call site too.
 11. **§3's navigational table was found stale for v1.2 and fixed here, added v1.3** — it never gained a block for the Internal Administration/Settings endpoints despite §4.7/§4.8 shipping real specification content; a documentation-lag bug in this document's own summary table, not a code gap. Fixed alongside adding this amendment's own v1.3 block, same self-correction category as Domain Model §4 item 11 and Database Schema §6 item 10.
 12. **None of §4.10's endpoints have been implemented, added v1.3** — unlike §4.5/§4.7/§4.8 (which shipped real route handlers verified by typecheck), no `routes/partner-manager.ts`/`partner-managers.ts` exists in `backend/` yet, and no `X-Channel-Partner-Id` branch exists in `handler.ts`. Consistent with Security Architecture §2.6 being design-only too — this whole amendment sequence (Domain Model → Database Schema → Security Architecture → API Specification) was explicitly formalization-before-implementation, per the iOS doc's (#26) own stated requirement, not a shortcut taken here specifically.
+13. **None of §4.11's endpoints/response changes have been implemented, added v1.4** — no `lat`/`lng`/`unlocated_count` fields exist in `routes/portfolio.ts` yet, and `routes/partner-portfolio.ts` doesn't exist. Consistent with this whole Azure-pivot amendment sequence being design-first, matching the same discipline every prior amendment in this document has followed.
+14. **§4.12's 3D delivery contract is unresolved by design, not an oversight, added v1.4** — flagged so a future reader doesn't mistake the absence of a `/v1/.../3d-model` endpoint for something this pass forgot rather than something it deliberately declined to invent ahead of Domain Model/Database Schema having a concrete entity.
 
 ---
 
@@ -429,3 +463,11 @@ Also added the nullable-`supplier_name` case to §4.3's example, which the first
 - **Two real, disclosed documentation-lag bugs found and fixed while amending, not new gaps**: §3's navigational table never gained a v1.2 block despite §4.7/§4.8 shipping 20 real endpoints (§7 item 11); this section's own header-vs-path-segment design choice was verified against `partnerRoute()`'s actual documented dispatch mechanism rather than assumed to work (§8 item 11).
 - **One new open item added** (§7 item 10): the invite endpoints share the existing Cognito/DB non-atomicity risk (items 6/8) — same shape, not a new risk category.
 - **Honestly scoped as design-only, matching Security Architecture §2.6's own disclosure**: no code exists yet for any of §4.10 — `handler.ts`'s `X-Channel-Partner-Id` branch, `routes/partner-manager.ts`, `routes/partner-managers.ts` are all follow-up implementation work, not shipped in this pass. **This completes the formalization half of the iOS Application doc's (#26) required amendment sequence** — Domain Model v1.3 → Database Schema v1.3 → Security Architecture v1.3 → API Specification v1.3, all four now drafted and internally consistent with each other (cross-checked section references, matching table/column/endpoint names throughout). Real implementation (Cognito group, `backend/` code, frontend) and formal Draft→Approved review remain, tracked in `project-peaklogic-client-apps`/`project-peaklogic-next-steps` memory, not done here.
+
+**v1.4 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by the PRD/SRS v1.7, Database Schema v1.4, and UX Wireframes v1.4 amendments (geospatial site map, 3D facility rendering).
+
+- **§4.11 added**: `GET /v1/portfolio` (§4.1) extended additively with nullable `lat`/`lng` per site and a server-computed `unlocated_count` — no new tenant-side endpoint, matching UX Wireframes §2.16's view-toggle-not-new-screen design. One genuinely new endpoint, `GET /v1/partner/portfolio`, since no flat "every attributed site" endpoint existed on the partner side to extend — designed to require zero new RLS by reusing Database Schema §4.4's existing `channel_partner_read` policies, the same "additive, not a new pattern" discipline every prior partner-side addition in this document has followed.
+- **§4.12 added, deliberately left undesigned**: no 3D-facility-asset-delivery endpoint is specified — Domain Model §6.7 and Database Schema §4.7 both declined to model a concrete entity, so an endpoint contract would have nothing real to describe yet. Flagged as a real "come back here" marker for the future scoping pass, not a silent gap.
+- **§3 endpoint table extended** with the one new endpoint and the one extended response shape.
+- **§7 gained 2 new items (13–14)**: neither §4.11 nor §4.12 has any implementation yet, consistent with this whole amendment sequence being design-first; §4.12's absence is flagged explicitly as deliberate.
+- **This is the last product/implementation-facing artifact in the Azure-pivot amendment sequence before the infrastructure rewrites** (`azure-restructuring-plan.md` §2 items 12–17) — Device & Command Security Architecture, Security Architecture, Multi-Tenant Architecture, Deployment Architecture, Infrastructure as Code, and CI/CD Pipeline.

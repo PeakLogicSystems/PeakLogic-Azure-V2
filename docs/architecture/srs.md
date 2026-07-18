@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6 is approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1.5)
-**Last updated:** 2026-07-11
+**Status:** Draft v1.7 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6/v1.7 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending — mirrors this amendment)
+**Last updated:** 2026-07-17
+**Fork note (v1.7):** mirrors the PeakLogic-Azure fork's PRD v1.7 amendment (`azure-restructuring-plan.md` §3) — see Revision History. The AWS-native `PeakLogic-AWS` repo's own SRS is unaffected.
 
 ---
 
@@ -67,13 +68,13 @@ PeakView MVP is **not** a greenfield system — it reconciles and extends the ex
 IoT Device (MQTT/TLS, outbound-only)                    Browser (React SPA)
         │                                                        │
         ▼                                                        ▼
-AWS IoT Core (existing)                            CloudFront/S3 (existing)
-        │  Topic Rule                                            │
+Azure IoT device gateway (mechanism TBD — #12)      CDN/static hosting (mechanism TBD — #16)
+        │  Routing rule                                          │
         ▼                                                        ▼
-peaklogic-ingest Lambda (existing, extended)        API Gateway + Cognito authorizer (existing)
+peaklogic-ingest function (existing logic, host TBD)  API layer + identity-provider authorizer (mechanism TBD — #13)
         │                                                        │
         ├── Device Adapter Registry (new — formalizes            ▼
-        │   existing RULES_BY_CATEGORY, §3.1)         peaklogic-api Lambda (existing, extended)
+        │   existing RULES_BY_CATEGORY, §3.1)         peaklogic-api function (existing logic, extended)
         ├── Alert / Ticket pipeline (existing)                    │
         └── Baseline Analytics (new, §3.7)                        ├── router.ts → routes/*.ts (existing)
                                                                    ├── requireRole() → withTenant() RLS (existing)
@@ -81,9 +82,11 @@ peaklogic-ingest Lambda (existing, extended)        API Gateway + Cognito author
                                                                               │
                                                           External AI/Agent Consumer (new integration surface)
 
-RDS PostgreSQL (existing, RLS-enforced) ── tenants, users, sites, assets, devices, telemetry, alerts, service_tickets
-Cognito (existing) ── auth/RBAC
+Azure Database for PostgreSQL (RLS-enforced) ── tenants, users, sites, assets, devices, telemetry, alerts, service_tickets
+Identity provider (mechanism TBD — #13) ── auth/RBAC
 ```
+
+*(Corrected v1.7 — this diagram previously named AWS IoT Core/Lambda/API Gateway/Cognito/CloudFront/RDS verbatim, describing the repo this was forked from. The **logic** at each node — adapter dispatch, alert/ticket pipeline, RLS-scoped router, MCP server — is reconciled and kept unchanged; only the underlying Azure service at each node is left open, deliberately, pending Device & Command Security Architecture (#12), Security Architecture (#13), and Infrastructure as Code (#16).)*
 
 This is a system-context sketch, not a final architecture decision — final component boundaries and data flow belong to the API Specification (#11) and Device & Command Security Architecture (#12) artifacts.
 
@@ -99,6 +102,8 @@ This is a system-context sketch, not a final architecture decision — final com
 8. Compute baseline real-time analytics (trend/anomaly detection) over telemetry, beyond static thresholds.
 9. Attribute tenants/devices to channel partners for revenue-share reporting.
 10. **For the pool-servicing vertical**, let a channel partner log into a scoped operational-dispatch portal, define technician territories on a map, and receive an AI-generated advisory daily route suggestion per technician *(added v1.5)*.
+11. Plot a tenant's site portfolio on an interactive map, distinguishing risk status per site *(added v1.7)*.
+12. Optionally display an associated 3D model for a Site or Asset, when one exists *(added v1.7, first-pass/Should)*.
 
 ### 2.3 User Classes and Characteristics
 
@@ -116,7 +121,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 ### 2.4 Operating Environment
 
-- **Backend/cloud**: AWS (IoT Core, Lambda, RDS PostgreSQL, Cognito, API Gateway, CloudFront/S3), provisioned via existing CDK stacks — reconciled, not re-platformed.
+- **Backend/cloud**: Azure *(corrected v1.7 — this line previously named the AWS-native stack verbatim)* — device connectivity, serverless compute, managed PostgreSQL, identity, API layer, and CDN/static hosting, provisioned via a real IaC tool (choice not yet made — Infrastructure as Code, #16). The application-level logic (RLS, adapter dispatch, router/RBAC) is reconciled and kept; the underlying Azure services are being newly selected for this track, not reconciled from the AWS implementation 1:1.
 - **Client**: responsive web dashboard (React SPA) only; no native mobile app at MVP (PRD §7).
 - **Device firmware**: outbound-only MQTT/TLS; port 443 preferred over 8883 for new firmware (CC-2).
 
@@ -129,6 +134,8 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 - **Channel-partner portal login (§3.12, added v1.5) is a genuinely new identity surface** — channel partners have had no login/auth concept of any kind before this amendment (no Cognito group, no `users` table relationship). This constraint is flagged, not resolved, here: the concrete mechanism (new Cognito group vs. new user pool, partner-scoped JWT claims) is Security Architecture's (#13) job to amend, not this SRS's.
 - **The Administration Console (§3.13, added v1.6) is a *third* genuinely new identity surface, and a materially harder one than the channel-partner portal's.** The channel-partner portal's cross-tenant access is read-mostly and narrowly scoped (a technician's own territory). Account Manager access (IA-4/IA-5) needs cross-tenant **read and write** — creating tenant users, onboarding devices, setting baselines — across an *assigned subset* of accounts. This is flagged, not resolved, here: the concrete mechanism (a third Cognito pool vs. an extension of an existing one; how "assigned subset" is enforced at the RLS layer, not just the UI layer) is Security Architecture's and Multi-Tenant Architecture's job to amend. It directly intersects an already-known gap: no non-owning application database role exists yet (Technical Debt Register TD-7) — an console with real cross-tenant write access sharpens why that gap matters, it doesn't yet close it.
 - **TR-3's external AI agent consuming the MCP server does not conflict with AI-4.1.** AI-4.1 forbids PeakLogic's own AI/analytics layer from *calling out* to an external MCP server; TR-3 is the opposite direction — an external agent calls *into* PeakLogic's own MCP server, the same access pattern any other MCP client already uses (§3.7). Noted explicitly so a future reader doesn't misread these as contradictory.
+- **The mapping technology behind §3.16 (added v1.7) is deliberately undecided at this level.** Azure Maps vs. a third-party option is an implementation choice for UX Wireframes (#8)/API Specification (#11) to make, per `azure-restructuring-plan.md` §4 — not assumed here.
+- **§3.17's (added v1.7) 3D rendering scope is deliberately left open** — file format, rendering approach (web vs. native), and storage mechanism are explicitly not decided in this SRS, mirroring the PRD's own first-pass treatment of 3DR-1–3DR-3. Domain Model/Database Schema must not design against an assumed shape for this feature.
 
 ### 2.6 Assumptions and Dependencies
 
@@ -137,6 +144,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 - Device & Command Security Architecture (#12) will define the actuation/command model when that work is scheduled; this SRS only guarantees the `commands` topic exists and stays unused (CC-3/CC-4).
 - **Territory/technician/route-assignment entities (§3.12, added v1.5) have no formal data model yet** — Domain Model (#4) will need its own amendment, the same as every other entity this SRS names loosely pending that artifact.
 - **PeakLogic staff users and account-manager-to-account assignments (§3.13, added v1.6) have no formal data model yet** — same pattern, Domain Model (#4) needs its own amendment for these too, including the "book of business" assignment relationship (IA-4) that doesn't map onto any existing entity.
+- **A 3D-model-asset-reference entity (§3.17, added v1.7) has no formal data model yet, and deliberately won't until the open scoping items (file format, storage) are resolved** — Domain Model (#4) should not invent a shape for this ahead of that. `sites.lat`/`sites.lng` backing §3.16 already exist and need no new entity, only a Database Schema amendment confirming their portability to Azure Database for PostgreSQL.
 
 ---
 
@@ -316,6 +324,33 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 **Error/edge conditions:** a Site with zero Assets, or an Asset with zero Devices (NAV-1.1/NAV-2.1 shall return an empty, valid result, not an error); a Device with no telemetry rows yet (NAV-3.1 shall render a "no data yet" state, not an error — consistent with how a newly-claimed, not-yet-reporting device already behaves elsewhere in the system).
 
+### 3.16 Geospatial Site Portfolio Visualization (→ PRD §5.14 GEO-1–GEO-6) *(added v1.7 — see Revision History)*
+
+**Description:** An interactive map view of a tenant's site portfolio, reusing existing `sites.lat`/`sites.lng` — a new view, not new data collection.
+
+| ID | Requirement |
+|---|---|
+| GEO-1.1 | The system shall provide a query/view returning every Site a Tenant Admin or Corporate/Regional Ops Leader is authorized to see, each with its `lat`/`lng` and current risk-status classification (reusing RP-1.1's existing trend/alarm distinction, §3.11) |
+| GEO-2.1 | A Site's map-marker classification shall use the same `trend`/`anomaly` vs. `threshold` alert-type distinction RP-1.1 already computes — no separate classification logic |
+| GEO-3.1 | Selecting a Site's map marker shall navigate to the existing Site Detail view (NAV-1.1) |
+| GEO-4.1 | The map view shall be additive: RP-1.1 (roll-up) and RP-4.1 (directory) shall remain independently reachable, unaffected by this feature |
+| GEO-5.1 | The channel-partner portal (§3.12) shall provide the same map view, scoped to a partner's attributed tenants' sites — mirroring NAV-4.1's existing pattern of extending tenant-side features to that surface |
+| GEO-6.1 | A Site with a null `lat` or `lng` shall be excluded from the plotted map and instead surfaced in a separate "unlocated sites" list/count — never plotted at a default or last-known-bad coordinate |
+
+**Error/edge conditions:** zero sites (GEO-1.1 shall return an empty, valid result). **Verified against `docs/data-model.sql`, not assumed**: `sites.lat`/`sites.lng` are nullable columns with no `NOT NULL` constraint, and are already referenced by the existing Territory-containment query (`ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)`) — a site with null coordinates already silently fails territory assignment today; GEO-6.1 is the first requirement to surface that condition to a user rather than let it fail invisibly. Whether site creation should require coordinates going forward is not resolved here — flagged for the Database Schema/UX Wireframes amendments.
+
+### 3.17 3D Facility Rendering (→ PRD §5.15 3DR-1–3DR-3) *(added v1.7 — first pass, deliberately high-uncertainty; see Revision History)*
+
+**Description:** Optional 3D visualization of facility/equipment for a Site or Asset. Scoped at behavioral-placeholder level only — see the PRD's own §5.15 note on why this is not fully specified yet.
+
+| ID | Requirement |
+|---|---|
+| 3DR-1.1 | Where a 3D-model asset reference exists for a Site or Asset, the system should render it in that entity's detail view (NAV-1.1/NAV-2.1) |
+| 3DR-2.1 | The system shall treat a 3D model as an out-of-band-authored asset associated by reference — no in-product authoring/editing capability shall exist |
+| 3DR-3.1 | The absence of a 3D-model reference for a Site/Asset shall render as a normal, unremarkable state (e.g. the view simply omits the 3D panel) — not an error or a "missing data" warning |
+
+**Error/edge conditions:** none beyond 3DR-3.1's default-absence handling — no further behavior is specified until the open scoping items (file format, rendering approach, storage) are resolved. This section deliberately does not specify a rendering library, a file format validation rule, or a storage/CDN mechanism — doing so before the dedicated scoping pass (PRD §5.15) would be assuming, not specifying.
+
 ---
 
 ## 4. External Interface Requirements
@@ -332,12 +367,12 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 | Component | Role | Notes |
 |---|---|---|
-| AWS IoT Core | Device connectivity | Outbound-only MQTT/TLS (CC-1.1); existing |
-| Lambda (ingest + API) | Compute | `peaklogic-ingest`, `peaklogic-api`; existing, extended per §3.1–§3.3 |
-| RDS PostgreSQL | Primary relational store | RLS-enforced (MT-1.1); existing |
-| Cognito | Identity/auth | Existing; reused by MCP server (MCP-2.1) |
-| API Gateway | REST API surface | Existing |
-| CloudFront/S3 | Frontend hosting | Existing |
+| Azure IoT device connectivity (mechanism TBD) | Device connectivity | Outbound-only MQTT/TLS (CC-1.1); logic reconciled, Azure service selection is Device & Command Security Architecture's (#12) job *(corrected v1.7 — previously named AWS IoT Core)* |
+| Serverless compute (mechanism TBD) | Compute | `peaklogic-ingest`, `peaklogic-api` logic; extended per §3.1–§3.3, host TBD per Infrastructure as Code (#16) *(corrected v1.7 — previously named AWS Lambda)* |
+| Azure Database for PostgreSQL | Primary relational store | RLS-enforced (MT-1.1); RLS pattern itself is portable as-is *(corrected v1.7 — previously named AWS RDS)* |
+| Identity provider (mechanism TBD) | Identity/auth | Reused by MCP server (MCP-2.1); concrete choice is Security Architecture's (#13) job *(corrected v1.7 — previously named AWS Cognito)* |
+| API layer (mechanism TBD) | REST API surface | Azure service selection is Infrastructure as Code's (#16) job *(corrected v1.7 — previously named AWS API Gateway)* |
+| CDN/static hosting (mechanism TBD) | Frontend hosting | Azure service selection is Infrastructure as Code's (#16) job *(corrected v1.7 — previously named AWS CloudFront/S3)* |
 | MCP Server | AI/agent tool surface | **New** (§3.7); co-located with or adjacent to `peaklogic-api` |
 
 ### 4.4 Communication Interfaces
@@ -371,7 +406,7 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 ### 5.5 Portability
 
-- Not a primary concern at MVP — the existing implementation is already AWS-committed (IoT Core, Lambda, RDS, Cognito). The portability principle that does apply: infrastructure is defined via CDK (existing), so environment reproducibility doesn't depend on manual console configuration.
+- Not a primary concern at MVP for this track — this fork commits to Azure *(corrected v1.7 — previously stated the implementation was AWS-committed)*. The portability principle that does apply: infrastructure must be defined via a real IaC tool (Bicep vs. Terraform — not yet chosen, Infrastructure as Code #16), so environment reproducibility doesn't depend on manual Azure Portal configuration, the same principle the AWS-native repo already applied via CDK.
 
 ### 5.6 Usability
 
@@ -415,6 +450,8 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.10 Audit Logging | PRD §6 (Security baseline), CH-2.1 | **SRS-new** |
 | §3.11 Portfolio & Route Reporting | PRD §5.9 (RP-1–RP-4) | 1:1 elaboration — added v1.1, extended v1.3 |
 | §3.12 Partner Territory & Dispatch | PRD §5.10 (TR-1–TR-3) | 1:1 elaboration — added v1.5 |
+| §3.16 Geospatial Site Portfolio Visualization | PRD §5.14 (GEO-1–GEO-6) | 1:1 elaboration — added v1.7 |
+| §3.17 3D Facility Rendering | PRD §5.15 (3DR-1–3DR-3) | 1:1 elaboration — added v1.7, first-pass |
 | §5 Non-Functional Requirements | PRD §6 | 1:1 elaboration per category |
 
 Where a future artifact (Domain Model, Database Schema, Security Architecture, etc.) forces a change to a requirement above, that change should be made explicitly in a revision to this document, per the governance rule carried from the Vision Document and PRD.
@@ -429,6 +466,9 @@ Where a future artifact (Domain Model, Database Schema, Security Architecture, e
 4. **SOC 2 control-level detail** — this SRS's Security baseline (§5.2) is a floor, not a control mapping; that's the Compliance & Certification Roadmap and SOC 2 Control Mapping & Evidence Plan's (#5/#20) job.
 5. **Exact MCP tool schema and transport** — MCP-1.1/MCP-2.1 specify observable behavior only; the API Specification (#11) owns the exact contract.
 6. **Channel-partner portal auth mechanism** (§2.5, added v1.5) — a new Cognito group vs. a new user pool, partner-scoped JWT claims, and how a partner-scoped cross-tenant read differs from today's single-tenant RLS model are all open, deferred to Security Architecture (#13) and Multi-Tenant Architecture (#14) amendments.
+7. **Every Azure service selection this v1.7 amendment left as "mechanism TBD"** (§2.1, §2.4, §4.3) — IoT device connectivity, serverless compute host, identity provider, API layer, CDN/static hosting — deferred to Device & Command Security Architecture (#12), Security Architecture (#13), and Infrastructure as Code (#16) *(added v1.7)*.
+8. **Mapping technology for §3.16** (Azure Maps vs. a third-party option) — deferred to UX Wireframes (#8)/API Specification (#11), per `azure-restructuring-plan.md` §4 *(added v1.7)*.
+9. **3D rendering scope for §3.17** (file format, rendering approach, storage) — deliberately unresolved pending a dedicated scoping pass; not assumed by this SRS or any document downstream of it until that pass happens *(added v1.7)*.
 
 ---
 
@@ -476,3 +516,12 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 - **§3.14 added (SET-1.1–SET-8.1)**: a standard Settings page for the tenant-side app — password change, 12/24-hour clock format, a display-timezone preference kept explicitly distinct from `sites.timezone`, light/dark theme, MFA re-enrollment, and a Tenant-Admin Team/Users panel. SET-8.1 (notification preferences) explicitly conditioned on verifying real email-notification infrastructure exists, not assumed.
 - **§3.15 added (NAV-1.1–NAV-5.1)**: Site → Asset → Device drill-down navigation and per-device telemetry detail. Confirms directly against `docs/data-model.sql` that `devices.asset_id` already permits multiple devices per asset (no schema change needed) and applies the same drill-down to the channel-partner portal. **NAV-5.1 documents a verified live defect**: `GET /v1/devices` reads its `_event` parameter as unused and returns every device unfiltered — real code, checked directly, not inferred.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass, same sequenced pattern as v1.5): Domain Model, Database Schema (the new cross-tenant-write RLS pattern for §3.13, and the `assetId`/`siteId` filter for §3.15), Security Architecture, Multi-Tenant Architecture, API Specification, User Personas, UX Wireframes.
+
+**v1.7 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, mirroring the PRD's own v1.7 amendment, per this document's rule (§8) that a downstream (here: sibling) artifact change must be mirrored explicitly, not left to silently diverge.
+
+- **§3.16 added (GEO-1.1–GEO-6.1)**: elaborates PRD §5.14 — a geospatial map view over existing `sites.lat`/`sites.lng`. **A real, pre-existing defect verified directly against `docs/data-model.sql`, not hypothesized**: those columns are nullable with no constraint, and were already silently load-bearing for the existing Territory-containment `ST_Contains` query (§2.7 in the Domain Model) — a site missing coordinates already failed territory assignment invisibly before this amendment; GEO-6.1 is the first requirement anywhere in this document to surface that condition to a user.
+- **§3.17 added (3DR-1.1–3DR-3.1)**: elaborates PRD §5.15, deliberately kept at placeholder/first-pass specificity — no file format, rendering approach, or storage mechanism specified, per `azure-restructuring-plan.md`'s explicit instruction not to assume scope for this higher-uncertainty feature.
+- **§2.1 system-context diagram, §2.4 Operating Environment, and §4.3 Software Interfaces corrected, not just extended**: all three previously named AWS services (IoT Core, Lambda, RDS, Cognito, API Gateway, CloudFront/S3) verbatim, accurate for the repo this was forked from but stale for this fork's own Azure track. Corrected to name the equivalent Azure-track role at each node while leaving the concrete Azure service "mechanism TBD," explicitly deferred to Device & Command Security Architecture (#12), Security Architecture (#13), and Infrastructure as Code (#16) — this SRS specifies behavior, not cloud-service selection, the same boundary it already held for AWS.
+- **§5.5 Portability corrected**: no longer states the implementation is AWS-committed; states the Azure commitment and the still-open Bicep-vs-Terraform choice instead.
+- **§2.5/§2.6 extended**: flagged the mapping-technology choice (§3.16) and the full 3D-rendering shape (§3.17) as open, undecided at this level — consistent with how this document has always flagged genuinely open items (e.g. v1.5's partner-auth-mechanism flag) rather than silently assuming an answer.
+- **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): Domain Model (site-coordinate portability confirmation, new 3D-model-asset-reference entity once scoped), User Stories, UX Wireframes (new map/3D views, the mapping-technology evaluation), Information Architecture (new nav items), Database Schema, API Specification (map data + 3D asset delivery endpoints).

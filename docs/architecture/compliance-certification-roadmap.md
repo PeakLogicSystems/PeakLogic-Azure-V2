@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (approved v1), [SRS](srs.md) (approved v1), [Domain Model](domain-model.md) (approved v1)
-**Last updated:** 2026-07-04
+**Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 until v1.1 is approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending)
+**Last updated:** 2026-07-17
+**Fork note (v1.1):** the first amendment specific to the `PeakLogic-Azure` fork — substitutes real, researched Azure equivalents for the AWS-specific evidence sources this document originally cited (`azure-restructuring-plan.md` item 5). SOC 2's actual scope/sequencing decisions (§2) are cloud-agnostic and unchanged. See Revision History.
 
 ---
 
@@ -67,6 +68,12 @@ PeakView's core telemetry for the nursing-home vertical (per Vision §6/PRD §8:
 - Do **not** sign a BAA or make a HIPAA-compliance claim until a real legal review of the actual nursing-home data flows has occurred — this document sets the working assumption, not a certification.
 - Keep facility/equipment telemetry and anything resident-identifiable structurally separate by design, so the answer to "do we touch ePHI" stays "no" by architecture, not by accident.
 
+### 3.4 Cloud-vendor BAA availability on Azure — confirmed, not a blocker *(added v1.1)*
+
+**Verified via research, not assumed**: Microsoft offers a HIPAA BAA for Azure at no additional cost, automatically included through the Microsoft Product Terms/Online Services Terms and Data Protection Addendum — no separate contract negotiation is required, the same "included by default, not a paid add-on" posture the AWS-native repo's compliance work already assumed for AWS. Hundreds of Azure services are covered, including the categories this platform would realistically use (compute, storage, managed databases, messaging/integration, Key Vault). This confirms the Azure pivot does not introduce a *new* HIPAA blocker relative to AWS — §3.1–§3.3's applicability read (does PeakView's data even constitute ePHI in the first place) is unchanged and remains the real open question, not cloud-vendor BAA availability. Whether the *specific* Azure services eventually selected (Infrastructure as Code, #16) fall within Microsoft's HIPAA-covered service list should be re-confirmed once those choices are made, the same "verify the specific service, don't assume the platform-wide claim covers it" discipline used elsewhere in this project.
+
+Sources: [Azure HIPAA BAA — Online Services Terms](https://learn.microsoft.com/en-us/azure/compliance/offerings/offering-hipaa-us), [Microsoft HIPAA/HITECH compliance offering](https://learn.microsoft.com/en-us/compliance/regulatory/offering-hipaa-hitech)
+
 ---
 
 ## 4. Readiness Gap Assessment (high-level)
@@ -75,17 +82,18 @@ Against the recommended Security + Availability + Confidentiality scope, checkin
 
 | Area | Status |
 |---|---|
-| Encryption in transit/at rest | Already reconciled (SRS §5.2) — TLS, RDS/S3 encryption |
-| Access control / RBAC | Already reconciled (SRS §3.9, AUTH-1–3) — Cognito, server-enforced roles |
-| Tenant data isolation | Already reconciled (SRS §3.5, MT-1–3) — structural RLS, not app-level filtering |
-| Audit logging | Specified, not yet implemented (SRS §3.10, AUD-1–2) — needs to actually ship before an auditor can observe it operating |
-| MFA | Present at the Cognito layer per existing infra; **enforcement policy** (is it required, not just available) needs an explicit decision — not yet made |
-| Incident response plan | **Not yet written** — a real gap; SOC 2 Security criterion expects a documented, tested plan |
-| Vendor/subprocessor management | **Not yet formalized** — AWS is the only subprocessor today, but a documented vendor-risk process is expected regardless of how short the list is |
-| Change management process | **Not yet formalized** — git/PR discipline exists informally (per `CLAUDE.md`) but isn't yet a documented, evidenced control |
-| Named compliance owner | **Not yet assigned** — typical early-stage practice is a technical leader with dedicated time, not a full-time hire |
+| Encryption in transit/at rest | Already reconciled (SRS §5.2) — TLS; at-rest encryption via the eventual Azure Database for PostgreSQL + Blob Storage/CDN choice *(corrected v1.1 — previously named RDS/S3; exact Azure service TBD, Infrastructure as Code #16)* |
+| Access control / RBAC | Already reconciled (SRS §3.9, AUTH-1–3) — identity-provider-issued tokens, server-enforced roles *(corrected v1.1 — previously named Cognito specifically; concrete Azure identity provider TBD, Security Architecture #13)* |
+| Tenant data isolation | Already reconciled (SRS §3.5, MT-1–3) — structural RLS, not app-level filtering; the RLS pattern itself is standard Postgres, portable to Azure Database for PostgreSQL as-is |
+| Audit logging (application-level) | Specified, not yet implemented (SRS §3.10, AUD-1–2) — needs to actually ship before an auditor can observe it operating; unaffected by the cloud choice, this is application-layer, not infra-layer |
+| Audit logging (infrastructure-level) *(added v1.1)* | **Verified via research, not assumed**: the AWS-side evidence sources this document didn't originally name explicitly but the SOC 2 Control Mapping (#20) will need — CloudTrail (control-plane audit trail) and CloudWatch (metrics/alarms/log aggregation) — have real, distinct Azure equivalents, not a 1:1 rename: **Azure Activity Log** (subscription-level control-plane operations, the closer CloudTrail analogue) and **Azure Monitor** (metrics, alerting, Log Analytics, the closer CloudWatch analogue). A real difference worth flagging: Azure additionally splits authentication/identity audit evidence into separate **Entra ID Sign-in Logs** and **Entra ID Audit Logs**, where Cognito's audit trail on the AWS side was consolidated into CloudTrail — SOC 2 Control Mapping (#20) should account for a third evidence source here, not assume a straight two-way swap |
+| MFA | Enforcement mechanism TBD pending the concrete identity-provider choice (Security Architecture, #13); the **policy decision** itself (required, not just available) carries over unchanged from the AWS-side document — not re-litigated by the cloud switch |
+| Incident response plan | **Not yet written** — a real gap, unaffected by cloud choice; SOC 2 Security criterion expects a documented, tested plan |
+| Vendor/subprocessor management | **Not yet formalized** — **Microsoft Azure** is the subprocessor for this track *(corrected v1.1 — previously named AWS)*; a documented vendor-risk process is expected regardless of which cloud vendor or how short the list is. Note for whoever formalizes this: if the Azure track and the AWS-native repo both reach production, the vendor/subprocessor list itself may need to name both, not just whichever repo is currently active |
+| Change management process | **Not yet formalized** — git/PR discipline exists informally (per `CLAUDE.md`) but isn't yet a documented, evidenced control; unaffected by cloud choice |
+| Named compliance owner | **Not yet assigned** — typical early-stage practice is a technical leader with dedicated time, not a full-time hire; unaffected by cloud choice |
 
-This table is a starting gap list for the SOC 2 Control Mapping & Evidence Plan (#20), not the plan itself.
+This table is a starting gap list for the SOC 2 Control Mapping & Evidence Plan (#20), not the plan itself. **Most rows are unaffected by the AWS→Azure switch** — SOC 2 evaluates the *organization's* controls, not a specific cloud vendor; only the rows citing a specific AWS service by name needed correcting.
 
 ---
 
@@ -107,9 +115,22 @@ Tied to the confirmed beachhead verticals and MVP sequencing, not calendar dates
 - **Risk — HIPAA read in §3 is a working assumption, not a legal conclusion.** Treat it as provisional until reviewed by counsel against actual nursing-home data flows.
 - **Open item — named compliance owner not yet assigned.** Needs a decision before the Type I engagement starts, since auditors expect a real point of contact.
 - **Open item — Privacy criterion (§2.1) depends on §3's resolution.** If the HIPAA review surfaces any resident-identifiable data flow, Privacy should be added to scope, not treated as a later add-on.
+- **Open item, added v1.1 — §4's Azure evidence-source mapping (Activity Log/Monitor/Entra ID logs) should be re-verified once Infrastructure as Code (#16) and Security Architecture (#13) pick concrete Azure services.** This amendment confirms the *category* of evidence source changes correctly; it does not confirm the exact log schema/retention/export mechanism for whichever specific services get chosen — that re-verification is SOC 2 Control Mapping's (#20) job when it's amended.
 
 ---
 
 ## 7. Review Log
 
-Approved as-is; no changes requested during review.
+Approved as-is; no changes requested during review. See Revision History below for the subsequent v1.1 amendment.
+
+---
+
+## Revision History
+
+**v1.1 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by this document's own AWS-specific evidence-source references going stale the moment this repo forked for an Azure track (`azure-restructuring-plan.md` item 5), per the same non-silent-amendment discipline used throughout this project.
+
+- **§3.4 added**: confirmed via real research (not assumed) that Microsoft offers a HIPAA BAA for Azure at no additional cost, the same "included by default" posture AWS has — the Azure pivot does not introduce a new HIPAA blocker. §3.1–§3.3's applicability read (does PeakView's data constitute ePHI at all) is unchanged and remains the actual open question.
+- **§4 corrected, not just extended**: encryption/access-control/audit-logging/vendor-management rows previously named AWS services (RDS/S3, Cognito, AWS-as-subprocessor) verbatim — accurate for the repo this was forked from, stale for this fork. Corrected to generalized Azure-track language, with concrete service selection explicitly deferred to Infrastructure as Code (#16) and Security Architecture (#13), the same boundary this document already held for AWS.
+- **A new infrastructure-audit-logging row added, not just relabeled**: real research found Azure's evidence sources are not a clean 1:1 rename of AWS's — **Azure Activity Log** (≈ CloudTrail) and **Azure Monitor** (≈ CloudWatch) are the two closest analogues, but Azure additionally splits authentication/identity audit evidence into separate **Entra ID Sign-in Logs** and **Entra ID Audit Logs**, which Cognito's AWS-side audit trail didn't separate out. Flagged explicitly so SOC 2 Control Mapping (#20) doesn't assume a simple two-way swap when it's amended.
+- **§6 open item added**: this amendment confirms the evidence-source *category* mapping; the exact log schema/retention/export mechanism for whichever concrete Azure services get chosen still needs re-verification once Infrastructure as Code (#16)/Security Architecture (#13) land — SOC 2 Control Mapping's (#20) job, not resolved here.
+- **Unchanged, confirmed cloud-agnostic**: §2 (SOC 2 Trust Services Criteria selection, Type I/II sequencing) and most of §4 — SOC 2 evaluates organizational controls, not a specific cloud vendor, so only AWS-service-specific rows needed correction.

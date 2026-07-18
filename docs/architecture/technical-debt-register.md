@@ -3,9 +3,34 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.3 (minor amendments — TD-41/TD-42 added v1.1, TD-43 added v1.2, TD-10 closed v1.3 — do not require re-approval of the base document, see Revision History)
-**Depends on:** All 23 previously approved/drafted artifacts (#1–23) — synthesizes every disclosed-but-unfixed gap in already-shipped code or already-approved documentation into one trackable inventory
-**Last updated:** 2026-07-12
+**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.3 — AWS-native — until v1.4 is approved)
+**Depends on:** Every Azure-track artifact amended/rewritten as of this fork's 2026-07-17 restructuring pass
+**Last updated:** 2026-07-17
+**Fork note (v1.4):** the first amendment specific to the `PeakLogic-Azure` fork — `azure-restructuring-plan.md` item 24 flagged this 🔵 amendment explicitly: "several AWS-specific items don't map 1:1 — needs a fresh audit pass once real Azure infra exists, not a renumbering exercise." **This amendment deliberately does not renumber or individually re-triage all 43 AWS-native items** — see §0 below for why, and for what this fork's register actually needs instead.
+
+---
+
+## 0. Fork Status — Why This Register Isn't Renumbered *(new — added v1.4)*
+
+**A register of technical debt describes imperfections in code and decisions that actually exist. For this fork, almost none of the AWS-native register's 43 items describe something that exists yet** — no `infra-azure/` Bicep modules, no ported `backend/` code, no Azure deploy. Renumbering all 43 items 1:1 into `TD-Azure-1` through `TD-Azure-43` would misrepresent this fork's actual state: some items are genuinely AWS-specific and won't recur in the same shape; most are cloud-agnostic application-logic/product/process items that will become real technical debt again *once ported*, but aren't live debt in a codebase that doesn't exist yet; a few are already resolved by this session's own architecture work before any code was even written.
+
+**What this amendment does instead**: classifies each of the AWS register's five categories by how it maps to this fork (below), explicitly resolves the two items `azure-restructuring-plan.md` named directly (TD-43, TD-10), and states plainly that **a real, fresh technical-debt audit is Technical Debt Register's own next real job for this fork — due once `infra-azure/` and the ported `backend/` code actually exist (MVP Roadmap §5 items 2–3), not now.**
+
+| Category | How it maps to this fork |
+|---|---|
+| §3.1 Security & Hardening | **Mostly carries forward as a lesson, re-verify once Azure code exists.** TD-2 (SSRF/DNS rebinding), TD-4 (session revocation — now Graph API `revokeSignInSessions`, verified mechanism, Security Architecture §6), TD-6/TD-7/TD-8 (RLS residuals — Multi-Tenant Architecture §2.8 already restates these as "carries forward as design, not verified status" for the whole document at once) are pure application-logic/Postgres findings, portable near-verbatim. **TD-1 (WAF), TD-3 (MFA granularity), TD-12 (branch protection) are cloud-agnostic in substance, Azure-specific in mechanism** — already re-addressed directly in Security Architecture §3.3/§2.2 and CI/CD Pipeline §2.3 (the latter re-verified live against this actual repo). **TD-9 (cert rotation ownership gap) re-stated for Azure**: Device & Command Security Architecture §3.3 already flags DPS's real certificate-rolling capability as a new Azure-native option Security Architecture (#13) should use, not re-derive from scratch — the *ownership gap itself* (nobody picked this up) is the part that could recur, flagged here explicitly so it doesn't happen a second time. |
+| §3.2 Reliability & Operational Verification | **Mostly carries forward, one item materially worse on Azure.** TD-13 (`IngestFn` DLQ) is **now a bigger gap** per Threat Model §4.1's v1.1 amendment — Azure Functions has no native DLQ for IoT Hub triggers at all. TD-14/TD-15/TD-21 (resource quotas, cross-region backup, RPO/RTO drills) restate with verified Azure mechanisms (Multi-Tenant Architecture §4, Deployment Architecture §3.2). TD-16/TD-17/TD-18/TD-19/TD-20 are AWS-tooling-specific (`node-pg-migrate` against RDS, RDS rotation Lambda reachability, a CDK-nag-shaped CloudWatch threshold, an AWS OIDC-provider collision) — each needs its real Azure-equivalent re-audit once the corresponding Azure code exists, not assumed identical. |
+| §3.3 Compliance & Process | **Fully cloud-agnostic**, carries forward unchanged — TD-22/TD-23/TD-24 (breach-notification review, CC1 org gaps, vendor-review cadence) are organizational, not technical. TD-25 (total chlorine) and TD-26 (CI/CD Pipeline never formally Approved) are unaffected by the cloud switch — the latter is, if anything, more apt now, since this fork's CI/CD Pipeline v0.2 is *also* still Draft. |
+| §3.4 Product & Design Gaps | **Fully cloud-agnostic**, carries forward unchanged — TD-27–TD-33 (MCP trigger UI, territory-redraw stranding, branding fallback, live territory preview, alert-detail copy, MCP transport, cross-role screen reuse) are all product/UX decisions inherited from the channel-partner-portal design, untouched by this session's Azure work. |
+| §3.5 Code Quality & Documentation Governance | **Mostly cloud-agnostic, a few real Azure-specific additions.** TD-34–TD-38, TD-40 (casing, pagination, stale types, missing route tests, a stale artifact-number citation) are pure application-code/doc-hygiene items, portable unchanged once the code they describe is ported. **TD-39 (Cognito Plus tier) is AWS-specific and doesn't recur in the same shape** — Security Architecture §2.2's real Azure MFA-mechanism uncertainty is a *different* kind of open item, not a renamed Cognito Plus tier question. **TD-41/TD-42 (staff-session test coverage, no admin-console frontend) are cloud-agnostic gaps in features not yet built for this fork at all.** |
+
+### TD-43 (dev credential Secrets-Manager bypass) — does not carry forward in the same shape, a genuinely new decision needed
+
+**This is the item `azure-restructuring-plan.md` named directly, and it's a real, disclosed non-1:1 mapping, not a renumbering.** TD-43's specific shortcut (a plaintext CDK context password bypassing AWS Secrets Manager, specifically to enable `natGateways: 0`) is AWS-mechanism-specific — Azure's equivalent cost-saving question (should `dev` bypass Azure Key Vault the same way, to avoid whatever Azure's own outbound-connectivity cost driver turns out to be) **has not been asked or decided for this fork at all.** This is flagged as a real open item for whoever writes `infra-azure/data.bicep` (§7), not assumed to inherit the AWS decision automatically — the underlying cost/security trade-off reasoning may well end up the same, but that's a decision to make deliberately for Azure, the same way TD-43 itself was originally a deliberate, user-approved choice, not a default.
+
+### TD-10 (CloudFront TLS 1.0) — closed by inheritance, not re-opened
+
+**Confirmed, not assumed**: TD-10's root fix (a real custom domain + ACM certificate, `minimumProtocolVersion: TLS_V1_2_2021`) was about DNS/domain ownership, not an AWS-specific mechanism — `peaklogicsolutions.com` is already owned via Cloudflare (`project_peaklogic_overview` memory), and Deployment Architecture's Azure rewrite (§3) doesn't reintroduce a default-certificate TLS 1.0 posture. **Whoever writes `infra-azure/frontend.bicep` should confirm the target Azure CDN/Front Door service defaults to TLS 1.2+ for a custom domain** (a real, disclosed verification step, not assumed automatic) — but there's no reason to expect this specific regression to recur, so this item stays closed rather than reopened defensively.
 
 ---
 
@@ -170,3 +195,15 @@ No item in this register is rated above Medium — consistent with §1.1's frami
 **v1.1 (2026-07-12)** — added TD-41/TD-42, both real gaps disclosed rather than silently skipped while implementing the Internal Administration Console + Settings & Preferences feature (PRD/SRS v1.6): no integration-test coverage yet for the new `withStaffSession()`/`withStaffActingOnTenant()` functions against a real Postgres, and no dedicated frontend UI yet for the admin console. A minimal amendment (two rows added, no re-triage of existing items) rather than a full re-approval pass — this document's own job is bookkeeping, and these are exactly the kind of items it exists to catch.
 
 **v0.1 (2026-07-12)** — initial draft. Inventories 40 known technical-debt items across 5 categories (Security & Hardening, Reliability & Operational Verification, Compliance & Process, Product & Design Gaps, Code Quality & Documentation Governance), synthesized from Enterprise Roadmap §6's explicit hand-off plus a dedicated second research pass across every remaining artifact and the codebase. This is the last artifact in the 24-item sequenced architecture list.
+
+---
+
+## Revision History (fork amendment)
+
+**v1.4 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, per `azure-restructuring-plan.md` item 24: a 🔵 amendment explicitly warning against a renumbering exercise.
+
+- **§0 added**: classifies all five AWS-native categories by how they map to this fork (cloud-agnostic-carries-forward vs. AWS-mechanism-specific vs. materially-changed) rather than individually re-triaging 43 items against a codebase that doesn't exist yet.
+- **TD-43 resolved as a real non-1:1 mapping, not assumed to carry over**: the Azure equivalent (should `dev` bypass Key Vault the same way `dev` bypassed Secrets Manager on AWS) is a genuinely new, undecided question — flagged for `infra-azure/data.bicep`'s implementation, not defaulted to "same choice."
+- **TD-10 confirmed closed, not reopened**: the underlying fix was a domain-ownership fact, not an AWS mechanism — carries forward, with one real verification step flagged for whoever builds the Azure CDN/Front Door config.
+- **TD-13 (IngestFn DLQ) flagged as materially worse on Azure**, cross-referencing Threat Model §4.1's own v1.1 finding that Azure Functions has no native DLQ for IoT Hub triggers at all.
+- **Explicitly not done in this pass**: no fresh, complete Azure-specific technical-debt audit — stated as this document's own next real job, due once `infra-azure/` and ported `backend/` code actually exist (MVP Roadmap §5 items 2–3), not fabricated ahead of that code existing.

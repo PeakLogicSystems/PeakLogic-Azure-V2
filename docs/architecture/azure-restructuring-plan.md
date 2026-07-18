@@ -28,32 +28,32 @@ Work proceeds in the same dependency order the original architecture-first proce
 | # | Artifact | Disposition | Notes |
 |---|----------|--------------|-------|
 | 1 | Vision Document | ✅ Carry over | Product-level, cloud-agnostic |
-| 2 | PRD | 🔵 Needs amendment | Must fold in §3's new features (map, 3D rendering) via a formal non-silent amendment before anything downstream is touched |
-| 3 | SRS | 🔵 Needs amendment | Mirrors PRD amendment |
-| 4 | Domain Model | 🔵 Needs amendment | New entities likely needed: site geo-coordinates, 3D facility model assets |
-| 5 | Compliance & Certification Roadmap | 🔵 Needs amendment | SOC 2 scope is cloud-agnostic, but evidence sources (CloudTrail→Azure Activity Log, CloudWatch→Azure Monitor) and the HIPAA/shared-responsibility language need real, researched Azure equivalents, not assumed 1:1 mappings |
+| 2 | PRD | ✅ **Amended, v1.7 drafted 2026-07-17** | Folded in §3's new features (GEO-1–6, 3DR-1–3) and corrected stale AWS platform-constraint language (§4/§7/§8) |
+| 3 | SRS | ✅ **Amended, v1.7 drafted 2026-07-17** | Mirrors PRD v1.7; corrected AWS-named system-context diagram/software-interfaces to Azure-track language |
+| 4 | Domain Model | ✅ **Amended, v1.4 drafted 2026-07-17** | `Site.lat`/`lng` confirmed portable/newly load-bearing; 3D-model entity deliberately left unmodeled pending its own scoping pass |
+| 5 | Compliance & Certification Roadmap | ✅ **Amended, v1.1 drafted 2026-07-17** | Real research confirmed Azure Activity Log≈CloudTrail, Azure Monitor≈CloudWatch (plus a third Entra ID log source AWS didn't split out); confirmed Azure offers a HIPAA BAA at no extra cost, same posture as AWS |
 | 6 | User Personas | ✅ Carry over | |
-| 7 | User Stories | 🔵 Needs amendment | New stories for map/3D features |
-| 8 | UX Wireframes | 🔵 Needs amendment | New wireframes: dashboard map view, 3D facility render view |
-| 9 | Information Architecture | 🔵 Needs amendment | New nav items for map/3D views |
-| 10 | Database Schema | 🔵 Needs amendment | RLS/Postgres pattern itself is portable to Azure Database for PostgreSQL as-is; needs new schema for site lat/long + 3D model asset references |
-| 11 | API Specification | 🔵 Needs amendment | New endpoints for map data + 3D asset delivery |
-| 12 | Device & Command Security Architecture | 🟣 Full rewrite | Per-device X.509 mutual TLS over AWS IoT Core → Azure IoT Hub device identity/DPS model — different provisioning flow, not a relabel |
-| 13 | Security Architecture | 🟣 Full rewrite | Cognito → Entra ID (or Azure AD B2C) — different auth model, MFA config, token claims structure |
-| 14 | Multi-Tenant Architecture | 🔵 Needs amendment | The RLS pattern itself (`SET LOCAL`/`FORCE ROW LEVEL SECURITY`) is standard Postgres, portable as-is; connection-pooling-under-Lambda specifics need Azure Functions equivalents verified |
-| 15 | Deployment Architecture | 🟣 Full rewrite | Stage/environment separation model needs to be redesigned for Azure resource-group/subscription conventions |
-| 16 | Infrastructure as Code | 🟣 Full rewrite | AWS CDK v2 has no Azure equivalent — real choice needed (Bicep vs. Terraform), see §4 |
-| 17 | CI/CD Pipeline | 🟣 Full rewrite | OIDC-federated AWS IAM roles → Azure equivalent (Entra ID federated credentials); still-unresolved even on the AWS side (Draft v0.1, blocked on AWS account) |
+| 7 | User Stories | ✅ **Amended, v1.1 drafted 2026-07-17** | Added US-18–21 for map/3D; disclosed (not fixed) a pre-existing gap — never amended for the AWS-side CH-3/IA-1 requirement sets either |
+| 8 | UX Wireframes | ✅ **Amended, v1.4 drafted 2026-07-17** | Added §2.16 Portfolio Map View, §2.17 3D Panel addendum; **resolved the mapping-technology decision (see §4 below) — Mapbox, not Azure Maps** |
+| 9 | Information Architecture | ✅ **Amended, v1.1 drafted 2026-07-17** | Map view placed as a toggle on the existing Portfolio nav item (not a new top-level entry); 3D panel added to Site Detail hierarchy; channel-partner-portal nav gap disclosed, not fixed |
+| 10 | Database Schema | ✅ **Amended, v1.4 drafted 2026-07-17** | Verified via Microsoft docs: RLS/PostGIS portable to Azure Database for PostgreSQL (PostGIS needs a real `azure.extensions` allowlist step); `gen_random_uuid()` requires PG13+; no new schema needed for GEO features, none added for 3D pending its own scoping pass |
+| 11 | API Specification | ✅ **Amended, v1.4 drafted 2026-07-17** | `GET /v1/portfolio` extended (lat/lng, unlocated_count); new `GET /v1/partner/portfolio`; 3D delivery endpoint deliberately left undesigned pending its own scoping pass |
+| 12 | Device & Command Security Architecture | ✅ **Rewritten, v2.0 drafted 2026-07-17** | Azure IoT Hub + DPS individual X.509 enrollment; Direct Methods replace the custom command-acks topic (a genuine simplification, not just a swap) |
+| 13 | Security Architecture | ✅ **Rewritten, v2.0 drafted 2026-07-17** | Entra External ID (two separate tenants, mirroring the two-Cognito-pool split) for customer/partner identity; PeakLogic's own real Entra ID workforce tenant for staff (a genuine simplification vs. AWS's synthetic StaffPool) — **note: classic Azure AD B2C is closed to new customers since May 2025, verified before designing anything** |
+| 14 | Multi-Tenant Architecture | ✅ **Amended, v1.4 drafted 2026-07-17** | Verified via Microsoft docs: Azure Functions' warm-instance/static-client pattern carries the identical connection-pooling-plus-RLS risk Lambda has, so `SET LOCAL` stays load-bearing unchanged; every specific bug-fix finding carries forward as a lesson, none re-verified against real Azure infra yet |
+| 15 | Deployment Architecture | ✅ **Rewritten, v2.0 drafted 2026-07-17** | Single subscription, resource-group-per-stage (deliberate deviation from Microsoft's own subscription-per-env recommendation, mirroring AWS's own cost-conscious single-account choice); IoT Hub's per-stage resource isolation structurally closes the MQTT-namespace risk AWS could only work around operationally |
+| 16 | Infrastructure as Code | ✅ **Rewritten, v2.0 drafted 2026-07-17** | **Decision: Bicep** (not Terraform) — stateless, day-zero Azure coverage, no state-backend cost, matches this team's proportionality reasoning elsewhere. PSRule for Azure adopted as the cdk-nag equivalent. Compute resolved to Azure Functions. Real, disclosed gap: neither Bicep nor Terraform can automate Entra External ID tenant creation |
+| 17 | CI/CD Pipeline | ✅ **Rewritten, v0.2 drafted 2026-07-17** | Entra Workload Identity Federation replaces OIDC-federated IAM roles — genuinely simpler (no singleton-provider-collision problem to work around). Branch-protection billing-tier constraint re-verified live against `PeakLogic-Azure` itself, not assumed. Still Draft, blocked on real Azure account, same status as the AWS version |
 | 18 | Test Strategy | ✅ Carry over | Vitest/testing approach is app-layer, cloud-agnostic; minor amendment only if integration test target changes |
-| 19 | Threat Model | 🔵 Needs amendment | AWS-specific findings (Lambda async-invocation retry behavior, IMDS-style metadata endpoints) need real Azure Functions equivalents researched, not assumed |
-| 20 | SOC 2 Control Mapping & Evidence Plan | 🔵 Needs amendment | Evidence sources change with the infra rewrite |
+| 19 | Threat Model | ✅ **Amended, v1.1 drafted 2026-07-17** | Verified: Azure IMDS lives at the identical `169.254.169.254` address AWS uses, so the existing whole-CIDR SSRF fix already covers it with zero code change; Azure Functions has no native IoT Hub/Event Hub DLQ support at all (a materially bigger gap than the AWS residual, not a renamed one) |
+| 20 | SOC 2 Control Mapping & Evidence Plan | ✅ **Amended, v1.1 drafted 2026-07-17** | Evidence sources corrected across CC4–CC9/A1/C1 (PSRule, Entra, Azure Monitor, Key Vault); Microsoft replaces AWS as primary subprocessor. Control requirements themselves unchanged, cloud-agnostic |
 | 21 | Patent Opportunity Analysis | ✅ Carry over | Product-level, not infra-specific |
-| 22 | MVP Roadmap | 🟣 Full rewrite | Needs full resequencing once the Azure infra path and new features are scoped |
-| 23 | Enterprise Roadmap | 🔵 Needs amendment | Mostly carries over; revisit sequencing once merger terms are clearer |
-| 24 | Technical Debt Register | 🔵 Needs amendment | Several AWS-specific items (TD-43 dev credential bypass, TD-10 CloudFront TLS) don't map 1:1 — needs a fresh audit pass once real Azure infra exists, not a renumbering exercise |
-| 25 | Windows Endpoint Application | 🔵 Needs amendment | Backend client points at a different API/auth endpoint (Entra ID token format vs. Cognito); core hub logic (ingestion sources, durable queue) is unaffected |
-| 26 | iOS Application | 🔵 Needs amendment | Same auth-model amendment as #25; spec-only either way, no code written yet |
-| 27 | Device Onboarding & Telemetry Acquisition | 🟣 Full rewrite | Provisioning sequence is written around AWS IoT Core/X.509; needs a real Azure IoT Hub/DPS-based rewrite |
+| 22 | MVP Roadmap | ✅ **Rewritten, v2.0 drafted 2026-07-17** | Fully resequenced: Bicep implementation + backend Azure-SDK porting now first (blocks everything), map/3D feature backlog added as new Azure-track-specific item, channel-partner-portal/sensing-logic gaps restated as inherited-and-unaffected by the pivot |
+| 23 | Enterprise Roadmap | ✅ **Amended, v1.1 drafted 2026-07-17** | Almost entirely cloud-agnostic (product/business strategy); §3.3 multi-subscription Azure has one fewer forcing trigger than AWS's multi-account version since IoT Hub structurally closes the shared-namespace risk; §6 tech-debt hand-off list corrected to real Azure equivalents |
+| 24 | Technical Debt Register | ✅ **Amended, v1.4 drafted 2026-07-17** | Not renumbered (per this item's own warning) — classified by category instead; TD-43's Azure equivalent (Key Vault bypass) flagged as a genuinely new, undecided question; TD-10 confirmed closed; TD-13 flagged materially worse on Azure. Real fresh audit deferred to once `infra-azure/` code exists |
+| 25 | Windows Endpoint Application | ✅ **Amended, v1.2 drafted 2026-07-17** | Device identity → Azure IoT Hub/DPS, REST auth → Entra External ID (real OIDC refresh-token flow, not a renamed Cognito call); config/secret storage → Azure Blob/Entra; core ingestion/caching/kiosk-UI logic confirmed untouched by grep |
+| 26 | iOS Application | ✅ **Amended, v1.3 drafted 2026-07-17** | MSAL/Entra External ID replaces Amplify/Cognito SRP — a real simplification (MSAL's hosted UI handles MFA natively, no hand-built TOTP state machine needed); Graph API `revokeSignInSessions` replaces `GlobalSignOut`; core telemetry/caching/UI logic confirmed untouched |
+| 27 | Device Onboarding & Telemetry Acquisition | ✅ **Rewritten, v0.2 drafted 2026-07-17** | Azure IoT Hub + DPS individual enrollment replaces AWS IoT Core throughout, reusing Device & Command Security Architecture §2's verified design. Path A design-complete-not-implemented; Path B core logic confirmed cloud-agnostic (Windows Hub doc); Path C sketch corrected to Key Vault/Azure Functions |
 
 ---
 
@@ -71,7 +71,7 @@ Two new product improvements the user wants built into the Azure-era product, id
 ## 4. Real Open Decisions (not yet made — flag, don't assume)
 
 - **IaC tool choice for Azure:** Bicep (Azure-native, closest conceptual match to CDK's declarative-with-a-real-language feel is actually closer to Terraform/Pulumi; Bicep is declarative-only) vs. Terraform (multi-cloud, larger ecosystem, already broadly used). Needs a real evaluation pass, not a default pick.
-- **Mapping service for the site-map feature:** Azure Maps vs. a third-party option (e.g., Mapbox, which PeakLogic's Windows Hub branding work already referenced conceptually) — real cost/licensing/feature comparison needed.
+- ~~**Mapping service for the site-map feature:** Azure Maps vs. a third-party option~~ **Resolved 2026-07-17** (UX Wireframes v1.4 §2.16) — **Mapbox**, matching the already-shipping Territory Map Editor (§2.12). Real evaluation found no technical benefit to Azure Maps for a purely client-side map-rendering feature; splitting the app across two map vendors had no upside.
 - **Whether this becomes the merged entity's actual platform, or stays an exploratory parallel track** — this repo's existence doesn't commit PeakLogic to abandoning AWS; see `docs/business/platform-commercialization-roadmap.md` §8 Open Items, which explicitly defers the technology-direction decision to the merger negotiation.
 
 ---

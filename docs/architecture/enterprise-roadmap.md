@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.0
-**Depends on:** All 22 previously approved/drafted artifacts (#1–22) — this document is a synthesis, not new analysis, pulling together every "Enterprise Roadmap," "post-MVP," "Won't (MVP)," and trigger-gated deferral scattered across the whole `docs/architecture/` tree
-**Last updated:** 2026-07-12
+**Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.0 — AWS-native — until v1.1 is approved)
+**Depends on:** Every Azure-track artifact amended/rewritten as of this fork's 2026-07-17 restructuring pass — this document is still a synthesis, not new analysis
+**Last updated:** 2026-07-17
+**Fork note (v1.1):** the first amendment specific to the `PeakLogic-Azure` fork — `azure-restructuring-plan.md` item 23 flagged this 🔵 amendment: "mostly carries over; revisit sequencing once merger terms are clearer." Almost every initiative here is a product/business-strategy decision, unaffected by which cloud hosts the platform — only the AWS-specific infrastructure references (§3.3, §6) needed real correction. See Revision History.
 
 ---
 
@@ -59,21 +60,21 @@ Each initiative states what it is, why it's deferred rather than built now, the 
 
 **What:** Completing an actual SOC 2 Type I engagement, then a Type II observation window (Compliance & Certification Roadmap §2.2: Type I ~4–12 weeks/$5–25K; Type II ~9–14 months end-to-end/$30–50K+ first year). Separately, a real legal review of nursing-home data flows to resolve HIPAA/BAA applicability (Compliance & Certification Roadmap §3.3 — "do not sign a BAA or make a HIPAA-compliance claim" until this happens), and — contingent on that review's outcome — possibly adding the Privacy Trust Services Criterion to SOC 2 scope. ISO 27001 is named in PRD §4 alongside SOC 2 but has no dedicated readiness assessment anywhere yet; treat it as a later, second certification once SOC 2 Type II is attested, not a parallel effort.
 
-**Why deferred:** SOC 2 Control Mapping (#20, approved v1) already built the control mapping and evidence sources with real, verified citations — this is architectural readiness, deliberately distinct from actual attestation, which requires a real audit engagement against a real running system. No AWS deploy exists yet (MVP Roadmap Blocker #1), so no engagement can meaningfully start.
+**Why deferred:** SOC 2 Control Mapping (#20, Draft v1.1 for this fork) already built the control mapping and evidence sources with real, verified Azure citations — this is architectural readiness, deliberately distinct from actual attestation, which requires a real audit engagement against a real running system. No Azure deploy exists yet for this fork (MVP Roadmap Blocker #1, restated for Azure), so no engagement can meaningfully start — same standing gate as the AWS version, different cloud.
 
 **Trigger to revisit:** Compliance & Certification Roadmap §6 recommends starting the Type II observation window "targeting completion before the industrial-pumping-station vertical (§3.9) or true enterprise deals is actively being sold" — i.e., the trigger is a real next-vertical or enterprise sales motion becoming active, not a fixed date. **Prerequisite, not yet closed**: SOC 2 Control Mapping §9/§11 flags CC1 organizational-control gaps (a formal code of conduct, background-check policy, documented org chart) with no owner or timeline yet — someone (the user, already named compliance owner per §8) needs to schedule these before a real Type I engagement, independent of when the engagement itself starts.
 
 **Depends on:** A real AWS deploy (MVP Roadmap Blocker #1) — an auditor needs a real running system to assess, not architecture docs alone.
 
-### 3.3 Multi-Account AWS / Enterprise Infrastructure Isolation
+### 3.3 Multi-Subscription Azure / Enterprise Infrastructure Isolation *(corrected v1.1 — previously "Multi-Account AWS")*
 
-**What:** Splitting `dev`/`staging`/`prod` (currently one AWS account, stage-suffixed resource names) into genuinely separate AWS accounts — full blast-radius isolation, the AWS-recommended best practice at real organizational scale (Deployment Architecture §2.1).
+**What:** Splitting `dev`/`staging`/`prod` (currently one Azure subscription, resource-group-per-stage — Deployment Architecture §2.1) into genuinely separate Azure subscriptions — full blast-radius isolation, **Microsoft's own recommended best practice** (verified, Deployment Architecture §2.1 — a stronger, more explicit recommendation than AWS ever made for multi-account separation).
 
-**Why deferred:** Single-account, stage-suffixed resources is deliberately the cost-conscious MVP posture (matches the t3.micro RDS, single NAT gateway choices made everywhere else in this project) and is architecturally sound for MVP's scale.
+**Why deferred:** Resource-group-per-stage is deliberately the cost-conscious MVP posture — a disclosed, deliberate deviation from Microsoft's own recommended default (Deployment Architecture §2.1), mirroring the same proportionality judgment the AWS version already made for its own account-separation question.
 
-**Trigger to revisit:** Deployment Architecture §2.1 states this explicitly — "appropriate to revisit once there's an actual SOC 2 Type II engagement or enterprise customer requiring that level of isolation, not before." A sharper, sooner trigger also exists: §2.2's operational rule ("only one stage's IoT stack may be deployed per AWS account at a time," since the MQTT topic namespace isn't stage-scoped) would force this move immediately if `dev` and `prod` ever need real devices reporting simultaneously in the same account.
+**Trigger to revisit, corrected v1.1:** Deployment Architecture §2.1 states this explicitly — the same "SOC 2 Type II or enterprise customer" trigger as the AWS version. **The AWS version's sharper, sooner trigger (the shared MQTT topic namespace forcing single-stage-at-a-time) no longer applies at all** — Device & Command Security Architecture §2's verified finding is that Azure IoT Hub's per-stage resource isolation structurally closes that risk by construction, not by an operational rule. This means Azure's version of this initiative has **one fewer forcing trigger than the AWS version had** — a real, disclosed reduction in urgency, not an oversight.
 
-**Depends on:** §3.2's SOC 2 Type II trigger and this initiative's own trigger are the same real-world event in practice — sequence them together, not independently.
+**Depends on:** §3.2's SOC 2 Type II trigger and this initiative's own trigger are the same real-world event — unchanged reasoning.
 
 ### 3.4 Self-Service Third-Party Device Adapter Marketplace
 
@@ -203,20 +204,20 @@ Five of twelve initiatives have no trigger condition named anywhere in the 22 pr
 
 ## 6. What This Roadmap Deliberately Does Not Cover
 
-The following are real, disclosed, already-documented gaps in shipped MVP code — not new capability, just things that could be done better in what already exists. They belong in the **Technical Debt Register (#24)**, the next artifact after this one, which will inventory and individually track them rather than bundling them into strategic initiatives here:
+The following are real, disclosed, already-documented gaps — not new capability, just things that could be done better in what already exists (or, for this fork, what's designed but not yet built). They belong in the **Technical Debt Register (#24)**:
 
-- WAF not attached to API Gateway (Security Architecture §3.3, re-decided a second time in Threat Model §6 with an explicit enterprise-questionnaire trigger)
-- The disclosed DNS-rebinding gap in the SSRF fix (Threat Model §4.2/§7 item 2)
-- Per-role (vs. pool-wide) MFA enforcement (Security Architecture §2.2)
-- No admin-facing session-revocation ("force logout") tooling (Security Architecture §6/§8 item 2)
-- CloudWatch log retention (2 weeks) possibly too short for real incident investigation (Security Architecture §8 item 1)
-- `IngestFn` has no DLQ/`onFailure` destination (Threat Model §4.1's residual finding)
-- Device decommission doesn't revoke the IoT certificate (Device & Command Security Architecture §3.2 — becomes more urgent once §3.1 ships)
-- SOC 2 CC1 organizational-control gaps: code of conduct, background-check policy, documented org chart (SOC 2 Control Mapping §9/§11)
-- API casing/pagination reconciliation, non-atomic Cognito/DB writes in partner user creation, stale `backend/shared/types.ts` (API Specification §7)
-- No per-tenant resource quota/rate limit beyond platform-wide throttling (Multi-Tenant Architecture §4/§6, also a Threat Model §4.5 DoS finding)
-- No cross-region backup replication (Deployment Architecture §3.2 — becomes a real prerequisite for §3.12's SLA tier, at which point it graduates out of pure technical debt)
-- Cognito Plus tier deferred purely on cost (Infrastructure as Code §2.2/§6 item 4)
+- WAF not attached to the API layer (Security Architecture §3.3 — Azure Front Door/Application Gateway WAF named but not adopted, same reasoning and trigger as the AWS version)
+- The disclosed DNS-rebinding gap in the SSRF fix (Threat Model §4.2/§7 — confirmed still applicable and, if anything, more relevant given Azure's own IMDS shares the identical `169.254.169.254` address)
+- Per-role MFA enforcement, and Azure's own genuinely less-settled MFA mechanism question (Security Architecture §2.2, a real, disclosed uncertainty the AWS version didn't have)
+- No admin-facing session-revocation tooling (Security Architecture §6 — Graph API `revokeSignInSessions` verified as the mechanism, not yet wired into anything)
+- Azure Monitor/Log Analytics retention length (Security Architecture §8 — same standing concern as the AWS version's CloudWatch item)
+- **Corrected v1.1**: Azure Functions has **no native DLQ support at all** for IoT Hub/Event Hub triggers (Threat Model §4.1) — a materially bigger gap than the AWS version's "flip an existing config flag" item, since it requires real custom-logic design from scratch
+- Device decommission doesn't revoke the IoT identity (Device & Command Security Architecture §3.2's redesigned Azure mechanism — disable the IoT Hub identity + DPS enrollment)
+- SOC 2 CC1 organizational-control gaps — unaffected by the cloud switch (SOC 2 Control Mapping §9/§11)
+- API casing/pagination reconciliation, non-atomic Cognito/DB writes *(now Entra/DB writes)* in partner user creation, stale `backend/shared/types.ts` (API Specification §7)
+- No per-tenant resource quota/rate limit (Multi-Tenant Architecture §4/§6, Threat Model §4.5)
+- No cross-region/geo-redundant backup replication (Deployment Architecture §3.2 — Azure's real ~1-hour-RPO geo-redundant restore option named but not adopted)
+- **New, added v1.1**: neither Bicep nor Terraform can fully automate Entra External ID tenant creation (Infrastructure as Code §2.2) — a real, disclosed operational gap with no AWS-side equivalent to compare against
 
 This split matters: an initiative in §3 needs a strategic decision (is this worth building, and when) — an item in this list needs someone to just do it, the design/decision is already made. Keeping them separate means the Technical Debt Register doesn't have to relitigate strategy, and this document doesn't get cluttered with a dozen small, already-decided fixes.
 
@@ -268,3 +269,10 @@ This split matters: an initiative in §3 needs a strategic decision (is this wor
 ## Revision History
 
 **v0.1 (2026-07-12)** — initial draft. Synthesizes every Enterprise Roadmap-relevant deferral across the 22 prior artifacts (#1–22) into 12 sequenced initiatives with named or explicitly-flagged-as-missing trigger conditions, and hands off a separate list of smaller implementation/hardening gaps to the Technical Debt Register (#24, not yet started).
+
+**v1.1 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, per `azure-restructuring-plan.md` item 23: a 🔵 amendment, confirming most content is cloud-agnostic rather than rewriting it.
+
+- **§3.3 corrected, not just renamed**: multi-subscription Azure replaces multi-account AWS, with a real, disclosed difference — Microsoft's own recommendation for subscription separation is stronger/more explicit than AWS's, but Azure's version of this initiative has **one fewer forcing trigger** than the AWS version, since IoT Hub's per-stage resource isolation (Device & Command Security Architecture §2) structurally closes the shared-MQTT-namespace risk that used to force the AWS version's hand.
+- **§3.2 corrected**: "no AWS deploy" restated as "no Azure deploy," same standing gate.
+- **§6 corrected**: every AWS-specific technical-debt item swapped for its real Azure equivalent, with two real, disclosed severity changes flagged explicitly, not silently carried over — the Azure Functions DLQ gap is structurally bigger than its AWS counterpart, and a new item (Entra External ID tenant creation not IaC-automatable) has no AWS-side equivalent to compare against at all.
+- **Unchanged, confirmed cloud-agnostic**: §3.1 (actuation), §3.2's certification scope/reasoning, §3.4–§3.12 (adapter marketplace, MCP-client, ML analytics, electrical conditioning, full partner portal, next verticals, native mobile, portfolio ROI, enterprise SLA) — all product/business-strategy decisions, re-read against this rewrite's infrastructure changes and confirmed none needed re-deciding.

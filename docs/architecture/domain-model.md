@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.3 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.6, pending), [SRS](srs.md) (Draft v1.6, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes)
-**Last updated:** 2026-07-13
+**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3/v1.4 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes)
+**Last updated:** 2026-07-17
+**Fork note (v1.4):** the first Domain Model amendment specific to the `PeakLogic-Azure` fork's own Azure-pivot feature backlog (PRD/SRS v1.7). See Revision History. The AWS-native `PeakLogic-AWS` repo's own Domain Model is unaffected.
 
 ---
 
@@ -71,7 +72,8 @@ A Tenant has **0..1** ChannelPartner (a tenant may or may not have come through 
 |---|---|
 | site_id, tenant_id, name | |
 | type | Broadened enum: `pumping_station`, `qsr`, `restaurant`, `pool`, `nursing_home`, `retail`, `light_industrial`, `multifamily_residential`, `other` |
-| address, lat/lng, timezone, metadata | |
+| address, lat/lng, timezone, metadata | **`lat`/`lng` newly load-bearing, added v1.4**: previously only consumed by Territory's derived containment rule (§2.7); now also the direct data source for GEO-1.1's map plotting (SRS §3.16). Still nullable, no schema change — see §6.7 for the pre-existing gap this makes newly visible |
+| **model_3d_reference (nullable) — proposed, not yet added, added v1.4** | Placeholder only — see §6.7. Not added to this table (or to Asset) until the 3D-rendering scoping pass (PRD §5.15) resolves format/storage; listed here so a future reader knows this was considered, not overlooked |
 
 **Asset** *(existing)* — a piece of equipment at a Site being monitored (a pump, a walk-in cooler, a pool pump).
 | Attribute | Notes |
@@ -330,6 +332,12 @@ Modeled as a separate table (§2.7) rather than an ordered JSONB array of site I
 ### 6.6 ChannelPartnerManager has no PRD/SRS requirement ID yet — flagged, not urgent *(added v1.3)*
 This entity traces directly to the iOS Application doc's (#26) §2.1a decision, not to a PRD/SRS requirement — unlike every other entity in this document, which cites a PRD/SRS ID first and a downstream artifact second. This is a genuine ordering inversion (a client-app spec forced a domain concept the PRD/SRS haven't formally named), not an error, but the PRD/SRS should eventually gain an explicit CH-3b-style requirement referencing this role so the ordering inversion doesn't compound further as more artifacts amend around it. Not urgent — Database Schema/Security Architecture/API Specification are free to depend on §2.9 as-is; this is a paperwork-completeness note, not a blocker.
 
+### 6.7 3D-model-asset-reference entity — deliberately not modeled yet *(added v1.4)*
+PRD §5.15/SRS §3.17 (3DR-1–3DR-3) require a Site or Asset to optionally carry a reference to an out-of-band-authored 3D model. **Deliberately not given a concrete shape here** — file format, storage mechanism (e.g. blob storage vs. a CDN-fronted asset), and whether the reference belongs on `Site`, `Asset`, or a new join entity (a facility might reasonably have one 3D model per site, or one per asset, or both) are all unresolved per PRD §5.15's own explicit scoping deferral. Modeling a specific shape now would be assuming, not documenting — the same discipline §6.2 already applied to DeviceAdapter's eventual table-ification, and the same one `azure-restructuring-plan.md` §3 explicitly calls for on this feature. **Action for whoever picks up the dedicated 3D-rendering scoping pass**: return to this section (and the placeholder note on `Site`, §2.2) once format/storage/cardinality are decided, rather than letting Database Schema (#10) invent a shape unilaterally.
+
+### 6.8 Site geo-coordinates on Azure — confirmed, not re-litigated *(added v1.4)*
+`sites.lat`/`sites.lng` (`DOUBLE PRECISION`, nullable) require no Domain-Model-level change to support GEO-1.1 (SRS §3.16) — they already exist, and Postgres geometry (`DOUBLE PRECISION`, and the existing `postgis` extension already used by Territory's containment query, §2.7) is standard Postgres, portable to Azure Database for PostgreSQL as-is per `azure-restructuring-plan.md` item 10. The concrete confirmation that Azure Database for PostgreSQL supports the installed `postgis` extension version this schema depends on is Database Schema's (#10) job, not re-litigated here — flagged so that artifact doesn't have to rediscover the dependency.
+
 ---
 
 ## 7. Traceability
@@ -337,6 +345,8 @@ This entity traces directly to the iOS Application doc's (#26) §2.1a decision, 
 Every entity/attribute above cites the SRS requirement it formalizes inline, or is marked *(existing)* against `docs/data-model.sql`. No entity here should be treated as authoritative until the Open Questions in §6 are resolved and this document is marked Approved, at which point the Database Schema (#10) becomes free to depend on it. **Added v1.1:** §2.7 (ChannelPartnerUser, Territory, RouteAssignment, RouteStop) traces to PRD §5.8 (CH-3/CH-3a) + §5.10 (TR-1–TR-3) and SRS §3.8 (CH-3.1/CH-3a.1) + §3.12 (TR-1.1–TR-3.2). All §6 open questions are now resolved (§6.4 resolved during review, 2026-07-11) — Security Architecture (#13) should design the technician access-scoping mechanism (§2.7) as real requirement input, not a placeholder. **Added v1.2:** §2.8 (PeakLogicStaffUser, AccountAssignment) traces to PRD §5.11 (IA-1–IA-8) and SRS §3.13 (IA-1.1–IA-8.1); the `User`/`clock_format`/`timezone`/`theme` additions trace to PRD §5.12 (SET-3/SET-4/SET-5) and SRS §3.14.
 
 **Added v1.3:** §2.9 (ChannelPartnerManager, ChannelPartnerManagerAssignment) traces to the iOS Application doc's (#26) locked §2.1a role decision — a real precedent for a downstream artifact forcing a Domain Model amendment, same as §2.7/§2.8's PRD/SRS-driven amendments, except the forcing document is a client-application spec rather than the PRD/SRS directly. No PRD/SRS requirement ID exists yet for this role — flagged in §6 below as an open item for whoever picks up the PRD/SRS amendment this should eventually get.
+
+**Added v1.4:** `Site.lat`/`Site.lng` (§2.2) trace to PRD §5.14/SRS §3.16 (GEO-1.1) as a newly-load-bearing existing attribute, no new entity. The 3D-model-asset-reference concept (PRD §5.15/SRS §3.17) is explicitly *not* traced to a concrete entity yet — see §6.7 — since the PRD itself defers that shape to a dedicated scoping pass.
 
 ---
 
@@ -392,3 +402,10 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **§4 decisions 12–13 added**: ChannelPartnerManager as a genuinely new identity space rather than a role bolted onto `ChannelPartnerUser`; ChannelPartnerManagerAssignment's dual-actor grantor as a deliberate, disclosed divergence from `AccountAssignment`'s staff-only precedent.
 - **§6.6 added**: flags that this entity has no PRD/SRS requirement ID yet (traces to the iOS doc directly) — a paperwork-completeness gap, not a blocker.
 - **Explicitly not resolved in this pass** (tracked in `project-peaklogic-client-apps` memory): the concrete cross-channel-partner RLS/access-control mechanism (Multi-Tenant Architecture, #14), ChannelPartnerManager's concrete auth mechanism within `PartnerPool` (Security Architecture, #13), and the email-based invite-or-link provisioning API shape plus the `GET /v1/partner-manager/overview` orchestration endpoint (API Specification, #11) — all deferred to their respective downstream artifacts, continuing this amendment sequence.
+
+**v1.4 (2026-07-17)** — the first amendment specific to the `PeakLogic-Azure` fork, forced by the PRD v1.7/SRS v1.7 amendment (Azure-pivot feature backlog: geospatial site map, 3D facility rendering), per this document's own rule (§7) that an upstream requirements change must amend this document explicitly.
+
+- **§2.2 `Site` annotated, not schema-changed**: `lat`/`lng` are now also the direct data source for GEO-1.1's map plotting (SRS §3.16), in addition to their existing role in Territory's derived containment rule (§2.7). No new attribute, no migration — a newly-load-bearing existing one, called out so a future reader understands why these nullable columns suddenly matter more than before.
+- **§6.7 added**: the 3D-model-asset-reference concept (PRD §5.15/SRS §3.17) is explicitly **not** modeled with a concrete shape — format, storage, and cardinality (per-Site vs. per-Asset vs. both) are all unresolved per the PRD's own deferral, and inventing a shape here would be assuming ahead of a dedicated scoping pass, not documenting a decision.
+- **§6.8 added**: confirms `sites.lat`/`sites.lng` and the existing `postgis`-backed Territory containment query require no Domain-Model-level change for Azure — standard Postgres, portable to Azure Database for PostgreSQL as-is. Flags (does not resolve) that Database Schema (#10) should confirm the specific `postgis` extension version is available on the target Azure Postgres offering.
+- **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): Database Schema (confirm `postgis`/Azure Postgres compatibility; no new columns needed for GEO features), API Specification (map data endpoint, reusing existing site fields), UX Wireframes (map view, mapping-technology evaluation). The 3D-model entity is explicitly deferred, not assigned to any artifact yet, per §6.7.

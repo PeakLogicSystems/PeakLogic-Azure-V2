@@ -3,9 +3,10 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Approved v1.0
-**Depends on:** All 20 previously approved artifacts (#1–16, #18–21) *(corrected 2026-07-11 — #1–16 is 16 artifacts, #18–21 is 4, totaling 20, not 21 as an earlier draft miscounted; see §9)*; nine of them (#2 PRD, #3 SRS, #4 Domain Model, #6 User Personas, #8 UX Wireframes, #10 Database Schema, #11 API Specification, #13 Security Architecture, #14 Multi-Tenant Architecture) have since been amended past their original approval by the channel-partner-portal sequence — see §4a
-**Last updated:** 2026-07-11
+**Status:** Draft v2.0 — full resequencing for Azure (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.0 — AWS-native — until v2.0 is approved)
+**Depends on:** Every Azure-track document amended/rewritten as part of this fork's 2026-07-17 restructuring pass (`azure-restructuring-plan.md` §2) — PRD v1.7, SRS v1.7, Domain Model v1.4, Compliance & Certification Roadmap v1.1, User Stories v1.1, UX Wireframes v1.4, Information Architecture v1.1, Database Schema v1.4, API Specification v1.4, Device & Command Security Architecture v2.0, Security Architecture v2.0, Multi-Tenant Architecture v1.4, Deployment Architecture v2.0, Infrastructure as Code v2.0, CI/CD Pipeline v0.2, Threat Model v1.1, SOC 2 Control Mapping v1.1
+**Last updated:** 2026-07-17
+**Fork note (v2.0):** the first `PeakLogic-Azure`-specific rewrite — `azure-restructuring-plan.md` item 22 flagged this 🟣 **full rewrite required**: "needs full resequencing once the Azure infra path and new features are scoped." Both are now scoped (this session's work) — this document does the resequencing. The AWS-native `PeakLogic-AWS` repo's own Approved v1.0 describes that platform's real, shipped, verified state and is unaffected.
 
 ---
 
@@ -21,7 +22,17 @@ In scope: an honest inventory of what's actually done vs. outstanding, sequenced
 
 ---
 
-## 2. What's Already Done
+## 2. What's Already Done (rewritten for this fork — a genuinely different state than the AWS version's §2)
+
+**The shape of "done" is inverted relative to the AWS-native repo, and that inversion is the single most important fact this rewrite needs to state plainly.** On the AWS side, the architecture docs mostly *reconciled* an already-substantial, already-shipped v1.0.0 codebase — real code came first, docs caught up to and fixed it. On this fork, **every architecture decision is real and considered, but almost no Azure-native code exists yet** — this session did the full architecture-first pass (all 27 artifacts touched, `azure-restructuring-plan.md` §2) from a standing start, not a reconciliation.
+
+**What is genuinely done, verified via real research throughout, not assumed:**
+- Every product-level document (PRD → API Specification) amended to fold in the Azure-pivot feature backlog (geospatial site map, first-pass 3D facility rendering) — real requirements, real wireframes, real endpoint contracts, cross-consistent with each other.
+- Every infrastructure-facing document redesigned for Azure with real, current-documentation-verified mechanisms: Azure IoT Hub + DPS individual X.509 enrollment (replacing AWS IoT Core), Direct Methods for the future command channel (a genuine simplification over AWS's hand-built ack-topic design), two separate Microsoft Entra External ID tenants plus PeakLogic's own real Entra ID workforce tenant for staff (replacing three Cognito pools — the staff case a genuine architectural improvement, not just a swap), Azure Database for PostgreSQL Flexible Server (RLS/`SET LOCAL` pattern confirmed portable, PostGIS confirmed supported with a real allowlist caveat), Azure Key Vault, resource-group-per-stage environment separation (a deliberate, disclosed deviation from Microsoft's own subscription-per-environment recommendation, mirroring the AWS version's own account-separation trade-off), **Bicep** chosen over Terraform with real, researched justification, PSRule for Azure as the `cdk-nag` equivalent, and Entra Workload Identity Federation for CI/CD (structurally simpler than AWS's OIDC-provider-singleton workaround).
+- Every compliance/security document's evidence sources corrected to their real Azure equivalents (Azure Activity Log/Monitor/Entra logs, Azure Monitor Alerts, Microsoft's own HIPAA BAA posture confirmed at parity with AWS's).
+- **Real, disclosed limitations found and documented, not glossed over**: neither Bicep nor Terraform can fully automate Entra External ID tenant creation (a manual/scripted prerequisite either way); Azure Functions has no native DLQ support for IoT Hub/Event Hub triggers (a bigger gap than the AWS version's equivalent finding); the exact Azure Database for PostgreSQL SKU and Azure Functions plan remain undecided pending real implementation.
+
+**What is NOT done, stated as plainly as what is**: no `infra-azure/` Bicep modules exist. No Entra tenants have been provisioned. No backend code has been ported to Azure SDKs (Entra token validation, Azure Postgres connection strings, IoT Hub device SDK, Key Vault secret retrieval). The frontend is exactly as mock-data-only as the AWS baseline it forked from — unaffected by the cloud switch, not newly broken by it. The channel-partner-portal and Administration Console features are exactly as fully-designed-but-unimplemented as they were on the AWS side at the fork point — inherited status, not re-litigated or re-verified for this session.
 
 More than a first read of "21 docs, mostly Draft/Approved paperwork" would suggest — a large amount of *real, shipped, verified* work happened alongside the documentation itself this session:
 
@@ -35,78 +46,55 @@ More than a first read of "21 docs, mostly Draft/Approved paperwork" would sugge
 
 ---
 
-## 3. Blocker #1: Nothing Has Ever Been Deployed
+## 3. Blocker #1: No Azure Subscription Exists — the Direct Analogue of the AWS Version's Own Blocker
 
-The single fact repeated across more prior artifacts than anything else in this project: no AWS account exists yet (confirmed directly with the user, 2026-07-10), so `cdk bootstrap` has never run, no stack has ever been deployed, and CI/CD Pipeline's four workflows are inert. **Every other item in this roadmap that involves "verify against a real system" is downstream of this one blocker.** Sequencing:
+**Restated for this fork, same shape as the AWS version's own standing constraint**: no Azure subscription exists yet, so nothing in `infra-azure/` (which itself doesn't exist yet either) has ever been validated against real Azure Resource Manager, no Entra tenant has been provisioned, and CI/CD Pipeline's future workflows have nothing to authenticate against. **Sequencing, mirroring the AWS version's own dependency order:**
 
-1. Create the AWS account (user action, outside this project's scope to do for them).
-2. `cdk bootstrap` the account/region once (Infrastructure as Code §7, CI/CD Pipeline §7 — an operational prerequisite, not a code change).
-3. Set the `AWS_ACCOUNT_ID` GitHub repo variable (CI/CD Pipeline §7 item 5).
-4. First `dev`-stage deploy — the actual first real-world test of everything built this session. Recommend doing this manually (`npm run deploy:dev`) before trusting the CI/CD pipeline's own `deploy-dev.yml` with it, so a first-deploy problem is debugged directly, not through a second layer of pipeline abstraction.
-5. Only after a working `dev` deploy: exercise the CI/CD pipeline itself, confirm the rollback procedure (Deployment Architecture §4.2) actually works, confirm GitHub Environment behavior for `prod` (CI/CD Pipeline §7 item 1).
-
----
-
-## 4. Blocker #2 (Resolved 2026-07-11): Both Beachhead Verticals Were Missing Core Sensing Logic
-
-**Originally found by checking directly against `backend/ingest/rules.ts`, not assumed from the SRS's own summary of this gap.** SRS §3.1's open issue said "pool-chemistry and gas-sensor alert thresholds are placeholders pending real verified safety-standard citations" — that undersold the actual state at the time: there were no placeholder thresholds for either. `RULES_BY_CATEGORY` had exactly six categories (`pump`, `hvac`, `pool_system`, `refrigeration`, `leak_sensor`, `energy_meter`) — no `gas_sensor` category existed at all, and `pool_system` had only flow-rate and temperature rules — no pH, chlorine, or dissolved-solids metrics — despite water chemistry being one of the two things Vision Document §3 names as this platform's actual differentiator.
-
-**Fixed, not by inventing numbers:** added a new `pool_chemistry` adapter (SRS SN-4.1) with real, cited thresholds — pH and free chlorine sourced from CDC's Model Aquatic Health Code, 5th Ed. (Dec 2024) via `WebSearch`; TDS sourced from pool-industry consensus guidance (explicitly cited as industry-standard, not CDC, since CDC publishes no TDS figure) — and a new `gas_sensor` adapter (SRS SN-5.1), a binary leak-detected signal identical in structure to the existing `leak_sensor` adapter, requiring no concentration threshold at MVP. 17 new tests added to `backend/ingest/rules.test.ts` (57 total passing at the time, typecheck clean — more tests have shipped alongside later work in this session since; see §2's current total). This resolves SRS Open Issue #1 for both adapters — no longer placeholders.
-
-**Superseded by a larger scope decision the same day:** a real business conversation (channel-partner sales motion — pool-service companies like Pinch-A-Penny) surfaced that pool-chemistry sensing is actually one piece of a bigger white-labeled channel-partner portal (branded partner login, technician territory management, AI-assisted daily dispatch) — which directly reverses SRS CH-3.1's standing "no self-service partner portal... shall exist at MVP." That reversal was handled as its own formal PRD/SRS amendment — **PRD v1.5 and SRS v1.5, approved 2026-07-11.** See §4a for how that amendment sequence concluded.
+1. Provision the Azure subscription (user action, outside this project's scope).
+2. Provision the two Entra External ID tenants (`PeakLogicCustomers`, `PeakLogicPartners`) plus confirm/reuse PeakLogic's own corporate Entra ID tenant for staff (Security Architecture §2.0–§2.6) — **a real, disclosed prerequisite step neither Bicep nor Terraform can automate** (Infrastructure as Code §2.2), so this must happen manually/via script before any IaC deploy that references these tenants.
+3. Write the real `infra-azure/` Bicep modules (Infrastructure as Code §3's planned structure — `main.bicep`, `network.bicep`, `data.bicep`, `api.bicep`, `iot.bicep`, `frontend.bicep`, `budget.bicep`) — not yet started, tracked as its own item (§5).
+4. First `dev`-stage deploy, using whichever Azure CLI/Bicep deploy command Infrastructure as Code's real implementation settles on.
+5. Only after a working `dev` deploy: exercise the CI/CD pipeline, confirm the rollback procedure, confirm the resource-group-per-stage boundary actually isolates as designed.
 
 ---
 
-## 4a. The Channel-Partner-Portal Amendment Sequence Is Now Fully Closed (updated 2026-07-11)
+## 4. What Was Blocker #2 on AWS Is Already Resolved in This Fork's Design — Inherited, Not Re-Litigated
 
-At the time §4 above was first written, six downstream artifact amendments were still queued as future work. **All six are now drafted, reviewed, and approved, same day:**
+The AWS version's Blocker #2 (missing pool-chemistry/gas-sensor sensing logic) was a code-level gap in `backend/ingest/rules.ts` — application logic, not infrastructure. **This logic is cloud-agnostic and was never touched by the Azure pivot**: `pool_chemistry`/`gas_sensor` adapters with real, CDC-cited thresholds exist in the AWS repo's `rules.ts` and port to this fork's Azure ingest function unchanged, the same way Threat Model §4.1 already confirmed `sanitizeMetrics()` carries forward verbatim. **Not re-verified in this pass** — porting `backend/ingest/rules.ts` to whatever Azure Functions ingest handler gets written is real, tracked implementation work (§5), not re-derived or re-researched here.
 
-| Artifact | Result |
-|---|---|
-| Domain Model | v1.1 — new §2.7: `ChannelPartnerUser` (real, admin-provisioned login — the user explicitly rejected an initial no-login design), `Territory` (map-drawn boundary, PostGIS), `RouteAssignment`/`RouteStop` (a stored, confirmable snapshot) |
-| Database Schema | v1.1 — 4 new tables, real cross-tenant RLS (not left as a documented gap — the user explicitly asked for the gaps to be fixed before marking it resolved), dual-scope audit logging |
-| Security Architecture | v1.1 — separate `PartnerPool` Cognito pool, `withChannelPartner()`/`requirePartnerRole()`, `writeAuditLog()` implemented for the first time (previously claimed done in v1 but never actually existed) |
-| Multi-Tenant Architecture | v1.1 — **the most severe finding in this project's history**: `FORCE ROW LEVEL SECURITY` had never been applied anywhere, meaning every RLS policy in the whole schema (not just the new ones) would have been silently bypassed by the app's own table-owning DB role on first real deploy. Found and fixed across three full audit passes, each catching something the previous one missed. See `project-peaklogic-overview` memory for the full account |
-| API Specification | v1.1 — 17 new `/v1/partner/*` endpoints, 4 new route handler files, real code shipped and typechecked |
-| User Personas + UX Wireframes | v1.2 / v1.3 — new Channel Partner Portal Dispatcher persona, 5 new wireframed screens; a real correctness bug also caught and fixed here (a persona-uniqueness review found §2.2 had been illustrated with a pool-service company, which structurally is a Channel Partner under the now-settled domain model, not a Tenant) |
-
-**What this means for the MVP roadmap specifically: the docs-first design phase for this feature is done. Nothing about it is still "pending a decision."** What remains is real implementation — listed as its own item in §5, not folded into the resolved Blocker #2, since it's now a much larger scope than "add sensing rules":
-
-- No MCP server exists in code anywhere — API Specification §4.6 defines the tool contract, but TR-3.1's whole AI-dispatch feature depends on a server that hasn't been built.
-- `frontend/package.json` has no Mapbox dependency — the Territory Map Editor (UX Wireframes §2.12) can't be built without it.
-- Branding is still hardcoded Tailwind-compiled classes + inline SVG hex literals — no theme provider exists to drive the white-label requirement (UX Wireframes §2.11) from `channel_partners.branding` dynamically.
-- No partner login flow, daily-route views, or technician-management UI exist in the frontend at all — the backend (17 endpoints) has nothing to call it yet.
-- `writeAuditLog()` exists but has zero call sites — not wired into credential creation or route confirmation despite being designed for exactly that.
+**The channel-partner-portal feature (Domain Model §2.7, the full amendment sequence the AWS version's §4a documents) is likewise fully designed and inherited, unaffected by the cloud pivot at the product/data-model level** — `ChannelPartnerUser`, `Territory`, `RouteAssignment`/`RouteStop` are pure domain concepts. What changed for this fork is only the auth mechanism underneath it (Security Architecture §2.4's `PeakLogicPartners` Entra External ID tenant replaces `PartnerPool`) and the RLS-portability confirmation (Database Schema §4.7) — both already done. **Real implementation status is the same "designed, not built" state as the rest of this fork**: no MCP server, no frontend Mapbox integration, no partner login flow exist for this track either — not because this session found new gaps, but because nothing has been implemented yet at all, cloud-agnostic features included.
 
 ---
 
-## 5. Remaining Work, Sequenced
+## 5. Remaining Work, Sequenced (rewritten for this fork's actual state)
 
 | Order | Item | Why here | Blocking a demo? |
 |---|---|---|---|
-| 1 | §3 — AWS account, bootstrap, first real deploy | Everything downstream needs a real running system to test against | **Yes** — nothing else can be verified end-to-end without it |
-| 2 | ~~§4 — Real pool-chemistry and gas-sensor rules~~ **Resolved 2026-07-11** | Both confirmed beachhead verticals' core differentiator is now built (`pool_chemistry`/`gas_sensor` adapters, CDC-cited thresholds) | Was **Yes** — now closed |
-| 3 | Frontend wired to the real API | Checked directly, corrected on review: only `DeviceOnboard.tsx` imports the real API client (`frontend/src/lib/api.ts`) — the other 5 main pages (Alerts, Assets, Devices, Sites, Tickets) each define their own hardcoded mock data inline (e.g. `Alerts.tsx`'s `const MOCK_ALERTS = [...]`) rather than importing a shared mock module or the real API client. Same substance, more precise: not one shared mock data source to swap out, five separate hardcoded arrays to replace. A demo of live device data needs this | **Yes** — a mock-data demo undercuts the entire "real sensor data" pitch |
-| 4 | **Channel-partner-portal implementation** (§4a) — MCP server (doesn't exist in code at all), frontend Mapbox integration, branding theme refactor (hardcoded Tailwind/SVG → config-driven), partner login flow, territory editor, daily dispatch route UI, `writeAuditLog()` call-site wiring | The backend/data layer and every architecture doc are done and approved — this is the one item in this roadmap where design is fully finished and only implementation remains. Large scope (a second frontend auth surface, a new external dependency, an MCP server built from nothing), so sequenced after the core tenant-side demo (item 3), not before it | **Not** for an initial Tenant Admin demo — but **yes, and increasingly urgent**, if the demo audience is the channel partner itself (a real, active sales motion per `project-peaklogic-channel-partner-portal` memory, not a hypothetical) |
-| 5 | AUTH-1 (no-login screens) + RP-2.1 (Route View, plain-tenant case) | Real gaps (API Specification §5/§7). **RP-2.1 is now resolved for the channel-partner-technician case** (item 4's scope, once implemented) — what remains open here is narrower: AUTH-1's opaque-token public routes (Field Service Partner ticket view, Channel Partner attribution report), and RP-2.1 for a technician employed directly by a Tenant rather than a Channel Partner (`project-peaklogic-pending-decisions` item 2) | **Probably not** for an initial Tenant Admin demo |
-| 6 | Device decommission doesn't revoke IoT cert (Device & Command Security Architecture §3.2) | Real, still-open security gap, but requires an actual decommissioned device to matter — low likelihood during early demos with a handful of design-partner devices | No |
-| 7 | `IngestFn` has no DLQ (Threat Model §4.1's residual finding) | Real reliability gap, low probability event | No |
-| 8 | CloudWatch alarm email notifications unconfigured (SOC 2 Control Mapping §4) | Cheap to close once a real deploy exists to point `-c alarmEmail=` at | No, but cheap — bundle with item 1 |
-| 9 | API Specification §7's smaller reconciliation items (camelCase/snake_case outliers in `tickets.ts`/`devices.ts`, unbounded `sites.list`/`assets.list`/`devices.list`) | Real, but cosmetic/scale issues at design-partner-tenant volume | No |
+| 1 | §3 — Azure subscription, Entra tenant provisioning, first real deploy | Everything downstream needs a real running system to test against | **Yes** |
+| 2 | Write real `infra-azure/` Bicep modules (Infrastructure as Code §3, §8) | Nothing else can deploy without them; run PSRule for Azure once written, same discipline the AWS `cdk-nag` pass used | **Yes** — no Azure deploy is possible without this |
+| 3 | Port `backend/` application code to Azure SDKs — Entra token validation (`getAuth()`/`getPartnerAuth()`/`getStaffAuth()`/`getManagerAuth()`), Azure Postgres connection (`db.ts`'s CA bundle swap, Multi-Tenant Architecture §2.1a's connection-pooling pattern unchanged), IoT Hub device SDK for the ingest function, Key Vault secret retrieval | The application logic itself (RLS pattern, adapter dispatch, route handlers, `sanitizeMetrics()`, `postWebhook()`) is confirmed portable near-verbatim throughout this session's docs — this is real, bounded porting work, not a redesign | **Yes** — nothing runs without it |
+| 4 | Frontend wired to the real API | Same standing gap the AWS version has (§2) — inherited, not newly introduced by the Azure pivot. A demo of live device data needs this regardless of cloud | **Yes** |
+| 5 | **Geospatial site map + first-pass 3D facility panel** (this fork's own new feature backlog — PRD §5.14/§5.15, UX Wireframes §2.16/§2.17, API Specification §4.11/§4.12) | Real, Azure-track-specific scope with no AWS-side equivalent — the map feature is fully specified end-to-end (Mapbox, reusing the existing territory-drawing integration) and needs no new schema; the 3D panel is deliberately placeholder-scoped pending its own future scoping pass | **Not** for a core Tenant Admin demo, but low-cost to add once item 4 lands (additive fields on an existing endpoint, one new frontend view-toggle) |
+| 6 | Channel-partner-portal implementation (MCP server, frontend Mapbox integration, branding theme, partner login flow, territory editor, dispatch UI, `writeAuditLog()` call-site wiring) | Same scope and sequencing logic as the AWS version's own §4a/§5 item 4 — fully designed, inherited unimplemented status, large scope, sequenced after the core tenant-side demo | **Not** for an initial Tenant Admin demo — **yes, and increasingly urgent**, if the demo audience is the channel partner itself, same standing business context as the AWS version |
+| 7 | AUTH-1 (no-login screens) + RP-2.1 (plain-tenant Route View case) | Same real, inherited gap as the AWS version — cloud-agnostic, unaffected by the pivot | Probably not |
+| 8 | Device decommission doesn't revoke IoT identity (Device & Command Security Architecture §3.2's redesigned Azure fix — disable IoT Hub identity + DPS enrollment) | Real, still-open gap, same low-likelihood-during-early-demos reasoning as the AWS version | No |
+| 9 | Azure Functions IoT Hub trigger has no DLQ at all (Threat Model §4.1 — a materially bigger gap than the AWS residual, since Azure has no native DLQ for this trigger type) | Real reliability gap, needs real custom-logic design, not a config flag | No |
+| 10 | Azure Monitor Alert email notifications unconfigured (SOC 2 Control Mapping §4) | Cheap to close once a real deploy exists | No, but cheap — bundle with item 1 |
+| 11 | API Specification's inherited smaller reconciliation items (casing outliers, unbounded list endpoints) | Same cosmetic/scale items as the AWS version, unaffected by the pivot | No |
 
 ---
 
-## 6. Explicit Non-Goals (already decided elsewhere, not relitigated here)
+## 6. Explicit Non-Goals (unchanged from the AWS version, cloud-agnostic scope decisions)
 
-Actuation/command issuance (Device & Command Security Architecture §5's pre-implementation gate), MCP-*client* behavior (PeakLogic's AI layer calling out to an external MCP server — AI-4.1 forbids this specifically; note this is the opposite direction from §4a/§5 item 4's MCP *server*, which an external agent calls into — not a contradiction, see SRS's AI-4.1 clarification note), ML-trained predictive models, multi-account AWS isolation, self-service billing (PRD §8), a fully DNS-rebinding-proof SSRF guard (Threat Model §4.2's disclosed residual risk) — all Enterprise Roadmap (#23) territory or explicitly out of MVP scope already, not new decisions this document is making.
+Actuation/command issuance, MCP-*client* behavior, ML-trained predictive models, multi-subscription Azure isolation (the resource-group-per-stage vs. subscription-per-stage question Deployment Architecture §2.1 already decided), self-service billing, a fully DNS-rebinding-proof SSRF guard — all Enterprise Roadmap (#23) territory or explicitly out of MVP scope already, unaffected by the Azure pivot.
 
 ---
 
 ## 7. Open Questions
 
-1. **§5's item ordering (item 4 before item 5, item 3 before item 4) is a recommendation, not a decision this document has authority to make** — it depends on who's actually in the room for the first demos, and how soon the channel-partner sales motion needs a working demo, both of which only the user knows.
-2. ~~**§4's real thresholds need a real source**~~ **Resolved** — CDC Model Aquatic Health Code (pH/chlorine) and pool-industry consensus (TDS) citations were verified via `WebSearch` and shipped in Phase 0 (§4). The user's own active pool-chemical channel-partner relationship remains a good source for eventually refining these further, but that's a future enhancement, not a blocker to what's already shipped.
-3. **No target date exists anywhere in this roadmap, deliberately** — sequencing is by dependency, not by calendar, consistent with Deployment Architecture §5's own "not a target date, tied to when engineering capacity is available" framing. This applies to §4a/§5 item 4 (channel-partner-portal implementation) too, despite it being described as "increasingly urgent" — urgency is about priority ordering, not a calendar commitment this document is making on the user's behalf.
+1. **§5's item ordering is a recommendation, not a decision this document has authority to make** — same standing caveat as the AWS version, now also depending on whether this fork or the AWS-native repo ends up as the merged entity's actual platform (a decision `project-peaklogic-purple-standard-merger` explicitly defers to the merger negotiation, not this roadmap).
+2. **No target date exists anywhere in this roadmap, deliberately** — same dependency-not-calendar sequencing principle as the AWS version.
+3. **New, added v2.0: whether this fork's Azure work should proceed in parallel with the AWS repo's own continued work, or wait for a real technology-direction decision, is explicitly not this document's call** — `azure-restructuring-plan.md` §4 already states this repo's existence doesn't itself commit PeakLogic to abandoning AWS; this roadmap sequences *this fork's* remaining work assuming it proceeds, without taking a position on whether it should.
 
 ---
 
@@ -114,13 +102,13 @@ Actuation/command issuance (Device & Command Security Architecture §5's pre-imp
 
 | Section | Traces to |
 |---|---|
-| §3 Deploy blocker | Deployment Architecture, Infrastructure as Code, CI/CD Pipeline — all repeat this same standing caveat |
-| §4 Sensing-logic gap | Resolved — `backend/ingest/rules.ts`'s `pool_chemistry`/`gas_sensor` adapters, PRD SN-4/SN-5, SRS §3.2 |
-| §4a Channel-partner-portal amendment sequence | PRD §5.8 (CH-3/CH-3a) + §5.10 (TR-1–TR-3), SRS §3.8 (CH-3.1/CH-3a.1) + §3.12 (TR-1.1–TR-3.2), Domain Model §2.7, Database Schema §4.4, Security Architecture §2.4, Multi-Tenant Architecture §2.5/§3.3, API Specification §4.5/§4.6, User Personas §2.7, UX Wireframes §2.11–2.15 — all approved 2026-07-11, reversing the prior "no portal" scope |
-| §5 item 3 Frontend wiring | Test Strategy §6, `CLAUDE.md` |
-| §5 item 4 Channel-partner-portal implementation | §4a above; `project-peaklogic-channel-partner-portal` memory's "Explicitly not started... step 7" |
-| §5 item 5 AUTH-1/RP-2.1 (remaining scope) | API Specification §5/§7, `project-peaklogic-pending-decisions` items 1 and 2 |
-| §5 items 6–9 | Device & Command Security Architecture §3.2, Threat Model §4.1, SOC 2 Control Mapping §4, API Specification §7 |
+| §3 Deploy blocker | Deployment Architecture, Infrastructure as Code, CI/CD Pipeline — all repeat this same standing caveat for Azure |
+| §4 Inherited resolved items | Threat Model §4.1 (`sanitizeMetrics()` portability), Domain Model §2.7 (channel-partner-portal entities, unaffected by cloud) |
+| §5 items 1–3 | Deployment Architecture §2–§3, Infrastructure as Code §3/§8, Security Architecture (all identity surfaces) |
+| §5 item 4 | Test Strategy §6 (inherited AWS-side finding), `CLAUDE.md` |
+| §5 item 5 | PRD §5.14/§5.15, UX Wireframes §2.16/§2.17, API Specification §4.11/§4.12 — this fork's own new feature backlog |
+| §5 item 6 | Domain Model §2.7, Security Architecture §2.4, API Specification §4.5 — inherited channel-partner-portal design |
+| §5 items 7–11 | API Specification §5/§7, Device & Command Security Architecture §3.2, Threat Model §4.1, SOC 2 Control Mapping §4 |
 
 ---
 
@@ -146,3 +134,16 @@ Actuation/command issuance (Device & Command Security Architecture §5's pre-imp
 8. **This document's own header undercounted the number of previously-approved artifacts by one.** "#1–16, #18–21" is 16 + 4 = 20 artifacts, not the 21 the header claimed — simple addition, not re-derived from anything external. Corrected.
 
 **Approved v1.0, 2026-07-11** — user-approved after the requested review pass above found and fixed two real bugs (one documentation, one live infra) rather than rubber-stamping the draft. Bumped out of the `v0.x` draft-numbering phase (mirroring this project's own SemVer convention: pre-1.0 is draft/beta, 1.0 is the first real release) into `v1.0` on approval, the same convention CI/CD Pipeline (#17) will follow whenever it clears its own AWS-account blocker.
+
+---
+
+## Revision History
+
+**v2.0 (2026-07-17)** — the first `PeakLogic-Azure`-specific rewrite, forced by `azure-restructuring-plan.md` item 22: a full resequencing, now that the Azure infra path and new features are both scoped.
+
+- **§2 rewritten**: states plainly that this fork's "done" is the inverse of the AWS version's — every architecture decision is real and researched, almost no Azure-native code exists yet, versus the AWS repo's reconciliation-of-already-shipped-code shape.
+- **§3 rewritten**: Azure subscription + Entra tenant provisioning replaces the AWS account/`cdk bootstrap` blocker, same structural shape, real disclosed prerequisite (Entra tenant creation isn't IaC-automatable by either candidate tool).
+- **§4 rewritten**: the AWS version's resolved Blocker #2 (sensing logic) and its full channel-partner-portal §4a are both restated as **inherited, cloud-agnostic, unaffected by the pivot** — not re-derived or re-verified, since none of it touches AWS-specific mechanisms.
+- **§5 resequenced**: 11 items, reordered around this fork's real state — Bicep implementation and backend Azure-SDK porting now come first (nothing else can run without them), the map/3D feature backlog added as a new, Azure-track-specific item with no AWS-side equivalent, and every inherited item (channel-partner-portal implementation, AUTH-1/RP-2.1, decommission-revocation, DLQ, monitoring) restated with its real Azure-specific shape where one exists (e.g. Azure's DLQ gap being structurally bigger than AWS's).
+- **§7 gained 1 new item (3)**: explicit non-position on whether this fork should be the eventual platform — deferred to the merger negotiation per `azure-restructuring-plan.md` §4, not this roadmap's call.
+- **Downstream**: this is the last of the six 🟣 full-rewrite infrastructure documents in `azure-restructuring-plan.md` §2 — remaining work is Enterprise Roadmap (#23, 🔵 amendment), Technical Debt Register (#24, 🔵 fresh audit), Windows/iOS client app amendments (#25/#26), Device Onboarding (#27, 🟣 rewrite), and then real implementation (Bicep, backend porting) and testing.
