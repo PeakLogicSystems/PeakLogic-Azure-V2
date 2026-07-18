@@ -146,6 +146,8 @@ Beyond live dashboards, add **read-model aggregates** for:
 
 Built on the **fan-out aggregation pattern** (never cross-tenant). Heavy reporting eventually wants materialized views / a read replica — a later scaling step, not a v1 concern. Keep aggregation server-side and scoped.
 
+> **Full design:** [`reporting-and-kpi-design.md`](reporting-and-kpi-design.md) — the **CMMS dispatch integration** (automated tickets pushed into partners' CMMS as work orders, via a per-vendor connector framework), the **auto-ticket → service-call conversion KPI** it enables, and the standard/custom **Reports** section.
+
 ---
 
 ## 10. Support / NOC — a console mode, not a new app
