@@ -1,0 +1,718 @@
+<title>PeakLogic Solutions — Field Services Intelligence, Asset & Risk Management</title>
+<style>
+  :root {
+    --white: #ffffff;
+    --paper: #f7f8fb;
+    --paper-2: #eef0f7;
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #5b6478;
+    --faint: #94a0b5;
+    --line: #e7e6f1;
+    --line-2: #d9d8ea;
+    --purple: #7c3aed;
+    --purple-mid: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --purple-soft: #f2effe;
+    --green: #22c55e;
+    --green-ink: #15803d;
+    --green-soft: #e8fbef;
+    --amber: #f59e0b;
+    --dark: #0b1120;
+    --dark-2: #131c30;
+    --shadow: 0 1px 2px rgba(16,21,42,.04), 0 10px 30px rgba(16,21,42,.06);
+    --shadow-lg: 0 24px 60px rgba(16,21,42,.14);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --r: 16px; --r-sm: 10px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .pl { font-family: var(--sans); color: var(--ink); background: var(--white); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  img, svg { max-width: 100%; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--purple); font-weight: 600; }
+  h1, h2, h3 { letter-spacing: -.025em; text-wrap: balance; margin: 0; }
+  .h1 { font-size: clamp(34px, 5.2vw, 60px); font-weight: 800; line-height: 1.04; }
+  .h2 { font-size: clamp(26px, 3.6vw, 40px); font-weight: 780; line-height: 1.1; }
+  .h3 { font-size: 20px; font-weight: 720; }
+  .lede { font-size: clamp(16px, 1.7vw, 19px); color: var(--muted); max-width: 62ch; }
+  .muted { color: var(--muted); } .faint { color: var(--faint); }
+  .center { text-align: center; } .mx { margin-left: auto; margin-right: auto; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 15px; font-weight: 650; padding: 12px 20px; border-radius: 999px; border: 1px solid transparent; cursor: pointer; transition: transform .06s ease, background .15s ease, box-shadow .15s ease; white-space: nowrap; }
+  .btn:active { transform: translateY(1px); }
+  .btn--primary { background: var(--purple); color: #fff; box-shadow: 0 8px 20px rgba(124,58,237,.28); }
+  .btn--primary:hover { background: var(--purple-deep); }
+  .btn--ghost { background: #fff; color: var(--ink); border-color: var(--line-2); }
+  .btn--ghost:hover { border-color: var(--purple); color: var(--purple); }
+  .btn--light { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.22); }
+  .btn--light:hover { background: rgba(255,255,255,.2); }
+  .btn--sm { padding: 9px 16px; font-size: 14px; }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* Nav */
+  .nav { position: sticky; top: 0; z-index: 40; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .nav__in { display: flex; align-items: center; gap: 26px; height: 68px; }
+  .brand { display: flex; align-items: flex-end; gap: 8px; cursor: pointer; }
+  .brand svg { width: 30px; height: 22px; }
+  .brand__word { font-size: 21px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .brand__word .peak { color: var(--ink); } .brand__word .logic { color: var(--purple); }
+  .nav__links { display: flex; gap: 24px; margin-left: 12px; }
+  .nav__links a { font-size: 14.5px; font-weight: 550; color: var(--ink-2); cursor: pointer; }
+  .nav__links a:hover { color: var(--purple); }
+  .nav__cta { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 900px) { .nav__links { display: none; } }
+
+  /* Section rhythm */
+  section { padding: 86px 0; }
+  .sec-paper { background: var(--paper); }
+  .sec-dark { background: var(--dark); color: #fff; }
+  .sec-head { max-width: 720px; margin: 0 auto 46px; text-align: center; }
+  .sec-head .lede { margin: 14px auto 0; }
+
+  /* Hero */
+  .hero { padding: 74px 0 70px; position: relative; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background:
+    radial-gradient(60% 60% at 82% 8%, rgba(139,92,246,.10), transparent 70%),
+    radial-gradient(50% 40% at 10% 100%, rgba(34,197,94,.07), transparent 70%); pointer-events: none; }
+  .hero__grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; position: relative; }
+  @media (max-width: 940px) { .hero__grid { grid-template-columns: 1fr; gap: 34px; } }
+  .hero h1 { margin: 16px 0 18px; }
+  .hero .cta-row { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .hero__stats { display: flex; gap: 30px; margin-top: 34px; flex-wrap: wrap; }
+  .hero__stat b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .hero__stat span { font-size: 12.5px; color: var(--muted); }
+
+  /* Pills / chips */
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-deep); font-size: 12.5px; font-weight: 650; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+  /* Cards */
+  .grid { display: grid; gap: 20px; }
+  .g-3 { grid-template-columns: repeat(3, 1fr); }
+  .g-4 { grid-template-columns: repeat(4, 1fr); }
+  .g-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 900px) { .g-3, .g-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .g-2, .g-3, .g-4 { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 26px; box-shadow: var(--shadow); transition: transform .12s ease, box-shadow .12s ease; }
+  .card--hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .card .ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--purple-soft); color: var(--purple); margin-bottom: 16px; }
+  .card .ico svg { width: 24px; height: 24px; }
+  .card h3 { margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14.5px; margin: 0; }
+
+  /* Value pillars w/ number */
+  .pillar { position: relative; }
+  .pillar .n { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: .1em; }
+
+  /* How it works flow */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; align-items: stretch; margin-top: 20px; }
+  @media (max-width: 860px) { .flow { grid-template-columns: 1fr 1fr; gap: 16px; } }
+  .flow__step { position: relative; padding: 22px 18px; text-align: center; }
+  .flow__step .fico { width: 54px; height: 54px; border-radius: 14px; margin: 0 auto 14px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--purple); }
+  .flow__step .fico svg { width: 26px; height: 26px; }
+  .flow__step h4 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; }
+  .flow__step p { margin: 0; font-size: 13px; color: var(--muted); }
+  .flow__step:not(:last-child)::after { content: ""; position: absolute; top: 40px; right: -1px; width: 2px; height: 0; }
+  .flow__step .arrow { position: absolute; top: 34px; right: -10px; color: var(--line-2); }
+  @media (max-width: 860px) { .flow__step .arrow { display: none; } }
+
+  /* Why-unique list */
+  .why { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; }
+  @media (max-width: 900px) { .why { grid-template-columns: 1fr; } }
+  .why__item { display: flex; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .why__item:first-child { border-top: none; }
+  .why__item .k { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+  .why__item .k svg { width: 20px; height: 20px; }
+  .why__item h4 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+  .why__item p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  /* Industries */
+  .ind { display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; transition: border-color .12s, transform .12s; }
+  .ind:hover { border-color: var(--purple); transform: translateY(-2px); }
+  .ind .iico { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; color: var(--purple); background: var(--purple-soft); }
+  .ind .iico svg { width: 22px; height: 22px; }
+  .ind b { font-size: 14.5px; } .ind span { font-size: 12.5px; color: var(--faint); display: block; }
+
+  /* Stats band */
+  .statband { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  @media (max-width: 720px) { .statband { grid-template-columns: 1fr 1fr; } }
+  .statband .s b { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -.02em; display: block; background: linear-gradient(100deg, #fff, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .statband .s span { color: #9fb0cf; font-size: 13.5px; }
+
+  /* Partner logos */
+  .plogos { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .plogo { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .plogo .mk { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 11px; }
+  .plogo b { font-size: 13.5px; } .plogo span { font-size: 11px; color: var(--faint); }
+
+  /* CTA band */
+  .ctaband { background: linear-gradient(120deg, #6d28d9, #8b5cf6 55%, #22c55e 160%); color: #fff; border-radius: 24px; padding: 54px; text-align: center; position: relative; overflow: hidden; }
+  .ctaband h2 { color: #fff; } .ctaband p { color: rgba(255,255,255,.85); max-width: 60ch; margin: 12px auto 26px; }
+
+  /* Footer */
+  footer { background: var(--dark); color: #c7cfdf; padding: 60px 0 34px; }
+  .foot__grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 30px; }
+  @media (max-width: 800px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+  footer h5 { color: #fff; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 14px; }
+  footer a { display: block; color: #9fb0cf; font-size: 14px; padding: 5px 0; cursor: pointer; }
+  footer a:hover { color: #fff; }
+  .foot__brand .brand__word .peak { color: #fff; }
+  .foot__bottom { border-top: 1px solid rgba(255,255,255,.1); margin-top: 34px; padding-top: 20px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7c89a5; }
+
+  /* Ribbon note */
+  .demo-ribbon { background: var(--purple-soft); color: var(--purple-deep); text-align: center; font-size: 12.5px; font-weight: 600; padding: 7px 16px; }
+  .demo-ribbon b { font-weight: 800; }
+
+  /* Modal */
+  .ov { position: fixed; inset: 0; background: rgba(15,23,42,.5); backdrop-filter: blur(4px); z-index: 60; display: grid; place-items: center; padding: 20px; animation: fade .18s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: #fff; border-radius: 22px; width: min(560px, 100%); box-shadow: var(--shadow-lg); overflow: hidden; animation: pop .2s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .modal__head { padding: 26px 28px 8px; }
+  .modal__head h3 { font-size: 22px; } .modal__head p { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+  .modal__body { padding: 16px 28px 8px; display: flex; flex-direction: column; gap: 12px; }
+  .role { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; text-align: left; background: #fff; font-family: inherit; transition: border-color .12s, background .12s; width: 100%; }
+  .role:hover { border-color: var(--purple); background: var(--purple-soft); }
+  .role .ri { width: 44px; height: 44px; border-radius: 11px; flex: none; display: grid; place-items: center; color: #fff; }
+  .role b { font-size: 15px; display: block; } .role span { font-size: 13px; color: var(--muted); }
+  .role .arr { margin-left: auto; color: var(--faint); }
+  .modal__foot { padding: 14px 28px 24px; font-size: 12px; color: var(--faint); text-align: center; }
+
+  /* ---------- Portal shells ---------- */
+  .portal { min-height: 100vh; background: var(--paper); }
+  .phead { background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+  .phead__in { display: flex; align-items: center; gap: 16px; height: 62px; }
+  .phead__badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-deep); }
+  .phead__sp { margin-left: auto; }
+  .pwho { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .pwho .av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; }
+  .pmain { padding: 30px 0 60px; }
+  .ptitle { font-size: 26px; font-weight: 780; letter-spacing: -.02em; margin: 0 0 4px; }
+  .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
+  @media (max-width: 800px) { .pgrid { grid-template-columns: 1fr 1fr; } }
+  .pstat { background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 16px 18px; }
+  .pstat b { font-size: 26px; font-weight: 780; letter-spacing: -.02em; display: block; }
+  .pstat span { font-size: 12px; color: var(--muted); }
+  .panel2 { background: #fff; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+  .panel2__h { padding: 15px 18px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+  .ptbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ptbl th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 700; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .ptbl td { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .ptbl tr:last-child td { border-bottom: none; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 999px; }
+  .tag .d { width: 6px; height: 6px; border-radius: 50%; }
+  .tag--good { background: var(--green-soft); color: var(--green-ink); } .tag--good .d { background: var(--green); }
+  .tag--warn { background: #fef3c7; color: #b45309; } .tag--warn .d { background: var(--amber); }
+  .tag--crit { background: #fee2e2; color: #b91c1c; } .tag--crit .d { background: #ef4444; }
+  .tag--info { background: #dbeafe; color: #1d4ed8; } .tag--info .d { background: #2563eb; }
+  .cols2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .cols2 { grid-template-columns: 1fr; } }
+
+  .hidden { display: none !important; }
+</style>
+
+<div class="pl" id="site">
+  <div class="demo-ribbon">Interactive demo — this is a clickable prototype of <b>PeakLogicSolutions.com</b>. Use <b>Log in</b> to enter the Customer, Channel Partner, or Super-Admin experience.</div>
+  <nav class="nav">
+    <div class="wrap nav__in">
+      <div class="brand" data-go="home">
+        <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
+        <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+      </div>
+      <div class="nav__links">
+        <a data-scroll="platform">Platform</a>
+        <a data-scroll="industries">Industries</a>
+        <a data-scroll="why">Why PeakLogic</a>
+        <a data-go="ecosystem">Device Ecosystem</a>
+        <a data-scroll="partners">Partners</a>
+      </div>
+      <div class="nav__cta">
+        <button class="btn btn--ghost btn--sm" data-login="partner">Partner login</button>
+        <button class="btn btn--primary btn--sm" data-login="all">Log in</button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="home-view">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero__grid">
+        <div>
+          <span class="chip"><span class="dot"></span>Essential Field Services Intelligence</span>
+          <h1 class="h1">The intelligence layer for <span style="color:var(--purple)">essential</span> field services.</h1>
+          <p class="lede">PeakLogic turns the equipment your business already services into a live stream of intelligence — monitoring assets, predicting failures, and pushing the right work into your systems before something breaks. Asset management and risk reduction, delivered as a service.</p>
+          <div class="cta-row">
+            <button class="btn btn--primary" data-login="all">See it live <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            <button class="btn btn--ghost" data-scroll="how">How it works</button>
+          </div>
+          <div class="hero__stats">
+            <div class="hero__stat"><b style="color:var(--purple)">67%</b><span>auto-dispatch → service-call conversion</span></div>
+            <div class="hero__stat"><b style="color:var(--green-ink)">24/7</b><span>continuous asset monitoring</span></div>
+            <div class="hero__stat"><b>6</b><span>trades live on the platform</span></div>
+          </div>
+        </div>
+        <div id="hero-art"></div>
+      </div>
+    </section>
+
+    <!-- PLATFORM / WHAT WE DO -->
+    <section class="sec-paper" id="platform">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">The Platform</span>
+          <h2 class="h2" style="margin-top:10px">One platform: intelligence, assets, and risk.</h2>
+          <p class="lede">Everything an essential-services operator needs to see, predict, and act on the condition of the equipment they're responsible for.</p>
+        </div>
+        <div class="grid g-4">
+          <div class="card card--hover"><div class="ico" id="i-monitor"></div><h3 class="h3">Monitor everything</h3><p>Pumps, HVAC, refrigeration, energy panels, flow meters, lift stations and more — normalized into one live view, whatever the vendor.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-predict"></div><h3 class="h3">Predict &amp; prevent</h3><p>Learned baselines and AI flag drift and failures before they cause downtime — priced on the loss you avoid, not the sensor.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-dispatch"></div><h3 class="h3">Dispatch into your systems</h3><p>Critical events become work orders in your existing CMMS automatically. We add intelligence to your business — we don't replace it.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-prove"></div><h3 class="h3">Prove the value</h3><p>Every prevented failure, service call, and normalized risk is measured — a defensible ROI you can show customers and insurers.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">How it works</span>
+          <h2 class="h2" style="margin-top:10px">Sense. Understand. Act. Prove.</h2>
+          <p class="lede">A closed loop that gets smarter every time your team touches a job.</p>
+        </div>
+        <div class="flow">
+          <div class="flow__step"><div class="fico" id="f1"></div><h4>Sense</h4><p>Devices &amp; gateways stream telemetry over secure, outbound-only connections.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f2"></div><h4>Normalize</h4><p>Any vendor's data mapped to one canonical model — no rip-and-replace.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f3"></div><h4>Detect</h4><p>Configurable thresholds + AI anomaly &amp; failure prediction, per asset.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f4"></div><h4>Act</h4><p>Auto-dispatch a work order into your CMMS; push config back to the device.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f5"></div><h4>Prove</h4><p>Outcomes feed a conversion &amp; risk-reduction record — and train the models.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY UNIQUE -->
+    <section class="sec-paper" id="why">
+      <div class="wrap why">
+        <div>
+          <span class="eyebrow">Why PeakLogic is different</span>
+          <h2 class="h2" style="margin:10px 0 14px">We make money by preventing yours from leaving.</h2>
+          <p class="lede" style="margin-bottom:8px">Most monitoring companies sell you sensors. PeakLogic sells outcomes — and a business model that compounds with every insured, audited, prevented failure.</p>
+          <div id="why-art"></div>
+        </div>
+        <div>
+          <div class="why__item"><div class="k" id="w1"></div><div><h4>Predictive maintenance &amp; incident prevention</h4><p>Priced on the loss avoided. Catch a bearing, a compressor, or a warehouse leak before it becomes tens of thousands in downtime.</p></div></div>
+          <div class="why__item"><div class="k" id="w2"></div><div><h4>Insurance partnerships &amp; premium reductions</h4><p>Continuous risk mitigation insurers reward — subsidized hardware and lower premiums because claims get rarer and smaller.</p></div></div>
+          <div class="why__item"><div class="k" id="w3"></div><div><h4>Compliance &amp; audit automation</h4><p>Tamper-proof, continuous data trails — cold-chain temps, gas levels, water quality — sold as premium, subscription-grade evidence.</p></div></div>
+          <div class="why__item"><div class="k" id="w4"></div><div><h4>An intelligence layer, not a rip-and-replace</h4><p>We overlay your existing operation and feed intelligence back into your CMMS/ERP. Low friction, fast to value, yours to keep.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INDUSTRIES -->
+    <section id="industries">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">Industries we serve</span>
+          <h2 class="h2" style="margin-top:10px">Built for the trades that keep buildings running.</h2>
+          <p class="lede">Wherever equipment failure means downtime, safety risk, or a compliance breach — PeakLogic is the intelligence layer.</p>
+        </div>
+        <div class="grid g-4" id="industries-grid"></div>
+      </div>
+    </section>
+
+    <!-- STATS BAND -->
+    <section class="sec-dark">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow" style="color:var(--purple-mid)">Outcomes</span><h2 class="h2" style="color:#fff;margin-top:10px">The numbers operators care about.</h2></div>
+        <div class="statband">
+          <div class="s center"><b>83%</b><span>of at-risk assets normalized before failure</span></div>
+          <div class="s center"><b>$1.8k</b><span>avoidable energy cost flagged / site / mo</span></div>
+          <div class="s center"><b>67%</b><span>automated tickets that convert to service calls</span></div>
+          <div class="s center"><b>7 yr</b><span>tamper-proof compliance audit trail</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DEVICE ECOSYSTEM TEASER -->
+    <section>
+      <div class="wrap cols2" style="align-items:center">
+        <div>
+          <span class="eyebrow">Device Ecosystem</span>
+          <h2 class="h2" style="margin:10px 0 14px">Any device. Any vendor. One brain.</h2>
+          <p class="lede">From ESP32 gateways to third-party OEM clouds, PeakLogic ingests and normalizes it all — so a new device type is a configuration, not a rebuild. Zero-touch provisioning gets units online the moment a technician connects them in the field.</p>
+          <div style="margin-top:22px"><button class="btn btn--ghost" data-go="ecosystem">Explore the ecosystem <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+        <div id="eco-art-sm"></div>
+      </div>
+    </section>
+
+    <!-- PARTNERS -->
+    <section class="sec-paper" id="partners">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">For channel partners</span>
+          <h2 class="h2" style="margin-top:10px">Add an intelligence layer to your brand.</h2>
+          <p class="lede">White-label PeakLogic under your own name and domain. Onboard your customers, set thresholds, get AI analytics — while the output flows into the systems you already run. Grow recurring revenue on the book of business you already have.</p>
+        </div>
+        <div class="plogos" id="partner-logos"></div>
+        <div class="center" style="margin-top:28px">
+          <button class="btn btn--primary" data-login="partner">Enter a partner portal <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section>
+      <div class="wrap">
+        <div class="ctaband">
+          <span class="eyebrow" style="color:rgba(255,255,255,.85)">See the whole platform</span>
+          <h2 class="h2" style="margin-top:10px">Walk through PeakLogic end to end.</h2>
+          <p>Jump into the customer portal, a channel-partner white-label portal, or the PeakLogic super-admin console — all fully clickable.</p>
+          <button class="btn btn--light" data-login="all">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ECOSYSTEM PAGE (placeholder) -->
+  <main id="ecosystem-view" class="hidden">
+    <section>
+      <div class="wrap">
+        <span class="chip" style="background:#fef3c7;color:#b45309"><span class="dot" style="background:var(--amber)"></span>Preview — full page coming soon</span>
+        <div class="sec-head" style="text-align:left;margin:16px 0 30px;max-width:760px">
+          <h1 class="h1" style="font-size:clamp(30px,4.4vw,48px)">The PeakLogic Device Ecosystem</h1>
+          <p class="lede" style="margin-top:14px">A living catalog of everything PeakLogic can sense, control, and reason about. This page is a placeholder — the full, filterable ecosystem library is on the way.</p>
+        </div>
+        <div id="eco-art-lg" style="margin-bottom:34px"></div>
+        <div class="grid g-3" id="eco-cats"></div>
+        <div class="card" style="margin-top:26px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div><h3 class="h3">Don't see your device?</h3><p class="muted" style="font-size:14px">New device types are onboarded as configuration — a capability definition plus an adapter, not a rebuild.</p></div>
+          <button class="btn btn--primary" data-go="home">Talk to us</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot__grid">
+        <div class="foot__brand">
+          <div class="brand" style="margin-bottom:12px"><svg viewBox="0 0 24 18"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg><span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span></div>
+          <p style="color:#9fb0cf;font-size:14px;max-width:32ch;margin:0">Essential Field Services Intelligence, Asset &amp; Risk Management. Tampa Bay, FL.</p>
+        </div>
+        <div><h5>Platform</h5><a data-scroll="platform">Overview</a><a data-scroll="how">How it works</a><a data-go="ecosystem">Device Ecosystem</a><a data-login="all">Live demo</a></div>
+        <div><h5>Company</h5><a data-scroll="why">Why PeakLogic</a><a data-scroll="industries">Industries</a><a data-scroll="partners">Channel partners</a><a data-go="home">Contact</a></div>
+        <div><h5>Access</h5><a data-login="customer">Customer login</a><a data-login="partner">Partner login</a><a data-login="staff">Staff console</a></div>
+      </div>
+      <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · SOC 2 in progress</span></div>
+    </div>
+  </footer>
+</div>
+
+<div id="portal-root"></div>
+<div id="modal-root"></div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+  const SUPER_CONSOLE = "https://claude.ai/code/artifact/4b0dca9e-b0b2-45a3-87a4-79b739cdc6cf";
+
+  // ---------- Inline icon set ----------
+  const I = {
+    monitor:'<path d="M2 4h20v12H2zM8 20h8M12 16v4"/>',
+    predict:'<path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/>',
+    dispatch:'<path d="M4 7h11l3 3v7H4z"/><path d="M15 7V4H4v3M8 21a2 2 0 100-4 2 2 0 000 4z"/>',
+    prove:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',
+    sense:'<circle cx="12" cy="12" r="2"/><path d="M4.9 4.9a10 10 0 000 14.2M19.1 4.9a10 10 0 010 14.2M8 8a5.6 5.6 0 000 8M16 8a5.6 5.6 0 010 8"/>',
+    normalize:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    detect:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M11 8v3l2 2"/>',
+    act:'<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>',
+    prove2:'<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
+    shield:'<path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+    umbrella:'<path d="M12 2a9 9 0 019 9H3a9 9 0 019-9zM12 11v8a2 2 0 01-4 0"/>',
+    doc:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>',
+    layers:'<path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/>',
+    pool:'<path d="M2 15c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2 2 2 4 2M6 12V5a2 2 0 014 0M14 12V5a2 2 0 014 0"/>',
+    hvac:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8v6M12 8v6M17 8v6"/>',
+    energy:'<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>',
+    water:'<path d="M12 3s6 6 6 11a6 6 0 01-12 0c0-5 6-11 6-11z"/>',
+    fridge:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M10 5v2M10 13v3"/>',
+    roof:'<path d="M3 12l9-7 9 7M6 10v9h12v-9"/>',
+    flow:'<path d="M2 12h6l2-4 4 8 2-4h6"/>',
+    lift:'<path d="M4 20h16M6 20V8l6-4 6 4v12M9 12h6"/>',
+    building:'<path d="M3 21h18M6 21V5l6-2 6 2v16M9 9h.01M9 13h.01M15 9h.01M15 13h.01"/>',
+    truck:'<path d="M1 5h13v10H1zM14 8h4l3 3v4h-7z"/><circle cx="5.5" cy="18" r="1.5"/><circle cx="17.5" cy="18" r="1.5"/>',
+    grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M17 6a3 3 0 010 6M21 20c0-2-1-3.5-3-4.2"/>',
+    chip:'<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
+  };
+  const svg = (p, w) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  function setIco(id, name, w) { const el = $("#" + id); if (el) el.innerHTML = svg(I[name], w); }
+
+  // ---------- Data ----------
+  const INDUSTRIES = [
+    ["Restaurants & QSR", "grease, HVAC, refrigeration", "hvac"],
+    ["Water utilities & pumping", "flow meters, wells, boosters", "flow"],
+    ["Energy & facilities", "panels, demand, solar", "energy"],
+    ["Aquatics & pools", "chemistry, circulation", "pool"],
+    ["Cold storage & refrigeration", "product temp, compressors", "fridge"],
+    ["Roofing & building envelope", "moisture, rooftop units", "roof"],
+    ["Municipal wastewater", "lift stations, overflow", "lift"],
+    ["Property management", "multi-asset portfolios", "building"],
+  ];
+  const PARTNERS = [
+    ["ACE Septic & Waste", "ACE", "#6D28D9"],
+    ["Boyette Pump & Well", "BPW", "#0369A1"],
+    ["Purple Current", "PC", "#F59E0B"],
+    ["WTR DR", "WDR", "#0891B2"],
+    ["Rodrigues Roofing", "RR", "#C2410C"],
+    ["Brisa Climate", "BCS", "#0D9488"],
+  ];
+  const ECO_CATS = [
+    ["Water & wastewater", "flow", "Flow meters, well pumps, lift stations, pressure & level sensors, overflow detection."],
+    ["Climate & refrigeration", "fridge", "HVAC RTUs, walk-in coolers, product-temp probes, compressor amperage, thermostats."],
+    ["Energy & power", "energy", "Panel meters, CT clamps, demand monitors, PV production, power factor."],
+    ["Aquatics & pools", "pool", "pH/ORP controllers, chlorinators, circulation pumps, chemistry probes."],
+    ["Building envelope", "roof", "Roof-membrane moisture grids, leak sensors, rooftop-unit condition."],
+    ["Edge & gateways", "chip", "Wi-Fi hubs, ESP32/MCU controllers, third-party OEM cloud connectors (Resideo, Honeywell, Pentair)."],
+  ];
+
+  // ---------- Custom SVG infographics ----------
+  function heroArt() {
+    return `<svg viewBox="0 0 460 420" width="100%" style="display:block" aria-label="Intelligence layer over field assets">
+      <defs>
+        <linearGradient id="g1" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#7c3aed"/></linearGradient>
+        <linearGradient id="g2" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#22c55e"/><stop offset="1" stop-color="#16a34a"/></linearGradient>
+        <filter id="s1" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#6d28d9" flood-opacity="0.18"/></filter>
+      </defs>
+      <!-- your systems layer (top) -->
+      <g filter="url(#s1)"><rect x="120" y="26" width="300" height="86" rx="14" fill="#fff" stroke="#e7e6f1"/></g>
+      <text x="140" y="56" font-family="ui-monospace,monospace" font-size="11" fill="#94a0b5" letter-spacing="1.5">YOUR SYSTEMS</text>
+      <rect x="140" y="66" width="78" height="30" rx="8" fill="#f2effe"/><text x="150" y="85" font-size="12" fill="#6d28d9" font-family="system-ui">CMMS</text>
+      <rect x="228" y="66" width="70" height="30" rx="8" fill="#f2effe"/><text x="238" y="85" font-size="12" fill="#6d28d9" font-family="system-ui">ERP</text>
+      <rect x="308" y="66" width="94" height="30" rx="8" fill="#e8fbef"/><text x="318" y="85" font-size="12" fill="#15803d" font-family="system-ui">Insurers</text>
+      <!-- intelligence layer (mid) -->
+      <g filter="url(#s1)"><rect x="70" y="150" width="330" height="120" rx="16" fill="url(#g1)"/></g>
+      <text x="92" y="182" font-family="ui-monospace,monospace" font-size="11" fill="#e9d5ff" letter-spacing="1.5">PEAKLOGIC INTELLIGENCE</text>
+      <g fill="#fff" opacity="0.95" font-family="system-ui" font-size="12.5">
+        <rect x="92" y="196" width="88" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="104" y="215">Normalize</text>
+        <rect x="188" y="196" width="86" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="200" y="215">Detect</text>
+        <rect x="282" y="196" width="96" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="294" y="215">Predict</text>
+        <rect x="92" y="232" width="286" height="26" rx="8" fill="rgba(255,255,255,.12)"/><text x="104" y="249" font-size="11.5" fill="#f5f3ff">Policy engine · AI anomaly &amp; failure prediction · audit trail</text>
+      </g>
+      <!-- devices layer (bottom) -->
+      <g font-family="ui-monospace,monospace"><text x="52" y="316" font-size="11" fill="#94a0b5" letter-spacing="1.5">FIELD DEVICES</text></g>
+      ${[0,1,2,3,4,5].map(i => {
+        const x = 40 + i*70;
+        const cols = ["#7c3aed","#0369a1","#f59e0b","#0891b2","#c2410c","#0d9488"];
+        return `<g transform="translate(${x},330)"><rect width="52" height="52" rx="12" fill="#fff" stroke="#e7e6f1"/><circle cx="26" cy="26" r="9" fill="${cols[i]}" opacity="0.9"/><circle cx="26" cy="26" r="4" fill="#fff"/></g>`;
+      }).join("")}
+      <!-- connectors -->
+      <g stroke="#c4b5fd" stroke-width="2" fill="none" opacity="0.9">
+        <path d="M235 150 L235 112"/><path d="M235 270 L235 330" stroke="#a7f3d0"/>
+      </g>
+      <g fill="#8b5cf6"><circle cx="235" cy="131" r="3"/></g><g fill="#22c55e"><circle cx="235" cy="300" r="3"/></g>
+    </svg>`;
+  }
+  function whyArt() {
+    return `<svg viewBox="0 0 460 150" width="100%" style="display:block;margin-top:22px" aria-label="Value flywheel">
+      <rect x="0" y="0" width="460" height="150" rx="16" fill="#fff" stroke="#e7e6f1"/>
+      <g font-family="system-ui" font-size="13" fill="#334155">
+        <g transform="translate(28,40)"><rect width="120" height="70" rx="10" fill="#f2effe"/><text x="16" y="30" font-weight="700" fill="#6d28d9">Prevent</text><text x="16" y="50" font-size="11.5" fill="#7c6aa8">failures &amp; claims</text></g>
+        <g transform="translate(170,40)"><rect width="120" height="70" rx="10" fill="#e8fbef"/><text x="16" y="30" font-weight="700" fill="#15803d">Prove</text><text x="16" y="50" font-size="11.5" fill="#4d7c5b">measured ROI</text></g>
+        <g transform="translate(312,40)"><rect width="120" height="70" rx="10" fill="#fff7ed"/><text x="16" y="30" font-weight="700" fill="#b45309">Price</text><text x="16" y="50" font-size="11.5" fill="#9a6a3a">on loss avoided</text></g>
+      </g>
+      <g stroke="#c4b5fd" stroke-width="2" fill="none"><path d="M148 75 L170 75" marker-end="url(#ah)"/><path d="M290 75 L312 75" marker-end="url(#ah)"/></g>
+      <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0l6 3-6 3z" fill="#8b5cf6"/></marker></defs>
+    </svg>`;
+  }
+  function ecoArt(size) {
+    const R = size === "lg" ? 250 : 200, W = size === "lg" ? 560 : 420;
+    const cx = W/2, cy = R/1.7, r = R/2.1;
+    const nodes = [["flow","#0369a1"],["fridge","#0d9488"],["energy","#f59e0b"],["pool","#0891b2"],["roof","#c2410c"],["hvac","#7c3aed"]];
+    const spokes = nodes.map((n, i) => {
+      const a = (Math.PI * 2 * i / nodes.length) - Math.PI/2;
+      const x = cx + Math.cos(a)*r, y = cy + Math.sin(a)*r;
+      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(0)}" y2="${y.toFixed(0)}" stroke="#e7e6f1" stroke-width="2"/>
+        <g transform="translate(${(x-24).toFixed(0)},${(y-24).toFixed(0)})"><rect width="48" height="48" rx="12" fill="#fff" stroke="#e7e6f1"/><g transform="translate(12,12)" color="${n[1]}" style="color:${n[1]}">${svg(I[n[0]],2)}</g></g>`;
+    }).join("");
+    return `<div class="card" style="padding:20px"><svg viewBox="0 0 ${W} ${R}" width="100%" aria-label="Device ecosystem hub">
+      ${spokes}
+      <circle cx="${cx}" cy="${cy}" r="34" fill="url(#g1b)"/>
+      <defs><linearGradient id="g1b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>
+      <g transform="translate(${cx-11},${cy-8})"><svg viewBox="0 0 24 18" width="22"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#fff"/><path d="M14,10 L19,2 L24,18 Z" fill="#a7f3d0" opacity="0.9"/></svg></g>
+    </svg></div>`;
+  }
+
+  // ---------- Build marketing page ----------
+  setIco("i-monitor","monitor"); setIco("i-predict","predict"); setIco("i-dispatch","dispatch"); setIco("i-prove","prove");
+  setIco("f1","sense"); setIco("f2","normalize"); setIco("f3","detect"); setIco("f4","act"); setIco("f5","prove2");
+  setIco("w1","predict"); setIco("w2","umbrella"); setIco("w3","doc"); setIco("w4","layers");
+  $("#hero-art").innerHTML = heroArt();
+  $("#why-art").innerHTML = whyArt();
+  $("#eco-art-sm").innerHTML = ecoArt("sm");
+  $("#eco-art-lg").innerHTML = ecoArt("lg");
+  $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
+    `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
+  $("#partner-logos").innerHTML = PARTNERS.map(([n,l,c]) =>
+    `<div class="plogo"><span class="mk" style="background:${c}">${l}</span><div><b>${n}</b><span>Purple Standard family</span></div></div>`).join("");
+  $("#eco-cats").innerHTML = ECO_CATS.map(([n,ic,d]) =>
+    `<div class="card"><div class="ico">${svg(I[ic],2)}</div><h3 class="h3">${n}</h3><p>${d}</p></div>`).join("");
+
+  // ---------- Navigation ----------
+  function show(view) {
+    $("#home-view").classList.toggle("hidden", view !== "home");
+    $("#ecosystem-view").classList.toggle("hidden", view !== "ecosystem");
+    $("#portal-root").innerHTML = "";
+    $("#site").classList.remove("hidden");
+    window.scrollTo(0, 0);
+  }
+  function scrollTo(id) {
+    show("home");
+    setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+  }
+
+  // ---------- Login modal ----------
+  const ROLES = {
+    customer: { icon: "building", color: "#7c3aed", title: "Customer", sub: "A business that owns the assets — see your sites, alerts & service.", go: () => openPortal("customer") },
+    partner: { icon: "truck", color: "#6d28d9", title: "Channel Partner", sub: "White-label portal for a service brand — your accounts & dispatch.", go: () => openPortal("partner") },
+    staff: { icon: "grid", color: "#0f172a", title: "PeakLogic Staff", sub: "The Super-Admin console — every org, act-as, fleet & reports.", go: () => window.open(SUPER_CONSOLE, "_blank") },
+  };
+  function openLogin(which) {
+    const keys = which === "partner" ? ["partner"] : which === "customer" ? ["customer"] : which === "staff" ? ["staff"] : ["customer","partner","staff"];
+    const rows = keys.map(k => { const r = ROLES[k];
+      return `<button class="role" data-role="${k}"><span class="ri" style="background:${r.color}">${svg(I[r.icon],2)}</span><span><b>${r.title}</b><span>${r.sub}</span></span><span class="arr">${svg('<path d="M9 6l6 6-6 6"/>',2.5)}</span></button>`;
+    }).join("");
+    $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog">
+      <div class="modal__head"><h3>Choose an experience</h3><p>This is a demo — pick a portal to explore. No password needed.</p></div>
+      <div class="modal__body">${rows}</div>
+      <div class="modal__foot">Staff console opens the full Super-Admin app in a new tab.</div>
+    </div></div>`;
+  }
+  function closeModal() { $("#modal-root").innerHTML = ""; }
+
+  // ---------- Portals ----------
+  function portalHead(badge, brandColor, brandLabel, who, whoColor) {
+    return `<div class="phead"><div class="wrap phead__in">
+      <div class="brand" data-go="home">
+        <svg viewBox="0 0 24 18"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
+        <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+      </div>
+      <span class="phead__badge" style="background:${brandColor}1a;color:${brandColor}">${badge}</span>
+      <div class="phead__sp"></div>
+      <div class="pwho"><span class="av" style="background:${whoColor}">${who.split(' ').map(w=>w[0]).slice(0,2).join('')}</span><div><div style="font-weight:650">${who}</div><div class="faint" style="font-size:11px">${brandLabel}</div></div></div>
+      <button class="btn btn--ghost btn--sm" data-go="home" style="margin-left:14px">Log out</button>
+    </div></div>`;
+  }
+
+  function openPortal(kind) {
+    closeModal();
+    $("#site").classList.add("hidden");
+    $("#portal-root").innerHTML = kind === "customer" ? customerPortal() : partnerPortal();
+    window.scrollTo(0, 0);
+  }
+
+  function customerPortal() {
+    const alerts = [
+      ["crit", "Kitchen Grease Trap — Riverview", "Level 86% ▲ — dispatched to ACE Septic & Waste", "12m ago"],
+      ["warn", "Lift Station — Brandon", "Wet-well level 74%", "1h ago"],
+    ];
+    const tickets = [
+      ["TCK-3391", "Grease trap at capacity", "ACE Septic & Waste", "info", "On-site scheduled"],
+      ["TCK-3372", "Lift station level rising", "ACE Septic & Waste", "good", "Completed"],
+    ];
+    return `<div class="portal">${portalHead("Customer Portal", "#7c3aed", "Coastal Kitchen Restaurants", "Coastal Kitchen", "#7c3aed")}
+      <div class="pmain"><div class="wrap">
+        <div class="ptitle">Welcome back, Coastal Kitchen</div>
+        <p class="muted" style="margin:0">Live condition of your restaurant equipment across 2 locations. PeakLogic watches it 24/7 and dispatches your service partner automatically.</p>
+        <div class="pgrid">
+          <div class="pstat"><b>41</b><span>devices monitored</span></div>
+          <div class="pstat"><b style="color:#ef4444">1</b><span>critical alert</span></div>
+          <div class="pstat"><b style="color:#f59e0b">2</b><span>open service tickets</span></div>
+          <div class="pstat"><b style="color:#15803d">38</b><span>online now</span></div>
+        </div>
+        <div class="cols2">
+          <div class="panel2"><div class="panel2__h">Active alerts</div>
+            <table class="ptbl"><tbody>${alerts.map(([h,a,b,t]) => `<tr>
+              <td style="width:4px;padding:0"><span style="display:block;width:4px;min-height:44px;background:${h==='crit'?'#ef4444':'#f59e0b'}"></span></td>
+              <td><div style="font-weight:650">${a}</div><div class="faint" style="font-size:12px">${b}</div></td>
+              <td style="text-align:right"><span class="tag tag--${h}"><span class="d"></span>${h==='crit'?'Critical':'Warning'}</span><div class="faint" style="font-size:11px;margin-top:4px">${t}</div></td>
+            </tr>`).join("")}</tbody></table></div>
+          <div class="panel2"><div class="panel2__h">Your sites</div>
+            <table class="ptbl"><tbody>
+              <tr><td><b>Coastal Kitchen — Riverview</b></td><td style="text-align:right"><span class="tag tag--crit"><span class="d"></span>Critical</span></td></tr>
+              <tr><td><b>Coastal Kitchen — Brandon</b></td><td style="text-align:right"><span class="tag tag--warn"><span class="d"></span>Warning</span></td></tr>
+            </tbody></table></div>
+        </div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Service tickets <span class="faint" style="font-weight:500;font-size:12px">· dispatched to your PeakLogic partner</span></div>
+          <table class="ptbl"><thead><tr><th>Ticket</th><th>Issue</th><th>Serviced by</th><th>Status</th></tr></thead>
+          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+      </div></div></div>`;
+  }
+
+  function partnerPortal() {
+    const brand = "#6D28D9";
+    const accounts = [
+      ["Coastal Kitchen Restaurants", "Restaurant group", "crit", "1 critical"],
+      ["Bayfront Municipal District", "Municipal wastewater", "good", "Healthy"],
+    ];
+    const dispatch = [
+      ["Route TB-1", "Luis Ramirez", "9 stops", "info", "In progress"],
+      ["Route TB-2", "Tanya Cole", "7 stops", "info", "In progress"],
+      ["Route STP-1", "Devin Marsh", "6 stops", "good", "Scheduled"],
+    ];
+    return `<div class="portal">${portalHead("White-label Partner Portal", brand, "ACE Septic & Waste · powered by PeakLogic", "ACE Septic", brand)}
+      <div class="pmain"><div class="wrap">
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
+          <span style="width:44px;height:44px;border-radius:12px;background:${brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px">ACE</span>
+          <div><div class="ptitle" style="margin:0">ACE Septic &amp; Waste</div><div class="muted" style="font-size:13px">Your branded intelligence layer · portal.acesepticwaste.com</div></div>
+        </div>
+        <div class="pgrid">
+          <div class="pstat"><b>2</b><span>attributed accounts</span></div>
+          <div class="pstat"><b style="color:#15803d">85%</b><span>dispatch → service-call</span></div>
+          <div class="pstat"><b>12</b><span>technicians</span></div>
+          <div class="pstat"><b style="color:#f59e0b">3</b><span>open work orders</span></div>
+        </div>
+        <div class="cols2">
+          <div class="panel2"><div class="panel2__h">Your accounts</div>
+            <table class="ptbl"><thead><tr><th>Customer</th><th>Type</th><th>Status</th></tr></thead>
+            <tbody>${accounts.map(([n,t,h,l]) => `<tr><td><b>${n}</b></td><td class="muted">${t}</td><td><span class="tag tag--${h}"><span class="d"></span>${l}</span></td></tr>`).join("")}</tbody></table></div>
+          <div class="panel2"><div class="panel2__h">Today's dispatch</div>
+            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+        </div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Automated work orders from PeakLogic <span class="faint" style="font-weight:500;font-size:12px">· detected → pushed to your CMMS → converted to service calls</span></div>
+          <div style="padding:18px 20px;display:flex;gap:26px;flex-wrap:wrap;align-items:center">
+            <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">This month</div><div style="font-size:30px;font-weight:800;color:${brand}">142</div><div class="muted" style="font-size:12.5px">on-site service calls generated by PeakLogic detection</div></div>
+            <div style="flex:1;min-width:220px">
+              ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#6D28D9','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><div style="width:78px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c}"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
+            </div>
+          </div></div>
+        <div class="card" style="margin-top:18px;background:${brand}0d;border-color:${brand}33;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div><h3 class="h3" style="margin-bottom:4px">This is your brand, your customers, your revenue.</h3><p class="muted" style="font-size:14px;margin:0">PeakLogic is the intelligence layer underneath — the work flows into the systems you already run.</p></div>
+          <span class="faint" style="font-size:12px">Powered by <b style="color:var(--purple)">PeakLogic</b></span>
+        </div>
+      </div></div></div>`;
+  }
+
+  // ---------- Global click routing ----------
+  document.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    const scroll = e.target.closest("[data-scroll]");
+    const login = e.target.closest("[data-login]");
+    const role = e.target.closest("[data-role]");
+    const close = e.target.closest("[data-close]");
+    if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r.go(); return; }
+    if (login) { openLogin(login.getAttribute("data-login")); return; }
+    if (go) { show(go.getAttribute("data-go")); return; }
+    if (scroll) { scrollTo(scroll.getAttribute("data-scroll")); return; }
+    if (close && e.target === close) { closeModal(); return; }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+})();
+</script>
