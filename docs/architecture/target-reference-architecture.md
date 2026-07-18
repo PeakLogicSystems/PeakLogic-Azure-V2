@@ -9,6 +9,8 @@
 
 This is a **synthesizing** artifact. It invents no new requirements; it consolidates decisions already made across the numbered artifacts into a single reference the whole team (and any future Claude session) can hold in their head at once. Where it corrects a mental model, it says so and cites the governing doc.
 
+**Companion:** [Platform Services Architecture](platform-services-architecture.md) decomposes this document's *control plane* into logical services (Policy Engine, Device Capability Model, Normalization Fabric, Command/Control Bus, Branding, Analytics) — reconciling a Cisco-style service model against what's built, without changing any plane or trust boundary defined here.
+
 Authoritative sources it draws on:
 - [Security Architecture](security-architecture.md) — identity, the act-as handoffs, RLS
 - [Multi-Tenant Architecture](multi-tenant-architecture.md) — the cross-scope isolation framework
