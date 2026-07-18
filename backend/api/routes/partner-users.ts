@@ -1,10 +1,7 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
+import { createEntraUser } from '../../shared/identity';
 import type { PartnerAuthContext } from '../../shared/auth';
 
 // API Specification §4.5 — Domain Model §4 decision 8: provisioning is
@@ -28,9 +25,7 @@ interface CreateUserBody {
   territory_id?: string;
 }
 
-const cognito = new CognitoIdentityProviderClient({});
-
-export async function list(_event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   return withChannelPartner(auth, async (client) => {
     const { rows } = await client.query<ChannelPartnerUser>(
       `SELECT id, channel_partner_id, cognito_sub, email, display_name, role, territory_id
@@ -40,7 +35,7 @@ export async function list(_event: APIGatewayProxyEvent, auth: PartnerAuthContex
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { userId } = event.pathParameters!;
   return withChannelPartner(auth, async (client) => {
     const { rows: [user] } = await client.query<ChannelPartnerUser>(
@@ -52,13 +47,14 @@ export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   });
 }
 
-// Creates a real Cognito account in PartnerPool AND the matching DB row —
-// NOT atomic across the two systems (API Specification §7 item 6,
-// disclosed, not fixed). If the Cognito call succeeds but the DB insert
-// fails, a real account exists with no matching row; retrying would then
-// hit Cognito's own "user already exists" error on the email. Acceptable
-// at design-partner-tenant scale, not production-hardened.
-export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+// Creates a user in the PeakLogicPartners Entra tenant AND the matching DB
+// row — NOT atomic across the two systems (API Specification §7 item 6,
+// disclosed, not fixed). No App Role is assigned here: a channel-partner
+// user's role (partner_admin/technician) comes from channel_partner_users.
+// role, resolved at request time by withChannelPartner(), not from a token
+// claim (Security Architecture §2.4) — so createEntraUser is called without
+// an appRole for the 'partners' kind.
+export async function create(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const body = parseBody<CreateUserBody>(event.body, event.isBase64Encoded);
 
   if (!body.email?.trim()) return badRequest('email is required');
@@ -72,39 +68,27 @@ export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   return withChannelPartner(auth, async (client, session) => {
     requirePartnerRole(session, 'partner_admin');
 
-    // Admin-invited only, matching the tenant pool's selfSignUpEnabled:
-    // false posture (Security Architecture §2.4). MessageAction: 'SUPPRESS'
-    // so PeakLogic's own invite flow controls delivery instead of
-    // Cognito's default templated email -- that invite flow itself isn't
-    // built yet (tracked in project memory, not this endpoint's job).
-    const cognitoResult = await cognito.send(new AdminCreateUserCommand({
-      UserPoolId: process.env.PARTNER_POOL_ID!,
-      Username: body.email.trim(),
-      UserAttributes: [
-        { Name: 'email', Value: body.email.trim() },
-        { Name: 'email_verified', Value: 'true' },
-        { Name: 'custom:channel_partner_id', Value: auth.channelPartnerId },
-        ...(body.display_name ? [{ Name: 'name', Value: body.display_name }] : []),
-      ],
-      MessageAction: 'SUPPRESS',
-    }));
-
-    const cognitoSub = cognitoResult.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
-    if (!cognitoSub) {
-      throw Object.assign(new Error('Cognito did not return a user sub'), { statusCode: 500 });
-    }
+    // Admin-invited only (Security Architecture §2.4). The channel_partner_id
+    // is set as an Entra custom attribute so getPartnerAuth() can read it
+    // from the token; the returned oid is the stable subject stored in
+    // channel_partner_users.cognito_sub (Security Architecture §2.5).
+    const { oid } = await createEntraUser('partners', {
+      email: body.email.trim(),
+      displayName: body.display_name,
+      channelPartnerId: auth.channelPartnerId,
+    });
 
     const { rows: [user] } = await client.query<ChannelPartnerUser>(
       `INSERT INTO channel_partner_users (channel_partner_id, cognito_sub, email, display_name, role, territory_id)
        VALUES ($1, $2, $3, $4, $5, $6)
        RETURNING id, channel_partner_id, cognito_sub, email, display_name, role, territory_id`,
-      [auth.channelPartnerId, cognitoSub, body.email.trim(), body.display_name ?? null, body.role, body.territory_id ?? null],
+      [auth.channelPartnerId, oid, body.email.trim(), body.display_name ?? null, body.role, body.territory_id ?? null],
     );
     return created(user);
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { userId } = event.pathParameters!;
   const body = parseBody<{ display_name?: string; territory_id?: string | null }>(event.body, event.isBase64Encoded);
 
@@ -123,16 +107,15 @@ export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   });
 }
 
-// Deliberately does not deactivate the Cognito account (no
-// AdminDisableUser call) -- removing the DB row alone already revokes all
-// meaningful access, since withChannelPartner()'s channel_partner_users
-// lookup (Security Architecture §2.4) would fail closed with "Channel
-// partner user not found" the moment this row is gone, regardless of
-// whether the Cognito account can still technically authenticate. Left
-// as a known, disclosed simplification rather than silently incomplete --
-// full offboarding (Cognito deactivation too) is real, proportionate
-// follow-up work, not required for the access-control guarantee itself.
-export async function remove(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+// Deliberately does not disable the Entra account (no Graph disable call) --
+// removing the DB row alone already revokes all meaningful access, since
+// withChannelPartner()'s channel_partner_users lookup (Security Architecture
+// §2.4) would fail closed with "Channel partner user not found" the moment
+// this row is gone, regardless of whether the Entra account can still
+// technically authenticate. Left as a known, disclosed simplification --
+// full offboarding (Entra deactivation too) is real, proportionate follow-up
+// work, not required for the access-control guarantee itself.
+export async function remove(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { userId } = event.pathParameters!;
 
   return withChannelPartner(auth, async (client, session) => {

@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import type { PoolClient } from 'pg';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, conflict, parseBody } from '../../shared/response';
@@ -34,7 +34,7 @@ interface CreateRouteBody {
 // and lets a partner_admin see every route under their partner. The same
 // query transparently returns "my day" or "the whole team's schedule"
 // depending on who's asking.
-export async function list(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { date, technician_id } = event.queryStringParameters ?? {};
 
   const conditions: string[] = [];
@@ -113,7 +113,7 @@ async function getStopsWithReadings(
   }));
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { routeId } = event.pathParameters!;
 
   return withChannelPartner(auth, async (client) => {
@@ -134,7 +134,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthConte
 // outside this system by an external agent consuming the MCP server's
 // read tools (API Specification §4.6) and submitted back here as a
 // finished list. partner_admin only.
-export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const body = parseBody<CreateRouteBody>(event.body, event.isBase64Encoded);
 
   if (!body.technician_user_id) return badRequest('technician_user_id is required');
@@ -177,7 +177,7 @@ export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthConte
 // confirming, or of a route generally. Rejected once confirmed (API
 // Specification §4.5) -- a confirmed route is immutable; re-plan by
 // submitting a new one via create().
-export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { routeId } = event.pathParameters!;
   const body = parseBody<{ stops: RouteStopInput[] }>(event.body, event.isBase64Encoded);
 
@@ -216,7 +216,7 @@ export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthConte
 // TR-3.1's "advisory only" requirement made concrete as an actual state
 // transition, not just a status label nobody checks -- a suggested route
 // has no operational effect until this call. partner_admin only.
-export async function confirm(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function confirm(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { routeId } = event.pathParameters!;
 
   return withChannelPartner(auth, async (client, session) => {

@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, conflict, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
@@ -15,7 +15,7 @@ import type { Device } from '../../shared/types';
 // package. siteId is a JOIN-through filter (devices has no site_id column
 // of its own — a device's site is derived via its asset), so it can only
 // be applied once the assets JOIN below is already in the query.
-export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const assetId = event.queryStringParameters?.assetId;
   const siteId = event.queryStringParameters?.siteId;
 
@@ -41,7 +41,7 @@ export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Prom
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const { deviceId } = event.pathParameters!;
   return withTenant(auth.tenantId, async (client) => {
     const { rows: [device] } = await client.query<Device>(
@@ -61,7 +61,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Pr
  * The device must be in 'provisioning' status and have no tenant yet.
  * Optionally assign directly to an asset.
  */
-export async function claim(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function claim(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const body = parseBody<{ serial: string; assetId?: string }>(event.body, event.isBase64Encoded);
 
   if (!body.serial?.trim()) return badRequest('serial is required');
@@ -112,7 +112,7 @@ export async function claim(event: APIGatewayProxyEvent, auth: AuthContext): Pro
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin', 'operator');
   const { deviceId } = event.pathParameters!;
   const body = parseBody<{ assetId?: string | null; firmwareVersion?: string }>(
@@ -133,7 +133,7 @@ export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function remove(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { deviceId } = event.pathParameters!;
 

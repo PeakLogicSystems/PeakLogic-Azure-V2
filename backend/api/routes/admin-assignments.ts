@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
@@ -17,7 +17,7 @@ interface CreateAssignmentBody {
   channel_partner_id?: string;
 }
 
-export async function list(_event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   return withStaffSession(auth, async (client) => {
     const { rows } = await client.query<AccountAssignment>(
       'SELECT * FROM account_assignments ORDER BY assigned_at DESC',
@@ -26,7 +26,7 @@ export async function list(_event: APIGatewayProxyEvent, auth: StaffAuthContext)
   });
 }
 
-export async function create(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   requireStaffRole(auth, 'superadmin');
   const body = parseBody<CreateAssignmentBody>(event.body, event.isBase64Encoded);
 
@@ -48,7 +48,7 @@ export async function create(event: APIGatewayProxyEvent, auth: StaffAuthContext
   });
 }
 
-export async function remove(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function remove(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   requireStaffRole(auth, 'superadmin');
   const { assignmentId } = event.pathParameters!;
 

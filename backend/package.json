@@ -2,6 +2,7 @@
   "name": "peaklogic-backend",
   "version": "0.1.0",
   "private": true,
+  "main": "dist/{api,ingest}/main.js",
   "scripts": {
     "build": "tsc",
     "typecheck": "tsc --noEmit",

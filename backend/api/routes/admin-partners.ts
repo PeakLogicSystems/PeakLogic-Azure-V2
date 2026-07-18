@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
@@ -26,14 +26,14 @@ interface CreatePartnerBody {
 // create() below sees every channel partner regardless of role, and
 // requireStaffRole() on create() is the ONLY thing preventing an
 // account_manager from creating one, not a structural RLS guarantee.
-export async function list(_event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   return withStaffSession(auth, async (client) => {
     const { rows } = await client.query<ChannelPartner>('SELECT * FROM channel_partners ORDER BY name');
     return ok(rows);
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { partnerId } = event.pathParameters!;
   return withStaffSession(auth, async (client) => {
     const { rows: [partner] } = await client.query<ChannelPartner>(
@@ -43,7 +43,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: StaffAuthContext
   });
 }
 
-export async function create(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   requireStaffRole(auth, 'superadmin');
   const body = parseBody<CreatePartnerBody>(event.body, event.isBase64Encoded);
 

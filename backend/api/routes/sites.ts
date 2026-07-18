@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
@@ -15,7 +15,7 @@ interface SiteBody {
   metadata?: Record<string, unknown>;
 }
 
-export async function list(_event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   return withTenant(auth.tenantId, async (client) => {
     const { rows } = await client.query<Site>(
       'SELECT * FROM sites ORDER BY name',
@@ -24,7 +24,7 @@ export async function list(_event: APIGatewayProxyEvent, auth: AuthContext): Pro
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const { siteId } = event.pathParameters!;
   return withTenant(auth.tenantId, async (client) => {
     const { rows: [site] } = await client.query<Site>(
@@ -35,7 +35,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const body = parseBody<SiteBody>(event.body, event.isBase64Encoded);
 
@@ -59,7 +59,7 @@ export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin', 'operator');
   const { siteId } = event.pathParameters!;
   const body = parseBody<Partial<SiteBody>>(event.body, event.isBase64Encoded);
@@ -83,7 +83,7 @@ export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function remove(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { siteId } = event.pathParameters!;
 

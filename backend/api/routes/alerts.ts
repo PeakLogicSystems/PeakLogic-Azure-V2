@@ -1,10 +1,10 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, notFound, badRequest, parseBody } from '../../shared/response';
 import type { AuthContext } from '../../shared/auth';
 import type { Alert } from '../../shared/types';
 
-export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const status = event.queryStringParameters?.status;   // e.g. ?status=open
   const assetId = event.queryStringParameters?.assetId;
 
@@ -31,7 +31,7 @@ export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Prom
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const { alertId } = event.pathParameters!;
   return withTenant(auth.tenantId, async (client) => {
     const { rows: [alert] } = await client.query<Alert>(
@@ -42,7 +42,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const { alertId } = event.pathParameters!;
   const body = parseBody<{ status: Alert['status'] }>(event.body, event.isBase64Encoded);
 

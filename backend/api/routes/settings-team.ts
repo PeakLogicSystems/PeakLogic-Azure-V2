@@ -1,21 +1,18 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-  AdminAddUserToGroupCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { createEntraUser } from '../../shared/identity';
 import type { AuthContext } from '../../shared/auth';
 import type { User } from '../../shared/types';
 
 // API Specification §4.8 — SET-7.1. A product-facing equivalent of the
-// AWS-Console process the SysAdmin Guide currently documents as a manual
-// step: calls the same underlying Cognito AdminCreateUser/group-management
-// APIs, just invoked by a tenant admin from within the product instead of
-// by PeakLogic staff from the AWS Console. requireRole(auth, 'admin') gates
-// every handler — 'operator' has no team-management access.
+// admin-console user-provisioning process: creates the user in the
+// PeakLogicCustomers Entra tenant and assigns the matching App Role, just
+// invoked by a tenant admin from within the product. requireRole(auth,
+// 'admin') gates every handler — 'operator' has no team-management access.
+// (Azure port — createEntraUser replaces the AWS AdminCreateUser +
+// AdminAddUserToGroup calls; see shared/identity.ts.)
 
 interface CreateTeamMemberBody {
   email: string;
@@ -23,10 +20,9 @@ interface CreateTeamMemberBody {
   role: 'admin' | 'operator';
 }
 
-const cognito = new CognitoIdentityProviderClient({});
 const USER_COLUMNS = 'id, tenant_id, cognito_sub, email, display_name, role, status, clock_format, timezone, theme, created_at';
 
-export async function list(_event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   return withTenant(auth.tenantId, async (client) => {
     const { rows } = await client.query<User>(`SELECT ${USER_COLUMNS} FROM users ORDER BY email`);
@@ -34,9 +30,10 @@ export async function list(_event: APIGatewayProxyEvent, auth: AuthContext): Pro
   });
 }
 
-// Same disclosed Cognito/DB non-atomicity as every other AdminCreateUser
-// call site in this codebase (API Specification §7 items 6/8).
-export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+// Same disclosed identity-provider/DB non-atomicity as every other
+// createEntraUser call site in this codebase (API Specification §7 items
+// 6/8): the Entra user and the DB row are not created in one transaction.
+export async function create(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const body = parseBody<CreateTeamMemberBody>(event.body, event.isBase64Encoded);
 
@@ -45,41 +42,28 @@ export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Pr
     return badRequest("role must be 'admin' or 'operator'");
   }
 
+  // Create the Entra user + assign the App Role BEFORE the DB insert — the
+  // returned oid is the stable subject the users.cognito_sub column stores
+  // (Security Architecture §2.5). Mirrors the AWS ordering exactly.
+  const { oid } = await createEntraUser('customers', {
+    email: body.email.trim(),
+    displayName: body.display_name,
+    tenantId: auth.tenantId,
+    appRole: body.role,
+  });
+
   return withTenant(auth.tenantId, async (client) => {
-    const cognitoResult = await cognito.send(new AdminCreateUserCommand({
-      UserPoolId: process.env.USER_POOL_ID!,
-      Username: body.email.trim(),
-      UserAttributes: [
-        { Name: 'email', Value: body.email.trim() },
-        { Name: 'email_verified', Value: 'true' },
-        { Name: 'custom:tenant_id', Value: auth.tenantId },
-        ...(body.display_name ? [{ Name: 'name', Value: body.display_name }] : []),
-      ],
-      MessageAction: 'SUPPRESS',
-    }));
-
-    const cognitoSub = cognitoResult.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
-    if (!cognitoSub) {
-      throw Object.assign(new Error('Cognito did not return a user sub'), { statusCode: 500 });
-    }
-
-    await cognito.send(new AdminAddUserToGroupCommand({
-      UserPoolId: process.env.USER_POOL_ID!,
-      Username: body.email.trim(),
-      GroupName: body.role,
-    }));
-
     const { rows: [user] } = await client.query<User>(
       `INSERT INTO users (tenant_id, cognito_sub, email, display_name, role)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING ${USER_COLUMNS}`,
-      [auth.tenantId, cognitoSub, body.email.trim(), body.display_name ?? null, body.role],
+      [auth.tenantId, oid, body.email.trim(), body.display_name ?? null, body.role],
     );
     return created(user);
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { userId } = event.pathParameters!;
   const body = parseBody<{ display_name?: string; role?: 'admin' | 'operator'; status?: string }>(
@@ -100,12 +84,12 @@ export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-// Deliberately does not deactivate the Cognito account (no
-// AdminDisableUser call) — same disclosed simplification as
-// partner-users.ts's remove(): the DB row's tenant_isolation RLS scoping
-// is what actually governs data access, not Cognito account state, so
-// removing the row alone already revokes meaningful access.
-export async function remove(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+// Deliberately does not disable the Entra account (no Graph disable call) —
+// same disclosed simplification as partner-users.ts's remove(): the DB row's
+// tenant_isolation RLS scoping is what actually governs data access, not
+// Entra account state, so removing the row alone already revokes meaningful
+// access.
+export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { userId } = event.pathParameters!;
 

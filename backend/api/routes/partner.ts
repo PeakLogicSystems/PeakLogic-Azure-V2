@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, notFound, parseBody } from '../../shared/response';
 import type { PartnerAuthContext } from '../../shared/auth';
@@ -12,7 +12,7 @@ interface ChannelPartner {
 
 // API Specification §4.5 — GET /v1/partner, analogous to GET /v1/tenant
 // (§4.3). Available to both roles.
-export async function getSelf(_event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function getSelf(_event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   return withChannelPartner(auth, async (client) => {
     const { rows: [partner] } = await client.query<ChannelPartner>(
       'SELECT id, name, status, branding FROM channel_partners WHERE id = $1',
@@ -31,7 +31,7 @@ interface BrandingBody {
 // PUT /v1/partner/branding — partner_admin only. Merges into the existing
 // branding JSONB rather than replacing it wholesale (API Specification
 // §4.5) — an omitted field leaves its current value unchanged.
-export async function updateBranding(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function updateBranding(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const body = parseBody<BrandingBody>(event.body, event.isBase64Encoded);
 
   return withChannelPartner(auth, async (client, session) => {

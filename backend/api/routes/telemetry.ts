@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, badRequest } from '../../shared/response';
 import type { AuthContext } from '../../shared/auth';
@@ -10,7 +10,7 @@ import type { TelemetryPoint } from '../../shared/types';
  * Returns time-series data for a device/metric window.
  * Used by the dashboard line charts.
  */
-export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const p = event.queryStringParameters ?? {};
 
   if (!p.deviceId) return badRequest('deviceId query param is required');

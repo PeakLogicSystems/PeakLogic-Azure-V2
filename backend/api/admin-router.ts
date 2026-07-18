@@ -1,6 +1,7 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../shared/http';
 import type { StaffAuthContext } from '../shared/auth';
 import { notFound } from '../shared/response';
+import { compileRoutes, matchRoute, type RouteHandler } from './match';
 import * as admin from './routes/admin';
 import * as tenants from './routes/admin-tenants';
 import * as partners from './routes/admin-partners';
@@ -8,17 +9,9 @@ import * as staff from './routes/admin-staff';
 import * as assignments from './routes/admin-assignments';
 import * as tenantActions from './routes/admin-tenant-actions';
 
-// API Specification §4.7 — mirrors router.ts/partner-router.ts's exact
-// shape (METHOD+resource key lookup), kept as a third separate dispatcher
-// since admin handlers take a StaffAuthContext, not AuthContext/
-// PartnerAuthContext (backend/api/handler.ts routes to one of the three by
-// path prefix before any dispatcher is called).
-type AdminRouteHandler = (
-  event: APIGatewayProxyEvent,
-  auth: StaffAuthContext,
-) => Promise<APIGatewayProxyResult>;
-
-const ADMIN_ROUTES: Record<string, AdminRouteHandler> = {
+// API Specification §4.7 — the third dispatcher (staff/StaffAuthContext),
+// same shape as router.ts / partner-router.ts.
+const ADMIN_ROUTES: Record<string, RouteHandler<StaffAuthContext>> = {
   'GET /v1/admin': admin.getSelf,
 
   'GET /v1/admin/tenants':              tenants.list,
@@ -44,12 +37,10 @@ const ADMIN_ROUTES: Record<string, AdminRouteHandler> = {
   'PUT /v1/admin/tenants/{tenantId}/alerts/{alertId}':      tenantActions.updateAlert,
 };
 
-export async function adminRoute(
-  event: APIGatewayProxyEvent,
-  auth: StaffAuthContext,
-): Promise<APIGatewayProxyResult> {
-  const key = `${event.httpMethod} ${event.resource}`;
-  const handler = ADMIN_ROUTES[key];
-  if (!handler) return notFound(`Route not found: ${key}`);
-  return handler(event, auth);
+const compiled = compileRoutes(ADMIN_ROUTES);
+
+export async function adminRoute(req: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
+  const matched = matchRoute(compiled, req.httpMethod, req.path);
+  if (!matched) return notFound(`Route not found: ${req.httpMethod} ${req.path}`);
+  return matched.handler({ ...req, pathParameters: matched.pathParameters }, auth);
 }

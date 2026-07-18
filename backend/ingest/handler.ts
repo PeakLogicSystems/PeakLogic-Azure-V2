@@ -1,4 +1,3 @@
-import type { Context } from 'aws-lambda';
 import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
 import { evaluateRules, sanitizeMetrics, type FiredRule } from './rules';
@@ -7,10 +6,18 @@ import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert } from '../shared
 
 // Alert rule definitions moved to rules.ts (Test Strategy §3) — pure logic,
 // exported, unit-testable in isolation from this file's DB I/O.
+//
+// Azure port: this function is invoked once per IoT Hub telemetry message by
+// the Event Hub trigger registered in ingest/main.ts (IoT Hub exposes an
+// Event Hub-compatible endpoint). The processing logic — sanitize, RLS-scoped
+// device lookup, telemetry insert, rule evaluation — is entirely cloud-
+// agnostic and unchanged from the AWS version (Threat Model §4.1 confirmed
+// sanitizeMetrics() ports verbatim). Only the trigger wrapper (main.ts) is
+// Azure-specific.
 
-// ── Main handler ───────────────────────────────────────────────────────────
+// ── Main processing function ─────────────────────────────────────────────
 
-export const handler = async (event: IoTIngestEvent, _context: Context): Promise<void> => {
+export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
   const { thingName, ts, metrics: rawMetrics } = event;
 
   if (!thingName || !rawMetrics || Object.keys(rawMetrics).length === 0) {
@@ -20,12 +27,14 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
 
   // Threat Model §4.1 — drop any metric whose value isn't actually a finite
   // number before it can reach either the SQL insert (DOUBLE PRECISION NOT
-  // NULL — a non-numeric value throws there, and since this Lambda is
-  // invoked asynchronously by the IoT rule, a thrown exception here means
-  // AWS Lambda's own default async retry silently retries the same bad
-  // value 2 more times before giving up with no DLQ to catch it — see
-  // Threat Model §4.1's review log for how that failure mode was confirmed)
-  // or rule evaluation.
+  // NULL — a non-numeric value throws there) or rule evaluation. Azure note
+  // (Threat Model §4.1 v1.1): Azure Functions has NO native dead-letter for
+  // Event Hub/IoT Hub triggers — a thrown exception here is retried per the
+  // Event Hubs extension's retry policy and then, without custom poison-
+  // message handling, the message is effectively lost. Sanitizing up front
+  // (rather than throwing on a bad value) is what keeps one malformed metric
+  // from ever reaching that failure path — a materially bigger gap on Azure
+  // than the AWS DLQ residual, flagged for a real custom-DLQ design later.
   const { clean: metrics, dropped } = sanitizeMetrics(rawMetrics);
   if (dropped.length > 0) {
     console.warn(`Dropped ${dropped.length} non-numeric metric(s) from ${thingName}: ${dropped.join(', ')}`);
@@ -125,7 +134,7 @@ export const handler = async (event: IoTIngestEvent, _context: Context): Promise
   } finally {
     client.release();
   }
-};
+}
 
 // ── Alert deduplication + creation ────────────────────────────────────────
 

@@ -1,12 +1,8 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
-import {
-  CognitoIdentityProviderClient,
-  AdminCreateUserCommand,
-  AdminAddUserToGroupCommand,
-} from '@aws-sdk/client-cognito-identity-provider';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffActingOnTenant } from '../../shared/db';
 import { writeAuditLog } from '../../shared/audit';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
+import { createEntraUser } from '../../shared/identity';
 import type { StaffAuthContext } from '../../shared/auth';
 import type { Alert, Asset, Device, User } from '../../shared/types';
 
@@ -27,13 +23,14 @@ interface CreateTenantUserBody {
   role: 'admin' | 'operator';
 }
 
-const cognito = new CognitoIdentityProviderClient({});
-
 // POST /v1/admin/tenants/{tenantId}/users — same non-atomicity disclosure
 // as POST /v1/partner/users and POST /v1/admin/staff-users (API
-// Specification §7 items 6/8): Cognito account + DB row, not transactional
-// across the two systems.
-export async function createTenantUser(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+// Specification §7 items 6/8): Entra user + DB row, not transactional across
+// the two systems. Creates the user in the PeakLogicCustomers Entra tenant
+// (the target tenant's own tenantId claim + App Role), same as
+// settings-team.ts's create() — the only difference is a staff member is
+// doing it on the tenant's behalf, hence the audit-log write below.
+export async function createTenantUser(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { tenantId } = event.pathParameters! as Record<string, string>;
   const body = parseBody<CreateTenantUserBody>(event.body, event.isBase64Encoded);
 
@@ -42,35 +39,19 @@ export async function createTenantUser(event: APIGatewayProxyEvent, auth: StaffA
     return badRequest("role must be 'admin' or 'operator'");
   }
 
+  const { oid } = await createEntraUser('customers', {
+    email: body.email.trim(),
+    displayName: body.display_name,
+    tenantId,
+    appRole: body.role,
+  });
+
   return withStaffActingOnTenant(auth, tenantId, async (client, session) => {
-    const cognitoResult = await cognito.send(new AdminCreateUserCommand({
-      UserPoolId: process.env.USER_POOL_ID!,
-      Username: body.email.trim(),
-      UserAttributes: [
-        { Name: 'email', Value: body.email.trim() },
-        { Name: 'email_verified', Value: 'true' },
-        { Name: 'custom:tenant_id', Value: tenantId },
-        ...(body.display_name ? [{ Name: 'name', Value: body.display_name }] : []),
-      ],
-      MessageAction: 'SUPPRESS',
-    }));
-
-    const cognitoSub = cognitoResult.User?.Attributes?.find(a => a.Name === 'sub')?.Value;
-    if (!cognitoSub) {
-      throw Object.assign(new Error('Cognito did not return a user sub'), { statusCode: 500 });
-    }
-
-    await cognito.send(new AdminAddUserToGroupCommand({
-      UserPoolId: process.env.USER_POOL_ID!,
-      Username: body.email.trim(),
-      GroupName: body.role,
-    }));
-
     const { rows: [user] } = await client.query<User>(
       `INSERT INTO users (tenant_id, cognito_sub, email, display_name, role)
        VALUES ($1, $2, $3, $4, $5)
        RETURNING id, tenant_id, cognito_sub, email, display_name, role, status, clock_format, timezone, theme, created_at`,
-      [tenantId, cognitoSub, body.email.trim(), body.display_name ?? null, body.role],
+      [tenantId, oid, body.email.trim(), body.display_name ?? null, body.role],
     );
 
     await writeAuditLog(client, {
@@ -88,7 +69,7 @@ export async function createTenantUser(event: APIGatewayProxyEvent, auth: StaffA
   });
 }
 
-export async function updateDevice(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function updateDevice(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { tenantId, deviceId } = event.pathParameters! as Record<string, string>;
   const body = parseBody<{ assetId?: string | null; firmwareVersion?: string }>(event.body, event.isBase64Encoded);
 
@@ -112,7 +93,7 @@ export async function updateDevice(event: APIGatewayProxyEvent, auth: StaffAuthC
   });
 }
 
-export async function updateAsset(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function updateAsset(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { tenantId, assetId } = event.pathParameters! as Record<string, string>;
   const body = parseBody<Partial<{ name: string; category: string; make: string; model: string; serial_number: string; specs: Asset['specs'] }>>(
     event.body, event.isBase64Encoded,
@@ -143,7 +124,7 @@ export async function updateAsset(event: APIGatewayProxyEvent, auth: StaffAuthCo
   });
 }
 
-export async function updateAlert(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function updateAlert(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { tenantId, alertId } = event.pathParameters! as Record<string, string>;
   const body = parseBody<{ status: Alert['status'] }>(event.body, event.isBase64Encoded);
 

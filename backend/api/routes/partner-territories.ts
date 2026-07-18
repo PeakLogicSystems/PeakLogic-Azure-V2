@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import type { PartnerAuthContext } from '../../shared/auth';
@@ -26,7 +26,7 @@ interface TerritoryBody {
   boundary: GeoJsonPolygon;
 }
 
-export async function list(_event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   return withChannelPartner(auth, async (client) => {
     const { rows } = await client.query<Territory>(
       `SELECT id, channel_partner_id, name, ST_AsGeoJSON(boundary)::json AS boundary
@@ -36,7 +36,7 @@ export async function list(_event: APIGatewayProxyEvent, auth: PartnerAuthContex
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { territoryId } = event.pathParameters!;
   return withChannelPartner(auth, async (client) => {
     const { rows: [territory] } = await client.query<Territory>(
@@ -48,7 +48,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   });
 }
 
-export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const body = parseBody<TerritoryBody>(event.body, event.isBase64Encoded);
   if (!body.name?.trim()) return badRequest('name is required');
   if (body.boundary?.type !== 'Polygon') return badRequest('boundary must be a GeoJSON Polygon');
@@ -66,7 +66,7 @@ export async function create(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { territoryId } = event.pathParameters!;
   const body = parseBody<Partial<TerritoryBody>>(event.body, event.isBase64Encoded);
   if (body.boundary && body.boundary.type !== 'Polygon') return badRequest('boundary must be a GeoJSON Polygon');
@@ -87,7 +87,7 @@ export async function update(event: APIGatewayProxyEvent, auth: PartnerAuthConte
   });
 }
 
-export async function remove(event: APIGatewayProxyEvent, auth: PartnerAuthContext): Promise<APIGatewayProxyResult> {
+export async function remove(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { territoryId } = event.pathParameters!;
 
   return withChannelPartner(auth, async (client, session) => {

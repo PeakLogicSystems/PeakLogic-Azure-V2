@@ -1,6 +1,7 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../shared/http';
 import type { AuthContext } from '../shared/auth';
 import { notFound } from '../shared/response';
+import { compileRoutes, matchRoute, type RouteHandler } from './match';
 import * as sites     from './routes/sites';
 import * as assets    from './routes/assets';
 import * as devices   from './routes/devices';
@@ -10,14 +11,11 @@ import * as telemetry from './routes/telemetry';
 import * as settings from './routes/settings';
 import * as settingsTeam from './routes/settings-team';
 
-type RouteHandler = (
-  event: APIGatewayProxyEvent,
-  auth: AuthContext,
-) => Promise<APIGatewayProxyResult>;
-
-// Key format: "METHOD /resource/path/template"
-// Matches event.httpMethod + event.resource from API Gateway
-const ROUTES: Record<string, RouteHandler> = {
+// Key format: "METHOD /resource/path/template" — unchanged from the AWS
+// version. The matcher (api/match.ts) resolves these templates against the
+// actual request path (Azure Functions has no API-Gateway resource-template
+// injection).
+const ROUTES: Record<string, RouteHandler<AuthContext>> = {
   // Sites
   'GET /v1/sites':              sites.list,
   'POST /v1/sites':             sites.create,
@@ -51,10 +49,10 @@ const ROUTES: Record<string, RouteHandler> = {
   'PUT /v1/tickets/{ticketId}':     tickets.update,
   'DELETE /v1/tickets/{ticketId}':  tickets.remove,
 
-  // Telemetry (read-only from API; writes come via IoT Core)
+  // Telemetry (read-only from API; writes come via IoT Hub)
   'GET /v1/telemetry': telemetry.list,
 
-  // Settings & Preferences (API Specification §4.8, added v1.2)
+  // Settings & Preferences (API Specification §4.8)
   'GET /v1/settings':          settings.getSettings,
   'PUT /v1/settings':          settings.updateSettings,
   'PUT /v1/settings/password': settings.changePassword,
@@ -66,12 +64,10 @@ const ROUTES: Record<string, RouteHandler> = {
   'DELETE /v1/settings/team/{userId}':   settingsTeam.remove,
 };
 
-export async function route(
-  event: APIGatewayProxyEvent,
-  auth: AuthContext,
-): Promise<APIGatewayProxyResult> {
-  const key = `${event.httpMethod} ${event.resource}`;
-  const handler = ROUTES[key];
-  if (!handler) return notFound(`Route not found: ${key}`);
-  return handler(event, auth);
+const compiled = compileRoutes(ROUTES);
+
+export async function route(req: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
+  const matched = matchRoute(compiled, req.httpMethod, req.path);
+  if (!matched) return notFound(`Route not found: ${req.httpMethod} ${req.path}`);
+  return matched.handler({ ...req, pathParameters: matched.pathParameters }, auth);
 }

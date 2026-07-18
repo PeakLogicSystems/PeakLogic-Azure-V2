@@ -1,22 +1,16 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../shared/http';
 import type { PartnerAuthContext } from '../shared/auth';
 import { notFound } from '../shared/response';
+import { compileRoutes, matchRoute, type RouteHandler } from './match';
 import * as partner from './routes/partner';
 import * as territories from './routes/partner-territories';
 import * as users from './routes/partner-users';
 import * as routes from './routes/partner-routes';
 
-// API Specification §4.5 — mirrors router.ts's exact shape (METHOD+resource
-// key lookup), kept as a separate dispatcher/type rather than merged into
-// router.ts's ROUTES map, since partner handlers take a PartnerAuthContext,
-// not an AuthContext (backend/api/handler.ts routes to one or the other by
-// path before either dispatcher is ever called).
-type PartnerRouteHandler = (
-  event: APIGatewayProxyEvent,
-  auth: PartnerAuthContext,
-) => Promise<APIGatewayProxyResult>;
-
-const PARTNER_ROUTES: Record<string, PartnerRouteHandler> = {
+// API Specification §4.5 — mirrors router.ts exactly, kept a separate
+// dispatcher/type since partner handlers take a PartnerAuthContext
+// (handler.ts routes to one of the three dispatchers by path prefix).
+const PARTNER_ROUTES: Record<string, RouteHandler<PartnerAuthContext>> = {
   'GET /v1/partner':          partner.getSelf,
   'PUT /v1/partner/branding': partner.updateBranding,
 
@@ -39,12 +33,10 @@ const PARTNER_ROUTES: Record<string, PartnerRouteHandler> = {
   'POST /v1/partner/routes/{routeId}/confirm': routes.confirm,
 };
 
-export async function partnerRoute(
-  event: APIGatewayProxyEvent,
-  auth: PartnerAuthContext,
-): Promise<APIGatewayProxyResult> {
-  const key = `${event.httpMethod} ${event.resource}`;
-  const handler = PARTNER_ROUTES[key];
-  if (!handler) return notFound(`Route not found: ${key}`);
-  return handler(event, auth);
+const compiled = compileRoutes(PARTNER_ROUTES);
+
+export async function partnerRoute(req: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
+  const matched = matchRoute(compiled, req.httpMethod, req.path);
+  if (!matched) return notFound(`Route not found: ${req.httpMethod} ${req.path}`);
+  return matched.handler({ ...req, pathParameters: matched.pathParameters }, auth);
 }

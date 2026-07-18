@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
@@ -19,14 +19,14 @@ interface CreateTenantBody {
   channel_partner_id?: string;
 }
 
-export async function list(_event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function list(_event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   return withStaffSession(auth, async (client) => {
     const { rows } = await client.query<Tenant>('SELECT * FROM tenants ORDER BY name');
     return ok(rows);
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   const { tenantId } = event.pathParameters!;
   return withStaffSession(auth, async (client) => {
     const { rows: [tenant] } = await client.query<Tenant>('SELECT * FROM tenants WHERE id = $1', [tenantId]);
@@ -39,7 +39,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: StaffAuthContext
 // account_manager from inserting a new tenant at the RLS layer — this
 // requireStaffRole() call is defense-in-depth, giving a clear 403 message
 // instead of relying solely on the INSERT silently failing RLS.
-export async function create(event: APIGatewayProxyEvent, auth: StaffAuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: StaffAuthContext): Promise<PeakResponse> {
   requireStaffRole(auth, 'superadmin');
   const body = parseBody<CreateTenantBody>(event.body, event.isBase64Encoded);
 

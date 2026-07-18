@@ -1,4 +1,4 @@
-import type { APIGatewayProxyEvent, APIGatewayProxyResult } from 'aws-lambda';
+import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
@@ -16,7 +16,7 @@ interface TicketBody {
   dueAt?: string;
 }
 
-export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function list(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const status = event.queryStringParameters?.status;
 
   return withTenant(auth.tenantId, async (client) => {
@@ -34,7 +34,7 @@ export async function list(event: APIGatewayProxyEvent, auth: AuthContext): Prom
   });
 }
 
-export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function getOne(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   const { ticketId } = event.pathParameters!;
   return withTenant(auth.tenantId, async (client) => {
     const { rows: [ticket] } = await client.query<ServiceTicket>(
@@ -45,7 +45,7 @@ export async function getOne(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function create(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin', 'operator');
   const body = parseBody<TicketBody>(event.body, event.isBase64Encoded);
 
@@ -91,7 +91,7 @@ export async function create(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function update(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin', 'operator');
   const { ticketId } = event.pathParameters!;
   const body = parseBody<{ status?: ServiceTicket['status']; assignedTo?: string; externalRef?: string }>(
@@ -114,7 +114,7 @@ export async function update(event: APIGatewayProxyEvent, auth: AuthContext): Pr
   });
 }
 
-export async function remove(event: APIGatewayProxyEvent, auth: AuthContext): Promise<APIGatewayProxyResult> {
+export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { ticketId } = event.pathParameters!;
 
