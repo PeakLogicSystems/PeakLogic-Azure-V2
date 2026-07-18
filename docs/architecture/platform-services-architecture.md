@@ -75,6 +75,8 @@ Effective policy for a reading = resolve(platform → tenant → site/asset) at 
 
 **Why world-class:** customers/partners self-serve their own thresholds and escalation; new verticals are a policy set, not a release; and safety-config changes are audited and reversible. This is the difference between a product and a platform.
 
+> **Full design:** [`policy-engine-design.md`](policy-engine-design.md) — schema, the closed structured-threshold form (no evaluator), the resolver that feeds the existing pure `evaluateRules`, warm-instance caching, the never-fail-to-silence fallback, and the reversible golden-baseline migration.
+
 ---
 
 ## 4. Command & Control Bus — unify, don't over-build
