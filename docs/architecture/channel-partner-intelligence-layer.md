@@ -55,7 +55,9 @@ Everything the partner does in the layer, mapped to what's already designed or b
 
 **What it builds on (already designed):** the canonical telemetry from the **Normalization Fabric** (vendor-agnostic input), the **Device Capability Model** (knowing what each metric means), and the **Policy Engine** (a learned anomaly can *emit* a policy/alert through the exact same audited path). So the AI layer is an *additive* module over the platform's existing spine, not a parallel stack.
 
-**Discipline:** design it against a real, named need (predictive maintenance for a specific asset class a launch partner cares about), on the same secure foundation (per-tenant models, RLS, fan-out) — not as a speculative "AI everything" bolt-on. It gets its own design doc when scheduled.
+**Discipline:** design it against a real, named need (predictive maintenance for a specific asset class a launch partner cares about), on the same secure foundation (per-tenant models, RLS, fan-out) — not as a speculative "AI everything" bolt-on.
+
+> **Now designed:** [`ai-analytics-layer-design.md`](ai-analytics-layer-design.md) — anomaly (on `metric_baselines`) → predictive (labeled by the CMMS outcome loop) → prescriptive (work-order enrichment), emitting through the existing alert pipeline, advisory-never-authoritative, classical-first.
 
 ---
 
