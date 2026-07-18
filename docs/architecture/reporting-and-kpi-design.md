@@ -74,6 +74,12 @@ ALTER TABLE service_tickets ADD COLUMN cmms_connector_id UUID
 
 `handler.ts` is updated so auto-tickets set `source='automated'`, and the dispatch stamps `channel_partner_id` / `dispatched_at` / `cmms_connector_id` / `external_ref`. Today's raw `webhook_url` becomes the `generic_webhook` vendor adapter — the fallback for partners without a supported CMMS. **The existing SSRF-guarded `postWebhook` is preserved as that adapter**, not thrown away.
 
+One more attribution column carries the **accepted** funnel stage (§3), set by inbound sync when the CMMS acknowledges/accepts the work order:
+
+```sql
+ALTER TABLE service_tickets ADD COLUMN accepted_at TIMESTAMPTZ;   -- CMMS accepted the work order
+```
+
 Dispatch must be **reliable + idempotent**: a CMMS API is an external call, so it runs through a durable outbox (retry, dedupe on ticket id) rather than fire-and-forget — a missed dispatch is a missed service call and a missed KPI event.
 
 ### 2.3 Inbound — learn the outcome (the conversion signal)
@@ -103,27 +109,40 @@ CREATE POLICY channel_partner_rw ON service_visits
 ```
 
 Three inbound modes (per connector, in priority order):
-1. **`webhook`** — the CMMS calls a PeakLogic callback endpoint on work-order status change (best; near-real-time). The callback maps vendor status → a `service_visits` upsert keyed by `external_ref`.
-2. **`poll`** — PeakLogic polls the CMMS API on a schedule for work orders it dispatched, reconciling status (for CMMS vendors without outbound webhooks). Same reconciliation model as the OEM-cloud Path C poller.
-3. **`none`** — no automated readback; visits are logged via the partner portal "on site" action or manually. The floor, always available.
+1. **`webhook`** — the CMMS calls a PeakLogic callback endpoint on work-order status change (best; near-real-time). The callback maps vendor status onto the **funnel stages** (§3): `accepted` → `service_tickets.accepted_at`; on-site/in-progress → a `service_visits` row (`started_at`); done → `completed_at` + `outcome`. Keyed by `external_ref` (the CMMS work-order id), upserted so out-of-order events converge.
+2. **`poll`** — PeakLogic polls the CMMS API on a schedule for work orders it dispatched, reconciling the same funnel stages (for CMMS vendors without outbound webhooks). Same reconciliation model as the OEM-cloud Path C poller.
+3. **`none`** — no automated readback; the on-site stage is logged via the partner portal "on site" action or manually. The floor, always available.
 
-Vendor status → PeakLogic mapping is part of each adapter (e.g. UpKeep `in_progress`→`started_at`, `done`→`completed_at`+`outcome`).
+Vendor status → funnel-stage mapping is part of each adapter (e.g. UpKeep `open`→accepted, `in_progress`→`started_at`, `done`→`completed_at`+`outcome`). Adapters that only surface a subset of stages simply leave the others null — a partial funnel is fine (the conversion headline only needs `dispatched_at` and `started_at`).
 
 ---
 
-## 3. The conversion KPI, defined exactly
+## 3. The conversion funnel (the model) + the headline KPI
 
-> **Auto-ticket → service-call conversion** = of the automated work orders PeakLogic pushed into partners' CMMS in a period, the fraction that resulted in an on-site service call.
+The metric is a **full dispatch funnel**, not a single ratio — because the number alone tells you *what* is happening, but the funnel tells you *where the value leaks*, which is what a partner can act on. Each stage is a timestamp already captured by dispatch (§2.2) or inbound sync (§2.3):
 
-- **Denominator:** `service_tickets WHERE source='automated' AND channel_partner_id = P AND dispatched_at ∈ [range]` (i.e. successfully pushed to the CMMS).
-- **Numerator:** those with a `service_visits` row where `started_at IS NOT NULL` — the CMMS reported the work order was actually worked (a tech on site).
-- **Rate:** numerator / denominator, **per partner, per tenant, and overall**, with a trend. Report the fuller **funnel** too: dispatched → CMMS-accepted → in-progress (visit) → completed.
+```
+Automated WO dispatched to CMMS   (service_tickets.dispatched_at)      100
+        │  acceptance rate
+        ▼
+Accepted in the CMMS              (service_tickets.accepted_at)         92
+        │  dispatch→on-site rate  ◄── THE HEADLINE KPI
+        ▼
+On-site service call             (service_visits.started_at)           68
+        │  resolution rate
+        ▼
+Completed / resolved             (service_visits.completed_at)         61
+```
 
-> **Open decision (recommended default in bold):** "resulted in a service call" = **a CMMS work order that reached an in-progress/on-site state (`started_at`)** — not mere creation/acceptance, not remote closure. Acceptance and completion are reported as funnel stages; the headline is the on-site visit, because that's the tangible service the platform generated. Confirm before building the numerator.
+- **Stage counts** (per partner, per tenant, overall, over a period), each scoped to `source='automated' AND channel_partner_id = P AND dispatched_at ∈ [range]`.
+- **Stage-to-stage rates:** acceptance (dispatched→accepted), **conversion (dispatched→on-site)**, resolution (on-site→completed).
+- **The headline KPI** shown on the dashboard is **dispatched → on-site** — the tangible service the platform generated. It's one stage of the funnel, deliberately chosen as the lead number; the full funnel is retained so no re-instrumentation is needed if a different stage is ever wanted as the headline.
 
-**Isolation:** assembled by **fan-out** — computed per tenant/partner through a scoped read and merged in app code, never a cross-tenant query (Target Ref §5.3). Superadmin fans out over the whole book of business; a partner sees only their own.
+**Why the funnel over a single ratio (decided):** it's a strict superset — it *contains* the headline conversion plus the stages on either side, at the cost of the CMMS adapter reporting a few more status transitions inbound. That extra data is exactly what makes the metric actionable (a leak at accept vs. on-site vs. resolve points to different fixes) and is a stronger partner-facing value story. So: **track the full funnel; lead with dispatched→on-site.**
 
-**Where it surfaces:** Super-Console Fleet Overview (headline KPI card + trend), partner detail (their funnel), and the Reports section (full breakdown + export).
+**Isolation:** every stage count is assembled by **fan-out** — computed per tenant/partner through a scoped read and merged in app code, never a cross-tenant query (Target Ref §5.3). Superadmin fans out over the whole book of business; a partner sees only their own.
+
+**Where it surfaces:** Super-Console Fleet Overview (headline conversion card + trend), partner detail (their full funnel), and the Reports section (full breakdown + export).
 
 ---
 
@@ -137,7 +156,7 @@ Seeded, parameterized report definitions (date range, org/partner/site filter, g
 
 | Report | Answers | Vertical |
 |---|---|---|
-| **Automated Dispatch → Service Call Conversion** | The §3 KPI + CMMS funnel, by partner/tenant/period | Cross-cutting (the value story) |
+| **Automated Dispatch → Service Call Conversion** | The §3 full funnel (dispatched → accepted → on-site → completed) with each stage-to-stage rate; headline = dispatched→on-site; by partner/tenant/period | Cross-cutting (the value story) |
 | **CMMS Dispatch Log** | Every automated work order pushed, its CMMS ref, and current status | Channel |
 | **Partner Scorecard** | Work orders received, response time, conversion, outcomes — per partner | Channel |
 | **Alert & Response Summary** | Alerts by severity/category/site; MTTA / MTTR | All |
@@ -186,7 +205,7 @@ First real CMMS vendor adapter is chosen by the first partner's actual system (n
 
 ## 7. Open decisions
 
-1. **"Service call" definition (§3)** — recommend CMMS on-site/in-progress (`started_at`); confirm.
+1. ~~**"Service call" definition**~~ **Decided (2026-07-18):** track the **full funnel** (dispatched → accepted → on-site → completed); the **headline KPI is dispatched → on-site** (`service_visits.started_at`). See §3.
 2. **First CMMS vendor(s)** — which do the launch partners actually run (UpKeep / Fiix / Limble / MaintainX / ServiceTitan …)? That names adapter #1.
 3. **Dispatch target** — always the tenant's attributed `channel_partner_id`, or can a ticket route to a different/tenant-owned CMMS? Schema supports both; default = attributed partner.
 4. **Inbound trust** — the callback endpoint must authenticate the CMMS per connector (signed secret / mTLS) and is a real external attack surface — its own threat-model pass before go-live.
