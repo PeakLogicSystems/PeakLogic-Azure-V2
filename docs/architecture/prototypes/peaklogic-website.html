@@ -267,7 +267,6 @@
   @media (max-width: 800px) { .team { grid-template-columns: 1fr 1fr; } }
   .team .m { text-align: center; }
   .team .av { width: 74px; height: 74px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; }
-  .team .m p { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
   .team .m b { font-size: 14.5px; display: block; } .team .m span { font-size: 12.5px; color: var(--muted); }
   .about-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
   @media (max-width: 900px) { .about-hero { grid-template-columns: 1fr; } }
@@ -487,10 +486,10 @@
   <main id="pricing-view" class="hidden">
     <section>
       <div class="wrap">
-        <div class="sec-head">
+        <div class="sec-head" style="max-width:1040px">
           <span class="eyebrow">Pricing</span>
-          <h1 class="h1" style="font-size:clamp(26px,3.2vw,38px);line-height:1.22;margin-top:10px">Pricing for the critical operations and uptime we help safeguard for your business.</h1>
-          <p class="lede">Predictable per-site subscriptions — never per sensor, never per seat. Every plan includes unlimited users and a full audit trail, so the cost scales with the operation you're protecting, not the size of your team.</p>
+          <h1 class="h1" style="font-size:clamp(26px,3.4vw,40px);line-height:1.2;margin-top:10px;text-wrap:balance">Pricing for the critical operations and uptime we help safeguard for your business.</h1>
+          <p class="lede" style="max-width:70ch;margin-left:auto;margin-right:auto">Predictable per-site subscriptions — never per sensor, never per seat. Every plan includes unlimited users and a full audit trail, so the cost scales with the operation you're protecting, not the size of your team.</p>
         </div>
         <div style="text-align:center;margin-bottom:18px">
           <div class="billing-toggle">
@@ -681,10 +680,10 @@
       <div class="wrap">
         <div class="sec-head"><span class="eyebrow">The team</span><h2 class="h2" style="margin-top:10px">Operators, engineers, and field veterans.</h2></div>
         <div class="team">
-          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder &amp; Head of Platform &amp; Architecture</span><p>Sets product vision and architects the control plane, telemetry fabric, and policy engine underneath it, from multi-tenant identity to the partner program.</p></div>
-          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>Head of Device &amp; Edge Engineering</span><p>Owns the device ecosystem end to end — firmware, edge agents, and the telemetry schemas that turn pumps, sensors, and gateways into one common model.</p></div>
-          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Operations Manager</span><p>Keeps the platform running: monitoring uptime, coordinating releases, and managing incident response across every tenant and device fleet.</p></div>
-          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Customer Success Manager</span><p>Leads onboarding and deployment for customers and partners, and connects field feedback back into the product.</p></div>
+          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder &amp; Head of Platform &amp; Architecture</span></div>
+          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>Head of Device &amp; Edge Engineering</span></div>
+          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Operations Manager</span></div>
+          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Customer Success Manager</span></div>
         </div>
         <p class="center muted" style="margin-top:22px;font-size:12.5px">Team shown for demonstration.</p>
       </div>
@@ -829,117 +828,141 @@
 
   // ---------- Custom SVG infographics ----------
   function heroArt() {
-    return `<svg class="hero-scene" viewBox="0 0 480 400" width="100%" role="img" aria-label="PeakLogic monitors field equipment and dispatches service crews">
+    return `<svg class="hero-scene" viewBox="0 108 520 292" width="100%" role="img" aria-label="PeakLogic monitors water-treatment equipment and dispatches service crews">
       <defs>
-        <linearGradient id="hsTank" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#bae6fd"/></linearGradient>
-        <linearGradient id="hsWater" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/></linearGradient>
+        <linearGradient id="hsCyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7dd3fc"/><stop offset="0.42" stop-color="#e0f2fe"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
+        <linearGradient id="hsMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cbd5e1"/><stop offset="0.42" stop-color="#f8fafc"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>
+        <linearGradient id="hsTruckC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="0.45" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
         <filter id="hsShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#6d28d9" flood-opacity="0.12"/></filter>
-        <clipPath id="hsClipA"><rect x="180" y="238" width="54" height="88" rx="8"/></clipPath>
-        <clipPath id="hsClipB"><rect x="246" y="256" width="50" height="70" rx="8"/></clipPath>
+        <clipPath id="hsClipA"><rect x="368" y="212" width="48" height="84" rx="5"/></clipPath>
+        <clipPath id="hsClipB"><rect x="430" y="240" width="42" height="56" rx="5"/></clipPath>
       </defs>
-      <rect x="0" y="326" width="480" height="74" fill="#f1f0fa"/>
-      <line x1="0" y1="326" x2="480" y2="326" stroke="#e2e1f0" stroke-width="2"/>
+
+      <rect x="0" y="300" width="520" height="100" fill="#f1f0fa"/>
+      <line x1="0" y1="300" x2="520" y2="300" stroke="#e2e1f0" stroke-width="2"/>
+
+      <!-- ELEVATED WATER TOWER -->
       <g>
-        <!-- larger industrial water-treatment plant -->
-        <rect x="20" y="212" width="150" height="114" rx="2" fill="#eef0f7" stroke="#e2e1f0"/>
-        <rect x="16" y="206" width="158" height="8" rx="2" fill="#e2e1f0"/>
-        <!-- rooftop mechanical units -->
-        <rect x="34" y="192" width="26" height="16" rx="2" fill="#e7e6f1"/><rect x="41" y="196" width="12" height="5" rx="1" fill="#d6d5e6"/>
-        <rect x="80" y="196" width="18" height="12" rx="2" fill="#e7e6f1"/>
-        <!-- exhaust / vent stack -->
-        <rect x="150" y="172" width="11" height="42" fill="#e2e1f0"/><rect x="147" y="167" width="17" height="7" rx="2" fill="#d6d5e6"/>
-        <!-- subtle brand band -->
-        <rect x="20" y="230" width="150" height="5" fill="#ede9fe"/>
-        <!-- control-room window (interior wall behind glass) -->
-        <rect x="32" y="246" width="54" height="42" rx="3" fill="#dbeafe" stroke="#c3d4ef"/>
-        <!-- SMALL wall console, data updating live -->
-        <rect x="44" y="254" width="30" height="20" rx="2.5" fill="#0f172a" stroke="#334155"/>
-        <rect x="46.5" y="256.5" width="25" height="15" rx="1.5" fill="#0b1220"/>
-        <circle cx="68" cy="259.5" r="1.5" fill="#22c55e"><animate attributeName="opacity" values="1;.25;1" dur="1.3s" repeatCount="indefinite"/></circle>
-        <rect class="hs-bar" x="49" y="261" width="3.4" height="8" rx="0.6" fill="#7c3aed"/>
-        <rect class="hs-bar" x="54.5" y="261" width="3.4" height="8" rx="0.6" fill="#38bdf8" style="animation-delay:.25s"/>
-        <rect class="hs-bar" x="60" y="261" width="3.4" height="8" rx="0.6" fill="#22c55e" style="animation-delay:.5s"/>
-        <rect class="hs-bar" x="65.5" y="261" width="3.4" height="8" rx="0.6" fill="#a78bfa" style="animation-delay:.75s"/>
-        <!-- facade window grid -->
-        <g fill="#dfe0ef">
-          <rect x="98" y="248" width="15" height="11" rx="1"/><rect x="119" y="248" width="15" height="11" rx="1"/><rect x="140" y="248" width="15" height="11" rx="1"/>
-          <rect x="98" y="266" width="15" height="11" rx="1"/><rect x="119" y="266" width="15" height="11" rx="1"/><rect x="140" y="266" width="15" height="11" rx="1"/>
+        <g stroke="#cbd5e1" stroke-width="2.4" fill="none">
+          <path d="M49 180 L37 300 M63 180 L57 300 M79 180 L85 300 M93 180 L105 300"/>
+          <path d="M42 212 H100 M39 254 H103" stroke-width="2"/>
+          <path d="M43 212 L99 252 M99 212 L43 252 M40 256 L102 296 M102 256 L40 296" stroke-width="1.6" opacity="0.75"/>
         </g>
-        <!-- large service door -->
-        <rect x="32" y="296" width="42" height="30" rx="1" fill="#e2e1f0"/><line x1="32" y1="304" x2="74" y2="304" stroke="#d1d2e4"/><line x1="32" y1="311" x2="74" y2="311" stroke="#d1d2e4"/><line x1="32" y1="318" x2="74" y2="318" stroke="#d1d2e4"/>
-        <!-- base process pipe + valve -->
-        <rect x="96" y="300" width="66" height="9" rx="4.5" fill="#e2e1f0"/><circle cx="150" cy="304.5" r="5.5" fill="none" stroke="#cbd5e1" stroke-width="2"/>
+        <path d="M44 164 L60 182 L82 182 L98 164 Z" fill="#bae6fd"/>
+        <rect x="44" y="136" width="54" height="28" fill="url(#hsCyl)"/>
+        <path d="M44 136 Q71 111 98 136 Z" fill="url(#hsCyl)"/>
+        <line x1="44" y1="150" x2="98" y2="150" stroke="#7dd3fc" stroke-width="1.6"/>
+        <ellipse cx="71" cy="136" rx="27" ry="4" fill="#e0f2fe" opacity="0.65"/>
+        <g stroke="#94a3b8" stroke-width="1.4"><path d="M86 182 V300 M92 182 V300"/><path d="M86 198 H92 M86 216 H92 M86 234 H92 M86 252 H92 M86 270 H92 M86 288 H92"/></g>
       </g>
-      <g filter="url(#hsShadow)">
-        <rect x="180" y="238" width="54" height="88" rx="8" fill="url(#hsTank)" stroke="#bae6fd"/>
-        <rect x="180" y="286" width="54" height="40" fill="url(#hsWater)" clip-path="url(#hsClipA)"/>
-        <ellipse cx="207" cy="238" rx="27" ry="7" fill="#e0f2fe" stroke="#bae6fd"/>
-        <rect x="246" y="256" width="50" height="70" rx="8" fill="url(#hsTank)" stroke="#bae6fd"/>
-        <rect x="246" y="292" width="50" height="34" fill="url(#hsWater)" clip-path="url(#hsClipB)"/>
-        <ellipse cx="271" cy="256" rx="25" ry="6.5" fill="#e0f2fe" stroke="#bae6fd"/>
-        <!-- steel reinforcement bands + maintenance ladder -->
-        <g stroke="#7dd3fc" stroke-width="1.5" opacity="0.8">
-          <line x1="180" y1="266" x2="234" y2="266"/><line x1="180" y1="296" x2="234" y2="296"/>
-          <line x1="246" y1="282" x2="296" y2="282"/><line x1="246" y1="306" x2="296" y2="306"/>
-        </g>
-        <g stroke="#93b4d8" stroke-width="1.4">
-          <line x1="228" y1="242" x2="228" y2="322"/><line x1="234" y1="242" x2="234" y2="322"/>
-          <line x1="228" y1="252" x2="234" y2="252"/><line x1="228" y1="266" x2="234" y2="266"/><line x1="228" y1="280" x2="234" y2="280"/><line x1="228" y1="294" x2="234" y2="294"/><line x1="228" y1="308" x2="234" y2="308"/>
-        </g>
+
+      <!-- CONTROL BUILDING -->
+      <g>
+        <rect x="118" y="214" width="114" height="86" fill="#eef0f7" stroke="#e2e1f0"/>
+        <rect x="114" y="207" width="122" height="8" rx="2" fill="#d8d6ea"/>
+        <rect x="132" y="192" width="26" height="16" rx="2" fill="#e2e1f0"/><rect x="139" y="196" width="12" height="5" rx="1" fill="#cbcadf"/>
+        <rect x="182" y="196" width="18" height="12" rx="2" fill="#e2e1f0"/>
+        <rect x="118" y="222" width="114" height="5" fill="#ede9fe"/>
+        <rect x="130" y="232" width="54" height="40" rx="3" fill="#dbeafe" stroke="#c3d4ef"/>
+        <rect x="138" y="240" width="38" height="24" rx="3" fill="#0f172a" stroke="#334155"/>
+        <rect x="140.5" y="242.5" width="33" height="19" rx="2" fill="#0b1220"/>
+        <circle cx="169" cy="246" r="1.7" fill="#22c55e"><animate attributeName="opacity" values="1;.25;1" dur="1.3s" repeatCount="indefinite"/></circle>
+        <rect class="hs-bar" x="143" y="250" width="3.6" height="9" rx="0.6" fill="#7c3aed"/>
+        <rect class="hs-bar" x="149" y="250" width="3.6" height="9" rx="0.6" fill="#38bdf8" style="animation-delay:.25s"/>
+        <rect class="hs-bar" x="155" y="250" width="3.6" height="9" rx="0.6" fill="#22c55e" style="animation-delay:.5s"/>
+        <rect class="hs-bar" x="161" y="250" width="3.6" height="9" rx="0.6" fill="#a78bfa" style="animation-delay:.75s"/>
+        <g fill="#dfe0ef"><rect x="194" y="234" width="14" height="10" rx="1"/><rect x="212" y="234" width="14" height="10" rx="1"/><rect x="194" y="252" width="14" height="10" rx="1"/><rect x="212" y="252" width="14" height="10" rx="1"/></g>
+        <rect x="130" y="278" width="40" height="22" rx="1" fill="#e2e1f0"/>
+        <g stroke="#d1d2e4" stroke-width="1"><path d="M130 284 H170 M130 290 H170 M130 296 H170"/></g>
       </g>
-      <path d="M234 300 H246" stroke="#cbd5e1" stroke-width="6" stroke-linecap="round"/>
-      <!-- telemetry streaming to BOTH the wall console and the technician's tablet -->
+
+      <!-- CLARIFIER BASIN -->
+      <g>
+        <ellipse cx="300" cy="296" rx="56" ry="11" fill="#cbd5e1"/>
+        <rect x="244" y="266" width="112" height="30" fill="url(#hsMetal)"/>
+        <ellipse cx="300" cy="266" rx="56" ry="12" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <ellipse cx="300" cy="267" rx="48" ry="9.5" fill="#38bdf8" opacity="0.85"/>
+        <ellipse cx="300" cy="267" rx="30" ry="5.5" fill="#0ea5e9" opacity="0.5"/>
+        <rect x="242" y="257" width="116" height="5" rx="1.5" fill="#cbd5e1"/>
+        <g stroke="#cbd5e1" stroke-width="1.8"><path d="M244 249 H356"/><path d="M250 249 V257 M272 249 V257 M294 249 V257 M316 249 V257 M338 249 V257"/></g>
+        <rect x="294" y="243" width="12" height="16" rx="2" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <line x1="244" y1="280" x2="356" y2="280" stroke="#cbd5e1" stroke-width="1.4" opacity="0.8"/>
+      </g>
+
+      <!-- PROCESS TANKS -->
+      <g>
+        <rect x="368" y="212" width="48" height="84" rx="5" fill="url(#hsCyl)" stroke="#7dd3fc"/>
+        <rect x="368" y="250" width="48" height="46" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipA)"/>
+        <ellipse cx="392" cy="212" rx="24" ry="7" fill="#e0f2fe" stroke="#7dd3fc"/>
+        <g stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"><path d="M368 238 H416 M368 266 H416"/></g>
+        <g stroke="#cbd5e1" stroke-width="1.8"><path d="M380 205 H404"/><path d="M382 205 V212 M392 205 V212 M402 205 V212"/></g>
+        <rect x="430" y="240" width="42" height="56" rx="5" fill="url(#hsCyl)" stroke="#7dd3fc"/>
+        <rect x="430" y="268" width="42" height="28" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipB)"/>
+        <ellipse cx="451" cy="240" rx="21" ry="6" fill="#e0f2fe" stroke="#7dd3fc"/>
+        <line x1="430" y1="264" x2="472" y2="264" stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"/>
+        <g stroke="#94a3b8" stroke-width="1.3"><path d="M418 218 V296 M424 218 V296"/><path d="M418 232 H424 M418 248 H424 M418 264 H424 M418 280 H424"/></g>
+      </g>
+
+      <!-- PIPING -->
+      <g stroke="#60a5fa" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M232 288 H244"/><path d="M356 288 H368"/><path d="M416 288 H430"/><path d="M105 292 H118"/>
+      </g>
+      <g fill="none" stroke="#3b82f6" stroke-width="2">
+        <circle cx="238" cy="288" r="5"/><circle cx="423" cy="288" r="5"/>
+      </g>
+
+      <!-- TELEMETRY -->
       <g fill="none" stroke-width="1.8" stroke-linecap="round">
-        <path class="hs-flow" d="M207 256 C168 214 104 238 62 256" stroke="#c4b5fd"/>
-        <path class="hs-flow" d="M271 274 C200 214 110 246 64 260" stroke="#a7f3d0" style="animation-delay:.5s"/>
-        <path class="hs-flow" d="M207 262 C238 300 272 318 294 330" stroke="#a7f3d0" style="animation-delay:.9s"/>
-        <path class="hs-flow" d="M271 282 C284 302 292 318 298 330" stroke="#c4b5fd" style="animation-delay:.3s"/>
+        <path class="hs-flow" d="M392 206 C352 184 252 198 180 232" stroke="#c4b5fd"/>
+        <path class="hs-flow" d="M451 234 C410 200 262 214 184 240" stroke="#a7f3d0" style="animation-delay:.5s"/>
+        <path class="hs-flow" d="M300 256 C262 282 202 314 150 336" stroke="#a7f3d0" style="animation-delay:.9s"/>
       </g>
-      <circle class="hs-pulse" cx="207" cy="262" r="6" fill="#7c3aed"/><circle cx="207" cy="262" r="4.5" fill="#7c3aed" stroke="#fff" stroke-width="1.5"/>
-      <circle class="hs-pulse" cx="271" cy="280" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="271" cy="280" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
-      <!-- Abstract, fully-purple vacuum service truck: flat pictogram silhouette (static) -->
+      <circle class="hs-pulse" cx="392" cy="209" r="6" fill="#7c3aed"/><circle cx="392" cy="209" r="4.5" fill="#7c3aed" stroke="#fff" stroke-width="1.5"/>
+      <circle class="hs-pulse" cx="451" cy="237" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="451" cy="237" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
+      <circle class="hs-pulse" cx="300" cy="258" r="6" fill="#22c55e" style="animation-delay:1.1s"/><circle cx="300" cy="258" r="4.5" fill="#22c55e" stroke="#fff" stroke-width="1.5"/>
+
+      <!-- VACUUM / SEPTIC SERVICE TRUCK -->
       <g filter="url(#hsShadow)">
-        <!-- tandem rear wheels + front wheel, tire = deep purple, hub = cutout to ground tone -->
-        <rect x="356" y="352" width="100" height="4" rx="2" fill="#4c1d95"/>
-        <circle cx="366" cy="357" r="9" fill="#4c1d95"/><circle cx="366" cy="357" r="3.2" fill="#f1f0fa"/>
-        <circle cx="382" cy="357" r="9" fill="#4c1d95"/><circle cx="382" cy="357" r="3.2" fill="#f1f0fa"/>
-        <circle cx="446" cy="357" r="9" fill="#4c1d95"/><circle cx="446" cy="357" r="3.2" fill="#f1f0fa"/>
-        <!-- vacuum tank: single flat capsule silhouette -->
-        <rect x="346" y="322" width="88" height="30" rx="15" fill="#7c3aed"/>
-        <rect x="380" y="314" width="12" height="10" rx="3" fill="#7c3aed"/>
-        <!-- rear hose, curling to the ground -->
-        <path d="M346 342 C335 348 337 357 344 360" fill="none" stroke="#7c3aed" stroke-width="4.5" stroke-linecap="round"/>
-        <!-- boxy cab with windshield cut-out -->
-        <rect x="430" y="326" width="33" height="31" rx="4" fill="#7c3aed"/>
-        <rect x="437" y="331" width="14" height="12" rx="2" fill="#f1f0fa"/>
+        <rect x="258" y="362" width="226" height="7" rx="3" fill="#4c1d95"/>
+        <rect x="318" y="316" width="150" height="48" rx="24" fill="url(#hsTruckC)"/>
+        <ellipse cx="468" cy="340" rx="7" ry="24" fill="#6d28d9"/>
+        <circle cx="468" cy="340" r="5" fill="#7c3aed" stroke="#a78bfa" stroke-width="1.2"/>
+        <path d="M330 327 H452" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+        <g fill="#6d28d9"><rect x="348" y="309" width="16" height="9" rx="2.5"/><rect x="392" y="309" width="16" height="9" rx="2.5"/><rect x="436" y="309" width="14" height="9" rx="2.5"/></g>
+        <rect x="368" y="316" width="3.5" height="48" fill="#6d28d9" opacity="0.7"/><rect x="418" y="316" width="3.5" height="48" fill="#6d28d9" opacity="0.7"/>
+        <path d="M332 356 H448" stroke="#4c1d95" stroke-width="5" stroke-linecap="round"/>
+        <path d="M448 356 q12 3 9 13" fill="none" stroke="#4c1d95" stroke-width="5" stroke-linecap="round"/>
+        <path d="M254 362 V324 Q254 317 261 317 H308 V362 Z" fill="url(#hsTruckC)"/>
+        <rect x="260" y="324" width="30" height="19" rx="2.5" fill="#dbeafe"/>
+        <path d="M260 337 H290" stroke="#93c5fd" stroke-width="1.2" opacity="0.8"/>
+        <line x1="298" y1="324" x2="298" y2="358" stroke="#5b21b6" stroke-width="1.6" opacity="0.7"/>
+        <rect x="248" y="350" width="10" height="11" rx="2.5" fill="#4c1d95"/>
+        <rect x="250" y="338" width="5" height="7" rx="1.5" fill="#fbbf24"/>
+        <g><circle cx="288" cy="370" r="13" fill="#1e293b"/><circle cx="288" cy="370" r="5.5" fill="#94a3b8"/><circle cx="288" cy="370" r="2" fill="#475569"/></g>
+        <g><circle cx="408" cy="370" r="13" fill="#1e293b"/><circle cx="408" cy="370" r="5.5" fill="#94a3b8"/><circle cx="408" cy="370" r="2" fill="#475569"/></g>
+        <g><circle cx="442" cy="370" r="13" fill="#1e293b"/><circle cx="442" cy="370" r="5.5" fill="#94a3b8"/><circle cx="442" cy="370" r="2" fill="#475569"/></g>
       </g>
-      <!-- Field service technician: flat purple pictogram, hard hat + vest, tablet held in one hand -->
+
+      <!-- FIELD TECHNICIAN -->
       <g filter="url(#hsShadow)">
-        <!-- legs / boots -->
-        <rect x="317" y="352" width="9" height="25" rx="4" fill="#4c1d95"/>
-        <rect x="330" y="352" width="9" height="25" rx="4" fill="#4c1d95"/>
-        <!-- torso -->
-        <rect x="315" y="317" width="26" height="37" rx="10" fill="#5b21b6"/>
-        <!-- hi-vis vest + straps -->
-        <rect x="318.5" y="320" width="19" height="30" rx="3" fill="#c4b5fd" opacity="0.9"/>
-        <rect x="318.5" y="330" width="19" height="3.6" fill="#4c1d95"/>
-        <rect x="318.5" y="341" width="19" height="3.6" fill="#4c1d95"/>
-        <!-- far arm at side -->
-        <path d="M339 322 Q346 334 342 348" fill="none" stroke="#5b21b6" stroke-width="6.5" stroke-linecap="round"/>
-        <!-- near arm extended, holding the tablet -->
-        <path d="M317 323 Q303 326 298 335" fill="none" stroke="#5b21b6" stroke-width="6.5" stroke-linecap="round"/>
-        <!-- head -->
-        <circle cx="330" cy="308" r="8.5" fill="#5b21b6"/>
-        <!-- hard hat -->
-        <path d="M320 302 Q330 288 340 302 Z" fill="#c4b5fd"/>
-        <ellipse cx="330" cy="302" rx="13" ry="3" fill="#c4b5fd"/>
-        <rect x="327.5" y="292.5" width="5" height="3.5" rx="1.5" fill="#a78bfa"/>
-        <!-- tablet held in one hand, screen facing the viewer -->
-        <rect x="280" y="323" width="23" height="16" rx="2.5" fill="#1e293b"/>
-        <rect x="282.3" y="325.3" width="18.4" height="11.4" rx="1.5" fill="#0b1220"/>
-        <circle cx="296" cy="328.5" r="1.6" fill="#22c55e"><animate attributeName="opacity" values="1;.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
-        <path d="M284 333 L288 330 L292 332 L296 329 L300 331" fill="none" stroke="#a78bfa" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="298" cy="335" r="3" fill="#5b21b6"/>
+        <rect x="161" y="360" width="9" height="30" rx="3.5" fill="#1e293b"/>
+        <rect x="173" y="360" width="9" height="30" rx="3.5" fill="#1e293b"/>
+        <rect x="156" y="328" width="30" height="38" rx="8" fill="#1e293b"/>
+        <rect x="159.5" y="331" width="23" height="32" rx="3" fill="#fbbf24"/>
+        <path d="M167 331 L171 340 L175 331 Z" fill="#1e293b"/>
+        <rect x="159.5" y="342" width="23" height="4" fill="#1e293b"/>
+        <rect x="159.5" y="352" width="23" height="4" fill="#1e293b"/>
+        <path d="M184 333 Q192 346 188 359" fill="none" stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+        <path d="M158 334 Q146 339 141 349" fill="none" stroke="#1e293b" stroke-width="7" stroke-linecap="round"/>
+        <circle cx="171" cy="320" r="8.5" fill="#1e293b"/>
+        <path d="M160.5 312.5 C160.5 299 181.5 299 181.5 312.5 Z" fill="#f59e0b"/>
+        <ellipse cx="171" cy="312.5" rx="13" ry="2.8" fill="#f59e0b"/>
+        <path d="M171 300.2 V311.4" stroke="#d97706" stroke-width="1.3" opacity="0.85"/>
+        <rect x="120" y="338" width="26" height="18" rx="2.5" fill="#1e293b"/>
+        <rect x="122.5" y="340.5" width="21" height="13" rx="1.5" fill="#0b1220"/>
+        <circle cx="139" cy="344" r="1.7" fill="#22c55e"><animate attributeName="opacity" values="1;.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
+        <path d="M124 349 L128 346 L132 348 L136 344.5 L140 347" fill="none" stroke="#a78bfa" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="141" cy="350" r="3.6" fill="#fbbf24"/>
       </g>
     </svg>
     <div class="hs-legend">
@@ -967,7 +990,10 @@
   function ecoArt(size) {
     const gid = "g1b-" + (_ecoArtSeq++);
     const R = size === "lg" ? 250 : 200, W = size === "lg" ? 560 : 420;
-    const cx = W/2, cy = R/1.7, r = R/2.1;
+    // Centre vertically and keep the 48px node boxes (24px half-height) inside
+    // the viewBox — r must leave room for that half-height plus a small margin,
+    // otherwise the top/bottom spokes render clipped.
+    const cx = W/2, cy = R/2, r = R/2 - 30;
     const nodes = [["flow","#0369a1"],["energy","#f59e0b"],["fridge","#0d9488"],["leak","#dc2626"],["pool","#0891b2"],["chip","#7c3aed"]];
     const spokes = nodes.map((n, i) => {
       const a = (Math.PI * 2 * i / nodes.length) - Math.PI/2;
@@ -979,7 +1005,7 @@
       ${spokes}
       <circle cx="${cx}" cy="${cy}" r="34" fill="url(#${gid})"/>
       <defs><linearGradient id="${gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient></defs>
-      <g transform="translate(${cx-11},${cy-8})"><svg viewBox="0 0 24 18" width="22"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#fff"/><path d="M14,10 L19,2 L24,18 Z" fill="#a7f3d0" opacity="0.9"/></svg></g>
+      <g transform="translate(${cx-11},${cy-8})"><svg viewBox="0 0 24 18" width="22" height="16.5"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#fff"/><path d="M14,10 L19,2 L24,18 Z" fill="#a7f3d0" opacity="0.9"/></svg></g>
     </svg></div>`;
   }
 
