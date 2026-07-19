@@ -181,6 +181,9 @@
   .role b { font-size: 15px; display: block; } .role span { font-size: 13px; color: var(--muted); }
   .role .arr { margin-left: auto; color: var(--faint); }
   .modal__foot { padding: 14px 28px 24px; font-size: 12px; color: var(--faint); text-align: center; }
+  .signin-demo { margin: 8px 28px 0; padding: 14px 0 4px; border-top: 1px solid var(--line); }
+  .signin-demo__lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); font-weight: 700; text-align: center; margin-bottom: 10px; }
+  .signin-demo__row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
 
   /* ---------- Portal shells ---------- */
   .portal { min-height: 100vh; background: var(--paper); }
@@ -276,7 +279,7 @@
 </style>
 
 <div class="pl" id="site">
-  <div class="demo-ribbon">Interactive demo — this is a clickable prototype of <b>PeakLogicSolutions.com</b>. Use <b>Log in</b> to enter the Customer, Channel Partner, or Super-Admin experience.</div>
+  <div class="demo-ribbon">Interactive preview of <b>PeakLogicSolutions.com</b>. Select <b>Log in</b> to explore a demo workspace.</div>
   <nav class="nav">
     <div class="wrap nav__in">
       <div class="brand" data-go="home">
@@ -292,8 +295,8 @@
         <a data-go="contact">Contact</a>
       </div>
       <div class="nav__cta">
-        <button class="btn btn--ghost btn--sm" data-login="partner">Partner login</button>
-        <button class="btn btn--primary btn--sm" data-login="all">Log in</button>
+        <button class="btn btn--ghost btn--sm" data-login="signin">Log in</button>
+        <button class="btn btn--primary btn--sm" data-go="contact">Request a demo</button>
       </div>
     </div>
   </nav>
@@ -303,17 +306,17 @@
     <section class="hero">
       <div class="wrap hero__grid">
         <div>
-          <span class="chip"><span class="dot"></span>Essential Field Services Intelligence</span>
-          <h1 class="h1">The intelligence layer for <span style="color:var(--purple)">essential</span> field services.</h1>
-          <p class="lede">PeakLogic turns the equipment your business already services into a live stream of intelligence — monitoring assets, predicting failures, and pushing the right work into your systems before something breaks. Asset management and risk reduction, delivered as a service.</p>
+          <span class="chip"><span class="dot"></span>Field Services Intelligence, Asset &amp; Risk Management</span>
+          <h1 class="h1">An intelligence layer for <span style="color:var(--purple)">essential</span> field services.</h1>
+          <p class="lede">PeakLogic connects the equipment your business already services to a live stream of monitoring, alerts, and automated dispatch. Issues surface early, and the right work lands in the systems you already use. Asset visibility and risk reduction, delivered as a service.</p>
           <div class="cta-row">
-            <button class="btn btn--primary" data-login="all">See it live <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            <button class="btn btn--primary" data-go="contact">Request a demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
             <button class="btn btn--ghost" data-scroll="how">How it works</button>
           </div>
           <div class="hero__stats">
-            <div class="hero__stat"><b style="color:var(--purple)">67%</b><span>auto-dispatch → service-call conversion</span></div>
-            <div class="hero__stat"><b style="color:var(--green-ink)">24/7</b><span>continuous asset monitoring</span></div>
-            <div class="hero__stat"><b>6</b><span>trades live on the platform</span></div>
+            <div class="hero__stat"><b style="color:var(--purple)">24/7</b><span>continuous device monitoring</span></div>
+            <div class="hero__stat"><b style="color:var(--green-ink)">CMMS</b><span>work orders in your existing system</span></div>
+            <div class="hero__stat"><b>Isolated</b><span>per-customer data &amp; audit trail</span></div>
           </div>
         </div>
         <div id="hero-art"></div>
@@ -325,14 +328,14 @@
       <div class="wrap">
         <div class="sec-head">
           <span class="eyebrow">The Platform</span>
-          <h2 class="h2" style="margin-top:10px">One platform: intelligence, assets, and risk.</h2>
-          <p class="lede">Everything an essential-services operator needs to see, predict, and act on the condition of the equipment they're responsible for.</p>
+          <h2 class="h2" style="margin-top:10px">One platform for intelligence, assets, and risk.</h2>
+          <p class="lede">Everything an essential-services operator needs to see, understand, and act on the condition of the equipment they're responsible for.</p>
         </div>
         <div class="grid g-4">
-          <div class="card card--hover"><div class="ico" id="i-monitor"></div><h3 class="h3">Monitor everything</h3><p>Pumps, HVAC, refrigeration, energy panels, flow meters, lift stations and more — normalized into one live view, whatever the vendor.</p></div>
-          <div class="card card--hover"><div class="ico" id="i-predict"></div><h3 class="h3">Predict &amp; prevent</h3><p>Learned baselines and AI flag drift and failures before they cause downtime — priced on the loss you avoid, not the sensor.</p></div>
-          <div class="card card--hover"><div class="ico" id="i-dispatch"></div><h3 class="h3">Dispatch into your systems</h3><p>Critical events become work orders in your existing CMMS automatically. We add intelligence to your business — we don't replace it.</p></div>
-          <div class="card card--hover"><div class="ico" id="i-prove"></div><h3 class="h3">Prove the value</h3><p>Every prevented failure, service call, and normalized risk is measured — a defensible ROI you can show customers and insurers.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-monitor"></div><h3 class="h3">Monitor everything</h3><p>Pumps, HVAC, refrigeration, energy panels, flow meters, lift stations, and more, normalized into one live view no matter the vendor.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-predict"></div><h3 class="h3">Catch issues early</h3><p>Set the thresholds that matter for each asset and get a real-time alert the moment a reading drifts out of range.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-dispatch"></div><h3 class="h3">Work with your systems</h3><p>Critical alerts become service tickets automatically and flow into the tools you already run. PeakLogic adds a layer of intelligence; it doesn't replace your operation.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-prove"></div><h3 class="h3">See the outcome</h3><p>Track alerts, tickets, and service calls in clear dashboards and reports, so you can see what the platform surfaced and what got done.</p></div>
         </div>
       </div>
     </section>
@@ -342,15 +345,15 @@
       <div class="wrap">
         <div class="sec-head">
           <span class="eyebrow">How it works</span>
-          <h2 class="h2" style="margin-top:10px">Sense. Understand. Act. Prove.</h2>
-          <p class="lede">A closed loop that gets smarter every time your team touches a job.</p>
+          <h2 class="h2" style="margin-top:10px">Sense. Understand. Act. Measure.</h2>
+          <p class="lede">A clear path from a reading on a device to a service call in your system.</p>
         </div>
         <div class="flow">
-          <div class="flow__step"><div class="fico" id="f1"></div><h4>Sense</h4><p>Devices &amp; gateways stream telemetry over secure, outbound-only connections.</p><span class="arrow">→</span></div>
-          <div class="flow__step"><div class="fico" id="f2"></div><h4>Normalize</h4><p>Any vendor's data mapped to one canonical model — no rip-and-replace.</p><span class="arrow">→</span></div>
-          <div class="flow__step"><div class="fico" id="f3"></div><h4>Detect</h4><p>Configurable thresholds + AI anomaly &amp; failure prediction, per asset.</p><span class="arrow">→</span></div>
-          <div class="flow__step"><div class="fico" id="f4"></div><h4>Act</h4><p>Auto-dispatch a work order into your CMMS; push config back to the device.</p><span class="arrow">→</span></div>
-          <div class="flow__step"><div class="fico" id="f5"></div><h4>Prove</h4><p>Outcomes feed a conversion &amp; risk-reduction record — and train the models.</p></div>
+          <div class="flow__step"><div class="fico" id="f1"></div><h4>Sense</h4><p>Devices and gateways stream readings over secure, outbound-only connections.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f2"></div><h4>Normalize</h4><p>Each vendor's data is mapped to one common model, so nothing gets ripped and replaced.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f3"></div><h4>Detect</h4><p>Configurable thresholds flag readings that move out of range, per asset.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f4"></div><h4>Act</h4><p>A critical alert creates a service ticket and sends it to the system you already use.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f5"></div><h4>Measure</h4><p>Alerts, tickets, and service calls are recorded so you can track results over time.</p></div>
         </div>
       </div>
     </section>
@@ -360,15 +363,15 @@
       <div class="wrap why">
         <div>
           <span class="eyebrow">Why PeakLogic is different</span>
-          <h2 class="h2" style="margin:10px 0 14px">We make money by preventing yours from leaving.</h2>
-          <p class="lede" style="margin-bottom:8px">Most monitoring companies sell you sensors. PeakLogic sells outcomes — and a business model that compounds with every insured, audited, prevented failure.</p>
+          <h2 class="h2" style="margin:10px 0 14px">An intelligence layer, not a rip-and-replace.</h2>
+          <p class="lede" style="margin-bottom:8px">Most monitoring tools ask you to change how you work. PeakLogic fits on top of the operation and the systems you already have, then gets out of the way.</p>
           <div id="why-art"></div>
         </div>
         <div>
-          <div class="why__item"><div class="k" id="w1"></div><div><h4>Predictive maintenance &amp; incident prevention</h4><p>Priced on the loss avoided. Catch a bearing, a compressor, or a warehouse leak before it becomes tens of thousands in downtime.</p></div></div>
-          <div class="why__item"><div class="k" id="w2"></div><div><h4>Insurance partnerships &amp; premium reductions</h4><p>Continuous risk mitigation insurers reward — subsidized hardware and lower premiums because claims get rarer and smaller.</p></div></div>
-          <div class="why__item"><div class="k" id="w3"></div><div><h4>Compliance &amp; audit automation</h4><p>Tamper-proof, continuous data trails — cold-chain temps, gas levels, water quality — sold as premium, subscription-grade evidence.</p></div></div>
-          <div class="why__item"><div class="k" id="w4"></div><div><h4>An intelligence layer, not a rip-and-replace</h4><p>We overlay your existing operation and feed intelligence back into your CMMS/ERP. Low friction, fast to value, yours to keep.</p></div></div>
+          <div class="why__item"><div class="k" id="w1"></div><div><h4>Works with your systems</h4><p>Alerts and tickets flow into the CMMS and tools you already run. It's additive, not a migration.</p></div></div>
+          <div class="why__item"><div class="k" id="w2"></div><div><h4>Any device, any vendor</h4><p>Mixed equipment from different manufacturers is normalized into one view, so adding a device type is a setup step, not a project.</p></div></div>
+          <div class="why__item"><div class="k" id="w3"></div><div><h4>Configurable to your equipment</h4><p>Set the thresholds and rules that matter for each asset and site. The platform adapts to your operation, not the other way around.</p></div></div>
+          <div class="why__item"><div class="k" id="w4"></div><div><h4>Secure and isolated by design</h4><p>Each customer's data is isolated and encrypted, and access is recorded in an append-only audit log.</p></div></div>
         </div>
       </div>
     </section>
@@ -379,7 +382,7 @@
         <div class="sec-head">
           <span class="eyebrow">Industries we serve</span>
           <h2 class="h2" style="margin-top:10px">Built for the trades that keep buildings running.</h2>
-          <p class="lede">Wherever equipment failure means downtime, safety risk, or a compliance breach — PeakLogic is the intelligence layer.</p>
+          <p class="lede">Wherever equipment failure means downtime, a safety risk, or a compliance issue, PeakLogic is the intelligence layer.</p>
         </div>
         <div class="grid g-4" id="industries-grid"></div>
       </div>
@@ -388,12 +391,12 @@
     <!-- STATS BAND -->
     <section class="sec-dark">
       <div class="wrap">
-        <div class="sec-head"><span class="eyebrow" style="color:var(--purple-mid)">Outcomes</span><h2 class="h2" style="color:#fff;margin-top:10px">The numbers operators care about.</h2></div>
+        <div class="sec-head"><span class="eyebrow" style="color:var(--purple-mid)">What the platform does</span><h2 class="h2" style="color:#fff;margin-top:10px">Built to do the essentials well.</h2></div>
         <div class="statband">
-          <div class="s center"><b>83%</b><span>of at-risk assets normalized before failure</span></div>
-          <div class="s center"><b>$1.8k</b><span>avoidable energy cost flagged / site / mo</span></div>
-          <div class="s center"><b>67%</b><span>automated tickets that convert to service calls</span></div>
-          <div class="s center"><b>7 yr</b><span>tamper-proof compliance audit trail</span></div>
+          <div class="s center"><b>24/7</b><span>continuous device monitoring</span></div>
+          <div class="s center"><b>Real-time</b><span>threshold alerts, per asset</span></div>
+          <div class="s center"><b>Automatic</b><span>tickets into the systems you use</span></div>
+          <div class="s center"><b>Isolated</b><span>data and audit trail per customer</span></div>
         </div>
       </div>
     </section>
@@ -403,8 +406,8 @@
       <div class="wrap cols2" style="align-items:center">
         <div>
           <span class="eyebrow">Device Ecosystem</span>
-          <h2 class="h2" style="margin:10px 0 14px">Any device. Any vendor. One brain.</h2>
-          <p class="lede">From ESP32 gateways to third-party OEM clouds, PeakLogic ingests and normalizes it all — so a new device type is a configuration, not a rebuild. Zero-touch provisioning gets units online the moment a technician connects them in the field.</p>
+          <h2 class="h2" style="margin:10px 0 14px">Any device. Any vendor. One view.</h2>
+          <p class="lede">From edge gateways to third-party OEM clouds, PeakLogic ingests and normalizes the data, so adding a new device type is a setup step rather than a rebuild. It's designed to bring units online quickly when a technician connects them in the field.</p>
           <div style="margin-top:22px"><button class="btn btn--ghost" data-go="ecosystem">Explore the ecosystem <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
         </div>
         <div id="eco-art-sm"></div>
@@ -415,13 +418,17 @@
     <section class="sec-paper" id="partners">
       <div class="wrap">
         <div class="sec-head">
-          <span class="eyebrow">For channel partners</span>
-          <h2 class="h2" style="margin-top:10px">Add an intelligence layer to your brand.</h2>
-          <p class="lede">White-label PeakLogic under your own name and domain. Onboard your customers, set thresholds, get AI analytics — while the output flows into the systems you already run. Grow recurring revenue on the book of business you already have.</p>
+          <span class="eyebrow">For service companies</span>
+          <h2 class="h2" style="margin-top:10px">Your brand. Your customers. Our intelligence underneath.</h2>
+          <p class="lede">Run PeakLogic as a monitoring service branded as your own, on your own domain. Onboard your customers, set the thresholds that matter, and keep the work flowing into the systems you already use. It's a way to add a recurring-revenue service to the book of business you already have.</p>
         </div>
-        <div class="plogos" id="partner-logos"></div>
+        <div class="plogos">
+          <div class="plogo"><span class="mk" style="background:var(--purple)">A</span><div><b>Your logo &amp; colors</b><span>front and center</span></div></div>
+          <div class="plogo"><span class="mk" style="background:var(--green)">B</span><div><b>Your own domain</b><span>a portal your customers recognize</span></div></div>
+          <div class="plogo"><span class="mk" style="background:#0369a1">C</span><div><b>Your customers</b><span>onboarded and managed by you</span></div></div>
+        </div>
         <div class="center" style="margin-top:28px">
-          <button class="btn btn--primary" data-login="partner">Enter a partner portal <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="btn btn--primary" data-login="partner">See a branded workspace <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </div>
     </section>
@@ -430,10 +437,10 @@
     <section>
       <div class="wrap">
         <div class="ctaband">
-          <span class="eyebrow" style="color:rgba(255,255,255,.85)">See the whole platform</span>
-          <h2 class="h2" style="margin-top:10px">Walk through PeakLogic end to end.</h2>
-          <p>Jump into the customer portal, a channel-partner white-label portal, or the PeakLogic super-admin console — all fully clickable.</p>
-          <button class="btn btn--light" data-login="all">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <span class="eyebrow" style="color:rgba(255,255,255,.85)">See it in action</span>
+          <h2 class="h2" style="margin-top:10px">Take a look inside PeakLogic.</h2>
+          <p>Tour a live monitoring workspace and watch a reading on a device turn into a service call in your system.</p>
+          <button class="btn btn--light" data-login="signin">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </div>
     </section>
@@ -465,7 +472,7 @@
         <div class="sec-head">
           <span class="eyebrow">Pricing</span>
           <h1 class="h1" style="font-size:clamp(30px,4.4vw,50px);margin-top:10px">Priced on the value we protect.</h1>
-          <p class="lede">Simple per-site subscriptions — not per sensor. Every plan includes unlimited users, the mobile app, and security-first data isolation.</p>
+          <p class="lede">Simple per-site subscriptions, not per sensor. Every plan includes unlimited users and per-customer data isolation.</p>
         </div>
         <div style="text-align:center;margin-bottom:34px">
           <div class="billing-toggle">
@@ -478,51 +485,50 @@
           <div class="tier">
             <div class="tier__name">Essentials</div>
             <div class="tier__price"><span class="amt" data-m="99" data-a="79">$99</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
-            <div class="tier__desc">Continuous monitoring and real-time alerts for a single-location or small operator.</div>
+            <div class="tier__desc">Continuous monitoring and real-time alerts for a single location or a small operator.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 device monitoring</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time alerts (app, email, SMS)</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Standard device &amp; sensor support</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Live dashboards &amp; site map</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited users</li>
-              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Custom thresholds &amp; AI</li>
-              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated CMMS dispatch</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Custom thresholds per asset</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated ticket dispatch</li>
             </ul>
-            <button class="btn btn--ghost" data-login="customer">Start free trial</button>
+            <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start free trial</button>
+            <div class="faint" style="text-align:center;font-size:12px;margin-top:8px">14 days · no credit card</div>
           </div>
           <div class="tier tier--pop">
             <span class="tier__badge">MOST POPULAR</span>
             <div class="tier__name">Professional</div>
             <div class="tier__price"><span class="amt" data-m="299" data-a="249">$299</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
-            <div class="tier__desc">The full intelligence layer — configurable rules, AI, and automated dispatch into your systems.</div>
+            <div class="tier__desc">Configurable rules and automated dispatch into the systems you already use.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Essentials</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Policy Engine — custom thresholds per asset</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>AI anomaly detection</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated CMMS work-order dispatch</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Custom thresholds &amp; rules per asset</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated service-ticket dispatch to your systems</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Reports, KPIs &amp; conversion tracking</li>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Priority alerting &amp; escalation</li>
-              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Predictive &amp; compliance automation</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Role-based access control</li>
             </ul>
-            <button class="btn btn--primary" data-login="customer">Start free trial</button>
+            <button class="btn btn--primary" data-go="contact" style="width:100%;justify-content:center">Request a demo</button>
           </div>
           <div class="tier">
             <div class="tier__name">Enterprise</div>
             <div class="tier__price">Custom</div>
-            <div class="tier__desc">For multi-site portfolios, regulated environments, and insurance-backed programs.</div>
+            <div class="tier__desc">For multi-site portfolios and teams that need SSO, integrations, and a dedicated relationship.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Professional</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Predictive maintenance models</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Compliance &amp; audit automation (7-yr trail)</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Insurance-grade risk reporting</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>SSO / SCIM &amp; custom OEM integrations</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dedicated CSM &amp; SLA</li>
-              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Outcome-based pricing available</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-site portfolio management</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>SSO / SCIM</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Custom integrations</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dedicated support &amp; SLA</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Security-review support</li>
             </ul>
-            <button class="btn btn--ghost" data-go="contact">Talk to sales</button>
+            <button class="btn btn--ghost" data-go="contact" style="width:100%;justify-content:center">Contact sales</button>
           </div>
         </div>
-        <p class="price-note">Hardware sold separately or subsidized through our insurance partners. Ask about <b>outcome-based pricing</b> — pay a share of the downtime and claims we help you avoid.</p>
+        <p class="price-note">Hardware is quoted separately based on your equipment. Every plan includes unlimited users and per-customer data isolation.</p>
       </div>
     </section>
 
@@ -530,11 +536,11 @@
       <div class="wrap">
         <div class="partner-band">
           <div>
-            <span class="eyebrow">Channel partners</span>
-            <h2 class="h2" style="margin:10px 0 10px">White-label PeakLogic under your own brand.</h2>
-            <p class="muted" style="margin:0;font-size:15px">Volume-based platform pricing plus revenue share on the accounts you bring. Your logo, your domain, your customers — our intelligence layer underneath, feeding work into the systems you already run.</p>
+            <span class="eyebrow">For service companies</span>
+            <h2 class="h2" style="margin:10px 0 10px">Run PeakLogic branded as your own.</h2>
+            <p class="muted" style="margin:0;font-size:15px">Partner pricing plus revenue share on the accounts you bring. Your logo, your domain, and your customers, with PeakLogic as the intelligence layer underneath, feeding work into the systems you already run.</p>
           </div>
-          <div style="text-align:right"><button class="btn btn--primary" data-login="partner">Explore the partner portal</button></div>
+          <div style="text-align:right"><button class="btn btn--primary" data-login="partner">See a branded workspace</button></div>
         </div>
       </div>
     </section>
@@ -543,11 +549,11 @@
       <div class="wrap">
         <div class="sec-head"><span class="eyebrow">FAQ</span><h2 class="h2" style="margin-top:10px">Common questions</h2></div>
         <div class="faq">
-          <div class="faq__item"><h4>What counts as a “site”?</h4><p>A physical location you monitor — one restaurant, one pumping station, one building. Devices and users at that site are unlimited.</p></div>
-          <div class="faq__item"><h4>Do I have to replace my current CMMS or software?</h4><p>No. PeakLogic overlays your existing operation and pushes work into the systems you already use. It's additive, not a rip-and-replace.</p></div>
-          <div class="faq__item"><h4>How does outcome-based pricing work?</h4><p>For qualifying Enterprise programs, part of your fee is tied to the measured downtime, energy, and insurance claims we help you avoid — so you pay on value delivered.</p></div>
-          <div class="faq__item"><h4>What about hardware?</h4><p>Devices can be purchased outright, leased, or subsidized through our commercial insurance partners as part of a risk-mitigation program.</p></div>
-          <div class="faq__item"><h4>Is my data secure and isolated?</h4><p>Yes. Every organization's data is isolated at the database level (row-level security), encrypted, and fully audited. SOC 2 is in progress.</p></div>
+          <div class="faq__item"><h4>What counts as a “site”?</h4><p>A physical location you monitor, such as one restaurant, one pumping station, or one building. Devices and users at that site are unlimited.</p></div>
+          <div class="faq__item"><h4>Do I have to replace my current CMMS or software?</h4><p>No. PeakLogic sits on top of your existing operation and sends work into the systems you already use. It's additive, not a rip-and-replace.</p></div>
+          <div class="faq__item"><h4>Can I brand it for my customers?</h4><p>Yes. On the partner plans, PeakLogic runs on your own domain with your logo and colors, so your customers see your brand.</p></div>
+          <div class="faq__item"><h4>What devices do you support?</h4><p>Common field equipment across pumps, HVAC, refrigeration, energy, flow, and leak or level sensing, plus edge gateways and select third-party OEM clouds. New device types are added as a configuration.</p></div>
+          <div class="faq__item"><h4>Is my data secure and isolated?</h4><p>Yes. Each organization's data is isolated at the database level, encrypted, and every access is recorded in an append-only audit log.</p></div>
         </div>
       </div>
     </section>
@@ -560,12 +566,12 @@
         <div>
           <span class="eyebrow">About PeakLogic</span>
           <h1 class="h1" style="font-size:clamp(30px,4.2vw,50px);margin:12px 0 16px">We turn essential field services into a system of intelligence.</h1>
-          <p class="lede">The equipment that keeps buildings running — pumps, coolers, panels, pools, roofs — fails quietly and expensively. The people who service it deserve to see it coming. PeakLogic is the asset, risk, and intelligence layer that lets them.</p>
+          <p class="lede">Pumps, coolers, panels, pools, and roofs keep buildings running, and they tend to fail quietly and expensively. The people who service them deserve to see it coming. PeakLogic is the asset, risk, and intelligence layer that helps them do it.</p>
         </div>
         <div>
           <div class="card" style="padding:30px;background:linear-gradient(150deg,#faf9ff,#f2effe);border-color:#e6e1fb">
             <svg viewBox="0 0 24 24" width="34" fill="#c4b5fd" aria-hidden="true"><path d="M7 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3H7zM15 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3h-2z"/></svg>
-            <p style="font-size:19px;font-weight:650;line-height:1.5;margin:12px 0 0;letter-spacing:-.01em">Every silent failure is a preventable one. Our job is to make the invisible visible — and put that intelligence in the hands of the people already in the field.</p>
+            <p style="font-size:19px;font-weight:650;line-height:1.5;margin:12px 0 0;letter-spacing:-.01em">Most equipment fails with little warning. The people who service it should be able to see it coming and act before a small problem becomes a big one.</p>
             <div style="margin-top:18px;display:flex;align-items:center;gap:9px">
               <svg viewBox="0 0 24 18" width="22"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
               <span class="faint" style="font-size:13px;font-weight:600">The PeakLogic mission</span>
@@ -581,7 +587,7 @@
         <div class="value-grid">
           <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg></div><h3 class="h3">Overlay, don't replace</h3><p>We add intelligence to the business you already run and feed it back into your systems of record — never a rip-and-replace.</p></div>
           <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg></div><h3 class="h3">Prevention over reaction</h3><p>The most valuable service call is the one that happens before the failure. We're built to catch problems early.</p></div>
-          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h3 class="h3">Proof over promises</h3><p>Every prevented failure and normalized risk is measured. If we can't show the value, we haven't earned it.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h3 class="h3">Show the work</h3><p>The platform is built to record what it surfaced and what got done, so value is something you can see rather than just hear about.</p></div>
           <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3 class="h3">Security by construction</h3><p>Multi-tenant isolation, encryption, and full auditability aren't features — they're the foundation.</p></div>
         </div>
       </div>
@@ -591,12 +597,12 @@
       <div class="wrap cols2" style="align-items:center">
         <div>
           <span class="eyebrow">Where we started</span>
-          <h2 class="h2" style="margin:10px 0 14px">Born in Tampa Bay, built for the field.</h2>
-          <p class="lede">PeakLogic launched alongside the Purple Standard family of field-services brands — septic, pumping, energy, pools, roofing, and climate — proving the platform against real routes, real equipment, and real customers before opening it to the wider market.</p>
+          <h2 class="h2" style="margin:10px 0 14px">Built by people who know field services.</h2>
+          <p class="lede">PeakLogic is designed and tested against real routes, real equipment, and the way service companies actually work, so it fits the field rather than the other way around.</p>
           <div class="hero__stats" style="margin-top:26px">
-            <div class="hero__stat"><b style="color:var(--purple)">6</b><span>trades live</span></div>
+            <div class="hero__stat"><b style="color:var(--purple)">Field-first</b><span>designed for the trades</span></div>
             <div class="hero__stat"><b style="color:var(--green-ink)">Tampa Bay</b><span>headquarters</span></div>
-            <div class="hero__stat"><b>SOC 2</b><span>in progress</span></div>
+            <div class="hero__stat"><b>Security-first</b><span>isolation &amp; audit built in</span></div>
           </div>
         </div>
         <div id="about-art"></div>
@@ -635,7 +641,7 @@
         <div class="sec-head" style="text-align:left;max-width:660px;margin-bottom:38px">
           <span class="eyebrow">Contact</span>
           <h1 class="h1" style="font-size:clamp(30px,4.2vw,48px);margin-top:10px">Request a demo.</h1>
-          <p class="lede" style="margin-top:12px">Tell us a bit about your operation and we'll set up a walkthrough tailored to your equipment and trade — whether you're an operator or a service brand exploring a partnership.</p>
+          <p class="lede" style="margin-top:12px">Tell us a bit about your operation and we'll set up a walkthrough tailored to your equipment and trade, whether you're an operator or a service company exploring a partnership.</p>
         </div>
         <div class="contact-grid">
           <div class="contact-info">
@@ -658,7 +664,7 @@
                 <div class="field"><label>Work email <span class="req">*</span></label><input name="email" type="email" placeholder="jordan@company.com" required></div>
                 <div class="field"><label>Company</label><input name="company" type="text" placeholder="Company name"></div>
                 <div class="field"><label>Phone</label><input name="phone" type="tel" placeholder="(555) 555-5555"></div>
-                <div class="field"><label>I'm interested in</label><select name="interest"><option>A customer account</option><option>Becoming a channel partner</option><option>General inquiry</option></select></div>
+                <div class="field"><label>I'm interested in</label><select name="interest"><option>A customer account</option><option>Becoming a partner</option><option>General inquiry</option></select></div>
                 <div class="field"><label>Industry</label><select name="industry"><option>General / not sure yet</option><option>Restaurants &amp; QSR</option><option>Water utilities &amp; pumping</option><option>Energy &amp; facilities</option><option>Aquatics &amp; pools</option><option>Cold storage &amp; refrigeration</option><option>Roofing &amp; building envelope</option><option>Municipal wastewater</option><option>Property management</option></select></div>
                 <div class="field full"><label>What would you like to monitor?</label><textarea name="message" placeholder="Tell us about your equipment, sites, or the problem you're trying to solve…"></textarea></div>
               </div>
@@ -681,10 +687,10 @@
           <p style="color:#9fb0cf;font-size:14px;max-width:32ch;margin:0">Essential Field Services Intelligence, Asset &amp; Risk Management. Tampa Bay, FL.</p>
         </div>
         <div><h5>Platform</h5><a data-scroll="platform">Overview</a><a data-scroll="how">How it works</a><a data-go="ecosystem">Device Ecosystem</a><a data-login="all">Live demo</a></div>
-        <div><h5>Company</h5><a data-go="about">About</a><a data-go="pricing">Pricing</a><a data-scroll="partners">Channel partners</a><a data-go="contact">Contact</a></div>
-        <div><h5>Access</h5><a data-login="customer">Customer login</a><a data-login="partner">Partner login</a><a data-login="staff">Staff console</a></div>
+        <div><h5>Company</h5><a data-go="about">About</a><a data-go="pricing">Pricing</a><a data-scroll="partners">For service companies</a><a data-go="contact">Contact</a></div>
+        <div><h5>Access</h5><a data-login="signin">Log in</a><a data-go="contact">Request a demo</a><a data-login="staff">Staff sign-in</a></div>
       </div>
-      <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · SOC 2 in progress</span></div>
+      <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · Data isolation &amp; audit built in</span></div>
     </div>
   </footer>
 </div>
@@ -742,21 +748,13 @@
     ["Municipal wastewater", "lift stations, overflow", "lift"],
     ["Property management", "multi-asset portfolios", "building"],
   ];
-  const PARTNERS = [
-    ["ACE Septic & Waste", "ACE", "#6D28D9"],
-    ["Boyette Pump & Well", "BPW", "#0369A1"],
-    ["Purple Current", "PC", "#F59E0B"],
-    ["WTR DR", "WDR", "#0891B2"],
-    ["Rodrigues Roofing", "RR", "#C2410C"],
-    ["Brisa Climate", "BCS", "#0D9488"],
-  ];
   const ECO_CATS = [
     ["Water & wastewater", "flow", "Flow meters, well pumps, lift stations, pressure & level sensors, overflow detection."],
     ["Climate & refrigeration", "fridge", "HVAC RTUs, walk-in coolers, product-temp probes, compressor amperage, thermostats."],
     ["Energy & power", "energy", "Panel meters, CT clamps, demand monitors, PV production, power factor."],
     ["Aquatics & pools", "pool", "pH/ORP controllers, chlorinators, circulation pumps, chemistry probes."],
     ["Building envelope", "roof", "Roof-membrane moisture grids, leak sensors, rooftop-unit condition."],
-    ["Edge & gateways", "chip", "Wi-Fi hubs, ESP32/MCU controllers, third-party OEM cloud connectors (Resideo, Honeywell, Pentair)."],
+    ["Edge & gateways", "chip", "Wi-Fi hubs and microcontroller-based edge controllers, plus connectors for select third-party OEM clouds."],
   ];
 
   // ---------- Custom SVG infographics ----------
@@ -772,15 +770,15 @@
       <text x="140" y="56" font-family="ui-monospace,monospace" font-size="11" fill="#94a0b5" letter-spacing="1.5">YOUR SYSTEMS</text>
       <rect x="140" y="66" width="78" height="30" rx="8" fill="#f2effe"/><text x="150" y="85" font-size="12" fill="#6d28d9" font-family="system-ui">CMMS</text>
       <rect x="228" y="66" width="70" height="30" rx="8" fill="#f2effe"/><text x="238" y="85" font-size="12" fill="#6d28d9" font-family="system-ui">ERP</text>
-      <rect x="308" y="66" width="94" height="30" rx="8" fill="#e8fbef"/><text x="318" y="85" font-size="12" fill="#15803d" font-family="system-ui">Insurers</text>
+      <rect x="308" y="66" width="94" height="30" rx="8" fill="#e8fbef"/><text x="318" y="85" font-size="12" fill="#15803d" font-family="system-ui">Reports</text>
       <!-- intelligence layer (mid) -->
       <g filter="url(#s1)"><rect x="70" y="150" width="330" height="120" rx="16" fill="url(#g1)"/></g>
       <text x="92" y="182" font-family="ui-monospace,monospace" font-size="11" fill="#e9d5ff" letter-spacing="1.5">PEAKLOGIC INTELLIGENCE</text>
       <g fill="#fff" opacity="0.95" font-family="system-ui" font-size="12.5">
         <rect x="92" y="196" width="88" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="104" y="215">Normalize</text>
         <rect x="188" y="196" width="86" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="200" y="215">Detect</text>
-        <rect x="282" y="196" width="96" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="294" y="215">Predict</text>
-        <rect x="92" y="232" width="286" height="26" rx="8" fill="rgba(255,255,255,.12)"/><text x="104" y="249" font-size="11.5" fill="#f5f3ff">Policy engine · AI anomaly &amp; failure prediction · audit trail</text>
+        <rect x="282" y="196" width="96" height="30" rx="8" fill="rgba(255,255,255,.16)"/><text x="294" y="215">Alert</text>
+        <rect x="92" y="232" width="286" height="26" rx="8" fill="rgba(255,255,255,.12)"/><text x="104" y="249" font-size="11.5" fill="#f5f3ff">Configurable thresholds &amp; rules · audit trail</text>
       </g>
       <!-- devices layer (bottom) -->
       <g font-family="ui-monospace,monospace"><text x="52" y="316" font-size="11" fill="#94a0b5" letter-spacing="1.5">FIELD DEVICES</text></g>
@@ -800,9 +798,9 @@
     return `<svg viewBox="0 0 460 150" width="100%" style="display:block;margin-top:22px" aria-label="Value flywheel">
       <rect x="0" y="0" width="460" height="150" rx="16" fill="#fff" stroke="#e7e6f1"/>
       <g font-family="system-ui" font-size="13" fill="#334155">
-        <g transform="translate(28,40)"><rect width="120" height="70" rx="10" fill="#f2effe"/><text x="16" y="30" font-weight="700" fill="#6d28d9">Prevent</text><text x="16" y="50" font-size="11.5" fill="#7c6aa8">failures &amp; claims</text></g>
-        <g transform="translate(170,40)"><rect width="120" height="70" rx="10" fill="#e8fbef"/><text x="16" y="30" font-weight="700" fill="#15803d">Prove</text><text x="16" y="50" font-size="11.5" fill="#4d7c5b">measured ROI</text></g>
-        <g transform="translate(312,40)"><rect width="120" height="70" rx="10" fill="#fff7ed"/><text x="16" y="30" font-weight="700" fill="#b45309">Price</text><text x="16" y="50" font-size="11.5" fill="#9a6a3a">on loss avoided</text></g>
+        <g transform="translate(28,40)"><rect width="120" height="70" rx="10" fill="#f2effe"/><text x="16" y="30" font-weight="700" fill="#6d28d9">Monitor</text><text x="16" y="50" font-size="11.5" fill="#7c6aa8">every asset</text></g>
+        <g transform="translate(170,40)"><rect width="120" height="70" rx="10" fill="#e8fbef"/><text x="16" y="30" font-weight="700" fill="#15803d">Alert</text><text x="16" y="50" font-size="11.5" fill="#4d7c5b">out of range</text></g>
+        <g transform="translate(312,40)"><rect width="120" height="70" rx="10" fill="#fff7ed"/><text x="16" y="30" font-weight="700" fill="#b45309">Act</text><text x="16" y="50" font-size="11.5" fill="#9a6a3a">in your systems</text></g>
       </g>
       <g stroke="#c4b5fd" stroke-width="2" fill="none"><path d="M148 75 L170 75" marker-end="url(#ah)"/><path d="M290 75 L312 75" marker-end="url(#ah)"/></g>
       <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0l6 3-6 3z" fill="#8b5cf6"/></marker></defs>
@@ -838,8 +836,6 @@
   setBilling("monthly");
   $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
     `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
-  $("#partner-logos").innerHTML = PARTNERS.map(([n,l,c]) =>
-    `<div class="plogo"><span class="mk" style="background:$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>">${l}</span><div><b>${n}</b><span>Purple Standard family</span></div></div>`).join("");
   $("#eco-cats").innerHTML = ECO_CATS.map(([n,ic,d]) =>
     `<div class="card"><div class="ico">${svg(I[ic],2)}</div><h3 class="h3">${n}</h3><p>${d}</p></div>`).join("");
 
@@ -862,22 +858,46 @@
     if (note) note.textContent = mode === "annual" ? "Billed annually — 2 months free vs. paying monthly." : "Billed monthly · switch to annual to save 20%.";
   }
 
-  // ---------- Login modal ----------
+  // ---------- Login ----------
+  // Demo routing. In production, a single "Log in" authenticates the user and
+  // sends them to their own workspace; employees use a separate internal entry.
   const ROLES = {
-    customer: { icon: "building", color: "#7c3aed", title: "Customer", sub: "A business that owns the assets — see your sites, alerts & service.", go: () => openPortal("customer") },
-    partner: { icon: "truck", color: "#6d28d9", title: "Channel Partner", sub: "White-label portal for a service brand — your accounts & dispatch.", go: () => openPortal("partner") },
-    staff: { icon: "grid", color: "#0f172a", title: "PeakLogic Staff", sub: "The Super-Admin console — every org, act-as, fleet & reports.", go: () => window.open(SUPER_CONSOLE, "_blank") },
+    customer: () => openPortal("customer"),
+    partner: () => openPortal("partner"),
+    staff: () => { closeModal(); window.open(SUPER_CONSOLE, "_blank"); },
   };
-  function openLogin(which) {
-    const keys = which === "partner" ? ["partner"] : which === "customer" ? ["customer"] : which === "staff" ? ["staff"] : ["customer","partner","staff"];
-    const rows = keys.map(k => { const r = ROLES[k];
-      return `<button class="role" data-role="${k}"><span class="ri" style="background:${r.color}">${svg(I[r.icon],2)}</span><span><b>${r.title}</b><span>${r.sub}</span></span><span class="arr">${svg('<path d="M9 6l6 6-6 6"/>',2.5)}</span></button>`;
-    }).join("");
-    $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog">
-      <div class="modal__head"><h3>Choose an experience</h3><p>This is a demo — pick a portal to explore. No password needed.</p></div>
-      <div class="modal__body">${rows}</div>
-      <div class="modal__foot">Staff console opens the full Super-Admin app in a new tab.</div>
+  function openSignin() {
+    $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog" style="max-width:440px">
+      <div class="modal__head" style="text-align:center">
+        <div style="display:flex;justify-content:center;margin-bottom:8px"><svg viewBox="0 0 24 18" width="32"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg></div>
+        <h3>Sign in to PeakLogic</h3><p>Access your monitoring workspace.</p></div>
+      <div class="modal__body">
+        <div class="field"><label>Email</label><input type="email" placeholder="you@company.com"></div>
+        <div class="field"><label>Password</label><input type="password" placeholder="••••••••"></div>
+        <button class="btn btn--primary" data-role="customer" style="width:100%;justify-content:center;margin-top:4px">Sign in</button>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:2px">
+          <a data-go="contact" style="color:var(--purple);cursor:pointer">Forgot password?</a>
+          <a data-role="customer" style="color:var(--purple);cursor:pointer">Sign in with SSO</a></div>
+      </div>
+      <div class="signin-demo">
+        <div class="signin-demo__lbl">Demo — preview a workspace</div>
+        <div class="signin-demo__row">
+          <button class="btn btn--ghost btn--sm" data-role="customer">Customer</button>
+          <button class="btn btn--ghost btn--sm" data-role="partner">Partner (branded)</button>
+          <button class="btn btn--ghost btn--sm" data-role="staff">Staff console ↗</button>
+        </div>
+      </div>
+      <div class="modal__foot">Employees sign in to the internal console through a separate, secured entrance.</div>
     </div></div>`;
+    const inp = $("#modal-root input"); if (inp) inp.focus();
+  }
+  // Public entry points route here. "signin" opens the sign-in screen; the
+  // section preview buttons open a workspace directly.
+  function openLogin(which) {
+    if (which === "partner") return openPortal("partner");
+    if (which === "customer") return openPortal("customer");
+    if (which === "staff") return window.open(SUPER_CONSOLE, "_blank");
+    openSignin();
   }
   function closeModal() { $("#modal-root").innerHTML = ""; }
 
@@ -904,22 +924,22 @@
 
   function customerPortal() {
     const alerts = [
-      ["crit", "Kitchen Grease Trap — Riverview", "Level 86% ▲ — dispatched to ACE Septic & Waste", "12m ago"],
-      ["warn", "Lift Station — Brandon", "Wet-well level 74%", "1h ago"],
+      ["crit", "Kitchen grease trap — Downtown", "Level above threshold; a service ticket was created", "12m ago"],
+      ["warn", "Lift station — Riverside", "Wet-well level rising", "1h ago"],
     ];
     const tickets = [
-      ["TCK-3391", "Grease trap at capacity", "ACE Septic & Waste", "info", "On-site scheduled"],
-      ["TCK-3372", "Lift station level rising", "ACE Septic & Waste", "good", "Completed"],
+      ["TCK-3391", "Grease trap at capacity", "Your service partner", "info", "On-site scheduled"],
+      ["TCK-3372", "Lift station level rising", "Your service partner", "good", "Completed"],
     ];
-    return `<div class="portal">${portalHead("Customer Portal", "#7c3aed", "Coastal Kitchen Restaurants", "Coastal Kitchen", "#7c3aed")}
+    return `<div class="portal">${portalHead("Customer workspace", "#7c3aed", "Northgate Restaurant Group", "Northgate Restaurant Group", "#7c3aed")}
       <div class="pmain"><div class="wrap">
-        <div class="ptitle">Welcome back, Coastal Kitchen</div>
-        <p class="muted" style="margin:0">Live condition of your restaurant equipment across 2 locations. PeakLogic watches it 24/7 and dispatches your service partner automatically.</p>
+        <div class="ptitle">Welcome back, Northgate</div>
+        <p class="muted" style="margin:0">The live condition of your equipment across your locations. PeakLogic monitors it around the clock and creates a service ticket the moment something needs attention.</p>
         <div class="pgrid">
-          <div class="pstat"><b>41</b><span>devices monitored</span></div>
+          <div class="pstat"><b>18</b><span>devices monitored</span></div>
           <div class="pstat"><b style="color:#ef4444">1</b><span>critical alert</span></div>
           <div class="pstat"><b style="color:#f59e0b">2</b><span>open service tickets</span></div>
-          <div class="pstat"><b style="color:#15803d">38</b><span>online now</span></div>
+          <div class="pstat"><b style="color:#15803d">16</b><span>online now</span></div>
         </div>
         <div class="cols2">
           <div class="panel2"><div class="panel2__h">Active alerts</div>
@@ -930,55 +950,59 @@
             </tr>`).join("")}</tbody></table></div>
           <div class="panel2"><div class="panel2__h">Your sites</div>
             <table class="ptbl"><tbody>
-              <tr><td><b>Coastal Kitchen — Riverview</b></td><td style="text-align:right"><span class="tag tag--crit"><span class="d"></span>Critical</span></td></tr>
-              <tr><td><b>Coastal Kitchen — Brandon</b></td><td style="text-align:right"><span class="tag tag--warn"><span class="d"></span>Warning</span></td></tr>
+              <tr><td><b>Northgate — Downtown</b></td><td style="text-align:right"><span class="tag tag--crit"><span class="d"></span>Critical</span></td></tr>
+              <tr><td><b>Northgate — Riverside</b></td><td style="text-align:right"><span class="tag tag--warn"><span class="d"></span>Warning</span></td></tr>
             </tbody></table></div>
         </div>
-        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Service tickets <span class="faint" style="font-weight:500;font-size:12px">· dispatched to your PeakLogic partner</span></div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Service tickets <span class="faint" style="font-weight:500;font-size:12px">· sent to your service partner automatically</span></div>
           <table class="ptbl"><thead><tr><th>Ticket</th><th>Issue</th><th>Serviced by</th><th>Status</th></tr></thead>
-          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
       </div></div></div>`;
   }
 
   function partnerPortal() {
-    const brand = "#6D28D9";
+    const brand = "#0d9488";
     const accounts = [
-      ["Coastal Kitchen Restaurants", "Restaurant group", "crit", "1 critical"],
-      ["Bayfront Municipal District", "Municipal wastewater", "good", "Healthy"],
+      ["Northgate Restaurant Group", "Restaurant group", "crit", "1 critical"],
+      ["Harborview Facilities", "Property management", "good", "Healthy"],
     ];
     const dispatch = [
-      ["Route TB-1", "Luis Ramirez", "9 stops", "info", "In progress"],
-      ["Route TB-2", "Tanya Cole", "7 stops", "info", "In progress"],
-      ["Route STP-1", "Devin Marsh", "6 stops", "good", "Scheduled"],
+      ["Route 1", "Ana Reyes", "9 stops", "info", "In progress"],
+      ["Route 2", "Cole Bennett", "7 stops", "info", "In progress"],
+      ["Route 3", "Priya Shah", "6 stops", "good", "Scheduled"],
     ];
-    return `<div class="portal">${portalHead("White-label Partner Portal", brand, "ACE Septic & Waste · powered by PeakLogic", "ACE Septic", brand)}
+    const head = `<div class="phead"><div class="wrap phead__in">
+      <span style="width:34px;height:34px;border-radius:9px;background:${brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px">FS</span>
+      <span style="font-weight:800;font-size:18px;letter-spacing:-.02em">Fieldstone Services</span>
+      <span class="phead__badge" style="background:${brand}1a;color:${brand}">Your branded workspace</span>
+      <div class="phead__sp"></div>
+      <span class="faint" style="font-size:11.5px">Powered by <b style="color:var(--purple)">PeakLogic</b></span>
+      <button class="btn btn--ghost btn--sm" data-go="home" style="margin-left:14px">Log out</button>
+    </div></div>`;
+    return `<div class="portal">${head}
       <div class="pmain"><div class="wrap">
-        <div style="display:flex;align-items:center;gap:14px;margin-bottom:6px">
-          <span style="width:44px;height:44px;border-radius:12px;background:${brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:15px">ACE</span>
-          <div><div class="ptitle" style="margin:0">ACE Septic &amp; Waste</div><div class="muted" style="font-size:13px">Your branded intelligence layer · portal.acesepticwaste.com</div></div>
-        </div>
+        <div class="ptitle" style="margin-bottom:2px">Good morning, Fieldstone</div>
+        <p class="muted" style="margin:0 0 4px">Your customers, your brand, your dispatch. PeakLogic runs underneath and feeds the work into the systems you already use.</p>
         <div class="pgrid">
-          <div class="pstat"><b>2</b><span>attributed accounts</span></div>
-          <div class="pstat"><b style="color:#15803d">85%</b><span>dispatch → service-call</span></div>
-          <div class="pstat"><b>12</b><span>technicians</span></div>
+          <div class="pstat"><b>2</b><span>customer accounts</span></div>
+          <div class="pstat"><b>8</b><span>technicians</span></div>
           <div class="pstat"><b style="color:#f59e0b">3</b><span>open work orders</span></div>
+          <div class="pstat"><b style="color:#ef4444">1</b><span>critical alert</span></div>
         </div>
         <div class="cols2">
           <div class="panel2"><div class="panel2__h">Your accounts</div>
             <table class="ptbl"><thead><tr><th>Customer</th><th>Type</th><th>Status</th></tr></thead>
             <tbody>${accounts.map(([n,t,h,l]) => `<tr><td><b>${n}</b></td><td class="muted">${t}</td><td><span class="tag tag--${h}"><span class="d"></span>${l}</span></td></tr>`).join("")}</tbody></table></div>
           <div class="panel2"><div class="panel2__h">Today's dispatch</div>
-            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
         </div>
-        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Automated work orders from PeakLogic <span class="faint" style="font-weight:500;font-size:12px">· detected → pushed to your CMMS → converted to service calls</span></div>
-          <div style="padding:18px 20px;display:flex;gap:26px;flex-wrap:wrap;align-items:center">
-            <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">This month</div><div style="font-size:30px;font-weight:800;color:${brand}">142</div><div class="muted" style="font-size:12.5px">on-site service calls generated by PeakLogic detection</div></div>
-            <div style="flex:1;min-width:220px">
-              ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#6D28D9','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><div style="width:78px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
-            </div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Work orders from PeakLogic <span class="faint" style="font-weight:500;font-size:12px">· detected, sent to your system, and worked</span></div>
+          <div style="padding:18px 20px">
+            ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#0d9488','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><div style="width:82px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c}"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
+            <div class="faint" style="font-size:12px;margin-top:8px">Illustrative demo data.</div>
           </div></div>
         <div class="card" style="margin-top:18px;background:${brand}0d;border-color:${brand}33;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
-          <div><h3 class="h3" style="margin-bottom:4px">This is your brand, your customers, your revenue.</h3><p class="muted" style="font-size:14px;margin:0">PeakLogic is the intelligence layer underneath — the work flows into the systems you already run.</p></div>
+          <div><h3 class="h3" style="margin-bottom:4px">Your brand. Your customers. Your revenue.</h3><p class="muted" style="font-size:14px;margin:0">PeakLogic is the intelligence layer underneath, and the work flows into the systems you already run.</p></div>
           <span class="faint" style="font-size:12px">Powered by <b style="color:var(--purple)">PeakLogic</b></span>
         </div>
       </div></div></div>`;
@@ -993,7 +1017,7 @@
     const bill = e.target.closest("[data-bill]");
     const close = e.target.closest("[data-close]");
     if (bill) { setBilling(bill.getAttribute("data-bill")); return; }
-    if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r.go(); return; }
+    if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r(); return; }
     if (login) { openLogin(login.getAttribute("data-login")); return; }
     if (go) { show(go.getAttribute("data-go")); return; }
     if (scroll) { scrollTo(scroll.getAttribute("data-scroll")); return; }
