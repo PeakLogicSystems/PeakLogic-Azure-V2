@@ -413,7 +413,7 @@
           <div class="s center"><b>24/7</b><span>continuous device monitoring</span></div>
           <div class="s center"><b>Real-time</b><span>threshold alerts, per asset</span></div>
           <div class="s center"><b>Automatic</b><span>tickets into the systems you use</span></div>
-          <div class="s center"><b>Traceable</b><span>segregated audit trail of all changes</span></div>
+          <div class="s center"><b>Traceable</b><span>secure audit trail of all changes</span></div>
         </div>
       </div>
     </section>
@@ -519,7 +519,6 @@
               <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated ticket dispatch</li>
             </ul>
             <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start 30-day free trial</button>
-            <div class="faint" style="text-align:center;font-size:12px;margin-top:8px">30 days · no credit card</div>
           </div>
           <div class="tier tier--pop">
             <span class="tier__badge">MOST POPULAR</span>
@@ -579,7 +578,6 @@
               <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated service-request routing</li>
               <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Multi-system monitoring</li>
             </ul>
-            <div class="faint" style="font-size:12px;margin-bottom:8px">30-day free trial · no credit card required to start</div>
             <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start 30-day free trial</button>
           </div>
           <div class="tier">
@@ -802,20 +800,26 @@
     users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M17 6a3 3 0 010 6M21 20c0-2-1-3.5-3-4.2"/>',
     chip:'<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
     leak:'<path d="M12 2s7 7.5 7 12a7 7 0 01-14 0c0-4.5 7-12 7-12z"/><path d="M12 10.5v3.2M12 17h.01"/>',
+    // Centrifugal pump: volute + impeller vane, discharge elbow up, suction line out, on a base
+    pump:'<circle cx="10" cy="10.5" r="5"/><path d="M10 5.5V3h5M15 10.5h6M5 19h13M8 15.5v3.5M13 15.5v3.5"/><path d="M10 10.5l3.3-2.5"/>',
+    // Mixed-use commercial: a low block beside a taller tower
+    tower:'<path d="M3 21h18M6 21V10h6v11M12 21V4h6v17"/><path d="M8.5 13.5h1M8.5 17h1M14.5 7.5h1M14.5 11.5h1M14.5 15.5h1"/>',
+    // Fuel dispenser (gas-station QSR)
+    fuel:'<path d="M4 21V5a2 2 0 012-2h5a2 2 0 012 2v16M2.5 21H15"/><path d="M6 6.5h5v4H6z"/><path d="M13 10h2.5a1.5 1.5 0 011.5 1.5V17a1.5 1.5 0 003 0v-6.5L18 8"/>',
   };
   const svg = (p, w) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
   function setIco(id, name, w) { const el = $("#" + id); if (el) el.innerHTML = svg(I[name], w); }
 
   // ---------- Data ----------
   const INDUSTRIES = [
-    ["Water Treatment & Municipal Wastewater", "Lift stations and effluent systems where failure means environmental and compliance risk.", "water"],
-    ["Pumping Stations & Water Movement", "Wells, booster pumps, and stormwater systems that prevent flooding and downtime.", "flow"],
-    ["Multi-Tenant Residential Communities", "HVAC, electrical, and leak detection for the shared systems apartments, condos & HOAs depend on.", "building"],
-    ["Commercial & Mixed-Use Property Management", "HVAC, electrical demand, and pumps supporting business continuity across offices and retail.", "grid"],
-    ["Assisted Living & Healthcare Facilities", "HVAC, refrigeration, and water quality where uptime is a matter of resident safety.", "shield"],
-    ["Storage, Refrigeration & Fulfillment Centers", "Cold storage, environmental control, and backup power protecting high-value inventory.", "fridge"],
-    ["Pools & Water Quality Systems", "Chemistry, circulation, and filtration that prevent health risk and equipment damage.", "pool"],
-    ["Quick Service Restaurants (QSR)", "Refrigeration, grease lift pumps, and HVAC supporting food safety and continuous uptime.", "hvac"],
+    ["Water Treatment &amp; Municipal Wastewater", "Lift stations and effluent systems where failures create environmental and compliance risk.", "water"],
+    ["Pumping Stations &amp; Water Movement", "Wells, booster pumps, and stormwater systems that prevent flooding and service disruption.", "pump"],
+    ["Multi-Tenant Residential Communities", "Shared HVAC, electrical, and leak detection systems supporting apartments, condos, and HOAs.", "building"],
+    ["Commercial &amp; Mixed-Use Property Management", "HVAC, electrical demand, and pump systems that keep offices, retail, and industrial spaces running.", "tower"],
+    ["Assisted Living &amp; Healthcare Facilities", "Critical HVAC, refrigeration, and water quality systems where uptime protects resident safety.", "shield"],
+    ["Storage, Refrigeration &amp; Fulfillment Centers", "Cold storage, environmental control, and backup power safeguarding high-value inventory.", "fridge"],
+    ["Pools &amp; Water Quality Systems", "Chemistry, circulation, and filtration systems that prevent health risks and equipment damage.", "pool"],
+    ["Quick Service Restaurants (QSR)", "Refrigeration, grease traps, and HVAC supporting food safety and continuous uptime.", "fuel"],
   ];
   const ECO_CATS = [
     ["Water & wastewater infrastructure", "flow", "Lift-station level & pressure sensors, well and booster pump monitors, wet-well and stormwater controls — protecting water treatment, wastewater, and pumping infrastructure."],
