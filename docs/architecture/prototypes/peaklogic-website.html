@@ -212,6 +212,40 @@
   .cols2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
   @media (max-width: 860px) { .cols2 { grid-template-columns: 1fr; } }
 
+  /* Pricing */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: stretch; }
+  @media (max-width: 900px) { .tiers { grid-template-columns: 1fr; max-width: 460px; margin: 0 auto; } }
+  .tier { background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 28px; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .tier--pop { border-color: var(--purple); box-shadow: 0 22px 54px rgba(124,58,237,.16); position: relative; }
+  .tier__badge { position: absolute; top: -12px; left: 28px; background: var(--purple); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; letter-spacing: .04em; }
+  .tier__name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--purple-deep); }
+  .tier__price { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 12px 0 0; }
+  .tier__price span { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .tier__desc { color: var(--muted); font-size: 14px; margin: 8px 0 0; min-height: 40px; }
+  .tier ul { list-style: none; padding: 0; margin: 20px 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+  .tier li { display: flex; gap: 10px; font-size: 14px; align-items: flex-start; }
+  .tier li svg { width: 18px; height: 18px; color: var(--green); flex: none; margin-top: 1px; }
+  .tier li.off { color: var(--faint); } .tier li.off svg { color: var(--line-2); }
+  .price-note { text-align: center; color: var(--muted); font-size: 13.5px; margin-top: 22px; }
+  .partner-band { background: linear-gradient(120deg, #f2effe, #eef0f7); border: 1px solid var(--line); border-radius: 20px; padding: 34px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: center; }
+  @media (max-width: 760px) { .partner-band { grid-template-columns: 1fr; } }
+  .faq { max-width: 780px; margin: 0 auto; }
+  .faq__item { border-top: 1px solid var(--line); padding: 20px 0; }
+  .faq__item:first-child { border-top: none; }
+  .faq__item h4 { margin: 0 0 6px; font-size: 16.5px; }
+  .faq__item p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  /* About */
+  .value-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 760px) { .value-grid { grid-template-columns: 1fr; } }
+  .team { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 800px) { .team { grid-template-columns: 1fr 1fr; } }
+  .team .m { text-align: center; }
+  .team .av { width: 74px; height: 74px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; }
+  .team .m b { font-size: 14.5px; display: block; } .team .m span { font-size: 12.5px; color: var(--muted); }
+  .about-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
+  @media (max-width: 900px) { .about-hero { grid-template-columns: 1fr; } }
+
   .hidden { display: none !important; }
 </style>
 
@@ -226,9 +260,9 @@
       <div class="nav__links">
         <a data-scroll="platform">Platform</a>
         <a data-scroll="industries">Industries</a>
-        <a data-scroll="why">Why PeakLogic</a>
         <a data-go="ecosystem">Device Ecosystem</a>
-        <a data-scroll="partners">Partners</a>
+        <a data-go="pricing">Pricing</a>
+        <a data-go="about">About</a>
       </div>
       <div class="nav__cta">
         <button class="btn btn--ghost btn--sm" data-login="partner">Partner login</button>
@@ -397,6 +431,169 @@
     </section>
   </main>
 
+  <!-- PRICING PAGE -->
+  <main id="pricing-view" class="hidden">
+    <section>
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">Pricing</span>
+          <h1 class="h1" style="font-size:clamp(30px,4.4vw,50px);margin-top:10px">Priced on the value we protect.</h1>
+          <p class="lede">Simple per-site subscriptions — not per sensor. Every plan includes unlimited users, the mobile app, and security-first data isolation. Billed annually; monthly available.</p>
+        </div>
+        <div class="tiers">
+          <div class="tier">
+            <div class="tier__name">Essentials</div>
+            <div class="tier__price">$99<span> / site / mo</span></div>
+            <div class="tier__desc">Continuous monitoring and real-time alerts for a single-location or small operator.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 device monitoring</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time alerts (app, email, SMS)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Standard device &amp; sensor support</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Live dashboards &amp; site map</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited users</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Custom thresholds &amp; AI</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated CMMS dispatch</li>
+            </ul>
+            <button class="btn btn--ghost" data-login="customer">Start free trial</button>
+          </div>
+          <div class="tier tier--pop">
+            <span class="tier__badge">MOST POPULAR</span>
+            <div class="tier__name">Professional</div>
+            <div class="tier__price">$299<span> / site / mo</span></div>
+            <div class="tier__desc">The full intelligence layer — configurable rules, AI, and automated dispatch into your systems.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Essentials</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Policy Engine — custom thresholds per asset</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>AI anomaly detection</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated CMMS work-order dispatch</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Reports, KPIs &amp; conversion tracking</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Priority alerting &amp; escalation</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Predictive &amp; compliance automation</li>
+            </ul>
+            <button class="btn btn--primary" data-login="customer">Start free trial</button>
+          </div>
+          <div class="tier">
+            <div class="tier__name">Enterprise</div>
+            <div class="tier__price">Custom</div>
+            <div class="tier__desc">For multi-site portfolios, regulated environments, and insurance-backed programs.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Professional</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Predictive maintenance models</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Compliance &amp; audit automation (7-yr trail)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Insurance-grade risk reporting</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>SSO / SCIM &amp; custom OEM integrations</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dedicated CSM &amp; SLA</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Outcome-based pricing available</li>
+            </ul>
+            <button class="btn btn--ghost" data-go="about">Talk to sales</button>
+          </div>
+        </div>
+        <p class="price-note">Hardware sold separately or subsidized through our insurance partners. Ask about <b>outcome-based pricing</b> — pay a share of the downtime and claims we help you avoid.</p>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="partner-band">
+          <div>
+            <span class="eyebrow">Channel partners</span>
+            <h2 class="h2" style="margin:10px 0 10px">White-label PeakLogic under your own brand.</h2>
+            <p class="muted" style="margin:0;font-size:15px">Volume-based platform pricing plus revenue share on the accounts you bring. Your logo, your domain, your customers — our intelligence layer underneath, feeding work into the systems you already run.</p>
+          </div>
+          <div style="text-align:right"><button class="btn btn--primary" data-login="partner">Explore the partner portal</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">FAQ</span><h2 class="h2" style="margin-top:10px">Common questions</h2></div>
+        <div class="faq">
+          <div class="faq__item"><h4>What counts as a “site”?</h4><p>A physical location you monitor — one restaurant, one pumping station, one building. Devices and users at that site are unlimited.</p></div>
+          <div class="faq__item"><h4>Do I have to replace my current CMMS or software?</h4><p>No. PeakLogic overlays your existing operation and pushes work into the systems you already use. It's additive, not a rip-and-replace.</p></div>
+          <div class="faq__item"><h4>How does outcome-based pricing work?</h4><p>For qualifying Enterprise programs, part of your fee is tied to the measured downtime, energy, and insurance claims we help you avoid — so you pay on value delivered.</p></div>
+          <div class="faq__item"><h4>What about hardware?</h4><p>Devices can be purchased outright, leased, or subsidized through our commercial insurance partners as part of a risk-mitigation program.</p></div>
+          <div class="faq__item"><h4>Is my data secure and isolated?</h4><p>Yes. Every organization's data is isolated at the database level (row-level security), encrypted, and fully audited. SOC 2 is in progress.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ABOUT PAGE -->
+  <main id="about-view" class="hidden">
+    <section>
+      <div class="wrap about-hero">
+        <div>
+          <span class="eyebrow">About PeakLogic</span>
+          <h1 class="h1" style="font-size:clamp(30px,4.2vw,50px);margin:12px 0 16px">We turn essential field services into a system of intelligence.</h1>
+          <p class="lede">The equipment that keeps buildings running — pumps, coolers, panels, pools, roofs — fails quietly and expensively. The people who service it deserve to see it coming. PeakLogic is the asset, risk, and intelligence layer that lets them.</p>
+        </div>
+        <div>
+          <div class="card" style="padding:30px;background:linear-gradient(150deg,#faf9ff,#f2effe);border-color:#e6e1fb">
+            <svg viewBox="0 0 24 24" width="34" fill="#c4b5fd" aria-hidden="true"><path d="M7 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3H7zM15 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3h-2z"/></svg>
+            <p style="font-size:19px;font-weight:650;line-height:1.5;margin:12px 0 0;letter-spacing:-.01em">Every silent failure is a preventable one. Our job is to make the invisible visible — and put that intelligence in the hands of the people already in the field.</p>
+            <div style="margin-top:18px;display:flex;align-items:center;gap:9px">
+              <svg viewBox="0 0 24 18" width="22"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
+              <span class="faint" style="font-size:13px;font-weight:600">The PeakLogic mission</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">What we believe</span><h2 class="h2" style="margin-top:10px">Four principles we build on.</h2></div>
+        <div class="value-grid">
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg></div><h3 class="h3">Overlay, don't replace</h3><p>We add intelligence to the business you already run and feed it back into your systems of record — never a rip-and-replace.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg></div><h3 class="h3">Prevention over reaction</h3><p>The most valuable service call is the one that happens before the failure. We're built to catch problems early.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h3 class="h3">Proof over promises</h3><p>Every prevented failure and normalized risk is measured. If we can't show the value, we haven't earned it.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3 class="h3">Security by construction</h3><p>Multi-tenant isolation, encryption, and full auditability aren't features — they're the foundation.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap cols2" style="align-items:center">
+        <div>
+          <span class="eyebrow">Where we started</span>
+          <h2 class="h2" style="margin:10px 0 14px">Born in Tampa Bay, built for the field.</h2>
+          <p class="lede">PeakLogic launched alongside the Purple Standard family of field-services brands — septic, pumping, energy, pools, roofing, and climate — proving the platform against real routes, real equipment, and real customers before opening it to the wider market.</p>
+          <div class="hero__stats" style="margin-top:26px">
+            <div class="hero__stat"><b style="color:var(--purple)">6</b><span>trades live</span></div>
+            <div class="hero__stat"><b style="color:var(--green-ink)">Tampa Bay</b><span>headquarters</span></div>
+            <div class="hero__stat"><b>SOC 2</b><span>in progress</span></div>
+          </div>
+        </div>
+        <div id="about-art"></div>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">The team</span><h2 class="h2" style="margin-top:10px">Operators, engineers, and field veterans.</h2></div>
+        <div class="team">
+          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder &amp; CEO</span></div>
+          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Head of Platform</span></div>
+          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>VP, Partnerships</span></div>
+          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Head of Field Success</span></div>
+        </div>
+        <p class="center muted" style="margin-top:22px;font-size:12.5px">Team shown for demonstration.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="ctaband">
+          <span class="eyebrow" style="color:rgba(255,255,255,.85)">Join us</span>
+          <h2 class="h2" style="margin-top:10px">See what an intelligence layer does for your business.</h2>
+          <p>Walk through the platform, or talk to us about a channel-partner program.</p>
+          <button class="btn btn--light" data-login="all">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
   <footer>
     <div class="wrap">
       <div class="foot__grid">
@@ -405,7 +602,7 @@
           <p style="color:#9fb0cf;font-size:14px;max-width:32ch;margin:0">Essential Field Services Intelligence, Asset &amp; Risk Management. Tampa Bay, FL.</p>
         </div>
         <div><h5>Platform</h5><a data-scroll="platform">Overview</a><a data-scroll="how">How it works</a><a data-go="ecosystem">Device Ecosystem</a><a data-login="all">Live demo</a></div>
-        <div><h5>Company</h5><a data-scroll="why">Why PeakLogic</a><a data-scroll="industries">Industries</a><a data-scroll="partners">Channel partners</a><a data-go="home">Contact</a></div>
+        <div><h5>Company</h5><a data-go="about">About</a><a data-go="pricing">Pricing</a><a data-scroll="why">Why PeakLogic</a><a data-scroll="partners">Channel partners</a></div>
         <div><h5>Access</h5><a data-login="customer">Customer login</a><a data-login="partner">Partner login</a><a data-login="staff">Staff console</a></div>
       </div>
       <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · SOC 2 in progress</span></div>
@@ -511,7 +708,7 @@
       ${[0,1,2,3,4,5].map(i => {
         const x = 40 + i*70;
         const cols = ["#7c3aed","#0369a1","#f59e0b","#0891b2","#c2410c","#0d9488"];
-        return `<g transform="translate(${x},330)"><rect width="52" height="52" rx="12" fill="#fff" stroke="#e7e6f1"/><circle cx="26" cy="26" r="9" fill="${cols[i]}" opacity="0.9"/><circle cx="26" cy="26" r="4" fill="#fff"/></g>`;
+        return `<g transform="translate($<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>,330)"><rect width="52" height="52" rx="12" fill="#fff" stroke="#e7e6f1"/><circle cx="26" cy="26" r="9" fill="${cols[i]}" opacity="0.9"/><circle cx="26" cy="26" r="4" fill="#fff"/></g>`;
       }).join("")}
       <!-- connectors -->
       <g stroke="#c4b5fd" stroke-width="2" fill="none" opacity="0.9">
@@ -558,17 +755,17 @@
   $("#why-art").innerHTML = whyArt();
   $("#eco-art-sm").innerHTML = ecoArt("sm");
   $("#eco-art-lg").innerHTML = ecoArt("lg");
+  $("#about-art").innerHTML = ecoArt("sm");
   $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
     `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
   $("#partner-logos").innerHTML = PARTNERS.map(([n,l,c]) =>
-    `<div class="plogo"><span class="mk" style="background:${c}">${l}</span><div><b>${n}</b><span>Purple Standard family</span></div></div>`).join("");
+    `<div class="plogo"><span class="mk" style="background:$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>">${l}</span><div><b>${n}</b><span>Purple Standard family</span></div></div>`).join("");
   $("#eco-cats").innerHTML = ECO_CATS.map(([n,ic,d]) =>
     `<div class="card"><div class="ico">${svg(I[ic],2)}</div><h3 class="h3">${n}</h3><p>${d}</p></div>`).join("");
 
   // ---------- Navigation ----------
   function show(view) {
-    $("#home-view").classList.toggle("hidden", view !== "home");
-    $("#ecosystem-view").classList.toggle("hidden", view !== "ecosystem");
+    document.querySelectorAll("#site > main").forEach(m => m.classList.toggle("hidden", m.id !== view + "-view"));
     $("#portal-root").innerHTML = "";
     $("#site").classList.remove("hidden");
     window.scrollTo(0, 0);
@@ -652,7 +849,7 @@
         </div>
         <div class="panel2" style="margin-top:18px"><div class="panel2__h">Service tickets <span class="faint" style="font-weight:500;font-size:12px">· dispatched to your PeakLogic partner</span></div>
           <table class="ptbl"><thead><tr><th>Ticket</th><th>Issue</th><th>Serviced by</th><th>Status</th></tr></thead>
-          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
       </div></div></div>`;
   }
 
@@ -684,13 +881,13 @@
             <table class="ptbl"><thead><tr><th>Customer</th><th>Type</th><th>Status</th></tr></thead>
             <tbody>${accounts.map(([n,t,h,l]) => `<tr><td><b>${n}</b></td><td class="muted">${t}</td><td><span class="tag tag--${h}"><span class="d"></span>${l}</span></td></tr>`).join("")}</tbody></table></div>
           <div class="panel2"><div class="panel2__h">Today's dispatch</div>
-            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
         </div>
         <div class="panel2" style="margin-top:18px"><div class="panel2__h">Automated work orders from PeakLogic <span class="faint" style="font-weight:500;font-size:12px">· detected → pushed to your CMMS → converted to service calls</span></div>
           <div style="padding:18px 20px;display:flex;gap:26px;flex-wrap:wrap;align-items:center">
             <div><div class="faint" style="font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:700">This month</div><div style="font-size:30px;font-weight:800;color:${brand}">142</div><div class="muted" style="font-size:12.5px">on-site service calls generated by PeakLogic detection</div></div>
             <div style="flex:1;min-width:220px">
-              ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#6D28D9','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><div style="width:78px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c}"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
+              ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#6D28D9','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:4px 0"><div style="width:78px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:$<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
             </div>
           </div></div>
         <div class="card" style="margin-top:18px;background:${brand}0d;border-color:${brand}33;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
