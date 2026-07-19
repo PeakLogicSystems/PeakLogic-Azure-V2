@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.7 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6/v1.7 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending — mirrors this amendment)
-**Last updated:** 2026-07-17
+**Status:** Draft v1.8 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6/v1.7/v1.8 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.8, pending — mirrors this amendment)
+**Last updated:** 2026-07-19
 **Fork note (v1.7):** mirrors the PeakLogic-Azure fork's PRD v1.7 amendment (`azure-restructuring-plan.md` §3) — see Revision History. The AWS-native `PeakLogic-AWS` repo's own SRS is unaffected.
 
 ---
@@ -290,8 +290,11 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | IA-6.1 | A `superadmin` session shall be permitted every action IA-5.1 permits an `account_manager`, for every tenant/partner, without requiring an explicit assignment record — `superadmin` access is not itself an "assignment," it is unconditional |
 | IA-7.1 | Every write performed through the console shall be recorded via the existing audit-log mechanism (AUD-1/AUD-2), with the acting staff member's identity and the target tenant/partner recorded — extending the existing dual-scope (tenant/channel-partner) audit model to a third actor type rather than inventing a parallel logging mechanism |
 | IA-8.1 | No endpoint under this identity surface shall accept an unauthenticated request, and no endpoint shall permit a tenant or channel-partner user to create a `tenants` or `channel_partners` row — that capability is exclusive to `superadmin` |
+| IA-9.1 | Device/site provisioning and per-asset threshold configuration performed under IA-5.1/IA-6.1 shall reuse the tenant's or channel-partner's own provisioning/threshold screens and API contract, entered via the existing act-as session context — not a parallel, staff-only form or endpoint set *(added — see Revision History)* |
 
 **Error/edge conditions:** an `account_manager` session with zero assigned accounts (IA-4.1 shall produce an empty, valid result, not an error); a `superadmin` action targets a tenant/partner that doesn't exist (shall be rejected with a real error, not silently create a duplicate).
+
+**A real, unresolved gap, not settled by IA-9.1 alone**: whether act-as literally mounts the tenant/partner-side frontend inside the console's own chrome (an iframe or route-level embed), or the console has its own UI calling the identical tenant-facing API endpoints under the acting-staff session, is an open UX Wireframes/API Specification question. IA-9.1 only commits to *behavioral* parity (same screens, same capabilities) — not which of those two implementations is used.
 
 ### 3.14 Settings & Preferences (→ PRD §5.12 SET-1–SET-8) *(added v1.6 — see Revision History)*
 
@@ -350,6 +353,21 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 | 3DR-3.1 | The absence of a 3D-model reference for a Site/Asset shall render as a normal, unremarkable state (e.g. the view simply omits the 3D panel) — not an error or a "missing data" warning |
 
 **Error/edge conditions:** none beyond 3DR-3.1's default-absence handling — no further behavior is specified until the open scoping items (file format, rendering approach, storage) are resolved. This section deliberately does not specify a rendering library, a file format validation rule, or a storage/CDN mechanism — doing so before the dedicated scoping pass (PRD §5.15) would be assuming, not specifying.
+
+### 3.18 Device & Firmware Version Catalog (→ PRD §5.16 FW-1–FW-4) *(added v1.8 — see Revision History)*
+
+**Description:** A canonical catalog of supported products/sensor types and the firmware/software versions PeakLogic supports for each, organized into named channels. Surfaced by the Internal Administration Console prototype (§3.13) already modeling a per-device "Firmware channel" (desired) / "Firmware installed" (reported) twin property pair with nothing behind it — today that value is a freely-typed string with no source of truth to validate against.
+
+| ID | Requirement |
+|---|---|
+| FW-1.1 | The system shall maintain a catalog entity mapping each supported product/sensor type to its set of supported firmware/software versions, each version tagged with a named channel (e.g. `stable`, `beta`) |
+| FW-2.1 | A device's reported firmware version (device-twin reported property, §3.13's prototype) shall be checked against FW-1.1's catalog for that device's product type; a version not present in the catalog shall be flagged as unmanaged/unrecognized rather than accepted as valid |
+| FW-3.1 | The Internal Administration Console (§3.13) shall provide a fleet-wide query/view of firmware drift: devices on an unmanaged version, devices on a supported-but-outdated version, and devices already on the latest version for their channel |
+| FW-4.1 | The device-twin desired property "Firmware channel" shall be set from FW-1.1's catalog of channels defined for that device's product type — not accepted as an arbitrary string from the caller |
+
+**Error/edge conditions:** a product/sensor type with zero catalog entries (FW-2.1 shall flag every reported version for that type as unmanaged, not silently pass); a device whose product type is itself unknown/unset (same treatment — unmanaged, not an error state that blocks rendering).
+
+**Deliberately undecided at this level, consistent with PRD §5.16**: whether this catalog also drives actual firmware image distribution (an OTA delivery pipeline) or is version/compatibility metadata only, feeding a separately-designed distribution mechanism, is left to Domain Model, Database Schema, and Device & Command Security Architecture.
 
 ---
 
@@ -525,3 +543,9 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 - **§5.5 Portability corrected**: no longer states the implementation is AWS-committed; states the Azure commitment and the still-open Bicep-vs-Terraform choice instead.
 - **§2.5/§2.6 extended**: flagged the mapping-technology choice (§3.16) and the full 3D-rendering shape (§3.17) as open, undecided at this level — consistent with how this document has always flagged genuinely open items (e.g. v1.5's partner-auth-mechanism flag) rather than silently assuming an answer.
 - **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): Domain Model (site-coordinate portability confirmation, new 3D-model-asset-reference entity once scoped), User Stories, UX Wireframes (new map/3D views, the mapping-technology evaluation), Information Architecture (new nav items), Database Schema, API Specification (map data + 3D asset delivery endpoints).
+
+**v1.8 (2026-07-19)** — forced by direct, hands-on use of the Internal Administration Console prototype, mirroring the PRD's own v1.8 amendment, per this document's rule (§8).
+
+- **§3.13 amended (IA-9.1 added)**: staff-performed device/site provisioning and threshold configuration (IA-5.1/IA-6.1) shall reuse the tenant's/partner's own provisioning and threshold screens and API contract via the existing act-as session, not a parallel staff-only form. **Explicitly flagged as only behaviorally resolved, not architecturally**: whether act-as embeds the tenant/partner frontend directly or the console calls the same tenant-facing API endpoints under its own UI is left open for a UX Wireframes/API Specification amendment.
+- **§3.18 added (FW-1.1–FW-4.1)**: a Device & Firmware Version Catalog — elaborates PRD §5.16. Validates each device's reported firmware version against a per-product-type catalog of supported versions/channels, flags unmanaged versions, and specifies a fleet-wide drift view for §3.13's console. Whether the catalog also drives actual OTA image distribution, or is compatibility metadata only, is explicitly left to Domain Model/Database Schema/Device & Command Security Architecture.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass): Domain Model (a Firmware/Product Catalog entity and its relationship to `devices`), Database Schema, API Specification (catalog CRUD + drift-query endpoints; the act-as provisioning/threshold API shape per IA-9.1), UX Wireframes (fleet firmware-drift view; the act-as provisioning/threshold screens).

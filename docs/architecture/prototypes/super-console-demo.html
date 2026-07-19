@@ -21,6 +21,7 @@
     --accent: #7c3aed;
     --accent-ink: #6d28d9;
     --accent-soft: #ede9fe;
+    --data-val: var(--text-muted);
 
     --good: #16a34a;
     --good-soft: #dcfce7;
@@ -58,6 +59,7 @@
       --accent: #8b5cf6;
       --accent-ink: #a78bfa;
       --accent-soft: #241d45;
+      --data-val: var(--text);
 
       --good: #34d399; --good-soft: #0c2a20; --good-ink: #6ee7b7;
       --warn: #fbbf24; --warn-soft: #2e2408; --warn-ink: #fcd34d;
@@ -72,6 +74,7 @@
     --bg: #f5f5fb; --surface: #ffffff; --surface-2: #fbfaff; --surface-3: #f2f1fa;
     --border: #e7e5f1; --border-strong: #d7d4e8; --text: #10152a; --text-muted: #5c6480;
     --text-faint: #939ab5; --accent: #7c3aed; --accent-ink: #6d28d9; --accent-soft: #ede9fe;
+    --data-val: var(--text-muted);
     --good: #16a34a; --good-soft: #dcfce7; --good-ink: #15803d;
     --warn: #d97706; --warn-soft: #fef3c7; --warn-ink: #b45309;
     --crit: #dc2626; --crit-soft: #fee2e2; --crit-ink: #b91c1c;
@@ -83,6 +86,7 @@
     --bg: #080c17; --surface: #10192b; --surface-2: #0d1524; --surface-3: #16223a;
     --border: #223049; --border-strong: #2c3c58; --text: #eef2fb; --text-muted: #93a0bd;
     --text-faint: #66728f; --accent: #8b5cf6; --accent-ink: #a78bfa; --accent-soft: #241d45;
+    --data-val: var(--text);
     --good: #34d399; --good-soft: #0c2a20; --good-ink: #6ee7b7;
     --warn: #fbbf24; --warn-soft: #2e2408; --warn-ink: #fcd34d;
     --crit: #f87171; --crit-soft: #2e1416; --crit-ink: #fca5a5;
@@ -393,7 +397,7 @@
   .twin { width: 100%; border-collapse: collapse; font-size: 12.5px; }
   .twin td { padding: 8px 0; border-bottom: 1px solid var(--border); }
   .twin td:first-child { color: var(--text-muted); padding-right: 12px; }
-  .twin td:last-child { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; }
+  .twin td:last-child { text-align: right; font-family: var(--mono); font-weight: 600; font-variant-numeric: tabular-nums; color: var(--data-val); }
   .twin tr:last-child td { border-bottom: none; }
   .sync { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 700; padding: 2px 9px; border-radius: 20px; }
   .sync .dot { width: 6px; height: 6px; border-radius: 50%; }
@@ -1137,9 +1141,18 @@
   function explain(how, why) {
     return `<span class="mx-i" tabindex="0" data-how="${esc(how)}" data-why="${esc(why)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>`;
   }
+  // Column explainer — a small eye-in-circle icon that reveals a plain-language
+  // meaning for a table column header on hover/focus. Shares the mx-i/mx-tip
+  // hover mechanism with the metric explainer above, distinguished by data-tip.
+  function explainCol(text) {
+    return `<span class="mx-i" tabindex="0" data-tip="${esc(text)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M3.5 12S6.5 7 12 7s8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5z"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>`;
+  }
   function showMxTip(el) {
     const tip = $("#mx-tip");
-    tip.innerHTML = `<b>How it's calculated</b><p>${esc(el.getAttribute("data-how"))}</p><b>Why it matters</b><p>${esc(el.getAttribute("data-why"))}</p>`;
+    const plain = el.getAttribute("data-tip");
+    tip.innerHTML = plain != null
+      ? `<p>${esc(plain)}</p>`
+      : `<b>How it's calculated</b><p>${esc(el.getAttribute("data-how"))}</p><b>Why it matters</b><p>${esc(el.getAttribute("data-why"))}</p>`;
     tip.classList.add("show");
     const r = el.getBoundingClientRect(), th = tip.offsetHeight, tw = 252;
     let left = Math.min(r.left, window.innerWidth - tw - 12);
@@ -1394,23 +1407,35 @@
       const mapPanel = mapped.length ? `<div class="panel" style="margin-bottom:16px">
         <div class="panel__head"><span class="panel__title">Site map</span><span class="panel__note">${mapped.length} located sites · click a pin to drill in</span></div>
         ${renderMap(sitePointsFor([t]), 320)}</div>` : "";
-      return `${mapPanel}<div class="panel"><table class="tbl">
+      return `${mapPanel}
+      <div class="toolbar" style="margin-bottom:12px">
+        <span class="faint" style="font-size:12.5px">Provisioning here uses the same screens ${esc(t.name)}'s own admin sees</span>
+        <button class="btn btn--primary" data-action="site-open:${t.id}" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Register site</button>
+      </div>
+      <div class="panel"><table class="tbl">
         <thead><tr><th>Site</th><th class="num">Assets</th><th class="num">Devices</th><th>Status</th></tr></thead>
-        <tbody>${t.sites.map(s => {
+        <tbody>${t.sites.length ? t.sites.map(s => {
           const dev = s.assets.reduce((a,x)=>a+x.devices.length,0);
           const worst = siteHealth(s);
           return `<tr class="clickable" data-action="tenant-tab:assets"><td class="strong">${esc(s.name)}</td><td class="num muted">${s.assets.length}</td>
             <td class="num muted">${dev}</td><td>${healthPill(worst)}</td></tr>`;
-        }).join("")}</tbody></table></div>`;
+        }).join("") : `<tr><td colspan="4"><div class="empty">No sites yet — register one to get started</div></td></tr>`}</tbody></table></div>`;
     }
     if (S.tab === "assets") {
       const rows = [];
-      t.sites.forEach(s => s.assets.forEach(a => { const ah = assetDeviceHealth(a); rows.push(`
+      t.sites.forEach((s, si) => s.assets.forEach((a, ai) => { const ah = assetDeviceHealth(a);
+        const thresholds = a.thresholds || (CAT_CONFIG[a.cat] || {}).thresholds || "—"; rows.push(`
         <tr><td class="sev-cell"><span class="sev-stripe" style="background:var(--${ah})"></span></td>
           <td><div class="row-main"><span class="strong">${esc(a.name)}</span><span class="row-sub">${esc(s.name)}</span></div></td>
           <td><span class="pill pill--neutral"><span class="dot"></span>${CAT_LABEL[a.cat]}</span></td>
-          <td class="num muted">${a.devices.length} devices</td><td>${healthPill(ah)}</td></tr>`); }));
-      return `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset</th><th>Category</th><th class="num">Devices</th><th>Status</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+          <td class="num muted">${a.devices.length} devices</td>
+          <td class="mono muted" style="font-size:11.5px">${esc(thresholds)}</td>
+          <td>${healthPill(ah)}</td>
+          <td><button class="btn btn--ghost btn--sm" data-action="thresholds-open:${t.id}:${si}.${ai}">Thresholds</button></td></tr>`); }));
+      return `<div class="panel"><table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset</th><th>Category</th><th class="num">Devices</th>
+        <th>Alert thresholds ${explainCol("The reading range considered normal for this asset. Readings outside it generate an alert.")}</th>
+        <th>Status</th><th></th></tr></thead><tbody>${rows.join("") || `<tr><td colspan="7"><div class="empty">No assets yet</div></td></tr>`}</tbody></table></div>`;
     }
     if (S.tab === "devices") {
       const rows = [];
@@ -1420,7 +1445,19 @@
           <td>${statePill(d.state)}</td>
           <td class="mono" style="color:${d.health==='crit'?'var(--crit-ink)':d.health==='warn'?'var(--warn-ink)':'var(--text-muted)'}">${esc(d.metric)}</td>
           <td>${sparkline(d.spark, d.health)}</td></tr>`))));
-      return `<div class="panel"><table class="tbl"><thead><tr><th>Device ID</th><th>Name</th><th>State</th><th>Latest reading</th><th>Trend</th></tr></thead><tbody>${rows.join("")}</tbody></table></div>`;
+      return `
+      <div class="toolbar" style="margin-bottom:12px">
+        <span class="faint" style="font-size:12.5px">Provisioning here uses the same screens ${esc(t.name)}'s own admin sees</span>
+        <button class="btn btn--primary" data-action="register-open:${t.id}" style="margin-left:auto">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Register devices</button>
+      </div>
+      <div class="panel"><table class="tbl"><thead><tr>
+        <th>Device ID ${explainCol("The unique identifier assigned when the device was registered — used in API calls, firmware logs, and support tickets.")}</th>
+        <th>Name ${explainCol("A human-readable label for the device, usually describing what it monitors and where.")}</th>
+        <th>State ${explainCol("The device's lifecycle stage, from zero-touch registration through active reporting to silence.")}</th>
+        <th>Latest reading ${explainCol("The most recent telemetry value received from the device.")}</th>
+        <th>Trend ${explainCol("The recent trajectory of this device's readings, at a glance.")}</th>
+      </tr></thead><tbody>${rows.join("") || `<tr><td colspan="5"><div class="empty">No devices yet</div></td></tr>`}</tbody></table></div>`;
     }
     if (S.tab === "alerts") {
       const rows = [];
@@ -1483,7 +1520,15 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>Register devices</button>
       </div>
       <div class="panel"><table class="tbl">
-        <thead><tr><th>Device ID</th><th>Name</th><th>Organization</th><th>Category</th><th>State</th><th>Reading</th><th>Trend</th></tr></thead>
+        <thead><tr>
+          <th>Device ID ${explainCol("The unique identifier assigned when the device was registered — used in API calls, firmware logs, and support tickets.")}</th>
+          <th>Name ${explainCol("A human-readable label for the device, usually describing what it monitors and where.")}</th>
+          <th>Organization ${explainCol("The tenant or channel-partner account this device is provisioned under.")}</th>
+          <th>Category ${explainCol("The asset type this device monitors — determines its default alert thresholds and dashboard treatment.")}</th>
+          <th>State ${explainCol("The device's lifecycle stage, from zero-touch registration through active reporting to silence.")}</th>
+          <th>Reading ${explainCol("The most recent telemetry value received from the device.")}</th>
+          <th>Trend ${explainCol("The recent trajectory of this device's readings, at a glance.")}</th>
+        </tr></thead>
         <tbody>${rows || `<tr><td colspan="7"><div class="empty">No devices match "${esc(S.query)}"</div></td></tr>`}</tbody></table></div>
       <div class="legend">${legend}</div>`;
   }
@@ -1518,7 +1563,7 @@
   }
 
   function viewAudit() {
-    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info" };
+    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "site.register": "info", "policy.update": "warn", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info" };
     const q = S.query.toLowerCase();
     const filtered = AUDIT.filter(a => !q || [a.actor, a.action, a.target, a.note].join(" ").toLowerCase().includes(q));
     const rows = filtered.map(a => `
@@ -1884,18 +1929,21 @@
     }
   }
 
-  function openRegister() {
-    const tenantOpts = TENANTS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
+  function openRegister(lockedOrgId) {
+    const locked = lockedOrgId ? tenantById(lockedOrgId) : null;
+    const tenantOpts = locked
+      ? `<option value="${locked.id}" selected>${esc(locked.name)}</option>`
+      : TENANTS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
     const catOpts = Object.keys(CAT_LABEL).filter(c => c !== "pump").map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join("");
     const html = `
       <div class="overlay" data-action="close-overlay"></div>
       <div class="modal" role="dialog" aria-label="Register devices">
         <div class="modal__head">
           <h2>Register devices</h2>
-          <p>Create cloud <b>intent records</b> with desired configuration attached. Devices self-provision and pull this config on first field connection — no per-unit cloud step at connect time.</p>
+          <p>Create cloud <b>intent records</b> with desired configuration attached. Devices self-provision and pull this config on first field connection — no per-unit cloud step at connect time.${locked ? ` Scoped to <b>${esc(locked.name)}</b> — the same provisioning screen this organization's own admin would use.` : ""}</p>
         </div>
         <div class="modal__body">
-          <div class="field"><label for="rf-org">Organization</label><select id="rf-org">${tenantOpts}</select></div>
+          <div class="field"><label for="rf-org">Organization</label><select id="rf-org" ${locked ? "disabled" : ""}>${tenantOpts}</select></div>
           <div class="field--row">
             <div class="field"><label for="rf-name">Device name</label><input id="rf-name" type="text" placeholder="e.g. Circulation Pump" value="Circulation Pump"></div>
             <div class="field"><label for="rf-cat">Category</label><select id="rf-cat">${catOpts}</select></div>
@@ -1944,10 +1992,85 @@
       target: t.name, note: `${qty}× ${CAT_LABEL[cat]} · ${enroll === "group" ? "enrollment group" : "individual"} intent` });
     closeOverlay();
     setCounts();
-    S.view = "devices"; S.query = "";
+    if (!S.actingAs) { S.view = "devices"; S.query = ""; }
     render();
     toast(`${qty} intent record${qty > 1 ? "s" : ""} created for ${t.name}`);
   }
+
+  function openNewSite(orgId) {
+    const t = tenantById(orgId); if (!t) return;
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Register site">
+        <div class="modal__head">
+          <h2>Register site</h2>
+          <p>Add a new site to <b>${esc(t.name)}</b> — the same screen this organization's own admin uses to add a location.</p>
+        </div>
+        <div class="modal__body">
+          <div class="field"><label for="ns-name">Site name</label><input id="ns-name" type="text" placeholder="e.g. Downtown Location" value=""></div>
+          <div class="field--row">
+            <div class="field"><label for="ns-city">City</label><input id="ns-city" type="text" placeholder="e.g. Tampa" value=""></div>
+            <div class="field"><label for="ns-state">State</label><input id="ns-state" type="text" placeholder="e.g. FL" value="" maxlength="2" style="text-transform:uppercase"></div>
+          </div>
+          <p class="hint">Once created, assets and devices can be registered under this site the same way as any other.</p>
+        </div>
+        <div class="modal__foot">
+          <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="site-submit:${t.id}">Create site</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+    const n = $("#ns-name"); if (n) n.focus();
+  }
+  function submitNewSite(orgId) {
+    const t = tenantById(orgId); if (!t) return;
+    const name = ($("#ns-name").value || "New site").trim();
+    const city = ($("#ns-city").value || "").trim();
+    const state = ($("#ns-state").value || "").trim().toUpperCase();
+    t.sites.push({ name, city, state, assets: [] });
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "site.register", target: t.name, note: `${name}${city ? " · " + city + (state ? ", " + state : "") : ""}` });
+    closeOverlay();
+    S.tab = "sites";
+    render();
+    toast(`Site "${name}" created for ${t.name}`);
+  }
+
+  function openThresholds(orgId, assetKey) {
+    const t = tenantById(orgId); if (!t) return;
+    const [siteIdx, assetIdx] = assetKey.split(".").map(Number);
+    const site = t.sites[siteIdx]; if (!site) return;
+    const asset = site.assets[assetIdx]; if (!asset) return;
+    const current = asset.thresholds || (CAT_CONFIG[asset.cat] || {}).thresholds || "";
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Configure thresholds">
+        <div class="modal__head">
+          <h2>Configure thresholds</h2>
+          <p><b>${esc(asset.name)}</b> · ${esc(site.name)} · ${esc(t.name)} — the same alerting configuration this organization's own admin would set.</p>
+        </div>
+        <div class="modal__body">
+          <div class="field"><label for="th-val">Alert thresholds</label><input id="th-val" type="text" value="${esc(current)}" placeholder="e.g. ph 7.2–7.8 · orp ≥ 650mV"></div>
+          <p class="hint">Readings outside this range generate a threshold alert (AL-1.1) and, at critical severity, an automatic service ticket.</p>
+        </div>
+        <div class="modal__foot">
+          <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="thresholds-submit:${t.id}:${assetKey}">Save thresholds</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+    const n = $("#th-val"); if (n) n.focus();
+  }
+  function submitThresholds(orgId, assetKey) {
+    const t = tenantById(orgId); if (!t) return;
+    const [siteIdx, assetIdx] = assetKey.split(".").map(Number);
+    const asset = t.sites[siteIdx] && t.sites[siteIdx].assets[assetIdx]; if (!asset) return;
+    asset.thresholds = ($("#th-val").value || "").trim();
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "policy.update", target: t.name, note: `thresholds → ${asset.name}: ${asset.thresholds}` });
+    closeOverlay();
+    render();
+    toast(`Thresholds updated for ${asset.name}`);
+  }
+
   function nowStamp() {
     const d = new Date();
     const p = n => String(n).padStart(2, "0");
@@ -2116,8 +2239,12 @@
     else if (action === "tenant-tab") { S.tab = arg; render(); }
     else if (action === "partner-tab") { S.ptab = arg; render(); }
     else if (action === "device") openDeviceDrawer(arg);
-    else if (action === "register-open") openRegister();
+    else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
+    else if (action === "site-open") openNewSite(arg);
+    else if (action === "site-submit") submitNewSite(arg);
+    else if (action === "thresholds-open") openThresholds(arg, arg2);
+    else if (action === "thresholds-submit") submitThresholds(arg, arg2);
     else if (action === "method") runMethod(arg, arg2);
     else if (action === "run-report") {
       const r = STANDARD_REPORTS.find(x => x.id === arg);
