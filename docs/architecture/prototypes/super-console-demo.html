@@ -493,6 +493,16 @@
   .chart-legend { display: flex; gap: 18px; font-size: 12px; color: var(--text-muted); margin-top: 10px; flex-wrap: wrap; }
   .chart-legend span { display: inline-flex; align-items: center; gap: 7px; }
   .chart-legend i { width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
+
+  /* ---------- Metric explainer ("how it's calculated / why it matters") ---------- */
+  .mx-i { display: inline-flex; width: 14px; height: 14px; color: var(--text-faint); cursor: help; vertical-align: middle; }
+  .mx-i:hover, .mx-i:focus-visible { color: var(--accent); outline: none; }
+  .mx-i svg { width: 14px; height: 14px; }
+  #mx-tip { position: fixed; z-index: 80; width: 252px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 12px 14px; font-size: 12px; line-height: 1.5; opacity: 0; visibility: hidden; transition: opacity .1s ease; pointer-events: none; }
+  #mx-tip.show { opacity: 1; visibility: visible; }
+  #mx-tip b { display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .05em; color: var(--accent-ink); margin: 9px 0 3px; font-weight: 700; }
+  #mx-tip b:first-child { margin-top: 0; }
+  #mx-tip p { margin: 0; color: var(--text-muted); }
 </style>
 
 <div class="app" id="app">
@@ -577,6 +587,7 @@
 </div>
 <div id="overlay-root"></div>
 <div class="toasts" id="toasts"></div>
+<div id="mx-tip"></div>
 
 <script>
 (function () {
@@ -945,6 +956,26 @@
     t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => { if (d.health === "crit") crit++; else if (d.health === "warn") warn++; })));
     return { crit, warn };
   }
+  // ALL tenant counts derived from the actual devices, so the header, tabs,
+  // stat cards, and map never disagree (fixes phantom-count misalignment).
+  function tenantStats(t) {
+    let total = 0, online = 0, crit = 0, warn = 0;
+    t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+      total++;
+      if (d.state === "reporting" || d.state === "configured") online++;
+      if (d.health === "crit") crit++; else if (d.health === "warn") warn++;
+    })));
+    return { total, online, crit, warn, tickets: crit, health: crit ? "crit" : warn ? "warn" : "good" };
+  }
+  // One users list per tenant — used for BOTH the tab count and the rendered
+  // rows, so they can't drift (fixes "3 shown, count says 6").
+  function tenantUsers(t) {
+    return [
+      { n: "Operations Manager", e: "ops@" + t.id + ".example", r: "Admin" },
+      { n: "Facilities Lead", e: "facilities@" + t.id + ".example", r: "Operator" },
+      { n: "Night Shift Tech", e: "nightshift@" + t.id + ".example", r: "Operator" },
+    ];
+  }
 
   // ---------- Map (self-contained — no external tiles; sandbox blocks them) ----------
   function sitePointsFor(tenants) {
@@ -1036,7 +1067,7 @@
   // ---------- Derived aggregates (fan-out, computed per-org then merged) ----------
   function fleetTotals() {
     return TENANTS.reduce((a, t) => {
-      const c = tenantCountsOf(t); a.online += t.online; a.total += t.total; a.crit += c.crit; a.warn += c.warn; a.tickets += t.tickets; return a;
+      const s = tenantStats(t); a.online += s.online; a.total += s.total; a.crit += s.crit; a.warn += s.warn; a.tickets += s.tickets; return a;
     }, { online: 0, total: 0, crit: 0, warn: 0, tickets: 0 });
   }
   function needsAttention() {
@@ -1101,6 +1132,23 @@
     const a = "abcdefgh"[Math.floor(Math.random() * 8)];
     return `${p}-${n}-${a}`;
   }
+  // Metric explainer — a small ⓘ that reveals how a metric is calculated and
+  // why it matters (JS-positioned so it escapes panels' overflow:hidden).
+  function explain(how, why) {
+    return `<span class="mx-i" tabindex="0" data-how="${esc(how)}" data-why="${esc(why)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>`;
+  }
+  function showMxTip(el) {
+    const tip = $("#mx-tip");
+    tip.innerHTML = `<b>How it's calculated</b><p>${esc(el.getAttribute("data-how"))}</p><b>Why it matters</b><p>${esc(el.getAttribute("data-why"))}</p>`;
+    tip.classList.add("show");
+    const r = el.getBoundingClientRect(), th = tip.offsetHeight, tw = 252;
+    let left = Math.min(r.left, window.innerWidth - tw - 12);
+    let top = r.bottom + 8;
+    if (top + th > window.innerHeight - 12) top = r.top - th - 8;
+    tip.style.left = Math.max(12, left) + "px"; tip.style.top = top + "px";
+  }
+  function hideMxTip() { $("#mx-tip").classList.remove("show"); }
+
   function toast(msg) {
     const t = document.createElement("div");
     t.className = "toast";
@@ -1119,12 +1167,16 @@
     const ff_conv = conversionPct(ff);
 
     const stats = [
-      { label: "Organizations", value: orgCount, sub: `${TENANTS.length} tenants · ${PARTNERS.length} partners`, accent: "var(--accent)" },
-      { label: "Devices online", value: T.online.toLocaleString(), sub: `${offline} offline of ${T.total.toLocaleString()}`, accent: offline > 8 ? "var(--warn)" : "var(--good)" },
-      { label: "Open critical alerts", value: T.crit, sub: `${T.warn} warnings active`, accent: T.crit ? "var(--crit)" : "var(--good)" },
-      { label: "Open tickets", value: T.tickets, sub: "across all accounts", accent: "var(--info)" }
+      { label: "Organizations", value: orgCount, sub: `${TENANTS.length} tenants · ${PARTNERS.length} partners`, accent: "var(--accent)",
+        how: "Count of every tenant (customer) and channel-partner organization in your book of business.", why: "The breadth of what you manage from one console — the single pane of glass." },
+      { label: "Devices online", value: T.online.toLocaleString(), sub: `${offline} offline of ${T.total.toLocaleString()}`, accent: offline > 8 ? "var(--warn)" : "var(--good)",
+        how: "Devices currently reporting or configured, summed across every org via per-org scoped reads (fan-out).", why: "Coverage — how much of the estate is actually live and streaming right now." },
+      { label: "Open critical alerts", value: T.crit, sub: `${T.warn} warnings active`, accent: T.crit ? "var(--crit)" : "var(--good)",
+        how: "Devices whose latest reading is in a critical state, counted across all orgs.", why: "The highest-severity issues — these may already mean downtime, a safety risk, or a compliance breach." },
+      { label: "Open tickets", value: T.tickets, sub: "across all accounts", accent: "var(--info)",
+        how: "Service tickets auto-created from critical alerts — one work order per critical device — then dispatched to the partner.", why: "Work in flight, and the top of the auto-dispatch → service-call conversion funnel." }
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div>
-      <div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+      <div class="stat__label" style="display:flex;align-items:center;gap:5px">${s.label} ${explain(s.how, s.why)}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
 
     const attnRows = na.map(r => `
       <tr class="clickable" data-action="manage-tenant:${r.orgId}">
@@ -1135,12 +1187,12 @@
         <td>${statePill(r.state)}</td>
       </tr>`).join("");
 
-    const orgHealth = TENANTS.slice().sort((a,b)=>HRANK[tenantHealthOf(b)]-HRANK[tenantHealthOf(a)]).map(t => `
+    const orgHealth = TENANTS.slice().sort((a,b)=>HRANK[tenantHealthOf(b)]-HRANK[tenantHealthOf(a)]).map(t => { const st = tenantStats(t); return `
       <tr class="clickable" data-action="manage-tenant:${t.id}">
         <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub">${esc(t.industry)}</span></div></td>
-        <td style="width:170px">${rollup(t.online, t.total)}</td>
-        <td style="text-align:right">${healthPill(tenantHealthOf(t))}</td>
-      </tr>`).join("");
+        <td style="width:170px">${rollup(st.online, st.total)}</td>
+        <td style="text-align:right">${healthPill(st.health)}</td>
+      </tr>`; }).join("");
 
     return `
       <div class="page-head"><h1>Fleet Overview</h1>
@@ -1151,7 +1203,7 @@
           <span class="panel__note">CMMS conversion · this month</span></div>
         <div class="kpi-hero">
           <div class="kpi-hero__side">
-            <div class="readout__l">Conversion · dispatched → on-site</div>
+            <div class="readout__l" style="display:flex;align-items:center;gap:5px">Conversion · dispatched → on-site ${explain("On-site service calls ÷ automated work orders dispatched to partners' CMMS this month, fanned out per partner and summed.", "The core value metric — proves the platform's detection turns into real, billable service work.")}</div>
             <div class="kpi-hero__num">${ff_conv}%</div>
             <div class="faint" style="font-size:12px;margin-top:6px">${ff.onsite.toLocaleString()} on-site service calls generated from ${ff.dispatched.toLocaleString()} auto-dispatched work orders</div>
             <button class="btn btn--ghost" data-action="nav:reports" style="margin-top:14px">Open full report
@@ -1187,15 +1239,15 @@
   function viewTenants() {
     const q = S.query.toLowerCase();
     const rows = TENANTS.filter(t => !q || t.name.toLowerCase().includes(q) || t.industry.toLowerCase().includes(q)).map(t => {
-      const p = partnerFor(t);
+      const p = partnerFor(t); const st = tenantStats(t);
       return `
       <tr>
         <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub mono">${t.id}</span></div></td>
         <td class="muted">${esc(t.industry)}</td>
         <td>${p ? `<span style="display:inline-flex;align-items:center;gap:8px">${partnerLogo(p, 20)}<span class="muted">${esc(p.name)}</span></span>` : '<span class="faint">Direct</span>'}</td>
         <td class="muted">${esc(t.mgr)}</td>
-        <td style="width:140px">${rollup(t.online, t.total)}</td>
-        <td>${(() => { const c = tenantCountsOf(t); return c.crit ? `<span class="pill pill--crit"><span class="dot"></span>${c.crit} critical</span>` : c.warn ? `<span class="pill pill--warn"><span class="dot"></span>${c.warn} warning</span>` : healthPill("good"); })()}</td>
+        <td style="width:140px">${rollup(st.online, st.total)}</td>
+        <td>${st.crit ? `<span class="pill pill--crit"><span class="dot"></span>${st.crit} critical</span>` : st.warn ? `<span class="pill pill--warn"><span class="dot"></span>${st.warn} warning</span>` : healthPill("good")}</td>
         <td style="text-align:right"><button class="btn btn--primary" data-action="manage-tenant:${t.id}">Manage
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
       </tr>`;
@@ -1222,9 +1274,9 @@
           ${partnerLogo(p, 30)}
           <div class="row-main"><span class="strong">${esc(p.name)}</span><span class="row-sub mono">${p.id}</span></div></div></td>
         <td class="muted">${esc(p.region)}</td>
-        <td class="num strong">${p.accounts}</td>
-        <td class="num muted">${p.techs}</td>
-        <td class="num muted">${p.routes}</td>
+        <td class="num strong">${p.accountList.length}</td>
+        <td class="num muted">${p.technicians.length}</td>
+        <td class="num muted">${p.routes.length}</td>
         <td>${healthPill(p.health, p.health === "warn" ? "Route delay" : "Healthy")}</td>
         <td style="text-align:right"><button class="btn btn--primary" data-action="manage-partner:${p.id}">Manage
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
@@ -1253,7 +1305,7 @@
     ].map(x => `<button class="tab ${S.ptab===x.id?'tab--active':''}" data-action="partner-tab:${x.id}">${x.label}${x.count!==null?`<span class="tab__count">${x.count}</span>`:''}</button>`).join("");
     return `
       <div class="page-head"><h1>${esc(p.name)}</h1>
-        <p>${esc(p.region)} · ${p.techs} technicians across ${p.territories.length} territories. Partner staff sign in through the <span class="mono">PeakLogicPartners</span> directory; you manage them via audited act-as.</p></div>
+        <p>${esc(p.region)} · ${p.technicians.length} technicians across ${p.territories.length} territories. Partner staff sign in through the <span class="mono">PeakLogicPartners</span> directory; you manage them via audited act-as.</p></div>
       <div class="tabs">${tabs}</div>
       <div class="grow">${partnerTab(p)}</div>`;
   }
@@ -1319,18 +1371,19 @@
   function viewTenantDetail() {
     const t = tenantById(S.actingAs);
     if (!t) { S.view = "tenants"; return viewTenants(); }
+    const st = tenantStats(t);
     const tabs = [
       { id: "sites", label: "Sites", count: t.sites.length },
       { id: "assets", label: "Assets", count: t.sites.reduce((a,s)=>a+s.assets.length,0) },
-      { id: "devices", label: "Devices", count: t.sites.reduce((a,s)=>a+s.assets.reduce((b,x)=>b+x.devices.length,0),0) },
-      { id: "alerts", label: "Alerts", count: (() => { const c = tenantCountsOf(t); return c.crit + c.warn; })() },
-      { id: "tickets", label: "Tickets", count: t.tickets },
-      { id: "users", label: "Users", count: 6 }
+      { id: "devices", label: "Devices", count: st.total },
+      { id: "alerts", label: "Alerts", count: st.crit + st.warn },
+      { id: "tickets", label: "Tickets", count: st.tickets },
+      { id: "users", label: "Users", count: tenantUsers(t).length }
     ].map(x => `<button class="tab ${S.tab===x.id?'tab--active':''}" data-action="tenant-tab:${x.id}">${x.label}<span class="tab__count">${x.count}</span></button>`).join("");
 
     return `
       <div class="page-head"><h1>${esc(t.name)}</h1>
-        <p>${esc(t.industry)} · Account manager ${esc(t.mgr)} · ${t.online}/${t.total} devices online. You are viewing this org exactly as its own operators do.</p></div>
+        <p>${esc(t.industry)} · Account manager ${esc(t.mgr)} · ${st.online}/${st.total} devices online. You are viewing this org exactly as its own operators do.</p></div>
       <div class="tabs">${tabs}</div>
       <div class="grow">${tenantTab(t)}</div>`;
   }
@@ -1382,24 +1435,20 @@
         : `<div class="panel"><div class="empty">No open alerts — every device reporting within threshold.</div></div>`;
     }
     if (S.tab === "tickets") {
-      if (!t.tickets) return `<div class="panel"><div class="empty">No open service tickets.</div></div>`;
-      const sample = [
-        { id: "TCK-3391", subj: "Freezer Bay A product temp rising", sev: "crit", age: "38m" },
-        { id: "TCK-3372", subj: "Chem controller offline", sev: "warn", age: "3h" },
-        { id: "TCK-3355", subj: "Chiller loop above setpoint", sev: "warn", age: "1d" },
-        { id: "TCK-3340", subj: "Scheduled probe calibration", sev: "info", age: "2d" }
-      ].slice(0, t.tickets);
-      return `<div class="panel"><table class="tbl"><thead><tr><th>Ticket</th><th>Subject</th><th>Priority</th><th class="num">Age</th></tr></thead>
-        <tbody>${sample.map(k => `<tr><td class="mono strong">${k.id}</td><td>${esc(k.subj)}</td>
-          <td><span class="pill pill--${k.sev}"><span class="dot"></span>${k.sev==="crit"?"Urgent":k.sev==="warn"?"High":"Normal"}</span></td>
-          <td class="num muted">${k.age}</td></tr>`).join("")}</tbody></table></div>`;
+      // Tickets are the auto-created work orders for CRITICAL devices — so the
+      // count and the list always match the alerts (design: critical → ticket).
+      const crit = [];
+      t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => { if (d.health === "crit") crit.push({ d, a, s }); })));
+      if (!crit.length) return `<div class="panel"><div class="empty">No open service tickets.</div></div>`;
+      const partner = partnerFor(t);
+      const tix = crit.map((x, i) => ({ id: "TCK-" + (3391 - i), subj: `${x.d.name} — ${x.a.name}`, site: x.s.name }));
+      return `<div class="panel"><table class="tbl"><thead><tr><th>Ticket</th><th>Issue</th><th>Dispatched to</th><th>Priority</th></tr></thead>
+        <tbody>${tix.map(k => `<tr><td class="mono strong">${k.id}</td><td><b>${esc(k.subj)}</b><div class="faint" style="font-size:11.5px">${esc(k.site)}</div></td>
+          <td class="muted">${partner ? esc(partner.name) : "Internal"}</td>
+          <td><span class="pill pill--crit"><span class="dot"></span>Urgent</span></td></tr>`).join("")}</tbody></table></div>`;
     }
     if (S.tab === "users") {
-      const users = [
-        { n: "Operations Manager", e: "ops@"+t.id+".example", r: "Admin" },
-        { n: "Facilities Lead", e: "facilities@"+t.id+".example", r: "Operator" },
-        { n: "Night Shift Tech", e: "nightshift@"+t.id+".example", r: "Operator" }
-      ];
+      const users = tenantUsers(t);
       return `<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v4l3 2"/></svg>
         <div>These users authenticate in the <b>PeakLogicCustomers</b> directory — a separate token issuer from your staff sign-in. You manage them via act-as; you never hold their credentials.</div></div>
         <div class="panel"><table class="tbl"><thead><tr><th>User</th><th>Email</th><th>Role</th></tr></thead>
@@ -1529,7 +1578,7 @@
           <button class="btn btn--ghost" data-action="run-report:conversion" style="margin-left:12px">Export</button></div>
         <div class="kpi-hero">
           <div class="kpi-hero__side">
-            <div class="readout__l">Fleet conversion</div>
+            <div class="readout__l" style="display:flex;align-items:center;gap:5px">Fleet conversion ${explain("On-site service calls ÷ automated work orders dispatched, summed across all partners for the selected period.", "The headline proof that automated detection generates real service revenue for your partners.")}</div>
             <div class="kpi-hero__num">${conv}%</div>
             <div class="faint" style="font-size:12px;margin-top:6px">${ff.onsite.toLocaleString()} of ${ff.dispatched.toLocaleString()} auto-dispatched work orders reached an on-site service call</div>
           </div>
@@ -1546,9 +1595,9 @@
           <button class="btn btn--ghost" data-action="run-report:energy" style="margin-left:12px">Export</button></div>
         <div style="padding:16px 20px 18px">
           <div style="display:flex;gap:30px;flex-wrap:wrap;margin-bottom:12px">
-            <div><div class="readout__l">Peak vs. normalized</div><div style="font-size:26px;font-weight:760;color:var(--warn-ink);font-variant-numeric:tabular-nums">+12%</div></div>
-            <div><div class="readout__l">Avoidable cost / mo</div><div style="font-size:26px;font-weight:760;font-variant-numeric:tabular-nums">$1,840</div></div>
-            <div><div class="readout__l">Off-peak savings captured</div><div style="font-size:26px;font-weight:760;color:var(--good-ink);font-variant-numeric:tabular-nums">$620</div></div>
+            <div><div class="readout__l" style="display:flex;align-items:center;gap:5px">Peak vs. normalized ${explain("Highest current draw as a % above the learned normal (baseline) profile for the same time of day.", "A spike above normal is money leaking or a fault developing — it's where savings and anomalies hide.")}</div><div style="font-size:26px;font-weight:760;color:var(--warn-ink);font-variant-numeric:tabular-nums">+12%</div></div>
+            <div><div class="readout__l" style="display:flex;align-items:center;gap:5px">Avoidable cost / mo ${explain("Estimated monthly cost of the demand running above the normalized profile, at the site's utility rate.", "The dollars you can recover by bringing draw back to its normal envelope.")}</div><div style="font-size:26px;font-weight:760;font-variant-numeric:tabular-nums">$1,840</div></div>
+            <div><div class="readout__l" style="display:flex;align-items:center;gap:5px">Off-peak savings captured ${explain("Cost avoided where current draw ran below the baseline (e.g. scheduling, solar, setback).", "Credit for optimization already working — the other side of the ledger.")}</div><div style="font-size:26px;font-weight:760;color:var(--good-ink);font-variant-numeric:tabular-nums">$620</div></div>
           </div>
           ${overlayChart([120,118,116,115,116,120,140,175,205,215,218,216,214,215,214,210,205,200,190,175,160,145,132,125],
                          [122,119,117,116,118,124,148,182,214,232,255,268,250,228,216,209,206,201,188,172,150,140,131,126], { unit: "kW" })}
@@ -1566,15 +1615,15 @@
           <button class="btn btn--ghost" data-action="run-report:risk" style="margin-left:12px">Export</button></div>
         <div class="kpi-hero">
           <div class="kpi-hero__side">
-            <div class="readout__l">Risk reduced · flagged → normalized</div>
-            <div class="kpi-hero__num">83%</div>
-            <div class="faint" style="font-size:12px;margin-top:6px">39 of 47 at-risk assets brought back within safe range this quarter; 8 still open</div>
+            <div class="readout__l" style="display:flex;align-items:center;gap:5px">Risk reduced · flagged → normalized ${explain("At-risk assets that returned to a safe/normal state ÷ total assets flagged at-risk this quarter.", "Quantifies prevention — the failures you stopped before they became incidents, downtime, or insurance claims.")}</div>
+            <div class="kpi-hero__num">80%</div>
+            <div class="faint" style="font-size:12px;margin-top:6px">16 of 20 at-risk assets brought back within safe range this quarter; 4 still open</div>
           </div>
           <div class="kpi-hero__funnel">${renderStages([
-            { label: "Assets monitored", count: 214, color: "var(--accent)", rate: "22% flagged at-risk" },
-            { label: "At-risk detected", count: 47, color: "var(--warn)", rate: "96% flagged & dispatched" },
-            { label: "Flagged & dispatched", count: 45, color: "var(--info)", rate: "87% resolved" },
-            { label: "Normalized (risk reduced)", count: 39, color: "var(--good)" },
+            { label: "Assets monitored", count: 62, color: "var(--accent)", rate: "32% flagged at-risk" },
+            { label: "At-risk detected", count: 20, color: "var(--warn)", rate: "95% flagged & dispatched" },
+            { label: "Flagged & dispatched", count: 19, color: "var(--info)", rate: "84% resolved" },
+            { label: "Normalized (risk reduced)", count: 16, color: "var(--good)" },
           ])}</div>
         </div>
       </div>
@@ -1890,7 +1939,7 @@
       });
     }
     site.assets.push(asset);
-    t.total += qty;
+    // No manual count to bump — tenantStats derives device counts live.
     AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.register",
       target: t.name, note: `${qty}× ${CAT_LABEL[cat]} · ${enroll === "group" ? "enrollment group" : "individual"} intent` });
     closeOverlay();
@@ -2090,6 +2139,12 @@
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeOverlay();
   });
+
+  // Metric-explainer tooltip triggers
+  document.addEventListener("mouseover", (e) => { const el = e.target.closest(".mx-i"); if (el) showMxTip(el); });
+  document.addEventListener("mouseout", (e) => { if (e.target.closest(".mx-i")) hideMxTip(); });
+  document.addEventListener("focusin", (e) => { const el = e.target.closest(".mx-i"); if (el) showMxTip(el); });
+  document.addEventListener("focusout", (e) => { if (e.target.closest(".mx-i")) hideMxTip(); });
 
   // Map pin hover tooltip
   document.addEventListener("mousemove", (e) => {
