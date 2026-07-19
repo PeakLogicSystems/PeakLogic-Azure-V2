@@ -267,6 +267,7 @@
   @media (max-width: 800px) { .team { grid-template-columns: 1fr 1fr; } }
   .team .m { text-align: center; }
   .team .av { width: 74px; height: 74px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; }
+  .team .m p { margin: 6px 0 0; font-size: 12.5px; color: var(--muted); line-height: 1.5; }
   .team .m b { font-size: 14.5px; display: block; } .team .m span { font-size: 12.5px; color: var(--muted); }
   .about-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
   @media (max-width: 900px) { .about-hero { grid-template-columns: 1fr; } }
@@ -386,7 +387,7 @@
         </div>
         <div>
           <div class="why__item"><div class="k" id="w1"></div><div><h4>Leverage your CMMS</h4><p>Alerts and tickets flow into the CMMS and tools you already run. It's additive, not a migration.</p></div></div>
-          <div class="why__item"><div class="k" id="w2"></div><div><h4>Any device, any vendor</h4><p>Mixed equipment from different manufacturers is normalized into one view, so adding a device type is a setup step, not a project.</p></div></div>
+          <div class="why__item"><div class="k" id="w2"></div><div><h4>Device &amp; vendor agnostic</h4><p>Mixed equipment from different manufacturers is normalized into one view, so adding a device type is a setup step, not a project.</p></div></div>
           <div class="why__item"><div class="k" id="w3"></div><div><h4>Configurable to your equipment</h4><p>Set the thresholds and rules that matter for each asset and site. The platform adapts to your operation, not the other way around.</p></div></div>
           <div class="why__item"><div class="k" id="w4"></div><div><h4>Secure and fully traceable</h4><p>Data is encrypted and scoped to each customer, and every change is recorded in an append-only audit log you can trace end to end.</p></div></div>
         </div>
@@ -491,17 +492,23 @@
           <h1 class="h1" style="font-size:clamp(26px,3.2vw,40px);line-height:1.16;margin-top:10px;max-width:30ch;margin-left:auto;margin-right:auto">Pricing for the critical operations and uptime we help safeguard for your business.</h1>
           <p class="lede">Predictable per-site subscriptions — never per sensor, never per seat. Every plan includes unlimited users and a full audit trail, so the cost scales with the operation you're protecting, not the size of your team.</p>
         </div>
+        <div style="text-align:center;margin-bottom:18px">
+          <div class="billing-toggle">
+            <button class="bt on" data-aud="commercial">Commercial</button>
+            <button class="bt" data-aud="residential">Residential</button>
+          </div>
+        </div>
         <div style="text-align:center;margin-bottom:34px">
           <div class="billing-toggle">
-            <button class="bt on" data-bill="monthly">Monthly</button>
-            <button class="bt" data-bill="annual">Annual <span class="save">Save 20%</span></button>
+            <button class="bt on" data-bill="monthly">Month-to-month</button>
+            <button class="bt" data-bill="annual">12-month contract <span class="save">Save 20%</span></button>
           </div>
           <div id="bill-note" class="faint" style="font-size:12.5px;margin-top:11px"></div>
         </div>
-        <div class="tiers">
+        <div class="tiers" id="tiers-commercial">
           <div class="tier">
             <div class="tier__name">Essentials</div>
-            <div class="tier__price"><span class="amt" data-m="99" data-a="79">$99</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
+            <div class="tier__price"><span class="amt" data-m="99" data-a="79">$99</span><span class="amt-suffix" data-unit=" / site / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
             <div class="tier__desc">Continuous monitoring, real-time alerts, and live dashboards so a single site or small operator sees trouble the moment it starts — and acts before it becomes downtime.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 device monitoring</li>
@@ -518,7 +525,7 @@
           <div class="tier tier--pop">
             <span class="tier__badge">MOST POPULAR</span>
             <div class="tier__name">Professional</div>
-            <div class="tier__price"><span class="amt" data-m="299" data-a="249">$299</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
+            <div class="tier__price"><span class="amt" data-m="299" data-a="249">$299</span><span class="amt-suffix" data-unit=" / site / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
             <div class="tier__desc">Turn alerts into action. Custom rules, automated dispatch into the systems you already run, and the KPIs to hold response time and outcomes accountable across a growing operation.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Essentials</li>
@@ -545,7 +552,37 @@
             <button class="btn btn--ghost" data-go="contact" style="width:100%;justify-content:center">Contact sales</button>
           </div>
         </div>
-        <p class="price-note">Hardware is quoted separately based on your equipment. Every plan includes unlimited users and a full audit trail.</p>
+        <div class="tiers hidden" id="tiers-residential" style="max-width:760px;margin:0 auto">
+          <div class="tier">
+            <div class="tier__name">Home</div>
+            <div class="tier__price"><span class="amt" data-m="29" data-a="24">$29</span><span class="amt-suffix" data-unit=" / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / mo</span></div>
+            <div class="tier__desc">Continuous monitoring for a single home — your septic system, well, or pool — with real-time alerts the moment something needs attention.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 monitoring for one property</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time alerts (app, email, SMS)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mobile dashboard</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited household users</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated service-request routing</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Multi-system monitoring</li>
+            </ul>
+            <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start 30-day free trial</button>
+            <div class="faint" style="text-align:center;font-size:12px;margin-top:8px">30 days · no credit card</div>
+          </div>
+          <div class="tier tier--pop">
+            <span class="tier__badge">MOST POPULAR</span>
+            <div class="tier__name">Home Plus</div>
+            <div class="tier__price"><span class="amt" data-m="59" data-a="49">$59</span><span class="amt-suffix" data-unit=" / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / mo</span></div>
+            <div class="tier__desc">For homes with more to watch. Monitor septic, well, and pool systems together, with priority alerts and service requests routed straight to your provider.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Home</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-system monitoring (septic, well, pool)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated service-request routing to your provider</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Priority alerting &amp; escalation</li>
+            </ul>
+            <button class="btn btn--primary" data-go="contact" style="width:100%;justify-content:center">Request a demo</button>
+          </div>
+        </div>
+        <p class="price-note">With a 12-month contract, sensors and installation are included in your plan. On month-to-month billing, sensors and installation are a separate one-time charge, quoted based on your equipment. Every plan includes unlimited users and a full audit trail.</p>
       </div>
     </section>
 
@@ -591,7 +628,7 @@
             <p style="font-size:19px;font-weight:650;line-height:1.5;margin:12px 0 0;letter-spacing:-.01em">Most of the equipment we service fails with little warning. Being able to see it coming — and act before a small problem becomes a big one — is exactly what our customers count on us for.</p>
             <div style="margin-top:18px;display:flex;align-items:center;gap:11px">
               <span style="width:40px;height:40px;border-radius:50%;background:#7c3aed;color:#fff;display:grid;place-items:center;font-weight:800;font-size:14px;flex:none">CC</span>
-              <div><div style="font-weight:700;font-size:14.5px">Chris Clarke</div><div class="faint" style="font-size:12.5px;font-weight:600">Owner, ACE Septic &amp; Waste</div></div>
+              <div><div style="font-weight:700;font-size:14.5px">Chris Clarke</div><div class="faint" style="font-size:12.5px;font-weight:600">Owner, Septic &amp; Waste Company</div></div>
             </div>
           </div>
         </div>
@@ -630,10 +667,10 @@
       <div class="wrap">
         <div class="sec-head"><span class="eyebrow">The team</span><h2 class="h2" style="margin-top:10px">Operators, engineers, and field veterans.</h2></div>
         <div class="team">
-          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder</span></div>
-          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Head of Platform &amp; Architecture</span></div>
-          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>Director, Engineering</span></div>
-          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Operations Manager</span></div>
+          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder &amp; Head of Platform &amp; Architecture</span><p>Sets product vision and architects the control plane, telemetry fabric, and policy engine underneath it, from multi-tenant identity to the partner program.</p></div>
+          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>Head of Device &amp; Edge Engineering</span><p>Owns the device ecosystem end to end — firmware, edge agents, and the telemetry schemas that turn pumps, sensors, and gateways into one common model.</p></div>
+          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Operations Manager</span><p>Keeps the platform running: monitoring uptime, coordinating releases, and managing incident response across every tenant and device fleet.</p></div>
+          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Customer Success Manager</span><p>Leads onboarding and deployment for customers and partners, and connects field feedback back into the product.</p></div>
         </div>
         <p class="center muted" style="margin-top:22px;font-size:12.5px">Team shown for demonstration.</p>
       </div>
@@ -706,7 +743,7 @@
         </div>
         <div><h5>Platform</h5><a data-scroll="platform">Overview</a><a data-scroll="how">How it works</a><a data-go="ecosystem">Device Ecosystem</a><a data-login="all">Live demo</a></div>
         <div><h5>Company</h5><a data-go="about">About</a><a data-go="pricing">Pricing</a><a data-scroll="partners">For service companies</a><a data-go="contact">Contact</a></div>
-        <div><h5>Access</h5><a data-login="signin">Log in</a><a data-go="contact">Request a demo</a><a id="staff-link" target="_blank" rel="noopener" style="cursor:pointer">Staff sign-in ↗</a></div>
+        <div><h5>Access</h5><a data-login="signin">Log in</a><a data-go="contact">Request a demo</a><a id="staff-link" target="_top" style="cursor:pointer">Staff sign-in ↗</a></div>
       </div>
       <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · Fully traceable &amp; audited</span></div>
     </div>
@@ -781,8 +818,6 @@
       <defs>
         <linearGradient id="hsTank" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#e0f2fe"/><stop offset="1" stop-color="#bae6fd"/></linearGradient>
         <linearGradient id="hsWater" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#38bdf8"/><stop offset="1" stop-color="#0369a1"/></linearGradient>
-        <linearGradient id="hsTruck" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
-        <linearGradient id="hsSteel" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#f8fafc"/><stop offset="0.5" stop-color="#e2e8f0"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>
         <filter id="hsShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#6d28d9" flood-opacity="0.12"/></filter>
         <clipPath id="hsClipA"><rect x="180" y="238" width="54" height="88" rx="8"/></clipPath>
         <clipPath id="hsClipB"><rect x="246" y="256" width="50" height="70" rx="8"/></clipPath>
@@ -847,51 +882,49 @@
       </g>
       <circle class="hs-pulse" cx="207" cy="262" r="6" fill="#7c3aed"/><circle cx="207" cy="262" r="4.5" fill="#7c3aed" stroke="#fff" stroke-width="1.5"/>
       <circle class="hs-pulse" cx="271" cy="280" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="271" cy="280" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
-      <!-- Abstract, fully-purple vacuum service truck (static) -->
+      <!-- Abstract, fully-purple vacuum service truck: flat pictogram silhouette (static) -->
       <g filter="url(#hsShadow)">
-        <!-- chassis -->
-        <rect x="346" y="352" width="118" height="6" rx="3" fill="#4c1d95"/>
-        <!-- vacuum tank (simple purple cylinder) -->
-        <rect x="346" y="320" width="88" height="34" rx="17" fill="url(#hsTruck)"/>
-        <ellipse cx="434" cy="337" rx="6" ry="17" fill="#6d28d9"/>
-        <path d="M356 328 H418" stroke="#a78bfa" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
-        <!-- cab -->
-        <path d="M434 354 v-22 q0-5 5-5 h11 q4 0 6 4 l6 12 v11 z" fill="#6d28d9"/>
-        <rect x="440" y="332" width="15" height="9" rx="2" fill="#c4b5fd"/>
-        <!-- wheels (purple) -->
-        <circle cx="370" cy="357" r="9" fill="#4c1d95"/><circle cx="370" cy="357" r="3.2" fill="#8b5cf6"/>
-        <circle cx="446" cy="357" r="9" fill="#4c1d95"/><circle cx="446" cy="357" r="3.2" fill="#8b5cf6"/>
+        <!-- tandem rear wheels + front wheel, tire = deep purple, hub = cutout to ground tone -->
+        <rect x="356" y="352" width="100" height="4" rx="2" fill="#4c1d95"/>
+        <circle cx="366" cy="357" r="9" fill="#4c1d95"/><circle cx="366" cy="357" r="3.2" fill="#f1f0fa"/>
+        <circle cx="382" cy="357" r="9" fill="#4c1d95"/><circle cx="382" cy="357" r="3.2" fill="#f1f0fa"/>
+        <circle cx="446" cy="357" r="9" fill="#4c1d95"/><circle cx="446" cy="357" r="3.2" fill="#f1f0fa"/>
+        <!-- vacuum tank: single flat capsule silhouette -->
+        <rect x="346" y="322" width="88" height="30" rx="15" fill="#7c3aed"/>
+        <rect x="380" y="314" width="12" height="10" rx="3" fill="#7c3aed"/>
+        <!-- rear hose, curling to the ground -->
+        <path d="M346 342 C335 348 337 357 344 360" fill="none" stroke="#7c3aed" stroke-width="4.5" stroke-linecap="round"/>
+        <!-- boxy cab with windshield cut-out -->
+        <rect x="430" y="326" width="33" height="31" rx="4" fill="#7c3aed"/>
+        <rect x="437" y="331" width="14" height="12" rx="2" fill="#f1f0fa"/>
       </g>
-      <!-- Field service technician: purple avatar, hard hat, tablet held in one hand -->
+      <!-- Field service technician: flat purple pictogram, hard hat + vest, tablet held in one hand -->
       <g filter="url(#hsShadow)">
-        <!-- boots + legs -->
-        <rect x="314" y="374" width="10" height="8" rx="2.5" fill="#4c1d95"/>
-        <rect x="329" y="374" width="10" height="8" rx="2.5" fill="#4c1d95"/>
-        <rect x="316" y="350" width="8" height="26" rx="2" fill="#5b21b6"/>
-        <rect x="329" y="350" width="8" height="26" rx="2" fill="#5b21b6"/>
-        <!-- tool belt -->
-        <rect x="313" y="348" width="27" height="6" rx="1.5" fill="#4c1d95"/>
-        <!-- torso / work shirt -->
-        <rect x="314" y="316" width="25" height="35" rx="8" fill="#7c3aed"/>
-        <!-- hi-vis vest accents -->
-        <g fill="#c4b5fd" opacity="0.85"><rect x="319" y="318" width="3" height="31" rx="1"/><rect x="331" y="318" width="3" height="31" rx="1"/><rect x="315" y="335" width="23" height="3"/></g>
+        <!-- legs / boots -->
+        <rect x="317" y="352" width="9" height="25" rx="4" fill="#4c1d95"/>
+        <rect x="330" y="352" width="9" height="25" rx="4" fill="#4c1d95"/>
+        <!-- torso -->
+        <rect x="315" y="317" width="26" height="37" rx="10" fill="#5b21b6"/>
+        <!-- hi-vis vest + straps -->
+        <rect x="318.5" y="320" width="19" height="30" rx="3" fill="#c4b5fd" opacity="0.9"/>
+        <rect x="318.5" y="330" width="19" height="3.6" fill="#4c1d95"/>
+        <rect x="318.5" y="341" width="19" height="3.6" fill="#4c1d95"/>
         <!-- far arm at side -->
-        <path d="M337 320 Q344 333 340 347" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round"/>
+        <path d="M339 322 Q346 334 342 348" fill="none" stroke="#5b21b6" stroke-width="6.5" stroke-linecap="round"/>
         <!-- near arm extended, holding the tablet -->
-        <path d="M316 321 Q303 324 299 333" fill="none" stroke="#7c3aed" stroke-width="6" stroke-linecap="round"/>
+        <path d="M317 323 Q303 326 298 335" fill="none" stroke="#5b21b6" stroke-width="6.5" stroke-linecap="round"/>
         <!-- head -->
-        <circle cx="330" cy="307" r="8.5" fill="#7c3aed"/>
+        <circle cx="330" cy="308" r="8.5" fill="#5b21b6"/>
         <!-- hard hat -->
-        <path d="M320 301 Q330 287 340 301 Z" fill="#8b5cf6"/>
-        <ellipse cx="330" cy="301" rx="13" ry="3.2" fill="#8b5cf6"/>
-        <path d="M320 301 Q317 300 315 301" fill="none" stroke="#8b5cf6" stroke-width="2.5" stroke-linecap="round"/>
-        <rect x="327.5" y="291.5" width="5" height="3.5" rx="1.5" fill="#a78bfa"/>
+        <path d="M320 302 Q330 288 340 302 Z" fill="#c4b5fd"/>
+        <ellipse cx="330" cy="302" rx="13" ry="3" fill="#c4b5fd"/>
+        <rect x="327.5" y="292.5" width="5" height="3.5" rx="1.5" fill="#a78bfa"/>
         <!-- tablet held in one hand, screen facing the viewer -->
-        <rect x="282" y="322" width="24" height="17" rx="2.5" fill="#1e293b"/>
-        <rect x="284.5" y="324.5" width="19" height="12" rx="1.5" fill="#0b1220"/>
-        <circle cx="299" cy="328" r="1.6" fill="#22c55e"><animate attributeName="opacity" values="1;.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
-        <path d="M286 333 L290 330 L294 332 L298 329 L302 331" fill="none" stroke="#a78bfa" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
-        <circle cx="300" cy="335" r="3" fill="#8b5cf6"/>
+        <rect x="280" y="323" width="23" height="16" rx="2.5" fill="#1e293b"/>
+        <rect x="282.3" y="325.3" width="18.4" height="11.4" rx="1.5" fill="#0b1220"/>
+        <circle cx="296" cy="328.5" r="1.6" fill="#22c55e"><animate attributeName="opacity" values="1;.3;1" dur="1.4s" repeatCount="indefinite"/></circle>
+        <path d="M284 333 L288 330 L292 332 L296 329 L300 331" fill="none" stroke="#a78bfa" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="298" cy="335" r="3" fill="#5b21b6"/>
       </g>
     </svg>
     <div class="hs-legend">
@@ -944,6 +977,7 @@
   $("#about-art").innerHTML = ecoArt("sm");
   { const _sl = $("#staff-link"); if (_sl) _sl.href = SUPER_CONSOLE; }
   setBilling("monthly");
+  setAudience("commercial");
   $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
     `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
   $("#eco-cats").innerHTML = ECO_CATS.map(([n,ic,d]) =>
@@ -961,11 +995,19 @@
     setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
   }
   function setBilling(mode) {
-    document.querySelectorAll(".bt").forEach(b => b.classList.toggle("on", b.getAttribute("data-bill") === mode));
+    document.querySelectorAll(".bt[data-bill]").forEach(b => b.classList.toggle("on", b.getAttribute("data-bill") === mode));
     document.querySelectorAll(".tier .amt").forEach(el => { el.textContent = "$" + el.getAttribute(mode === "annual" ? "data-a" : "data-m"); });
-    document.querySelectorAll(".tier .amt-suffix").forEach(el => { el.textContent = mode === "annual" ? " / site / mo, billed annually" : " / site / mo"; });
+    document.querySelectorAll(".tier .amt-suffix").forEach(el => { el.textContent = el.getAttribute("data-unit") + (mode === "annual" ? ", billed annually" : ""); });
     const note = document.getElementById("bill-note");
-    if (note) note.textContent = mode === "annual" ? "Billed annually — 2 months free vs. paying monthly." : "Billed monthly · switch to annual to save 20%.";
+    if (note) note.textContent = mode === "annual"
+      ? "12-month contract — sensors & installation included. Billed annually, 2 months free vs. paying monthly."
+      : "Billed monthly · sensors & installation are a separate one-time charge. Switch to a 12-month contract to include hardware and save 20%.";
+  }
+  function setAudience(mode) {
+    document.querySelectorAll(".bt[data-aud]").forEach(b => b.classList.toggle("on", b.getAttribute("data-aud") === mode));
+    const c = document.getElementById("tiers-commercial"), r = document.getElementById("tiers-residential");
+    if (c) c.classList.toggle("hidden", mode !== "commercial");
+    if (r) r.classList.toggle("hidden", mode !== "residential");
   }
 
   // ---------- Login ----------
@@ -974,7 +1016,6 @@
   const ROLES = {
     customer: () => openPortal("customer"),
     partner: () => openPortal("partner"),
-    staff: () => { closeModal(); window.open(SUPER_CONSOLE, "_blank"); },
   };
   function openSignin() {
     $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog" style="max-width:440px">
@@ -994,7 +1035,7 @@
         <div class="signin-demo__row">
           <button class="btn btn--ghost btn--sm" data-role="customer">Customer</button>
           <button class="btn btn--ghost btn--sm" data-role="partner">Partner (branded)</button>
-          <a class="btn btn--ghost btn--sm" href="${SUPER_CONSOLE}" target="_blank" rel="noopener" style="justify-content:center">Staff console ↗</a>
+          <a class="btn btn--ghost btn--sm" href="${SUPER_CONSOLE}" target="_top" style="justify-content:center">Staff console ↗</a>
         </div>
       </div>
       <div class="modal__foot">Employees sign in to the internal console through a separate, secured entrance.</div>
@@ -1006,7 +1047,6 @@
   function openLogin(which) {
     if (which === "partner") return openPortal("partner");
     if (which === "customer") return openPortal("customer");
-    if (which === "staff") return window.open(SUPER_CONSOLE, "_blank");
     openSignin();
   }
   function closeModal() { $("#modal-root").innerHTML = ""; }
@@ -1125,8 +1165,10 @@
     const login = e.target.closest("[data-login]");
     const role = e.target.closest("[data-role]");
     const bill = e.target.closest("[data-bill]");
+    const aud = e.target.closest("[data-aud]");
     const close = e.target.closest("[data-close]");
     if (bill) { setBilling(bill.getAttribute("data-bill")); return; }
+    if (aud) { setAudience(aud.getAttribute("data-aud")); return; }
     if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r(); return; }
     if (login) { openLogin(login.getAttribute("data-login")); return; }
     if (go) { show(go.getAttribute("data-go")); return; }

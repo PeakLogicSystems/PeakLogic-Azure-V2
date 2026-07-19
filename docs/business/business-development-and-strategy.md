@@ -73,3 +73,64 @@ Track these; each unlocks a specific on-site claim:
 - No third-party names (insurers, customers, partners) without a signed agreement and permission.
 - "Branded as your own," never "white-label," in customer-facing copy.
 - Roadmap items, if shown at all, are future tense and clearly labeled — otherwise they live here.
+
+---
+
+## 6. Team & hiring roadmap (internal — full role scope, not for the public site)
+
+The public team section (About page) shows name, title, and a one-sentence bio per person — that's the appropriate depth for marketing. The full role scope below is the internal reference for hiring, org design, and comp — keep it here, not on the site.
+
+### Phase 1 — Current team (4 roles)
+
+**Founder & Head of Platform & Architecture** — Executive · *Marcus Lindqvist*
+Leads PeakLogic's strategic vision and owns the architecture of the multi-tenant, device-centric control platform. Drives product direction, platform evolution, partner strategy, and long-term technical decisions.
+- Define company vision, product strategy, and platform roadmap
+- Architect the control plane, telemetry fabric, device registry, and policy engine
+- Oversee multi-tenant identity, partner attribution, and the branded-workspace framework
+- Guide engineering and product teams toward scalable, reliable system design
+- Build strategic partnerships and channel programs
+- Ensure operational assurance, uptime, and measurable ROI
+
+**Head of Device & Edge Engineering** — Director/Head · *Raj Patel*
+Owns engineering for PeakLogic's device ecosystem — pumps, salt cells, chemistry sensors, HVAC monitors, gateways, and third-party integrations. Leads firmware, edge agents, telemetry schemas, diagnostics, and command execution reliability.
+- Develop and maintain device firmware, gateways, and edge agents
+- Standardize telemetry schemas and device capability models
+- Build OTA pipelines, diagnostics, and device lifecycle tooling
+- Integrate third-party devices (do not name specific vendors publicly until a real, signed integration exists — see §5)
+- Ensure secure, reliable device-to-cloud communication
+- Collaborate with Platform Architecture on fleet management and onboarding
+
+**Operations Manager (Internal Platform Operations)** — Manager · *Elena Márquez*
+Oversees platform reliability, monitoring, incident response, and cross-team coordination. Ensures the platform runs smoothly across all tenants, partners, and device fleets.
+- Monitor platform health, uptime, and service performance
+- Manage incident response and reliability improvements
+- Coordinate deployments, releases, and observability
+- Maintain operational dashboards, alerts, and internal tooling
+- Ensure SLAs and operational commitments across all tiers
+
+**Customer Success Manager** — Manager · *Dana Whitfield*
+Owns customer deployments, partner onboarding, support workflows, and service delivery. Ensures PeakLogic consistently delivers uptime, reliability, and operational assurance.
+- Manage customer onboarding, partner enablement, and multi-site deployments
+- Oversee support operations, ticketing, escalations, and field coordination
+- Monitor fleet health, uptime, and operational KPIs
+- Optimize internal processes for efficiency and scale
+- Work with engineering and product to resolve issues and enhance reliability
+
+### Phase 2 — Next 3 critical hires
+- Senior Backend Engineer
+- Support Specialist (Associate/Mid-Level)
+- Senior DevOps/SRE Engineer
+
+### Phase 3 — Next 3–5 scaling hires
+- Senior Firmware Engineer
+- Senior IoT Cloud Engineer
+- Partner Success Manager
+- QA/Test Automation Engineer
+- Senior Data Engineer
+
+### Phase 4 — Enterprise scale (optional but valuable)
+- Senior Security & Compliance Lead
+- Senior Product Manager
+- Frontend Engineer
+
+**Note on the Phase 1 name↔role mapping:** the four titles map to the four demo team members as shown above, reassigning Dana Whitfield from her prior site title ("Head of Platform & Architecture") to Customer Success Manager, since that scope is now folded into the Founder's combined title. Confirm this mapping is correct — swap names if a different assignment was intended.
