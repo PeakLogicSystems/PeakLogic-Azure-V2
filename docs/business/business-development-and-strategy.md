@@ -50,7 +50,7 @@ Current, defensible pricing model on the site: simple **per-site subscription** 
 ## 3. Go-to-market
 
 - **Channel-partner (branded) program** — the core distribution motion: field-services companies run PeakLogic **branded as their own** and resell monitoring to their book of business. On the site this is described as "your brand and domain," never "white-label."
-- **Beachhead verticals** — restaurants/QSR, water utilities & pumping, energy & facilities, aquatics/pools, cold storage/refrigeration, roofing/building envelope, municipal wastewater, property management.
+- **Website industries served** (marketing surface, 8 segments, in priority order — updated 2026-07-19): water treatment & municipal wastewater; pumping stations & water movement infrastructure; multi-tenant residential communities; commercial & mixed-use property management; assisted living & healthcare facilities; storage, refrigeration & fulfillment centers; pools & water quality systems; quick-service restaurants (QSR). **Distinct from the PRD's locked MVP beachhead verticals** (pool servicing and QSR specifically, confirmed active sales opportunities per PRD §8) — the marketing site casts a wider net across critical-systems verticals than what's actually being sold/demoed at MVP. Do not read this 8-segment list as a beachhead-focus decision; it has not gone through the PRD's own amendment discipline.
 - **Pilot partner (internal, confidential):** the platform is being proven against a first partner family of field-services brands. **Keep specific partner and customer names out of all public marketing** until there is a signed reference and permission to name them. The public site and demo use generic, illustrative organizations only.
 
 ---
