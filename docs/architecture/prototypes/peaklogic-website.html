@@ -219,7 +219,12 @@
   .tier--pop { border-color: var(--purple); box-shadow: 0 22px 54px rgba(124,58,237,.16); position: relative; }
   .tier__badge { position: absolute; top: -12px; left: 28px; background: var(--purple); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; letter-spacing: .04em; }
   .tier__name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--purple-deep); }
+  .billing-toggle { display: inline-flex; gap: 4px; padding: 4px; background: var(--paper-2); border-radius: 999px; border: 1px solid var(--line); }
+  .bt { border: none; background: none; font-family: inherit; font-size: 14px; font-weight: 650; padding: 8px 18px; border-radius: 999px; cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .bt.on { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+  .bt .save { font-size: 10.5px; font-weight: 700; color: var(--green-ink); background: var(--green-soft); padding: 2px 7px; border-radius: 999px; }
   .tier__price { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 12px 0 0; }
+  .tier__price .amt { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); }
   .tier__price span { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
   .tier__desc { color: var(--muted); font-size: 14px; margin: 8px 0 0; min-height: 40px; }
   .tier ul { list-style: none; padding: 0; margin: 20px 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
@@ -460,12 +465,19 @@
         <div class="sec-head">
           <span class="eyebrow">Pricing</span>
           <h1 class="h1" style="font-size:clamp(30px,4.4vw,50px);margin-top:10px">Priced on the value we protect.</h1>
-          <p class="lede">Simple per-site subscriptions — not per sensor. Every plan includes unlimited users, the mobile app, and security-first data isolation. Billed annually; monthly available.</p>
+          <p class="lede">Simple per-site subscriptions — not per sensor. Every plan includes unlimited users, the mobile app, and security-first data isolation.</p>
+        </div>
+        <div style="text-align:center;margin-bottom:34px">
+          <div class="billing-toggle">
+            <button class="bt on" data-bill="monthly">Monthly</button>
+            <button class="bt" data-bill="annual">Annual <span class="save">Save 20%</span></button>
+          </div>
+          <div id="bill-note" class="faint" style="font-size:12.5px;margin-top:11px"></div>
         </div>
         <div class="tiers">
           <div class="tier">
             <div class="tier__name">Essentials</div>
-            <div class="tier__price">$99<span> / site / mo</span></div>
+            <div class="tier__price"><span class="amt" data-m="99" data-a="79">$99</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
             <div class="tier__desc">Continuous monitoring and real-time alerts for a single-location or small operator.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 device monitoring</li>
@@ -481,7 +493,7 @@
           <div class="tier tier--pop">
             <span class="tier__badge">MOST POPULAR</span>
             <div class="tier__name">Professional</div>
-            <div class="tier__price">$299<span> / site / mo</span></div>
+            <div class="tier__price"><span class="amt" data-m="299" data-a="249">$299</span><span class="amt-suffix" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
             <div class="tier__desc">The full intelligence layer — configurable rules, AI, and automated dispatch into your systems.</div>
             <ul>
               <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Essentials</li>
@@ -823,6 +835,7 @@
   $("#eco-art-sm").innerHTML = ecoArt("sm");
   $("#eco-art-lg").innerHTML = ecoArt("lg");
   $("#about-art").innerHTML = ecoArt("sm");
+  setBilling("monthly");
   $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
     `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
   $("#partner-logos").innerHTML = PARTNERS.map(([n,l,c]) =>
@@ -840,6 +853,13 @@
   function scrollTo(id) {
     show("home");
     setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+  }
+  function setBilling(mode) {
+    document.querySelectorAll(".bt").forEach(b => b.classList.toggle("on", b.getAttribute("data-bill") === mode));
+    document.querySelectorAll(".tier .amt").forEach(el => { el.textContent = "$" + el.getAttribute(mode === "annual" ? "data-a" : "data-m"); });
+    document.querySelectorAll(".tier .amt-suffix").forEach(el => { el.textContent = mode === "annual" ? " / site / mo, billed annually" : " / site / mo"; });
+    const note = document.getElementById("bill-note");
+    if (note) note.textContent = mode === "annual" ? "Billed annually — 2 months free vs. paying monthly." : "Billed monthly · switch to annual to save 20%.";
   }
 
   // ---------- Login modal ----------
@@ -970,7 +990,9 @@
     const scroll = e.target.closest("[data-scroll]");
     const login = e.target.closest("[data-login]");
     const role = e.target.closest("[data-role]");
+    const bill = e.target.closest("[data-bill]");
     const close = e.target.closest("[data-close]");
+    if (bill) { setBilling(bill.getAttribute("data-bill")); return; }
     if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r.go(); return; }
     if (login) { openLogin(login.getAttribute("data-login")); return; }
     if (go) { show(go.getAttribute("data-go")); return; }
