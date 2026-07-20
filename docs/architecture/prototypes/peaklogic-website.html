@@ -423,7 +423,7 @@
       <div class="wrap cols2" style="align-items:center">
         <div>
           <span class="eyebrow">Device Ecosystem</span>
-          <h2 class="h2" style="margin:10px 0 14px">Critical Systems, many devices. One View.</h2>
+          <h2 class="h2" style="margin:10px 0 14px">Critical systems, many devices. One view.</h2>
           <p class="lede">From edge gateways to third-party OEM clouds, PeakLogic ingests and normalizes the data, so adding a new device type is a setup step rather than a rebuild. It's designed to bring units online quickly when a technician connects them in the field.</p>
           <div style="margin-top:22px"><button class="btn btn--ghost" data-go="ecosystem">Explore the ecosystem <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
         </div>
@@ -839,6 +839,10 @@
         <linearGradient id="hsCyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7dd3fc"/><stop offset="0.42" stop-color="#e0f2fe"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
         <linearGradient id="hsMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cbd5e1"/><stop offset="0.42" stop-color="#f8fafc"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>
         <linearGradient id="hsTruckC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="0.45" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
+        <!-- Flow vs Pressure sensor gradients — same violet family as the legend chips,
+             given more depth so the two adjacent hues read as distinct at a glance -->
+        <radialGradient id="hsFlowG" cx="0.35" cy="0.32" r="0.75"><stop offset="0" stop-color="#c4b5fd"/><stop offset="0.55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></radialGradient>
+        <radialGradient id="hsPressG" cx="0.35" cy="0.32" r="0.75"><stop offset="0" stop-color="#a78bfa"/><stop offset="0.55" stop-color="#6d28d9"/><stop offset="1" stop-color="#4c1d95"/></radialGradient>
         <filter id="hsShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#6d28d9" flood-opacity="0.12"/></filter>
         <clipPath id="hsClipA"><rect x="376" y="216" width="48" height="90" rx="5"/></clipPath>
         <clipPath id="hsClipB"><rect x="436" y="244" width="40" height="62" rx="5"/></clipPath>
@@ -858,10 +862,10 @@
         </g>
         <!-- centre riser from cone tip to ground -->
         <rect x="70" y="190" width="4" height="120" fill="#b6c2d4"/>
-        <!-- straight vertical service ladder beside the riser -->
+        <!-- service ladder, straddling the riser so it reads as centered on the tower -->
         <g stroke="#94a3b8" stroke-width="1.3">
-          <path d="M79 196 V310 M85 196 V310"/>
-          <path d="M79 204 H85 M79 216 H85 M79 228 H85 M79 240 H85 M79 252 H85 M79 264 H85 M79 276 H85 M79 288 H85 M79 300 H85"/>
+          <path d="M66 196 V310 M78 196 V310"/>
+          <path d="M66 204 H78 M66 216 H78 M66 228 H78 M66 240 H78 M66 252 H78 M66 264 H78 M66 276 H78 M66 288 H78 M66 300 H78"/>
         </g>
         <!-- cone, drum, dome — one continuous silhouette -->
         <path d="M50 170 L72 193 L94 170 Z" fill="#bae6fd"/>
@@ -923,10 +927,15 @@
         <rect x="436" y="272" width="40" height="34" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipB)"/>
         <ellipse cx="456" cy="244" rx="20" ry="6" fill="#e0f2fe" stroke="#7dd3fc"/>
         <line x1="436" y1="272" x2="476" y2="272" stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"/>
-        <!-- straight vertical ladder between the tanks -->
+        <!-- Level tank's own ladder, mounted against its right edge -->
         <g stroke="#94a3b8" stroke-width="1.3">
-          <path d="M428 222 V306 M433 222 V306"/>
-          <path d="M428 230 H433 M428 242 H433 M428 254 H433 M428 266 H433 M428 278 H433 M428 290 H433 M428 302 H433"/>
+          <path d="M426 222 V306 M431 222 V306"/>
+          <path d="M426 230 H431 M426 242 H431 M426 254 H431 M426 266 H431 M426 278 H431 M426 290 H431 M426 302 H431"/>
+        </g>
+        <!-- Temperature tank's own ladder, mounted against its right edge -->
+        <g stroke="#94a3b8" stroke-width="1.3">
+          <path d="M480 244 V306 M485 244 V306"/>
+          <path d="M480 252 H485 M480 264 H485 M480 276 H485 M480 288 H485 M480 300 H485"/>
         </g>
       </g>
 
@@ -936,25 +945,32 @@
       </g>
       <rect x="357" y="289" width="18" height="18" rx="4" fill="#fff" stroke="#c4b5fd" stroke-width="1.5"/>
 
-      <!-- ═══ TELEMETRY — every sensor streams to the hub terminal ═══ -->
+      <!-- ═══ TELEMETRY — every sensor streams INTO the hub console; the hub then
+           pushes ONE alert line OUT to the technician's tablet. Nothing bypasses
+           the hub in either direction. All six lines arrive at the same point,
+           the top edge of the console screen (167,249) — clear of the bar chart
+           (which sits lower, y259-271) so nothing overlaps the readout. ═══ -->
       <g fill="none" stroke-width="1.6" stroke-linecap="round">
-        <path class="hs-flow" d="M400 210 C356 148 238 158 168 234" stroke="#c7d2fe"/>
-        <path class="hs-flow" d="M456 236 C424 146 262 138 176 230" stroke="#99f6e4" style="animation-delay:.5s"/>
-        <path class="hs-flow" d="M366 285 C336 244 246 236 184 242" stroke="#ddd6fe" style="animation-delay:1s"/>
-        <path class="hs-flow" d="M243 291 C232 268 206 252 188 246" stroke="#c4b5fd" style="animation-delay:1.5s"/>
-        <path class="hs-flow" d="M153 200 C151 214 156 226 162 236" stroke="#fde68a" style="animation-delay:.8s"/>
-        <path class="hs-flow" d="M145 296 C146 278 152 260 158 250" stroke="#a7f3d0" style="animation-delay:1.9s"/>
-        <!-- alert streaming to the technician's tablet — routed high over the roofline,
-             then straight down on the far side of him, so it never crosses his silhouette -->
-        <path class="hs-flow" d="M304 248 C250 232 175 228 140 236 C133 258 128 298 128 334" stroke="#f87171" stroke-width="2.2" style="animation-delay:.9s"/>
+        <path class="hs-flow" d="M400 210 C356 158 250 170 167 249" stroke="#c7d2fe"/>
+        <path class="hs-flow" d="M456 236 C420 160 270 158 167 249" stroke="#99f6e4" style="animation-delay:.5s"/>
+        <path class="hs-flow" d="M366 285 C330 250 230 240 167 249" stroke="url(#hsFlowG)" style="animation-delay:1s"/>
+        <path class="hs-flow" d="M243 291 C222 270 195 255 167 249" stroke="url(#hsPressG)" style="animation-delay:1.5s"/>
+        <path class="hs-flow" d="M153 200 C158 215 163 232 167 249" stroke="#fde68a" style="animation-delay:.8s"/>
+        <path class="hs-flow" d="M145 296 C152 280 160 262 167 249" stroke="#a7f3d0" style="animation-delay:1.9s"/>
       </g>
+      <!-- hub-to-tablet alert: originates inside the screen (clear of the bar chart
+           and status LED), routed high over the roofline, then straight down on
+           the far side of him so it never crosses his silhouette -->
+      <path class="hs-flow" d="M150 273 C138 288 128 305 128 334" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" style="animation-delay:.9s"/>
 
       <!-- sensor markers (drawn over their telemetry lines) -->
       <circle class="hs-pulse" cx="400" cy="212" r="6" fill="#0369a1"/><circle cx="400" cy="212" r="4.5" fill="#0369a1" stroke="#fff" stroke-width="1.5"/>
       <circle class="hs-pulse" cx="456" cy="240" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="456" cy="240" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
-      <circle class="hs-pulse" cx="366" cy="298" r="5.5" fill="#7c3aed" style="animation-delay:1.7s"/><circle cx="366" cy="298" r="4" fill="#7c3aed" stroke="#fff" stroke-width="1.4"/>
-      <circle class="hs-pulse" cx="243" cy="298" r="5.5" fill="#6d28d9" style="animation-delay:.9s"/><circle cx="243" cy="298" r="4" fill="#6d28d9" stroke="#fff" stroke-width="1.4"/>
-      <circle class="hs-pulse" cx="304" cy="248" r="6.5" fill="#ef4444" style="animation-delay:1.1s"/><circle cx="304" cy="248" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.5"/>
+      <circle class="hs-pulse" cx="366" cy="298" r="5.5" fill="url(#hsFlowG)" style="animation-delay:1.7s"/><circle cx="366" cy="298" r="4" fill="url(#hsFlowG)" stroke="#fff" stroke-width="1.4"/>
+      <circle class="hs-pulse" cx="243" cy="298" r="5.5" fill="url(#hsPressG)" style="animation-delay:.9s"/><circle cx="243" cy="298" r="4" fill="url(#hsPressG)" stroke="#fff" stroke-width="1.4"/>
+      <!-- hub arrival point (all six lines land here) + outgoing-alert origin, both on the console screen -->
+      <circle cx="167" cy="249" r="2.2" fill="#facc15"><animate attributeName="opacity" values=".4;1;.4" dur="1s" repeatCount="indefinite"/></circle>
+      <circle class="hs-pulse" cx="150" cy="273" r="4.5" fill="#ef4444" style="animation-delay:1.1s"/><circle cx="150" cy="273" r="3.3" fill="#ef4444" stroke="#fff" stroke-width="1.2"/>
 
       <!-- ═══ SEPTIC / VACUUM TANKER — hose runs the tank's length, coiled at the rear ═══ -->
       <g filter="url(#hsShadow)">
@@ -983,22 +999,24 @@
         <g><circle cx="420" cy="368" r="13" fill="#1e293b"/><circle cx="420" cy="368" r="5.5" fill="#94a3b8"/><circle cx="420" cy="368" r="2" fill="#475569"/></g>
       </g>
 
-      <!-- ═══ FIELD TECHNICIAN — neck joins head to torso; short natural reach ═══ -->
+      <!-- ═══ FIELD TECHNICIAN — short neck (head sits close to the torso); legs
+           start well inside the torso's bottom edge so the torso rect (painted
+           after the legs) fully covers the seam, no gap or rounded-corner notch ═══ -->
       <g filter="url(#hsShadow)">
         <path d="M179 331 Q186 342 182 353" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
         <path d="M166 330 Q157 334 151 340" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
-        <rect x="163.5" y="353" width="7.5" height="31" rx="3.2" fill="#1e293b"/>
-        <rect x="173" y="353" width="7.5" height="31" rx="3.2" fill="#1e293b"/>
-        <rect x="168.5" y="314" width="7" height="10" rx="2.5" fill="#1e293b"/>
+        <rect x="163.5" y="340" width="7.5" height="44" rx="3.2" fill="#1e293b"/>
+        <rect x="173" y="340" width="7.5" height="44" rx="3.2" fill="#1e293b"/>
+        <rect x="168.5" y="317" width="7" height="5" fill="#1e293b"/>
         <rect x="161" y="321" width="22" height="34" rx="8" fill="#1e293b"/>
         <rect x="163.5" y="324" width="17" height="28" rx="3" fill="#fbbf24"/>
         <path d="M169 324 L172 331 L175 324 Z" fill="#1e293b"/>
         <rect x="163.5" y="335" width="17" height="3.5" fill="#1e293b"/>
         <rect x="163.5" y="344" width="17" height="3.5" fill="#1e293b"/>
-        <circle cx="172" cy="308" r="7.5" fill="#1e293b"/>
-        <path d="M162.5 302.5 C162.5 291 181.5 291 181.5 302.5 Z" fill="#f59e0b"/>
-        <ellipse cx="172" cy="302.5" rx="11.5" ry="2.5" fill="#f59e0b"/>
-        <path d="M172 292.4 V301.6" stroke="#d97706" stroke-width="1.2" opacity="0.85"/>
+        <circle cx="172" cy="311" r="7.5" fill="#1e293b"/>
+        <path d="M162.5 305.5 C162.5 294 181.5 294 181.5 305.5 Z" fill="#f59e0b"/>
+        <ellipse cx="172" cy="305.5" rx="11.5" ry="2.5" fill="#f59e0b"/>
+        <path d="M172 295.4 V304.6" stroke="#d97706" stroke-width="1.2" opacity="0.85"/>
         <!-- tablet overlaps the reaching hand -->
         <rect x="126" y="336" width="25" height="17" rx="2.5" fill="#1e293b"/>
         <rect x="128.3" y="338.3" width="20.4" height="12.4" rx="1.5" fill="#0b1220"/>
@@ -1042,9 +1060,10 @@
     }).join("");
     return `<div class="card" style="padding:20px"><svg viewBox="0 0 ${W} ${R}" width="100%" aria-label="Device ecosystem hub">
       ${spokes}
-      <!-- Hub: full-color brand mark on the site's own dark surface (--dark, matching
-           "What the platform does") — never the inverted white-on-purple treatment -->
-      <circle cx="${cx}" cy="${cy}" r="34" fill="#0b1120"/>
+      <!-- Hub: matches the site's own icon-chip convention (--purple-soft fill,
+           --line border — the exact tokens .card .ico and .ind .iico already use)
+           instead of inventing a new dark-circle motif found nowhere else on the site -->
+      <circle cx="${cx}" cy="${cy}" r="34" fill="#f2effe" stroke="#e7e6f1" stroke-width="1.5"/>
       <g transform="translate(${cx-13},${cy-10})"><path d="M0,19.5 L8.7,0 L15.2,10.8 L20.6,2.2 L26,19.5 Z" fill="#7c3aed"/><path d="M15.2,10.8 L20.6,2.2 L26,19.5 Z" fill="#22c55e" opacity="0.9"/></g>
     </svg></div>`;
   }
