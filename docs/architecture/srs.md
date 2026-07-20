@@ -3,8 +3,8 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.8 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6/v1.7/v1.8 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.8, pending — mirrors this amendment)
+**Status:** Draft v1.9 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6–v1.9 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.9, pending — mirrors this amendment)
 **Last updated:** 2026-07-19
 **Fork note (v1.7):** mirrors the PeakLogic-Azure fork's PRD v1.7 amendment (`azure-restructuring-plan.md` §3) — see Revision History. The AWS-native `PeakLogic-AWS` repo's own SRS is unaffected.
 
@@ -369,6 +369,35 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 **Deliberately undecided at this level, consistent with PRD §5.16**: whether this catalog also drives actual firmware image distribution (an OTA delivery pipeline) or is version/compatibility metadata only, feeding a separately-designed distribution mechanism, is left to Domain Model, Database Schema, and Device & Command Security Architecture.
 
+### 3.19 Automated Pool Water-Quality Reporting (→ PRD §5.17 PW-1–PW-14) *(added v1.9 — see Revision History)*
+
+**Description:** A recurring, consumer-legible water-quality report per pool site, delivered to the property owner under the channel partner's branding. Reports combine **continuously sensed** chemistry with a **technician-entered** reagent panel, because the two sets are not both automatable — see the sensing limit below. Elaborates the pool-servicing vertical already established by §3.12 (partner territory/dispatch) and §3.11 (RP-2.1's per-site readings).
+
+| ID | Requirement |
+|---|---|
+| PW-1.1 | The system shall generate a water-quality report per pool site on a configurable recurrence, defaulting to weekly, rendered for a non-technical reader |
+| PW-2.1 | A `channel_partner_users` session with an administrative role shall be able to enable, schedule, and disable the report for any site attributed to that partner, without a PeakLogic staff action |
+| PW-3.1 | Each parameter in the report shall carry its measured value, its target range, an in/out-of-range determination, and its trend across the reporting period — not a single point reading |
+| PW-4.1 | The report shall mark each parameter as continuously sensed or technician-entered. A parameter with no sensed source shall never be rendered as sensed |
+| PW-5.1 | The system shall accept a technician-recorded reagent panel (total alkalinity, calcium hardness, cyanuric acid) against a site, persisting the test date and the attributed `channel_partner_users` identity with each entry |
+| PW-6.1 | Services performed at the site during the reporting period shall be included in the report. The report shall carry **no** chemical, material, or labour pricing field |
+| PW-7.1 | The system shall deliver the report by email to per-site designated recipients — **conditional, see the blocking note below** |
+| PW-8.1 | Report email shall be sent under the channel partner's own sending domain and branding, consistent with §3.12's branded-portal model — **conditional, see the blocking note below** |
+| PW-9.1 | Report generation and each delivery attempt shall be written to `audit_log_entries` (AUD-1/AUD-2), and an issued report shall be reproducible byte-for-byte as sent for the retention period |
+| PW-10.1 | Technician capture (PW-5.1) shall authenticate as the existing `channel_partner_users` `technician` role (§2.4/§3.12) — no new identity surface, no new pool |
+| PW-11.1 | Capture shall complete without network connectivity and reconcile on reconnect, extending the offline queue already specified for PeakLogic Mobile — loss of signal shall not block completion of a stop |
+| PW-12.1 | A reagent-panel entry shall reference the technician's `route_stops` row for that site and period; an entry with no corresponding checked-in stop shall be rejected |
+| PW-13.1 | Each entry field shall be validated against a per-parameter plausible range; an out-of-range value shall require explicit confirmation rather than being silently persisted |
+| PW-14.1 | The system should allow an image of the physical test result to be attached to a reagent-panel entry |
+
+**🔴 Blocking dependency for PW-7.1 / PW-8.1 — verified, not assumed:** there is **no outbound email mechanism in the codebase** (`backend/`, `infra/`) — no SES, SendGrid, nodemailer, Postmark, Mailgun, or SMTP integration exists. The only outbound notification path implemented is the fire-and-forget webhook on critical alerts (`backend/ingest/handler.ts`). PW-7.1 requires scheduled recurring per-recipient delivery; PW-8.1 additionally requires per-partner sender authentication (SPF/DKIM/DMARC per custom domain), bounce and complaint handling, and suppression lists. Both are **deferred, not dropped** — the same treatment SET-8.1 received for the same missing dependency — and neither may be scheduled until outbound email infrastructure is itself specified and built.
+
+**Sensing limit, verified against `backend/ingest/rules.ts`:** the `pool_chemistry` adapter implements `ph`, `free_chlorine_ppm`, and `tds_ppm`; `pool_system` implements `flow_lpm` and `temp_c`. Total alkalinity, calcium hardness, and cyanuric acid have **no implemented metric and no practical residential inline sensor** — hence PW-4.1/PW-5.1's hybrid model. `salt_ppm` is obtainable from existing salt-chlorine-generator integration and is the one gap closeable without new sensing research.
+
+**Provenance limit, stated rather than engineered around:** a technician-entered value is **attested, not measured**. PW-12.1 constrains it to a real visit and PW-13.1 challenges implausible values, but neither makes it a measurement. Direct instrument integration (a digital photometer transmitting its own reading) is the only mechanism that would, and is explicitly **not** required at this revision.
+
+**Error/edge conditions:** a pool site with no chemistry device (PW-1.1 shall produce no report — a valid empty state, not an error); a period with no technician visit (the report shall state the reagent panel was not tested, never repeat a prior period's values); a sensor offline for part of the period (the report shall represent the gap, not interpolate across it); an entry captured offline and synced after its report was generated (the entry shall bind to the period of its recorded test date, not its sync time).
+
 ---
 
 ## 4. External Interface Requirements
@@ -549,3 +578,11 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 - **§3.13 amended (IA-9.1 added)**: staff-performed device/site provisioning and threshold configuration (IA-5.1/IA-6.1) shall reuse the tenant's/partner's own provisioning and threshold screens and API contract via the existing act-as session, not a parallel staff-only form. **Explicitly flagged as only behaviorally resolved, not architecturally**: whether act-as embeds the tenant/partner frontend directly or the console calls the same tenant-facing API endpoints under its own UI is left open for a UX Wireframes/API Specification amendment.
 - **§3.18 added (FW-1.1–FW-4.1)**: a Device & Firmware Version Catalog — elaborates PRD §5.16. Validates each device's reported firmware version against a per-product-type catalog of supported versions/channels, flags unmanaged versions, and specifies a fleet-wide drift view for §3.13's console. Whether the catalog also drives actual OTA image distribution, or is compatibility metadata only, is explicitly left to Domain Model/Database Schema/Device & Command Security Architecture.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass): Domain Model (a Firmware/Product Catalog entity and its relationship to `devices`), Database Schema, API Specification (catalog CRUD + drift-query endpoints; the act-as provisioning/threshold API shape per IA-9.1), UX Wireframes (fleet firmware-drift view; the act-as provisioning/threshold screens).
+
+**v1.9 (2026-07-19)** — mirrors the PRD's own v1.9 amendment (a weekly, partner-branded pool water-quality report for the pool-servicing vertical), per this document's rule (§8).
+
+- **§3.19 added (PW-1.1–PW-14.1)**: recurring per-site water-quality reporting, partner-managed scheduling, explicit sensed-vs-attested provenance, technician reagent-panel capture bound to a real route stop, services-performed listing without pricing, and audited reproducible reports.
+- **Two dependencies verified against real code rather than assumed.** (1) `backend/ingest/rules.ts` implements only `ph`, `free_chlorine_ppm`, `tds_ppm` for `pool_chemistry` — total alkalinity, calcium hardness and cyanuric acid have no metric and no practical residential inline sensor, which is *why* PW-4.1/PW-5.1 specify a hybrid panel instead of claiming a fully automated water test. (2) No outbound email mechanism exists anywhere in `backend/` or `infra/`; the sole outbound path is the critical-alert webhook. PW-7.1/PW-8.1 are therefore written as **conditional and deferred**, the same treatment SET-8.1 already carries for the same missing dependency.
+- **A limit recorded instead of designed around**: for the three reagent parameters the report carries an *attested* value, not a measured one. PW-12.1 (must bind to a checked-in `route_stops` row) and PW-13.1 (plausible-range challenge) raise the cost of a bad entry without changing that fact; only direct instrument integration would, and it is explicitly out of scope at this revision.
+- **§2.4's technician gains a write responsibility** for the first time — previously read-only apart from ack/ticket/route-confirm. The water-test write path has no endpoint, entity, or schema today; flagged for Domain Model, Database Schema and API Specification rather than assumed to exist.
+- **Downstream artifacts requiring their own amendments as a result** (not done in this pass): User Personas (§2.4), Domain Model + Database Schema + API Specification (the water-test entity, its `route_stops` binding, the technician write endpoint), iOS Application (#26 — capture screen and offline-queue extension), UX Wireframes (report layout and capture form), plus a new owner for outbound email infrastructure.

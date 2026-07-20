@@ -9,8 +9,8 @@ Documents are produced in dependency order — each one builds on decisions lock
 | # | Artifact | Status |
 |---|----------|--------|
 | 1 | [Vision Document](vision-document.md) | ✅ Approved v1 |
-| 2 | [Product Requirements Document (PRD)](prd.md) | 🟡 Draft v1.8 (v1.6: Internal Administration Console, Settings & Preferences, Site→Asset→Device Drill-Down; v1.7: Azure-pivot geospatial map + 3D rendering; v1.8: Device & Firmware Version Catalog, act-as provisioning/threshold parity — base doc remains Approved v1.5 until v1.6–v1.8 formally approved) |
-| 3 | [Software Requirements Specification (SRS)](srs.md) | 🟡 Draft v1.8 (mirrors PRD v1.8; base doc remains Approved v1.5 until v1.6–v1.8 formally approved) |
+| 2 | [Product Requirements Document (PRD)](prd.md) | 🟡 Draft v1.9 (v1.6: Internal Administration Console, Settings & Preferences, Site→Asset→Device Drill-Down; v1.7: Azure-pivot geospatial map + 3D rendering; v1.8: Device & Firmware Version Catalog, act-as provisioning/threshold parity; v1.9: Automated Pool Water-Quality Reporting — ⚠️ PW-7/PW-8 blocked on non-existent outbound email infrastructure — base doc remains Approved v1.5 until v1.6–v1.9 formally approved) |
+| 3 | [Software Requirements Specification (SRS)](srs.md) | 🟡 Draft v1.9 (mirrors PRD v1.9; base doc remains Approved v1.5 until v1.6–v1.9 formally approved) |
 | 4 | [Domain Model](domain-model.md) | 🟡 Draft v1.3 (new §2.9 Channel Partner Manager — `ChannelPartnerManager`/`ChannelPartnerManagerAssignment`, first step of the iOS doc's #26 required amendment sequence; also carries v1.2's §2.8 Internal Administration; base doc remains Approved v1.1 until v1.2/v1.3 formally approved) |
 | 5 | [Compliance & Certification Roadmap](compliance-certification-roadmap.md) | ✅ Approved v1 |
 | 6 | [User Personas](user-personas.md) | ✅ Approved v1.2 (new §2.7 Channel Partner Portal Dispatcher; §2.2 corrected — pool-service companies are Channel Partners, not Tenants) |
