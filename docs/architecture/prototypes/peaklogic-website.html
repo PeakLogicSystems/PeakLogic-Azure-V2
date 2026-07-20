@@ -898,9 +898,8 @@
         <g stroke="#d1d2e4" stroke-width="1"><path d="M205 289 H229 M205 296 H229 M205 303 H229"/></g>
         <!-- ENERGY sensor on the HVAC unit -->
         <circle class="hs-pulse" cx="153" cy="195" r="5.5" fill="#f59e0b" style="animation-delay:.3s"/><circle cx="153" cy="195" r="4" fill="#f59e0b" stroke="#fff" stroke-width="1.4"/>
-        <!-- LEAK sensor at the interior floor line -->
-        <circle class="hs-pulse" cx="145" cy="301" r="5.5" fill="#0d9488" style="animation-delay:1.4s"/><circle cx="145" cy="301" r="4" fill="#0d9488" stroke="#fff" stroke-width="1.4"/>
-        <path d="M138 305 q-1.4 2.4 0 3.4 q1.4 -1 0 -3.4 M152 304 q-1.4 2.4 0 3.4 q1.4 -1 0 -3.4" fill="#5eead4"/>
+        <!-- LEAK sensor, right side of the building, centered in the gap between the second window and the roll-up door -->
+        <circle class="hs-pulse" cx="217" cy="275" r="5.5" fill="#0d9488" style="animation-delay:1.4s"/><circle cx="217" cy="275" r="4" fill="#0d9488" stroke="#fff" stroke-width="1.4"/>
       </g>
 
       <!-- ═══ CLARIFIER BASIN ═══ -->
@@ -927,15 +926,15 @@
         <rect x="436" y="272" width="40" height="34" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipB)"/>
         <ellipse cx="456" cy="244" rx="20" ry="6" fill="#e0f2fe" stroke="#7dd3fc"/>
         <line x1="436" y1="272" x2="476" y2="272" stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"/>
-        <!-- Level tank's own ladder, mounted against its right edge -->
+        <!-- Level tank's own ladder, centered on its front face -->
         <g stroke="#94a3b8" stroke-width="1.3">
-          <path d="M426 222 V306 M431 222 V306"/>
-          <path d="M426 230 H431 M426 242 H431 M426 254 H431 M426 266 H431 M426 278 H431 M426 290 H431 M426 302 H431"/>
+          <path d="M398 222 V306 M403 222 V306"/>
+          <path d="M398 230 H403 M398 242 H403 M398 254 H403 M398 266 H403 M398 278 H403 M398 290 H403 M398 302 H403"/>
         </g>
-        <!-- Temperature tank's own ladder, mounted against its right edge -->
+        <!-- Temperature tank's own ladder, centered on its front face -->
         <g stroke="#94a3b8" stroke-width="1.3">
-          <path d="M480 244 V306 M485 244 V306"/>
-          <path d="M480 252 H485 M480 264 H485 M480 276 H485 M480 288 H485 M480 300 H485"/>
+          <path d="M454 244 V306 M459 244 V306"/>
+          <path d="M454 252 H459 M454 264 H459 M454 276 H459 M454 288 H459 M454 300 H459"/>
         </g>
       </g>
 
@@ -945,32 +944,36 @@
       </g>
       <rect x="357" y="289" width="18" height="18" rx="4" fill="#fff" stroke="#c4b5fd" stroke-width="1.5"/>
 
-      <!-- ═══ TELEMETRY — every sensor streams INTO the hub console; the hub then
-           pushes ONE alert line OUT to the technician's tablet. Nothing bypasses
-           the hub in either direction. All six lines arrive at the same point,
-           the top edge of the console screen (167,249) — clear of the bar chart
-           (which sits lower, y259-271) so nothing overlaps the readout. ═══ -->
+      <!-- ═══ TELEMETRY — every sensor, INCLUDING the alerting one, streams INTO
+           the hub console; the hub then pushes exactly ONE alert line OUT to the
+           technician's tablet. Nothing bypasses the hub in either direction. All
+           seven lines arrive at the same point, the top edge of the console
+           screen (167,249) — clear of the bar chart (y259-271) so nothing
+           overlaps the readout. ═══ -->
       <g fill="none" stroke-width="1.6" stroke-linecap="round">
         <path class="hs-flow" d="M400 210 C356 158 250 170 167 249" stroke="#c7d2fe"/>
         <path class="hs-flow" d="M456 236 C420 160 270 158 167 249" stroke="#99f6e4" style="animation-delay:.5s"/>
         <path class="hs-flow" d="M366 285 C330 250 230 240 167 249" stroke="url(#hsFlowG)" style="animation-delay:1s"/>
         <path class="hs-flow" d="M243 291 C222 270 195 255 167 249" stroke="url(#hsPressG)" style="animation-delay:1.5s"/>
         <path class="hs-flow" d="M153 200 C158 215 163 232 167 249" stroke="#fde68a" style="animation-delay:.8s"/>
-        <path class="hs-flow" d="M145 296 C152 280 160 262 167 249" stroke="#a7f3d0" style="animation-delay:1.9s"/>
+        <path class="hs-flow" d="M217 269 C206 261 190 254 167 249" stroke="#a7f3d0" style="animation-delay:1.9s"/>
+        <!-- the clarifier's critical reading reports IN to the hub exactly like every other sensor -->
+        <path class="hs-flow" d="M304 248 C270 228 210 224 167 249" stroke="#fca5a5" style="animation-delay:1.3s"/>
       </g>
-      <!-- hub-to-tablet alert: originates inside the screen (clear of the bar chart
-           and status LED), routed high over the roofline, then straight down on
-           the far side of him so it never crosses his silhouette -->
-      <path class="hs-flow" d="M150 273 C138 288 128 305 128 334" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" style="animation-delay:.9s"/>
+      <!-- hub-to-tablet alert — the ONE line the hub itself sends out, leaving from
+           the same arrival point, routed clear of the console before dropping down
+           on the far side of the technician so it never crosses his silhouette -->
+      <path class="hs-flow" d="M167 249 C140 250 130 270 128 300 C127 312 127 324 128 334" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" style="animation-delay:.9s"/>
 
       <!-- sensor markers (drawn over their telemetry lines) -->
       <circle class="hs-pulse" cx="400" cy="212" r="6" fill="#0369a1"/><circle cx="400" cy="212" r="4.5" fill="#0369a1" stroke="#fff" stroke-width="1.5"/>
       <circle class="hs-pulse" cx="456" cy="240" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="456" cy="240" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
       <circle class="hs-pulse" cx="366" cy="298" r="5.5" fill="url(#hsFlowG)" style="animation-delay:1.7s"/><circle cx="366" cy="298" r="4" fill="url(#hsFlowG)" stroke="#fff" stroke-width="1.4"/>
       <circle class="hs-pulse" cx="243" cy="298" r="5.5" fill="url(#hsPressG)" style="animation-delay:.9s"/><circle cx="243" cy="298" r="4" fill="url(#hsPressG)" stroke="#fff" stroke-width="1.4"/>
-      <!-- hub arrival point (all six lines land here) + outgoing-alert origin, both on the console screen -->
-      <circle cx="167" cy="249" r="2.2" fill="#facc15"><animate attributeName="opacity" values=".4;1;.4" dur="1s" repeatCount="indefinite"/></circle>
-      <circle class="hs-pulse" cx="150" cy="273" r="4.5" fill="#ef4444" style="animation-delay:1.1s"/><circle cx="150" cy="273" r="3.3" fill="#ef4444" stroke="#fff" stroke-width="1.2"/>
+      <!-- the critical sensor, back at its original position on the clarifier's centre column -->
+      <circle class="hs-pulse" cx="304" cy="248" r="6.5" fill="#ef4444" style="animation-delay:1.1s"/><circle cx="304" cy="248" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.5"/>
+      <!-- hub arrival + departure point: every sensor lands here, the one alert leaves from here -->
+      <circle cx="167" cy="249" r="2.4" fill="#facc15"><animate attributeName="opacity" values=".4;1;.4" dur="1s" repeatCount="indefinite"/></circle>
 
       <!-- ═══ SEPTIC / VACUUM TANKER — hose runs the tank's length, coiled at the rear ═══ -->
       <g filter="url(#hsShadow)">
