@@ -540,6 +540,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
         <span>Devices</span><span class="nav__count" id="cnt-devices"></span>
       </button>
+      <button class="nav__item" data-action="nav:firmware">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
+        <span>Firmware</span><span class="nav__count" id="cnt-firmware"></span>
+      </button>
 
       <div class="nav__label">Insights</div>
       <button class="nav__item" data-action="nav:reports">
@@ -814,6 +818,91 @@
     lift_station: { interval: 60,  metrics: ["wet_well_level_pct", "pump_runtime_min", "flow_gpm"], fw: "stable-4.2.1", thresholds: "wet-well ≤ 80%" },
     roof_moisture:{ interval: 300, metrics: ["moisture_pct", "temp_f"],                 fw: "stable-4.2.1", thresholds: "moisture ≤ 12%" }
   };
+
+  // ---------- Device & Firmware Version Catalog (PRD §5.16 FW-1, SRS §3.18 FW-1.1) ----------
+  // Canonical per-product-type record of the firmware versions PeakLogic supports,
+  // grouped into named channels. This is the source of truth the twin's firmware
+  // properties are validated against (FW-2) and the channel picker is driven from
+  // (FW-4). Versions are newest-first within each channel; index 0 is "current".
+  // NOTE: deliberately version/compatibility metadata only — whether PeakLogic also
+  // hosts and distributes the images themselves is left open by PRD §5.16.
+  const FIRMWARE_CATALOG = {
+    pool_system:  { product: "Pool chemistry controller", channels: { stable: ["4.2.1", "4.1.6", "4.0.9"], beta: ["4.3.0"] } },
+    hvac:         { product: "HVAC / RTU monitor",        channels: { stable: ["4.2.1", "4.2.0", "4.1.4"], beta: ["4.3.0"] } },
+    refrigeration:{ product: "Refrigeration probe",       channels: { stable: ["4.2.1", "4.1.9"],          beta: ["4.3.0"] } },
+    energy_meter: { product: "Panel / demand meter",      channels: { stable: ["3.8.4", "3.8.1"],          beta: ["3.9.0"] } },
+    leak_sensor:  { product: "Leak / moisture sensor",    channels: { stable: ["2.6.2", "2.6.0", "2.5.7"], beta: [] } },
+    flow_meter:   { product: "Flow meter",                channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
+    lift_station: { product: "Lift-station controller",   channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
+    roof_moisture:{ product: "Roof-moisture grid",        channels: { stable: ["2.6.2"],                   beta: [] } }
+  };
+
+  // A twin firmware value is stored as "<channel>-<version>" (e.g. "stable-4.2.1").
+  function parseFw(v) {
+    const m = /^([a-z]+)-(.+)$/.exec(String(v || ""));
+    return m ? { channel: m[1], version: m[2] } : { channel: null, version: String(v || "") };
+  }
+  // FW-2 / FW-2.1: classify a device's reported firmware against the catalog for its
+  // product type. Anything the catalog doesn't list is "unmanaged" — never silently OK.
+  // A category with no catalog entry (or an unknown category) is also unmanaged, per
+  // the section's stated error/edge conditions.
+  function fwStatus(cat, fwValue) {
+    const entry = FIRMWARE_CATALOG[cat];
+    const { channel, version } = parseFw(fwValue);
+    if (!entry || !channel || !entry.channels[channel]) return { code: "unmanaged", label: "Unmanaged", cls: "crit" };
+    const list = entry.channels[channel];
+    const i = list.indexOf(version);
+    if (i === -1) return { code: "unmanaged", label: "Unmanaged", cls: "crit" };
+    if (i === 0) return { code: "current", label: "Current", cls: "good" };
+    return { code: "outdated", label: "Update available", cls: "warn", latest: channel + "-" + list[0] };
+  }
+  // FW-4 / FW-4.1: the channel/version options a device may be assigned, from the
+  // catalog for that product type — never a free-typed string.
+  function fwOptionsFor(cat) {
+    const entry = FIRMWARE_CATALOG[cat];
+    if (!entry) return [];
+    return Object.keys(entry.channels).flatMap(ch => entry.channels[ch].map(v => ch + "-" + v));
+  }
+  // Illustrative firmware spread across the seeded demo fleet, so the drift view has
+  // something real to classify (a fleet uniformly on one version proves nothing).
+  // Deterministic — keyed off the device id — so counts stay stable across renders.
+  // Demo data only: a real fleet reports its own installed versions.
+  (function seedFleetFirmware() {
+    const EOL = { pool_system: "stable-3.9.2", hvac: "stable-3.7.0", refrigeration: "stable-3.9.9",
+                  energy_meter: "stable-3.2.0", leak_sensor: "stable-1.9.4", flow_meter: "stable-3.9.2",
+                  lift_station: "stable-3.9.2", roof_moisture: "stable-1.8.0" };
+    TENANTS.forEach(t => t.sites.forEach(s => s.assets.forEach(a => a.devices.forEach(d => {
+      let h = 0; for (let i = 0; i < d.id.length; i++) h = (h * 31 + d.id.charCodeAt(i)) >>> 0;
+      const opts = fwOptionsFor(a.cat);
+      const base = d.cfg || CAT_CONFIG[a.cat] || CAT_CONFIG.hvac;
+      const roll = h % 10;
+      let fw;
+      if (roll === 0 && EOL[a.cat]) fw = EOL[a.cat];                                  // pre-catalog / EOL build
+      else if (roll < 4 && opts.length > 1) fw = opts[1 + (h % (opts.length - 1))];    // supported but behind
+      else fw = opts[0] || base.fw;                                                    // current
+      d.cfg = { ...base, fw: fw };
+    }))));
+  })();
+
+  // FW-3 / FW-3.1: fleet-wide firmware drift, computed from the same catalog the twin
+  // is validated against — never a second, parallel classification.
+  function fwFleet() {
+    return allDevices().map(d => {
+      const fw = (d.cfg && d.cfg.fw) || (CAT_CONFIG[d.cat] && CAT_CONFIG[d.cat].fw);
+      return { ...d, fw: fw, st: fwStatus(d.cat, fw) };
+    });
+  }
+
+  // <option> markup for a category's catalogued firmware, newest stable preselected.
+  function fwOptsMarkup(cat) {
+    const opts = fwOptionsFor(cat);
+    if (!opts.length) return `<option value="">No catalogued firmware</option>`;
+    return opts.map((v, i) => {
+      const st = fwStatus(cat, v);
+      const tag = st.code === "current" ? " · current" : "";
+      return `<option value="${v}"${i === 0 ? " selected" : ""}>${v}${tag}</option>`;
+    }).join("");
+  }
 
   const AUDIT = [
     { ts: "2026-07-18 14:22:08", actor: "Marcus Lindqvist", oid: "a7f3-91d2-4c8e", action: "act-as.enter", target: "Riverview Ag & Irrigation", note: "Investigating irrigation flow-meter silence" },
@@ -1138,14 +1227,18 @@
   }
   // Metric explainer — a small ⓘ that reveals how a metric is calculated and
   // why it matters (JS-positioned so it escapes panels' overflow:hidden).
+  // The single information affordance used everywhere in the console. Anything that
+  // reveals explanatory copy on hover/focus uses this exact glyph — a lowercase "i"
+  // in a circle — so "there is more information here" always looks the same.
+  const INFO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9.5"/><path d="M12 11.4v4.4"/><circle cx="12" cy="7.7" r="1.15" fill="currentColor" stroke="none"/></svg>';
   function explain(how, why) {
-    return `<span class="mx-i" tabindex="0" data-how="${esc(how)}" data-why="${esc(why)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg></span>`;
+    return `<span class="mx-i" tabindex="0" aria-label="More information" data-how="${esc(how)}" data-why="${esc(why)}">${INFO_ICON}</span>`;
   }
-  // Column explainer — a small eye-in-circle icon that reveals a plain-language
-  // meaning for a table column header on hover/focus. Shares the mx-i/mx-tip
-  // hover mechanism with the metric explainer above, distinguished by data-tip.
+  // Column explainer — reveals a plain-language meaning for a table column header on
+  // hover/focus. Uses the same INFO_ICON and the same mx-i/mx-tip hover mechanism as
+  // the metric explainer above; only the payload differs (data-tip vs data-how/why).
   function explainCol(text) {
-    return `<span class="mx-i" tabindex="0" data-tip="${esc(text)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M3.5 12S6.5 7 12 7s8.5 5 8.5 5-3 5-8.5 5-8.5-5-8.5-5z"/><circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/></svg></span>`;
+    return `<span class="mx-i" tabindex="0" aria-label="More information" data-tip="${esc(text)}">${INFO_ICON}</span>`;
   }
   function showMxTip(el) {
     const tip = $("#mx-tip");
@@ -1231,7 +1324,7 @@
         ${renderMap(sitePointsFor(TENANTS))}
       </div>
       <div class="callout">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        ${INFO_ICON}
         <div>Every number here — health rollups, the CMMS conversion funnel, and the map alike — is assembled by <b>fanning out per-organization scoped reads</b> and merging them here, never a single cross-tenant query. Each org opens through <code>withStaffActingOnTenant()</code>, so the isolation boundary holds even for a "global" view.</div>
       </div>
       <div class="grid2">
@@ -1486,7 +1579,7 @@
     }
     if (S.tab === "users") {
       const users = tenantUsers(t);
-      return `<div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v4l3 2"/></svg>
+      return `<div class="callout">${INFO_ICON}
         <div>These users authenticate in the <b>PeakLogicCustomers</b> directory — a separate token issuer from your staff sign-in. You manage them via act-as; you never hold their credentials.</div></div>
         <div class="panel"><table class="tbl"><thead><tr><th>User</th><th>Email</th><th>Role</th></tr></thead>
         <tbody>${users.map(u => `<tr><td class="strong">${esc(u.n)}</td><td class="mono muted">${esc(u.e)}</td><td><span class="pill pill--accent"><span class="dot"></span>${u.r}</span></td></tr>`).join("")}</tbody></table></div>`;
@@ -1531,6 +1624,92 @@
         </tr></thead>
         <tbody>${rows || `<tr><td colspan="7"><div class="empty">No devices match "${esc(S.query)}"</div></td></tr>`}</tbody></table></div>
       <div class="legend">${legend}</div>`;
+  }
+
+  // FW-3: fleet-wide firmware drift + the catalog (FW-1) it is classified against.
+  function viewFirmware() {
+    const fleet = fwFleet();
+    const q = S.query.toLowerCase();
+    const rank = { unmanaged: 0, outdated: 1, current: 2 };
+    const shown = fleet
+      .filter(d => !q || d.id.includes(q) || d.name.toLowerCase().includes(q) || d.org.toLowerCase().includes(q) || d.fw.toLowerCase().includes(q))
+      .sort((a, b) => rank[a.st.code] - rank[b.st.code] || a.org.localeCompare(b.org));
+
+    const n = { unmanaged: 0, outdated: 0, current: 0 };
+    fleet.forEach(d => n[d.st.code]++);
+
+    const stats = [
+      { label: "Unmanaged firmware", value: n.unmanaged, accent: "var(--crit)",
+        how: "Devices whose reported version is not present in the Device & Firmware Version Catalog for their product type.",
+        why: "An unmanaged build is one PeakLogic does not support — it may predate the catalog, or be a field-flashed one-off. These are the units you cannot make guarantees about." },
+      { label: "Update available", value: n.outdated, accent: "var(--warn)",
+        how: "Devices on a catalogued version that is not the newest in their assigned channel.",
+        why: "Supported, but behind. This is the upgrade backlog — the queue an OTA campaign would work through." },
+      { label: "Current", value: n.current, accent: "var(--good)",
+        how: "Devices already on the newest catalogued version for their assigned channel.",
+        why: "Nothing to do. The larger this share, the more predictable the fleet's behaviour." }
+    ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div>
+        <div class="stat__label" style="display:flex;align-items:center;gap:5px">${s.label} ${explain(s.how, s.why)}</div>
+        <div class="stat__value">${s.value}</div>
+        <div class="stat__sub">of ${fleet.length} devices</div></div>`).join("");
+
+    const rows = shown.map(d => `
+      <tr class="clickable" data-action="device:${d.id}">
+        <td class="mono muted">${d.id}</td>
+        <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(d.site)}</span></div></td>
+        <td class="muted">${esc(d.org)}</td>
+        <td class="muted">${esc((FIRMWARE_CATALOG[d.cat] && FIRMWARE_CATALOG[d.cat].product) || CAT_LABEL[d.cat] || d.cat)}</td>
+        <td class="mono">${esc(d.fw)}</td>
+        <td><span class="pill pill--${d.st.cls}"><span class="dot"></span>${d.st.label}</span></td>
+        <td class="mono muted">${d.st.code === "outdated" ? esc(d.st.latest) : d.st.code === "current" ? "—" : "not catalogued"}</td>
+      </tr>`).join("");
+
+    const catalogRows = Object.keys(FIRMWARE_CATALOG).map(cat => {
+      const e = FIRMWARE_CATALOG[cat];
+      const chans = Object.keys(e.channels).map(ch => {
+        const list = e.channels[ch];
+        if (!list.length) return `<span class="pill pill--neutral"><span class="dot"></span>${ch} · none</span>`;
+        return `<span class="pill pill--${ch === "stable" ? "good" : "info"}"><span class="dot"></span>${ch} · ${list[0]}${list.length > 1 ? ` (+${list.length - 1})` : ""}</span>`;
+      }).join(" ");
+      return `<tr><td><b>${esc(e.product)}</b><div class="row-sub mono">${cat}</div></td>
+        <td>${chans}</td>
+        <td class="mono muted">${Object.keys(e.channels).reduce((a, ch) => a + e.channels[ch].length, 0)} version(s)</td></tr>`;
+    }).join("");
+
+    return `
+      <div class="page-head"><h1>Firmware</h1>
+        <p>The Device &amp; Firmware Version Catalog, and every device measured against it. Versions are validated per product type — anything the catalog doesn't list is surfaced as unmanaged rather than silently accepted.</p></div>
+
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">${stats}</div>
+
+      <div class="callout">${INFO_ICON}
+        <div>Drift is computed from the <b>same catalog</b> the device twin validates against — there is no second classification path. The catalog is version and compatibility metadata; whether PeakLogic also hosts and distributes the images themselves is deliberately still open (PRD §5.16).</div></div>
+
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input type="text" id="q" placeholder="Search by ID, name, org, or version…" value="${esc(S.query)}" autocomplete="off"></div>
+        <span class="faint" style="font-size:12.5px">${shown.length} of ${fleet.length} devices shown</span>
+      </div>
+
+      <div class="panel"><div class="panel__head"><span class="panel__title">Fleet firmware drift</span>
+        <span class="panel__note">worst first · select a device to inspect its twin</span></div>
+        <table class="tbl">
+        <thead><tr>
+          <th>Device ID ${explainCol("The unique identifier assigned when the device was registered.")}</th>
+          <th>Name ${explainCol("A human-readable label for the device, and the site it serves.")}</th>
+          <th>Organization ${explainCol("The tenant or channel-partner account this device is provisioned under.")}</th>
+          <th>Product type ${explainCol("The catalogued product this device is, which determines the firmware versions it may run.")}</th>
+          <th>Installed ${explainCol("The firmware version the device most recently reported (device twin, reported properties).")}</th>
+          <th>Status ${explainCol("How the installed version compares to the catalog: current, behind the newest in its channel, or not catalogued at all.")}</th>
+          <th>Latest ${explainCol("The newest catalogued version in this device's assigned channel, when an upgrade exists.")}</th>
+        </tr></thead>
+        <tbody>${rows || `<tr><td colspan="7"><div class="empty">No devices match "${esc(S.query)}"</div></td></tr>`}</tbody></table></div>
+
+      <div class="panel" style="margin-top:18px"><div class="panel__head"><span class="panel__title">Device &amp; Firmware Version Catalog</span>
+        <span class="panel__note">supported versions per product type · newest first</span></div>
+        <table class="tbl">
+        <thead><tr><th>Product type</th><th>Channels</th><th>Supported</th></tr></thead>
+        <tbody>${catalogRows}</tbody></table></div>`;
   }
 
   function viewStaff() {
@@ -1730,7 +1909,7 @@
             <dt>MFA</dt><dd>Enforced via Conditional Access</dd>
             <dt>Book of business</dt><dd>All organizations</dd>
           </dl>
-          <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a10 10 0 100 20 10 10 0 000-20zM12 8v4l3 2"/></svg>
+          <div class="callout">${INFO_ICON}
             <div>Your name, password, and MFA are managed in <b>Microsoft Entra ID</b> — PeakLogic never stores your credentials. Changes are made on Microsoft's account pages.</div></div>
           <div><button class="btn btn--ghost" data-action="toast:Opening Microsoft account settings…">Manage on Microsoft ↗</button></div>
         </div></div>`;
@@ -1771,7 +1950,7 @@
         </div></div>`;
   }
 
-  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings };
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, firmware: viewFirmware, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings };
   const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings" };
   const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings" };
 
@@ -1815,6 +1994,11 @@
     $("#cnt-tenants").textContent = TENANTS.length;
     $("#cnt-partners").textContent = PARTNERS.length;
     $("#cnt-devices").textContent = allDevices().length;
+    // Firmware nav badge shows what needs attention (unmanaged + behind), not the
+    // whole fleet — a count of "everything" wouldn't tell an operator anything.
+    const drift = fwFleet().filter(d => d.st.code !== "current").length;
+    const fwEl = $("#cnt-firmware");
+    if (fwEl) fwEl.textContent = drift;
   }
 
   function enterActAs(id) {
@@ -1850,9 +2034,21 @@
   function renderDrawer(ctx) {
     const d = ctx.d;
     const tw = twinFor(d, ctx.cat);
-    const desiredRows = Object.keys(tw.desired).map(k => `<tr><td>${k}</td><td>${esc(tw.desired[k])}</td></tr>`).join("");
+    // FW-2 / FW-2.1: validate the twin's firmware values against the catalog for this
+    // device's product type and badge the row, rather than rendering them as plain text.
+    const fwBadge = (v) => {
+      const st = fwStatus(ctx.cat, v);
+      if (st.code === "current") return "";
+      const title = st.code === "outdated" ? ` title="Latest in this channel: ${esc(st.latest)}"` : ` title="Not present in the firmware catalog for this product type"`;
+      return ` <span class="pill pill--${st.cls}"${title} style="margin-left:6px;vertical-align:middle"><span class="dot"></span>${st.label}</span>`;
+    };
+    const twinRow = (k, v) => {
+      const isFw = k === "Firmware channel" || k === "Firmware installed";
+      return `<tr><td>${k}</td><td>${esc(v)}${isFw ? fwBadge(v) : ""}</td></tr>`;
+    };
+    const desiredRows = Object.keys(tw.desired).map(k => twinRow(k, tw.desired[k])).join("");
     const reportedRows = tw.reported
-      ? Object.keys(tw.reported).map(k => `<tr><td>${k}</td><td>${esc(tw.reported[k])}</td></tr>`).join("")
+      ? Object.keys(tw.reported).map(k => twinRow(k, tw.reported[k])).join("")
       : `<tr><td colspan="2" style="text-align:center;color:var(--text-faint);font-family:var(--sans);padding:14px 0">No reported state yet — device has not connected.</td></tr>`;
     const canPush = d.state === "registered" || d.state === "provisioning";
     const nonNumeric = /[^\d.\-]/.test(d.metric) || d.state === "registered";
@@ -1934,7 +2130,9 @@
     const tenantOpts = locked
       ? `<option value="${locked.id}" selected>${esc(locked.name)}</option>`
       : TENANTS.map(t => `<option value="${t.id}">${esc(t.name)}</option>`).join("");
-    const catOpts = Object.keys(CAT_LABEL).filter(c => c !== "pump").map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join("");
+    const cats = Object.keys(CAT_LABEL).filter(c => c !== "pump");
+    const catOpts = cats.map(c => `<option value="${c}">${CAT_LABEL[c]}</option>`).join("");
+    const firstCat = cats[0];
     const html = `
       <div class="overlay" data-action="close-overlay"></div>
       <div class="modal" role="dialog" aria-label="Register devices">
@@ -1951,11 +2149,11 @@
           <div class="field--row">
             <div class="field"><label for="rf-qty">Quantity</label><input id="rf-qty" type="number" min="1" max="50" value="3"></div>
             <div class="field"><label for="rf-fw">Firmware channel</label>
-              <select id="rf-fw"><option value="stable-4.2.1">stable-4.2.1</option><option value="beta-4.3.0">beta-4.3.0</option></select></div>
+              <select id="rf-fw">${fwOptsMarkup(firstCat)}</select></div>
           </div>
           <div class="field"><label for="rf-enroll">Enrollment</label>
             <select id="rf-enroll"><option value="group">DPS enrollment group (batch / zero-touch)</option><option value="individual">Individual enrollment (one-off)</option></select></div>
-          <p class="hint">Intent rows are created in state <code>registered</code> with <code>tenant_id</code> set and desired-config staged. Group enrollment lets any device with a leaf cert signed by the family CA self-provision — the real fleet-scale ZTP path.</p>
+          <p class="hint">Intent rows are created in state <code>registered</code> with <code>tenant_id</code> set and desired-config staged. Group enrollment lets any device with a leaf cert signed by the family CA self-provision — the real fleet-scale ZTP path. Firmware options come from the <b>Device &amp; Firmware Version Catalog</b> for the selected product type — never free-typed.</p>
         </div>
         <div class="modal__foot">
           <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
@@ -1963,6 +2161,13 @@
         </div>
       </div>`;
     $("#overlay-root").innerHTML = html;
+    // FW-4: re-scope the firmware picker whenever the product type changes, so a
+    // device can only ever be assigned a version catalogued for its own category.
+    const catSel = $("#rf-cat");
+    if (catSel) catSel.addEventListener("change", () => {
+      const fwSel = $("#rf-fw");
+      if (fwSel) fwSel.innerHTML = fwOptsMarkup(catSel.value);
+    });
     const n = $("#rf-name"); if (n) n.focus();
   }
 
