@@ -240,6 +240,19 @@ Lambda environment variables are injected by CDK at deploy time from stack outpu
 - **Billing data has reporting lag** (typically updated a few times a day) — this is a strong, fast first response, not an instantaneous circuit breaker.
 - **A Budget-Action-stopped RDS instance is still subject to AWS's own platform rule that a stopped instance auto-restarts after 7 days**, regardless of what triggered the stop. This buys a pause to notice and fix the underlying cost driver, not a permanent shutdown — if nothing is done within 7 days, RDS resumes billing on its own.
 
+## Azure Cost Kill Switch (added 2026-07-21, `infra-azure/modules/budget.bicep` + `ops/cost-killswitch/`)
+
+The Azure equivalent of the AWS kill switch above — built because **Azure Cost Management budgets are alert-only; there is no native Budget-Actions-style auto-stop** (`project_peaklogic_azure_cost_findings` memory). Same 50%/80%/100% shape, deliberately:
+
+- **Every `infra-azure` deploy requires `killswitchSecret` and (already required) `alertEmail`** — `budget.bicep` has no default for either.
+- **50%/80%**: email-only, reusing `monitoring.bicep`'s existing on-call Action Group (no stop-function receiver attached to it — a CPU-spike alert firing on that same group must never also stop the database).
+- **100%**: a dedicated `${namePrefix}-cost-killswitch-ag` Action Group both emails and invokes a small, standalone Function (`ops/cost-killswitch/`, its own `package.json` — deliberately NOT bundled into the main app's future `api.bicep` Function App, so the powerful "can stop the database" ARM permission stays on a narrowly-scoped identity, not the whole application's).
+- **Auth is a self-managed shared secret, not Azure's built-in Function key** — the webhook carries `?secret=...`, checked in-code (`ops/cost-killswitch/src/auth.ts`, constant-time comparison, fails closed if unset). Deliberate: correctly retrieving a Function host key via Bicep's `listKeys()` couldn't be verified against a live subscription; a secret we generate and fully unit-test could be.
+- **The Function's own managed identity gets `Contributor`, scoped to just the Postgres server resource** (no narrower built-in role exists for "start/stop only" on this resource type) — least privilege applied at the scope, not the role.
+- **Same 7-day-auto-restart caveat as AWS**: verified via Microsoft's own docs that a stopped Postgres Flexible Server auto-restarts after 7 days regardless of what stopped it — a pause to fix the cost driver, not a permanent shutdown.
+- **Genuine improvement over the AWS side, not just parity**: this budget is resource-group-scoped (one per stage), so multiple stages in one subscription don't share a single account-wide budget the way AWS Budgets do.
+- Not deployed/validated against a real subscription — same disclosed limitation as every other `infra-azure/` file.
+
 ## Branching & Commits
 
 - `main` — production-ready only; tagged at every release

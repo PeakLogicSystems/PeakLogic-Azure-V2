@@ -1,0 +1,22 @@
+{
+  "name": "peaklogic-cost-killswitch",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Azure equivalent of the AWS side's Budget Actions RDS auto-stop kill switch (project_peaklogic_azure_cost_findings memory) — a dedicated, narrowly-scoped Function that stops the Postgres Flexible Server when the resource-group cost budget hits 100%.",
+  "main": "dist/main.js",
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@azure/identity": "^4.4.0",
+    "@azure/functions": "^4.5.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "~5.4.0",
+    "vitest": "^2.1.0"
+  }
+}
