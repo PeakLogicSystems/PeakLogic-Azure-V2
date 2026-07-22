@@ -46,6 +46,28 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "postgis";    -- GEOGRAPHY types, ST_Contains etc. (territories.boundary)
 
 -- ─────────────────────────────────────────────────────────────
+-- CHANNEL PARTNER GROUPS (holding companies, e.g. "Purple Standard")
+-- migration 1784048400000, whitelabel-estate-branding-design.md (#35).
+-- Same trust/access posture as channel_partners immediately below: NOT
+-- tenant data, deliberately NOT RLS-enabled, application-layer (staff-only)
+-- write access. Deliberately scoped to Purple Standard only for now (one
+-- row) -- the mechanism is generic, the offering is not (a real, named
+-- need, not built speculatively for every partner).
+--
+-- IMPORTANT: group membership is a CUSTOMER-facing branding-fallback
+-- concept only -- it does NOT widen channel-partner-side data access. A
+-- partner's own staff session is still scoped to exactly that partner's
+-- channel_partner_id (channel_partner_can_read_site() below), never to
+-- sibling partners in the same group.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE channel_partner_groups (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  name       TEXT        NOT NULL,
+  branding   JSONB,       -- {logo_url, primary_color, secondary_color, tagline} -- same shape as channel_partners.branding
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- ─────────────────────────────────────────────────────────────
 -- CHANNEL PARTNERS  (PeakLogic-internal reseller/supplier reference
 -- data -- NOT tenant data, so deliberately NOT RLS-enabled. Access
 -- is controlled at the application layer (AUTH-2/3), not by tenant
@@ -55,6 +77,7 @@ CREATE TABLE channel_partners (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT        NOT NULL,
   contact_info JSONB       NOT NULL DEFAULT '{}',
+  group_id     UUID        REFERENCES channel_partner_groups(id) ON DELETE SET NULL,  -- migration 1784048400000
   branding     JSONB,                        -- {logo_url, primary_color, secondary_color} for the
                                                -- white-label portal login (CH-3.1); null until a
                                                -- partner is onboarded to the portal
@@ -96,8 +119,12 @@ ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tenants
   USING (id = current_setting('app.current_tenant_id', true)::uuid);
-CREATE POLICY channel_partner_read ON tenants FOR SELECT
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+-- channel_partner_read's real (widened) definition is deferred to the end of
+-- this file, in the channel_partner_read-policies section -- it needs `sites`
+-- to exist first (migration 1784048400000, #35: also matches via a
+-- site-level channel_partner_id override, not just the tenant's own
+-- default), same reason sites' own channel_partner_read policy below is
+-- deferred there instead of living in its own table block.
 
 -- ─────────────────────────────────────────────────────────────
 -- USERS
@@ -131,20 +158,29 @@ CREATE POLICY tenant_isolation ON users
 -- SITES
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE sites (
-  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
-  tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
-  name       TEXT        NOT NULL,
-  type       TEXT        NOT NULL
-             CHECK (type IN ('pumping_station','qsr','restaurant','pool','nursing_home',
-                              'retail','light_industrial','multifamily_residential','other')),
-  address    JSONB,                          -- {street, city, state, zip, country}
-  lat        DOUBLE PRECISION,
-  lng        DOUBLE PRECISION,
-  timezone   TEXT        NOT NULL DEFAULT 'UTC',
-  metadata   JSONB       NOT NULL DEFAULT '{}',
-  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  id                 UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id          UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  name               TEXT        NOT NULL,
+  type               TEXT        NOT NULL
+                     CHECK (type IN ('pumping_station','qsr','restaurant','pool','nursing_home',
+                                      'retail','light_industrial','multifamily_residential','other')),
+  address            JSONB,                          -- {street, city, state, zip, country}
+  lat                DOUBLE PRECISION,
+  lng                DOUBLE PRECISION,
+  timezone           TEXT        NOT NULL DEFAULT 'UTC',
+  metadata           JSONB       NOT NULL DEFAULT '{}',
+  -- Site-level override of the tenant's own channel_partner_id (migration
+  -- 1784048400000, #35) -- NULL (the default) means "use the tenant's own
+  -- attribution, unchanged." Set, it lets one tenant's sites be serviced by
+  -- different channel partners (e.g. one customer, pools from WTR DR,
+  -- wastewater from ACE Septic). See channel_partner_can_read_site() below
+  -- for how this resolves under RLS.
+  channel_partner_id UUID        REFERENCES channel_partners(id) ON DELETE SET NULL,
+  created_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at         TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+CREATE INDEX sites_channel_partner_idx ON sites(channel_partner_id) WHERE channel_partner_id IS NOT NULL;
 
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sites FORCE ROW LEVEL SECURITY;
@@ -745,13 +781,20 @@ CREATE TRIGGER audit_log_entries_append_only
 -- site's tenant; true for a technician only if the site additionally
 -- falls within their assigned territory's boundary (their "preconfigured
 -- assets"). One function, not five duplicated subqueries.
+-- Updated by migration 1784048400000 (#35): resolves the site's EFFECTIVE
+-- partner as COALESCE(site-level override, tenant default) instead of the
+-- tenant's channel_partner_id alone. For every site where the new
+-- sites.channel_partner_id column is NULL (every row that existed before
+-- that migration, and any row that doesn't need an override), COALESCE
+-- falls through to the exact same tenant-level check as before —
+-- byte-identical behavior for the common case.
 CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1
     FROM sites s
     JOIN tenants t ON t.id = s.tenant_id
     WHERE s.id = p_site_id
-      AND t.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      AND COALESCE(s.channel_partner_id, t.channel_partner_id) = current_setting('app.current_channel_partner_id', true)::uuid
       AND (
         current_setting('app.current_channel_partner_role', true) = 'partner_admin'
         OR EXISTS (
@@ -768,6 +811,25 @@ $$ LANGUAGE sql STABLE;
 -- that table's existing tenant_isolation policy — Postgres OR-combines
 -- them, so a normal tenant session (which never sets the channel-partner
 -- GUCs) is completely unaffected.
+
+-- tenants' channel_partner_read policy lives here (not in the tenants block
+-- above) because, as of migration 1784048400000, it needs `sites` to exist
+-- first — widened to also match via a site-level channel_partner_id
+-- override, not just the tenant's own default. Required, not cosmetic: since
+-- channel_partner_can_read_site() has no SECURITY DEFINER, its internal JOIN
+-- into tenants is itself subject to tenants' own RLS — without this
+-- widening, a mixed-attribution tenant's site-level override would silently
+-- fail to resolve (the JOIN would never see the tenant row for a partner
+-- that isn't the tenant's own default).
+CREATE POLICY channel_partner_read ON tenants FOR SELECT
+  USING (
+    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    OR EXISTS (
+      SELECT 1 FROM sites s
+      WHERE s.tenant_id = tenants.id
+        AND s.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    )
+  );
 
 CREATE POLICY channel_partner_read ON sites FOR SELECT
   USING (channel_partner_can_read_site(id));

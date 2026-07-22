@@ -142,6 +142,26 @@ export interface ServiceTicket {
   updated_at: Date;
 }
 
+// ── White-label estate branding (whitelabel-estate-branding-design.md, #35) ─
+// channel_partner_groups (holding companies) + sites.channel_partner_id
+// (site-level attribution override). See backend/shared/branding.ts for the
+// pure resolution logic. Scoped to Purple Standard only for now — the
+// mechanism is generic, the offering is not.
+
+export interface BrandingInfo {
+  logo_url: string | null;
+  primary_color: string;
+  secondary_color: string;
+  tagline: string | null;
+}
+
+export interface ChannelPartnerGroup {
+  id: string;
+  name: string;
+  branding: BrandingInfo | null;
+  created_at: Date;
+}
+
 // ── AI Analytics Layer (ai-analytics-layer-design.md, artifact #34) ───────
 // Tier 1 (anomaly detection) scaffolding, AI_ANALYTICS_ENABLED-gated —
 // backend/ingest/baseline.ts + anomaly.ts. See migration

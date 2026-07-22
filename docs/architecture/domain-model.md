@@ -3,9 +3,9 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3/v1.4 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes)
-**Last updated:** 2026-07-17
+**Status:** Draft v1.5 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v1.5 are approved)
+**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes), [White-Label Estate Branding Design](whitelabel-estate-branding-design.md) (#35, Approved v1.0 — locks the ChannelPartnerGroup/Site.channel_partner_id decisions v1.5 formalizes)
+**Last updated:** 2026-07-21
 **Fork note (v1.4):** the first Domain Model amendment specific to the `PeakLogic-Azure` fork's own Azure-pivot feature backlog (PRD/SRS v1.7). See Revision History. The AWS-native `PeakLogic-AWS` repo's own Domain Model is unaffected.
 
 ---
@@ -62,8 +62,18 @@ Out of scope: exact column types/constraints (→ Database Schema, #10), API req
 | name | |
 | contact_info | |
 | branding (JSONB, nullable) | **New, added v1.1** — `logo_url`, `primary_color`, `secondary_color` for the white-label portal login (CH-3.1, §2.7). Null for a channel partner that's attribution-only (CH-1/CH-2, every vertical except pool-servicing) — branding only applies once a partner is onboarded to the portal |
+| group_id (nullable) | **New, added v1.5** (whitelabel-estate-branding-design.md, #35) — links sibling partners under one holding company (`ChannelPartnerGroup`, below). Not an access grant — see that entity's own note |
 
-A Tenant has **0..1** ChannelPartner (a tenant may or may not have come through a channel relationship); a ChannelPartner has **many** Tenants (CH-2.1's attribution report groups by this relationship).
+A Tenant has **0..1** ChannelPartner (a tenant may or may not have come through a channel relationship); a ChannelPartner has **many** Tenants (CH-2.1's attribution report groups by this relationship). **Added v1.5:** this is the tenant's *default* attribution only — see `Site.channel_partner_id` below for the per-site override that makes a mixed-portfolio tenant representable.
+
+**ChannelPartnerGroup** *(new, v1.5 — whitelabel-estate-branding-design.md, #35)* — the holding company above several `ChannelPartner` rows (e.g. "Purple Standard" above ACE Septic, WTR DR, Boyette Pump & Well, Purple Current, Rodrigues Roofing LLC, Brisa Climate Solutions). **Not the same concept as `ChannelPartnerManager` (§2.9)** — that's a *person* with staff-level access spanning multiple *unrelated* partner accounts; this is a grouping of the partner *accounts themselves* as commonly-owned siblings, used purely to pick a fallback *display brand* for a customer whose sites span more than one sibling. Deliberately does **not** grant any partner-side data access across group members — a partner's own staff session is still scoped to exactly their own `ChannelPartner.channel_partner_id`, never to siblings.
+| Attribute | Notes |
+|---|---|
+| group_id | |
+| name | e.g. "Purple Standard" |
+| branding (JSONB, nullable) | Same shape as `ChannelPartner.branding` — the fallback brand shown when a tenant's sites span multiple sibling partners under this group |
+
+Scoped to Purple Standard only for now (a real, named need, not offered speculatively to every partner) — the mechanism is generic, the offering is not. A ChannelPartnerGroup has **many** ChannelPartners; a ChannelPartner has **0..1** ChannelPartnerGroup.
 
 ### 2.2 Facilities & Assets
 
@@ -74,6 +84,7 @@ A Tenant has **0..1** ChannelPartner (a tenant may or may not have come through 
 | type | Broadened enum: `pumping_station`, `qsr`, `restaurant`, `pool`, `nursing_home`, `retail`, `light_industrial`, `multifamily_residential`, `other` |
 | address, lat/lng, timezone, metadata | **`lat`/`lng` newly load-bearing, added v1.4**: previously only consumed by Territory's derived containment rule (§2.7); now also the direct data source for GEO-1.1's map plotting (SRS §3.16). Still nullable, no schema change — see §6.7 for the pre-existing gap this makes newly visible |
 | **model_3d_reference (nullable) — proposed, not yet added, added v1.4** | Placeholder only — see §6.7. Not added to this table (or to Asset) until the 3D-rendering scoping pass (PRD §5.15) resolves format/storage; listed here so a future reader knows this was considered, not overlooked |
+| **channel_partner_id (nullable) — new, added v1.5** | (whitelabel-estate-branding-design.md, #35) — a per-site OVERRIDE of the Tenant's own `channel_partner_id`. Null (every pre-existing Site) means "use the Tenant's own attribution, unchanged." This is what makes a mixed-portfolio Tenant (sites serviced by different sibling partners) representable as one Tenant instead of forcing two disconnected ones |
 
 **Asset** *(existing)* — a piece of equipment at a Site being monitored (a pump, a walk-in cooler, a pool pump).
 | Attribute | Notes |
@@ -435,3 +446,16 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **§6.7 added**: the 3D-model-asset-reference concept (PRD §5.15/SRS §3.17) is explicitly **not** modeled with a concrete shape — format, storage, and cardinality (per-Site vs. per-Asset vs. both) are all unresolved per the PRD's own deferral, and inventing a shape here would be assuming ahead of a dedicated scoping pass, not documenting a decision.
 - **§6.8 added**: confirms `sites.lat`/`sites.lng` and the existing `postgis`-backed Territory containment query require no Domain-Model-level change for Azure — standard Postgres, portable to Azure Database for PostgreSQL as-is. Flags (does not resolve) that Database Schema (#10) should confirm the specific `postgis` extension version is available on the target Azure Postgres offering.
 - **Downstream artifacts requiring their own amendments as a result** (tracked in `azure-restructuring-plan.md` §2): Database Schema (confirm `postgis`/Azure Postgres compatibility; no new columns needed for GEO features), API Specification (map data endpoint, reusing existing site fields), UX Wireframes (map view, mapping-technology evaluation). The 3D-model entity is explicitly deferred, not assigned to any artifact yet, per §6.7.
+
+**Process note, 2026-07-21 (before v1.5 below):** §2.5 was corrected the same day, earlier in the session, for the AI Analytics Layer (#34) — added `AiModel`/`AiFinding` entities, corrected the section's stale "no new entities" claim — **without a formal version bump or Revision History entry at the time.** Recorded here retroactively so this history stays complete; not repeating the omission going forward.
+
+**v1.5 (2026-07-21)** — forced by [White-Label Estate Branding Design](whitelabel-estate-branding-design.md) (#35), surfaced while reviewing the leadership deck's "customers see your brand, not ours" claim against the real codebase and finding it wasn't actually built for a channel partner's own end customers (only for that partner's staff).
+
+- **Real structural gap found, not just a branding question**: `ChannelPartner`'s existing 0..1 cardinality onto `Tenant` meant a customer serviced by two different sibling partners (e.g. WTR DR for pools, ACE Septic for wastewater) could not be represented as one Tenant at all — it would have needed two disconnected Tenant rows.
+- **§2.1 `ChannelPartner` extended**: nullable `group_id`, linking to the new `ChannelPartnerGroup`.
+- **§2.1 `ChannelPartnerGroup` added**: the holding company above several sibling `ChannelPartner`s (e.g. "Purple Standard"). Explicitly disambiguated from `ChannelPartnerManager` (§2.9, a *person* spanning unrelated accounts) — this groups the *accounts* as commonly-owned siblings, purely for branding-fallback purposes, and deliberately grants no cross-sibling data access.
+- **§2.2 `Site` extended**: nullable `channel_partner_id`, a per-site override of the Tenant's own default attribution — this, not the group entity, is what actually makes a mixed-portfolio Tenant representable; the group only decides which brand to show once it is.
+- **A second real bug found while tracing the RLS interaction through** (not theorized — traced how `channel_partner_can_read_site()` actually executes): it has no `SECURITY DEFINER`, so its internal join into `tenants` is itself subject to `tenants`' own RLS. The pre-existing `tenants.channel_partner_read` policy, unwidened, would have silently blocked that join for a mixed-attribution tenant's site-level override — looking correct in the function body while never actually resolving. Fixed in the same migration (`1784048400000`), documented in full in artifact #35 §2.
+- **Deliberately scoped to Purple Standard only** — a real, named need per explicit user direction, not built speculatively for every partner. No feature flag: the mechanism is generic and shipped; the offering is not generally marketed.
+- **Shipped same day, not just designed**: migration `1784048400000_channel-partner-groups.sql`; `backend/shared/branding.ts` (`resolveEstateBranding`, pure, 8 tests); `docs/data-model.sql` mirrored.
+- **Explicitly not resolved in this pass**: no API endpoint exposes any of this to a frontend yet; no frontend theming exists anywhere in `frontend/`; no admin-console UI to manage `ChannelPartnerGroup` rows or per-site overrides (all deferred per artifact #35 §7, tracked in `project_peaklogic_whitelabel_estate_design` memory).
