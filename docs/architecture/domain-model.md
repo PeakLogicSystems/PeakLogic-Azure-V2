@@ -3,7 +3,7 @@
 **Product:** PeakView Hub / PeakView 360
 **Cloud Platform:** PeakLogicSystems
 **Project Codename:** Vantage
-**Status:** Draft v1.5 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v1.5 are approved)
+**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v1.6 are approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes), [White-Label Estate Branding Design](whitelabel-estate-branding-design.md) (#35, Approved v1.0 — locks the ChannelPartnerGroup/Site.channel_partner_id decisions v1.5 formalizes)
 **Last updated:** 2026-07-21
 **Fork note (v1.4):** the first Domain Model amendment specific to the `PeakLogic-Azure` fork's own Azure-pivot feature backlog (PRD/SRS v1.7). See Revision History. The AWS-native `PeakLogic-AWS` repo's own Domain Model is unaffected.
@@ -136,7 +136,7 @@ A Telemetry row is evaluated against its Device's Asset's DeviceAdapter (§2.3) 
 |---|---|
 | alert_id, tenant_id, device_id, asset_id | |
 | severity | info / warning / critical |
-| type | Existing value `threshold`; **new** value `anomaly` (shipped 2026-07-21, AI Analytics Layer Tier 1) so a baseline-deviation flag is distinguishable from a static-threshold alert. `prediction`/`prescription` reserved for Tiers 2–3, not yet emitted anywhere |
+| type | Existing value `threshold`; `anomaly` (shipped 2026-07-21, AI Analytics Layer Tier 1) so a baseline-deviation flag is distinguishable from a static-threshold alert; `device_silent` (shipped 2026-07-21, Enterprise Audit §3 P0 — `backend/jobs/silence-detection*.ts`) for a device that stopped reporting entirely, distinct from a bad reading. `prediction`/`prescription` reserved for Tiers 2–3, not yet emitted anywhere |
 | message, context (JSONB) | |
 | status | open / acknowledged / resolved / suppressed |
 | triggered_at, acknowledged_at, resolved_at | |
@@ -459,3 +459,11 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **Deliberately scoped to Purple Standard only** — a real, named need per explicit user direction, not built speculatively for every partner. No feature flag: the mechanism is generic and shipped; the offering is not generally marketed.
 - **Shipped same day, not just designed**: migration `1784048400000_channel-partner-groups.sql`; `backend/shared/branding.ts` (`resolveEstateBranding`, pure, 8 tests); `docs/data-model.sql` mirrored.
 - **Explicitly not resolved in this pass**: no API endpoint exposes any of this to a frontend yet; no frontend theming exists anywhere in `frontend/`; no admin-console UI to manage `ChannelPartnerGroup` rows or per-site overrides (all deferred per artifact #35 §7, tracked in `project_peaklogic_whitelabel_estate_design` memory).
+
+**v1.6 (2026-07-21, same day)** — forced by closing the Enterprise Audit's (2026-07-19) §3 P0 finding: "no code path turns absence of telemetry into an alert... a dead freezer sensor is indistinguishable from a healthy freezer." Executes an already-audited, already-prioritized roadmap item — no new design artifact was written (the audit itself is the authoritative design source); see `project_peaklogic_next_steps` memory for the roadmap context.
+
+- **§2.4 `Alert.type` extended**: new value `device_silent` (`backend/jobs/silence-detection.ts`/`silence-detection-handler.ts`) — a device that stopped reporting entirely, distinct from `threshold`/`anomaly` (both of which require a *bad reading*, not an *absent* one).
+- **§2.2 `Device.status`'s existing `'offline'` value is now actually reachable**: verified by grep before building this that nothing had ever set it despite the schema/type allowing it since v1.0. The silence sweep sets it; the existing ingest heartbeat already flips it back to `'online'` on the device's next real reading — self-correcting, no new lifecycle state needed.
+- **No new entities or tables** — this reuses `devices.last_seen_at` (existing) and emits into the existing `alerts` table (`type` has always been unconstrained TEXT, no CHECK constraint to widen).
+- **A new, narrowly-scoped RLS carve-out on `Tenant`** (migration `1784051700000`, mirrors `app.ingest_context`'s existing precedent): a scheduled sweep needs to enumerate tenant ids before fanning out per-tenant work through the unmodified `withTenant()` — documented in full in the migration's own header comment, not repeated here.
+- **Deliberately out of scope**: a device that has *never* reported at all (`last_seen_at` null) is a different failure mode (onboarding/connectivity, not "was alive, went dark") and isn't flagged by this pass. Per-category severity escalation (e.g. `leak_sensor`/`gas_sensor` silence going straight to `critical`, matching those categories' real-threshold precedent of skipping the warning tier) is flagged as a reasonable follow-up once operational data justifies it, not built speculatively.

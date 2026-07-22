@@ -4,9 +4,8 @@ import { evaluateRuleSet, sanitizeMetrics, RULES_BY_CATEGORY, type Rule, type Fi
 import { resolvePolicyRules } from './policy-resolver';
 import { updateBaseline } from './baseline';
 import { scoreAnomaly, formatAnomalyMessage } from './anomaly';
-import { resolveConnector, buildWorkOrder } from '../shared/cmms/dispatch';
-import { getAdapter } from '../shared/cmms/adapters';
-import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert, ServiceTicket, MetricBaseline } from '../shared/types';
+import { createAlertAndMaybeTicket } from '../shared/alerts';
+import type { AssetSpecs, Device, IoTIngestEvent, MetricBaseline } from '../shared/types';
 
 // Policy Engine cutover (Policy Engine Design §8 step 3). When
 // POLICY_ENGINE_ENABLED is 'true', alert thresholds are resolved from the DB
@@ -258,68 +257,10 @@ async function resolveRulesForDevice(client: PoolClient, device: IngestDevice): 
 }
 
 // ── Alert deduplication + creation ────────────────────────────────────────
-
-interface AlertParams {
-  type: string; // 'threshold' | 'anomaly' | 'prediction' (only 'threshold'/'anomaly' actually emitted today)
-  severity: Alert['severity'];
-  metric: string;
-  message: string;
-  context: Record<string, unknown>;
-  time: Date;
-}
-
-/**
- * The shared dedup → insert → maybe-ticket path both the Policy Engine/
- * compiled-rules ("threshold") alerts and the AI Analytics ("anomaly")
- * alerts go through — extracted from what was previously threshold-only
- * `maybeCreateAlert` so the ~60-line CMMS dispatch logic in
- * createTicketForAlert isn't duplicated for a second alert type (AI
- * Analytics Layer Design §1.3: "AI is a new alert source, never a new alert
- * path" — this is that principle enforced in code, not just prose).
- * Returns the created row (or none, if deduped) so callers that need the
- * alert id — Tier 1 anomaly scoring, to link `ai_findings.alert_id` — have
- * it without a second query.
- */
-async function createAlertAndMaybeTicket(
-  client: PoolClient,
-  device: Device & { category: string; specs: AssetSpecs | null },
-  params: AlertParams,
-): Promise<{ rows: [Alert] | [] }> {
-  const { type, severity, metric, message, context, time } = params;
-
-  // Skip if an open alert of the same type+severity already exists for this device+metric
-  const { rows: [existing] } = await client.query(
-    `SELECT id FROM alerts
-     WHERE device_id = $1
-       AND type      = $2
-       AND severity  = $3
-       AND context->>'metric' = $4
-       AND status IN ('open', 'acknowledged')
-     LIMIT 1`,
-    [device.id, type, severity, metric],
-  );
-
-  if (existing) return { rows: [] }; // already alerted, skip
-
-  const { rows: [alert] } = await client.query<Alert>(
-    `INSERT INTO alerts (tenant_id, device_id, asset_id, severity, type, message, context, triggered_at)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING *`,
-    [device.tenant_id, device.id, device.asset_id, severity, type, message, JSON.stringify(context), time],
-  );
-
-  console.info(`Alert created: ${severity} (${type}) — ${message}`);
-
-  // Auto-create a service ticket for critical alerts. Tier 1 anomaly alerts
-  // never reach 'critical' (anomaly.ts caps them at 'warning'), so this
-  // branch is unreachable for anomaly findings today, by design — see
-  // anomaly.ts's module doc for why.
-  if (severity === 'critical') {
-    await createTicketForAlert(client, device, alert);
-  }
-
-  return { rows: [alert] };
-}
+// createAlertAndMaybeTicket()/createTicketForAlert() moved to
+// ../shared/alerts.ts (2026-07-21) — a second consumer (device-silence
+// detection) needed the exact same dedup→insert→maybe-ticket path, so it's
+// now shared rather than duplicated. Behavior unchanged.
 
 async function maybeCreateAlert(
   client: PoolClient,
@@ -336,69 +277,4 @@ async function maybeCreateAlert(
     context: { metric: rule.metric, threshold, actual: value },
     time,
   });
-}
-
-async function createTicketForAlert(
-  client: PoolClient,
-  device: Device & { category: string },
-  alert: Alert,
-): Promise<void> {
-  const tenantId = device.tenant_id!; // non-null here — checked in processIngestEvent
-
-  // Resolve the CMMS connector for this tenant's attributed partner (or the
-  // legacy tenant webhook_url as an implicit generic_webhook) — CMMS Dispatch
-  // §2. Runs inside the tenant-scoped ingest txn; the connector read uses the
-  // ingest_context read policy (migration 1783875900000).
-  const { connector, channelPartnerId } = await resolveConnector(client, tenantId);
-
-  // Insert the ticket with dispatch attribution stamped transactionally: it's
-  // an automated (alert-generated) ticket, dispatched to `channelPartnerId`
-  // via `connector`. dispatched_at is set optimistically when there's a
-  // connector to send to — matching the fire-and-forget delivery below; a
-  // durable retry sweep for dispatches that never confirm is the next
-  // increment (CMMS Dispatch §6 phase 1 outbox).
-  const { rows: [ticket] } = await client.query<ServiceTicket>(
-    `INSERT INTO service_tickets
-       (tenant_id, alert_id, asset_id, title, description, priority, source,
-        channel_partner_id, cmms_connector_id, dispatched_at, webhook_url)
-     VALUES ($1, $2, $3, $4, $5, 'emergency', 'automated', $6, $7, $8, $9)
-     RETURNING *`,
-    [
-      tenantId,
-      alert.id,
-      alert.asset_id,
-      `Critical alert: ${alert.message}`,
-      `Auto-generated from alert ${alert.id} — ${alert.type} on device ${device.thing_name}`,
-      channelPartnerId,
-      connector?.id ?? null,
-      connector ? new Date() : null,
-      connector?.vendor === 'generic_webhook' ? connector.baseUrl : null,
-    ],
-  );
-
-  if (connector && ticket) {
-    const adapter = getAdapter(connector.vendor);
-    if (!adapter) {
-      console.error(`No CMMS adapter for vendor "${connector.vendor}" — ticket ${ticket.id} not dispatched`);
-      return;
-    }
-    const workOrder = buildWorkOrder({
-      id: ticket.id,
-      title: ticket.title,
-      description: ticket.description ?? '',
-      priority: ticket.priority,
-      assetId: ticket.asset_id,
-      deviceThingName: device.thing_name,
-    });
-    // Fire-and-forget — same non-blocking semantics as the prior direct
-    // webhook post, so the external call never holds the ingest txn open.
-    // generic_webhook needs no secret; credential-backed vendors resolve
-    // connector.credentialRef from Key Vault when those adapters are added.
-    adapter
-      .send(connector, workOrder, null)
-      .then((r) => {
-        if (!r.ok) console.error(`CMMS dispatch failed for ticket ${ticket.id}: ${r.error}`);
-      })
-      .catch((err: unknown) => console.error('CMMS dispatch threw', err));
-  }
 }

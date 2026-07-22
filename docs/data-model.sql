@@ -831,6 +831,17 @@ CREATE POLICY channel_partner_read ON tenants FOR SELECT
     )
   );
 
+-- Migration 1784051700000 (device-silence detection, Enterprise Audit
+-- 2026-07-19 §3 P0 finding) — a THIRD permissive policy on tenants, narrowly
+-- scoped to the scheduled silence-detection sweep's tenant-enumeration step.
+-- Modeled on app.ingest_context's precedent: a SELECT-only marker set for
+-- exactly the one query that needs it, never touching app.current_tenant_id.
+-- The per-tenant work that follows uses ordinary withTenant() scoping,
+-- unaffected by this marker. See that migration's header comment for the
+-- full reasoning, including the disclosed row-vs-column-level RLS caveat.
+CREATE POLICY system_sweep_read ON tenants FOR SELECT
+  USING (current_setting('app.system_sweep_context', true) = 'true');
+
 CREATE POLICY channel_partner_read ON sites FOR SELECT
   USING (channel_partner_can_read_site(id));
 
