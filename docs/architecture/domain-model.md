@@ -125,7 +125,7 @@ A Telemetry row is evaluated against its Device's Asset's DeviceAdapter (§2.3) 
 |---|---|
 | alert_id, tenant_id, device_id, asset_id | |
 | severity | info / warning / critical |
-| type | Existing value `threshold`; **new** value `trend` or `anomaly` needed for AI-3.2, so a baseline-deviation flag is distinguishable from a static-threshold alert |
+| type | Existing value `threshold`; **new** value `anomaly` (shipped 2026-07-21, AI Analytics Layer Tier 1) so a baseline-deviation flag is distinguishable from a static-threshold alert. `prediction`/`prescription` reserved for Tiers 2–3, not yet emitted anywhere |
 | message, context (JSONB) | |
 | status | open / acknowledged / resolved / suppressed |
 | triggered_at, acknowledged_at, resolved_at | |
@@ -139,9 +139,35 @@ A Telemetry row is evaluated against its Device's Asset's DeviceAdapter (§2.3) 
 
 An Alert has **0..*** ServiceTickets (existing FK is nullable, not unique — in practice, MVP behavior (AL-2.1) creates exactly one per critical Alert).
 
-### 2.5 AI & MCP — no new entities
+### 2.5 AI & MCP
 
-The MCP server (MCP-1.1) and baseline analytics (AI-3.1) are an **access/computation layer over existing entities** (Device, Alert, Telemetry, MetricBaseline) — not a new domain concept requiring its own entity beyond MetricBaseline (§2.3). This is called out explicitly so the Database Schema and API Specification artifacts don't go looking for an "MCP entity" that isn't there by design.
+**Correction (2026-07-21):** this section originally asserted "no new entities" beyond MetricBaseline. That was accurate for the MCP server (still true — MCP-1.1 is a pure access layer, no entity of its own) but became stale the moment the AI Analytics Layer (`ai-analytics-layer-design.md`, artifact #34) needed somewhere to record *what scored a reading* and *what it found*, distinct from the reading itself (Telemetry) or the resulting Alert. Two new entities, both additive (migration `1783962000000_ai-analytics.sql`):
+
+**AiModel** *(new)* — a scoring-method registry row (metadata; heavy artifacts, if any, live in blob storage and are referenced, not stored here). Tier 1's classical EWMA/z-score scoring (`backend/ingest/anomaly.ts`) doesn't create a row here at all — see AiFinding below.
+| Attribute | Notes |
+|---|---|
+| id, tenant_id (nullable) | NULL = platform-scope/cross-fleet catalog (design §6 — not built; per-tenant only per the 2026-07-21 decision, no platform rows exist) |
+| scope_level | `platform` \| `tenant` |
+| kind | `anomaly` \| `prediction` \| `prescription` |
+| asset_class, metric | Nullable — a Tier 1 statistical method isn't scoped to one asset class |
+| method | e.g. `'ewma-zscore'` |
+| artifact_ref, metrics_json, trained_at, enabled | For future trained models (Tier 2+); unused by Tier 1 |
+
+**AiFinding** *(new)* — a scored result, whether or not it crossed the threshold to become an Alert.
+| Attribute | Notes |
+|---|---|
+| id, tenant_id, device_id | |
+| model_id | Nullable, and left NULL by Tier 1 — there's no trained artifact to reference for a formula, only for Tier 2+ real models |
+| kind | `anomaly` \| `prediction` \| `prescription` |
+| score | Deviation sigma (anomaly) / failure probability (prediction, not yet emitted) |
+| horizon_days | Prediction only, unused by Tier 1 |
+| explanation (JSONB) | `{metric, expected, observed, deviation_sigma}` for Tier 1 |
+| alert_id | Nullable — set when the finding crossed threshold and became an Alert (most won't, by design: most readings are NOT anomalous) |
+| outcome_label | For future CMMS-outcome-based training labels (design §3) — unused; Tier 1 has no dispatch outcomes to learn from |
+
+A Telemetry row is evaluated against its Device's Asset's DeviceAdapter (§2.3), separately against its MetricBaseline (§2.3, Tier 1 anomaly scoring), producing zero or more Alerts. An AiFinding is recorded whenever Tier 1 scoring actually detects an anomaly — independent of whether the resulting Alert is newly created or deduped against one already open — so the AI layer's own record of "what it found" (AiFinding) is never silently undercounted by the user-facing alert feed's deduplication (Alert).
+
+The MCP server (MCP-1.1) remains a pure access/computation layer with no entity of its own — that half of the original claim still holds.
 
 ### 2.6 Audit
 

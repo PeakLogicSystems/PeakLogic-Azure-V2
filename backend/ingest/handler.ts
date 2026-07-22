@@ -2,9 +2,11 @@ import { PoolClient } from 'pg';
 import { getPool } from '../shared/db';
 import { evaluateRuleSet, sanitizeMetrics, RULES_BY_CATEGORY, type Rule, type FiredRule } from './rules';
 import { resolvePolicyRules } from './policy-resolver';
+import { updateBaseline } from './baseline';
+import { scoreAnomaly, formatAnomalyMessage } from './anomaly';
 import { resolveConnector, buildWorkOrder } from '../shared/cmms/dispatch';
 import { getAdapter } from '../shared/cmms/adapters';
-import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert, ServiceTicket } from '../shared/types';
+import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert, ServiceTicket, MetricBaseline } from '../shared/types';
 
 // Policy Engine cutover (Policy Engine Design §8 step 3). When
 // POLICY_ENGINE_ENABLED is 'true', alert thresholds are resolved from the DB
@@ -14,6 +16,16 @@ import type { Asset, AssetSpecs, Device, IoTIngestEvent, Alert, ServiceTicket } 
 // and per environment without a redeploy.
 function policyEngineEnabled(): boolean {
   return process.env.POLICY_ENGINE_ENABLED === 'true';
+}
+
+// AI Analytics Layer (artifact #34) Tier 1 cutover — same zero-default-
+// behavior-change discipline as the Policy Engine flag above. When 'true',
+// each reading is scored against the device's own metric_baselines row
+// (anomaly.ts) and an 'anomaly'-type alert is raised through the existing
+// pipeline if it deviates enough. Baseline MAINTENANCE (baseline.ts) is NOT
+// gated by this flag — see processIngestEvent's step 3b comment for why.
+function aiAnalyticsEnabled(): boolean {
+  return process.env.AI_ANALYTICS_ENABLED === 'true';
 }
 
 // Device shape after the ingest lookup join (category/specs/site_id come from
@@ -137,6 +149,76 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
       );
     }
 
+    // 3b. Maintain metric_baselines + (if enabled) score Tier 1 anomalies.
+    // AI Analytics Layer Design §2 Tier 1 / baseline.ts's own header comment
+    // for the full rationale — short version: baseline MAINTENANCE always
+    // runs (cheap, no alert-pipeline coupling, so real history exists the
+    // moment the flag flips on); anomaly SCORING is gated behind
+    // AI_ANALYTICS_ENABLED (it can emit alerts, so it gets the same
+    // zero-default-behavior-change treatment as the Policy Engine).
+    //
+    // Deliberately scores against the PRE-update baseline (fetched before
+    // this reading is folded in) — the question is "how unusual is this
+    // reading relative to what came before," not relative to a baseline this
+    // same reading already shifted.
+    const aiEnabled = aiAnalyticsEnabled();
+    for (const [metric, value] of Object.entries(metrics)) {
+      const { rows: [existingBaseline] } = await client.query<MetricBaseline>(
+        `SELECT * FROM metric_baselines WHERE device_id = $1 AND metric = $2`,
+        [device.id, metric],
+      );
+
+      if (aiEnabled && existingBaseline) {
+        const result = scoreAnomaly(existingBaseline, value);
+        if (result) {
+          // Record the finding whenever the AI layer actually detects
+          // something — independent of whether the resulting alert is new
+          // or deduped against one already open. ai_findings is the AI
+          // layer's own audit trail ("what did it find"); alerts is the
+          // user-facing, deduped surface ("what should a human see") —
+          // conflating the two (only recording a finding when a NEW alert
+          // was created) would silently under-count real detections any
+          // time the same anomaly persists across multiple readings.
+          const { rows: [alert] } = await createAlertAndMaybeTicket(client, device, {
+            type: 'anomaly',
+            severity: result.severity,
+            metric: result.metric,
+            message: formatAnomalyMessage(result),
+            context: { metric: result.metric, expected: result.expected, observed: result.observed, deviation_sigma: result.deviationSigma },
+            time,
+          });
+          await client.query(
+            `INSERT INTO ai_findings (tenant_id, device_id, model_id, kind, score, explanation, alert_id)
+             VALUES ($1, $2, NULL, 'anomaly', $3, $4, $5)`,
+            [
+              device.tenant_id,
+              device.id,
+              result.deviationSigma,
+              JSON.stringify({ metric: result.metric, expected: result.expected, observed: result.observed, deviation_sigma: result.deviationSigma }),
+              alert?.id ?? null,
+            ],
+          );
+        }
+      }
+
+      const updated = updateBaseline(
+        { tenant_id: device.tenant_id!, device_id: device.id, metric },
+        existingBaseline ?? null,
+        value,
+        time,
+      );
+      await client.query(
+        `INSERT INTO metric_baselines (tenant_id, device_id, metric, trailing_mean, trailing_stddev, window_start, window_end, sample_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (device_id, metric) DO UPDATE SET
+           trailing_mean = EXCLUDED.trailing_mean,
+           trailing_stddev = EXCLUDED.trailing_stddev,
+           window_end = EXCLUDED.window_end,
+           sample_count = EXCLUDED.sample_count`,
+        [updated.tenant_id, updated.device_id, updated.metric, updated.trailing_mean, updated.trailing_stddev, updated.window_start, updated.window_end, updated.sample_count],
+      );
+    }
+
     // 4. Evaluate alert rules if device is linked to an asset with known category
     if (device.asset_id && device.category) {
       const rules = policyEngineEnabled()
@@ -177,6 +259,68 @@ async function resolveRulesForDevice(client: PoolClient, device: IngestDevice): 
 
 // ── Alert deduplication + creation ────────────────────────────────────────
 
+interface AlertParams {
+  type: string; // 'threshold' | 'anomaly' | 'prediction' (only 'threshold'/'anomaly' actually emitted today)
+  severity: Alert['severity'];
+  metric: string;
+  message: string;
+  context: Record<string, unknown>;
+  time: Date;
+}
+
+/**
+ * The shared dedup → insert → maybe-ticket path both the Policy Engine/
+ * compiled-rules ("threshold") alerts and the AI Analytics ("anomaly")
+ * alerts go through — extracted from what was previously threshold-only
+ * `maybeCreateAlert` so the ~60-line CMMS dispatch logic in
+ * createTicketForAlert isn't duplicated for a second alert type (AI
+ * Analytics Layer Design §1.3: "AI is a new alert source, never a new alert
+ * path" — this is that principle enforced in code, not just prose).
+ * Returns the created row (or none, if deduped) so callers that need the
+ * alert id — Tier 1 anomaly scoring, to link `ai_findings.alert_id` — have
+ * it without a second query.
+ */
+async function createAlertAndMaybeTicket(
+  client: PoolClient,
+  device: Device & { category: string; specs: AssetSpecs | null },
+  params: AlertParams,
+): Promise<{ rows: [Alert] | [] }> {
+  const { type, severity, metric, message, context, time } = params;
+
+  // Skip if an open alert of the same type+severity already exists for this device+metric
+  const { rows: [existing] } = await client.query(
+    `SELECT id FROM alerts
+     WHERE device_id = $1
+       AND type      = $2
+       AND severity  = $3
+       AND context->>'metric' = $4
+       AND status IN ('open', 'acknowledged')
+     LIMIT 1`,
+    [device.id, type, severity, metric],
+  );
+
+  if (existing) return { rows: [] }; // already alerted, skip
+
+  const { rows: [alert] } = await client.query<Alert>(
+    `INSERT INTO alerts (tenant_id, device_id, asset_id, severity, type, message, context, triggered_at)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+     RETURNING *`,
+    [device.tenant_id, device.id, device.asset_id, severity, type, message, JSON.stringify(context), time],
+  );
+
+  console.info(`Alert created: ${severity} (${type}) — ${message}`);
+
+  // Auto-create a service ticket for critical alerts. Tier 1 anomaly alerts
+  // never reach 'critical' (anomaly.ts caps them at 'warning'), so this
+  // branch is unreachable for anomaly findings today, by design — see
+  // anomaly.ts's module doc for why.
+  if (severity === 'critical') {
+    await createTicketForAlert(client, device, alert);
+  }
+
+  return { rows: [alert] };
+}
+
 async function maybeCreateAlert(
   client: PoolClient,
   device: Device & { category: string; specs: AssetSpecs | null },
@@ -184,42 +328,14 @@ async function maybeCreateAlert(
   time: Date,
 ): Promise<void> {
   const { rule, value, threshold, message } = fired;
-
-  // Skip if an open alert of the same severity already exists for this device+metric
-  const { rows: [existing] } = await client.query(
-    `SELECT id FROM alerts
-     WHERE device_id = $1
-       AND type      = 'threshold'
-       AND severity  = $2
-       AND context->>'metric' = $3
-       AND status IN ('open', 'acknowledged')
-     LIMIT 1`,
-    [device.id, rule.severity, rule.metric],
-  );
-
-  if (existing) return; // already alerted, skip
-
-  const { rows: [alert] } = await client.query<Alert>(
-    `INSERT INTO alerts (tenant_id, device_id, asset_id, severity, type, message, context, triggered_at)
-     VALUES ($1, $2, $3, $4, 'threshold', $5, $6, $7)
-     RETURNING *`,
-    [
-      device.tenant_id,
-      device.id,
-      device.asset_id,
-      rule.severity,
-      message,
-      JSON.stringify({ metric: rule.metric, threshold, actual: value }),
-      time,
-    ],
-  );
-
-  console.info(`Alert created: ${rule.severity} — ${message}`);
-
-  // Auto-create a service ticket for critical alerts
-  if (rule.severity === 'critical') {
-    await createTicketForAlert(client, device, alert);
-  }
+  await createAlertAndMaybeTicket(client, device, {
+    type: 'threshold',
+    severity: rule.severity,
+    metric: rule.metric,
+    message,
+    context: { metric: rule.metric, threshold, actual: value },
+    time,
+  });
 }
 
 async function createTicketForAlert(

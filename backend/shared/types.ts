@@ -142,6 +142,51 @@ export interface ServiceTicket {
   updated_at: Date;
 }
 
+// ── AI Analytics Layer (ai-analytics-layer-design.md, artifact #34) ───────
+// Tier 1 (anomaly detection) scaffolding, AI_ANALYTICS_ENABLED-gated —
+// backend/ingest/baseline.ts + anomaly.ts. See migration
+// 1783962000000_ai-analytics.sql.
+
+export interface MetricBaseline {
+  tenant_id: string;
+  device_id: string;
+  metric: string;
+  trailing_mean: number;
+  trailing_stddev: number;
+  window_start: Date;
+  window_end: Date;
+  sample_count: number;
+}
+
+export interface AiModel {
+  id: string;
+  tenant_id: string | null; // NULL = platform-scope / cross-fleet catalog (§6 — not built yet, per-tenant only today)
+  scope_level: 'platform' | 'tenant';
+  kind: 'anomaly' | 'prediction' | 'prescription';
+  asset_class: string | null;
+  metric: string | null;
+  method: string; // 'ewma-zscore' today; 'trend' | 'azureml:<id>' etc. later
+  artifact_ref: string | null;
+  metrics_json: Record<string, unknown> | null;
+  trained_at: Date | null;
+  enabled: boolean;
+  created_at: Date;
+}
+
+export interface AiFinding {
+  id: string;
+  tenant_id: string;
+  device_id: string | null;
+  model_id: string | null; // NULL for classical/formula-based Tier 1 scoring — no trained artifact exists to reference
+  kind: 'anomaly' | 'prediction' | 'prescription';
+  score: number | null; // deviation sigma (anomaly) / failure probability (prediction)
+  horizon_days: number | null;
+  explanation: Record<string, unknown>;
+  alert_id: string | null;
+  outcome_label: string | null; // backfilled from service_visits — not wired yet (Tier 1 has no dispatch outcomes to learn from)
+  created_at: Date;
+}
+
 // ── Telemetry ─────────────────────────────────────────────────────────────
 
 export interface TelemetryPoint {

@@ -329,6 +329,59 @@ CREATE INDEX metric_baselines_tenant_idx ON metric_baselines(tenant_id);
 -- note above; same reasoning.
 
 -- ─────────────────────────────────────────────────────────────
+-- AI ANALYTICS LAYER (Tier 1 scaffolding, migration 1783962000000)
+-- ai-analytics-layer-design.md §4 — additive over metric_baselines above.
+-- ai_models.tenant_id NULL = platform-scope/cross-fleet catalog (§6 — not
+-- built; per-tenant only per the 2026-07-21 decision, no rows seeded).
+-- ai_findings.model_id is nullable and left NULL by Tier 1's classical/
+-- formula-based scoring — no trained artifact exists to reference.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE ai_models (
+  id            UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id     UUID             REFERENCES tenants(id) ON DELETE CASCADE,
+  scope_level   TEXT             NOT NULL CHECK (scope_level IN ('platform','tenant')),
+  kind          TEXT             NOT NULL CHECK (kind IN ('anomaly','prediction','prescription')),
+  asset_class   TEXT,
+  metric        TEXT,
+  method        TEXT             NOT NULL,
+  artifact_ref  TEXT,
+  metrics_json  JSONB,
+  trained_at    TIMESTAMPTZ,
+  enabled       BOOLEAN          NOT NULL DEFAULT TRUE,
+  created_at    TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ai_models ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_models FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON ai_models
+  USING (tenant_id IS NULL OR tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE INDEX ai_models_tenant_idx ON ai_models(tenant_id);
+CREATE INDEX ai_models_platform_scope_idx ON ai_models(asset_class, metric) WHERE scope_level = 'platform';
+
+CREATE TABLE ai_findings (
+  id            UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id     UUID             NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  device_id     UUID             REFERENCES devices(id) ON DELETE CASCADE,
+  model_id      UUID             REFERENCES ai_models(id) ON DELETE SET NULL,
+  kind          TEXT             NOT NULL CHECK (kind IN ('anomaly','prediction','prescription')),
+  score         DOUBLE PRECISION,
+  horizon_days  INTEGER,
+  explanation   JSONB            NOT NULL,
+  alert_id      UUID             REFERENCES alerts(id) ON DELETE SET NULL,
+  outcome_label TEXT,
+  created_at    TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+
+ALTER TABLE ai_findings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE ai_findings FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON ai_findings
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE INDEX ai_findings_tenant_idx ON ai_findings(tenant_id);
+CREATE INDEX ai_findings_device_idx ON ai_findings(device_id, created_at DESC);
+
+-- ─────────────────────────────────────────────────────────────
 -- ALERTS
 -- ─────────────────────────────────────────────────────────────
 CREATE TABLE alerts (

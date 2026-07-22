@@ -136,6 +136,17 @@ Defined in `backend/ingest/rules.ts` as `RULES_BY_CATEGORY`. Threshold functions
 
 Categories today: `pump`, `hvac`, `pool_system`, `refrigeration`, `leak_sensor`, `energy_meter`. This dictionary is meant to be extended — adding a new vertical/asset type is just a new key with its own rule list, not a schema change (`assets.category` is unconstrained TEXT). `refrigeration` deliberately keys off `product_temp_c` (a probe in the food/drink itself), not ambient air temp — that's the energy-savings-plus-food-safety pitch: the unit can run warmer when the product itself is still safely cold.
 
+### AI Analytics — Tier 1 anomaly detection, `AI_ANALYTICS_ENABLED`-gated
+
+As of `docs/architecture/ai-analytics-layer-design.md` (artifact #34, Approved v1.0): a first-class AI layer, phased anomaly → predictive → prescriptive. **Only Tier 1 (anomaly detection) is built.** Same zero-default-behavior-change discipline as the Policy Engine flag above — `AI_ANALYTICS_ENABLED` defaults off.
+
+- **`backend/ingest/baseline.ts`** maintains `metric_baselines` (EWMA trailing mean/stddev per device+metric) on **every** ingested reading, regardless of the flag — this is cheap bookkeeping with no alert-pipeline coupling. (Real gap closed 2026-07-21: this table existed since the Policy Engine era but nothing had ever written to it.)
+- **`backend/ingest/anomaly.ts`** scores a reading against its *pre-update* baseline when the flag is on, withholding until `MIN_SAMPLES_FOR_ANOMALY` (20) is met. Findings are capped at `severity='warning'` — never `'critical'` — so Tier 1 can never auto-create a service ticket (`handler.ts`'s critical-only ticket creation is unreachable for anomaly alerts by design; anomaly detection has no measured precision yet).
+- Emits through the **existing** alert pipeline (`alerts.type='anomaly'`, same dedup/ticket logic as `'threshold'` — `handler.ts`'s `createAlertAndMaybeTicket()` is the shared path both types go through) and records an `ai_findings` row for every real detection (whether or not the resulting alert is new or deduped).
+- Thresholds (`MIN_SAMPLES_FOR_ANOMALY`, `DEFAULT_SIGMA_THRESHOLD`) are hardcoded module constants today, not yet a Policy Engine knob — flagged as the natural next step once real telemetry history exists to tune against (there is currently none; nothing has ever deployed).
+- **Tiers 2 (predictive maintenance) and 3 (prescriptive/LLM enrichment) are design-only.** Tier 3's locked LLM vendor is **Claude via Microsoft Foundry** (Anthropic's models went GA there 2026-06-29, hosted on Azure infra with native Azure auth/billing — the Azure-native choice, not a vendor exception) — see design doc §7a.
+- Cross-tenant model training and cross-tenant benchmarking are both explicitly **not built** — per-tenant only, per a 2026-07-21 decision; see design doc §6/§6a for the (unbuilt) technical shape and the real legal caveats around anonymized benchmarking specifically.
+
 ### Future: Command & Control Architecture (not yet implemented)
 
 Actuation (e.g. remotely shutting off a valve) is on the roadmap but not built. Two things are worth locking in now, before that subsystem exists, so later work doesn't have to relitigate them:

@@ -226,6 +226,8 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 **Error/edge conditions:** a device/metric pair has insufficient history for a trailing-window baseline (AI-3.1 shall not fire a flag until a minimum history threshold is met — no flag is preferable to a flag computed on too little data).
 
+**Implementation status (2026-07-21, `ai-analytics-layer-design.md` Tier 1 shipped, `AI_ANALYTICS_ENABLED`-gated):** AI-3.1 met (`backend/ingest/baseline.ts` + `anomaly.ts` — EWMA trailing baseline, minimum-history withholding). AI-3.2 met (emits `alerts.type='anomaly'` through the existing pipeline). **AI-3.3 NOT yet met** — `anomaly.ts`'s `MIN_SAMPLES_FOR_ANOMALY`/`DEFAULT_SIGMA_THRESHOLD` are hardcoded module constants today, not configurable per adapter/category. Deliberate, disclosed gap for this first cut (zero real telemetry history exists yet to tune per-category values against); the fix is a Policy Engine `anomaly` policy kind (already flagged as pending in the design doc §10), not a re-architecture.
+
 ### 3.8 Channel & Partner Support (→ PRD §5.8 CH-1–CH-3)
 
 | ID | Requirement |
