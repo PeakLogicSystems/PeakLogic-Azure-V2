@@ -185,5 +185,6 @@ resource dbCredentialSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 //    Flagged as real, sequenced follow-up work.
 
 output postgresServerFqdn string = postgresServer.properties.fullyQualifiedDomainName
+output postgresServerId string = postgresServer.id // consumed by monitoring.bicep's metric alerts (Enterprise Audit §6 P0 item 4)
 output keyVaultUri string = keyVault.properties.vaultUri
 output keyVaultName string = keyVault.name

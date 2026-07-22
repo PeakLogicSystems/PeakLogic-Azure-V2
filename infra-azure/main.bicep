@@ -68,18 +68,32 @@ module data 'modules/data.bicep' = {
   }
 }
 
+module monitoring 'modules/monitoring.bicep' = {
+  name: 'monitoring-${stage}'
+  params: {
+    namePrefix: namePrefix
+    location: location
+    stage: stage
+    alertEmail: alertEmail
+    postgresServerId: data.outputs.postgresServerId
+  }
+}
+
 // ── Not yet written — tracked honestly, not silently omitted ──
 // Per Infrastructure as Code §3's planned module structure and §8's open
 // items: api.bicep (Azure Functions compute), iot.bicep (IoT Hub + DPS,
 // Device & Command Security Architecture §2), frontend.bicep (static
 // hosting/CDN, Deployment Architecture §5), budget.bicep (Azure Monitor
-// budget + action group, SOC 2 Control Mapping §4's Azure Monitor Alerts
-// design) all remain real, sequenced follow-up work — this entry point
-// wires up only the two foundational modules (network, data) this session's
-// bounded implementation pass covers. Adding each module here as it's
-// written is a one-line change; deliberately not stubbed out with empty
-// placeholder modules, which would misrepresent partial work as scaffolded.
+// budget — a SEPARATE concern from monitoring.bicep's alerting; may reuse
+// monitoring's actionGroupId output rather than provisioning a second
+// Action Group) all remain real, sequenced follow-up work. Adding each
+// module here as it's written is a one-line change; deliberately not
+// stubbed out with empty placeholder modules, which would misrepresent
+// partial work as scaffolded. monitoring.bicep's own header comment lists
+// exactly which alert rules (ingest-rate-zero, Function error rate, DLQ
+// depth) are blocked on api.bicep/iot.bicep specifically.
 
 output vnetId string = network.outputs.vnetId
 output postgresServerFqdn string = data.outputs.postgresServerFqdn
 output keyVaultUri string = data.outputs.keyVaultUri
+output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString

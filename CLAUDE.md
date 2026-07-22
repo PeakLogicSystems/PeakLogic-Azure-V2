@@ -136,6 +136,10 @@ Defined in `backend/ingest/rules.ts` as `RULES_BY_CATEGORY`. Threshold functions
 
 Categories today: `pump`, `hvac`, `pool_system`, `refrigeration`, `leak_sensor`, `energy_meter`. This dictionary is meant to be extended — adding a new vertical/asset type is just a new key with its own rule list, not a schema change (`assets.category` is unconstrained TEXT). `refrigeration` deliberately keys off `product_temp_c` (a probe in the food/drink itself), not ambient air temp — that's the energy-savings-plus-food-safety pitch: the unit can run warmer when the product itself is still safely cold.
 
+### Azure Monitoring (`infra-azure/modules/monitoring.bicep`, Enterprise Audit §6 P0 item 4)
+
+`infra-azure/` now has three modules: `network.bicep`, `data.bicep`, `monitoring.bicep` (added 2026-07-21) — still none deployed/validated against a real Azure subscription (no Azure CLI/subscription access in this environment). `monitoring.bicep` provisions a Log Analytics Workspace, workspace-based Application Insights (nothing sends it telemetry yet — no Function App exists), an Action Group (email, `alertEmail` param), and 3 real metric alerts against the Postgres Flexible Server (`cpu_percent`/`storage_percent`/`connections_failed` — thresholds sourced from Microsoft's own Azure Monitor Baseline Alerts reference, verified via live lookup, not guessed). **Deliberately does not fake the audit's actual "ingest rate zero"/Function-error-rate/DLQ-depth alerts** — those need `api.bicep`/`iot.bicep` (Functions/IoT Hub resources) to scope an alert to, and neither exists yet (audit §6 P0 item 1). See the module's own header comment for the exact, disclosed follow-up list.
+
 ### Ingest Hardening (Enterprise Audit finding 2.4)
 
 Two independent reliability gaps, closed together since they both touch `backend/ingest/`:
