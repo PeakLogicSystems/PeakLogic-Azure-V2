@@ -136,6 +136,13 @@ Defined in `backend/ingest/rules.ts` as `RULES_BY_CATEGORY`. Threshold functions
 
 Categories today: `pump`, `hvac`, `pool_system`, `refrigeration`, `leak_sensor`, `energy_meter`. This dictionary is meant to be extended — adding a new vertical/asset type is just a new key with its own rule list, not a schema change (`assets.category` is unconstrained TEXT). `refrigeration` deliberately keys off `product_temp_c` (a probe in the food/drink itself), not ambient air temp — that's the energy-savings-plus-food-safety pitch: the unit can run warmer when the product itself is still safely cold.
 
+### Ingest Hardening (Enterprise Audit finding 2.4)
+
+Two independent reliability gaps, closed together since they both touch `backend/ingest/`:
+
+- **No dead-letter path (2.4a).** Azure Functions has no native DLQ for Event Hub/IoT Hub triggers — a message that throws was previously just gone once Event Hubs' retry policy gave up. `backend/shared/poison-messages.ts`'s `recordPoisonMessage()` now writes the raw payload + error to a `poison_messages` table (no RLS — system/ops table, same posture as `channel_partners`) before `ingest/main.ts`'s per-message catch swallows it and moves on to the rest of the batch. Best-effort and never-throwing itself — a failure to *record* a poison message must never crash the message loop it's a safety net for.
+- **No idempotency (2.4b).** Event Hubs is at-least-once — a redelivered batch previously double-inserted an identical telemetry row and double-counted it into `metric_baselines`' EWMA. `telemetry_dedup_idx` (unique on `device_id, time, metric`) + `ON CONFLICT DO NOTHING` in `ingest/handler.ts` makes a redelivered exact reading a no-op; the telemetry-insert and baseline/anomaly-scoring loops were merged into one pass so a duplicate metric skips baseline/anomaly work entirely, not just the insert. Rule evaluation (threshold/Policy Engine) is unaffected — it was already protected from duplicate *alerts* by `createAlertAndMaybeTicket()`'s own open/acknowledged dedup, a separate, pre-existing mechanism this doesn't touch.
+
 ### Device-Silence Detection (`backend/jobs/`)
 
 Closes the Enterprise Audit's (2026-07-19) §3 P0 finding: "a dead freezer sensor is indistinguishable from a healthy freezer" — every existing rule (`rules.ts`, Policy Engine, AI Analytics) fires on a *bad reading being present*; none of them detect the *absence* of an expected one. Not feature-flag-gated (unlike Policy Engine/AI Analytics) — there's no existing behavior it could change, only a genuinely new alert type.

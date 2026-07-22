@@ -299,6 +299,18 @@ CREATE TABLE telemetry (
 
 CREATE INDEX telemetry_lookup ON telemetry (tenant_id, device_id, time DESC);
 
+-- Idempotency (migration 1784055300000, Enterprise Audit 2026-07-19 finding
+-- 2.4b) — Event Hubs is at-least-once; a redelivered message carries the
+-- identical device/time/metric triple (the device's own clock, echoed
+-- verbatim on redelivery, not a freshly-stamped arrival time), so this is
+-- the correct dedup key. backend/ingest/handler.ts inserts with
+-- ON CONFLICT (device_id, time, metric) DO NOTHING and skips
+-- metric_baselines/anomaly-scoring work for any metric that turns out to be
+-- a duplicate — without that, a redelivered reading would silently
+-- double-count into the EWMA baseline. Alert-level duplication was already
+-- separately protected by createAlertAndMaybeTicket()'s own dedup.
+CREATE UNIQUE INDEX telemetry_dedup_idx ON telemetry(device_id, time, metric);
+
 -- RLS added 2026-07-09 (migration 1783569600000_telemetry-rls) — this table
 -- was missing it while every other tenant-scoped table had it, a live
 -- cross-tenant data exposure via GET /v1/telemetry?deviceId=<any tenant's
@@ -307,6 +319,27 @@ ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE telemetry FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry
   USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- ─────────────────────────────────────────────────────────────
+-- POISON MESSAGES  (migration 1784055300000, Enterprise Audit 2026-07-19
+-- finding 2.4a — Azure Functions has NO native dead-letter for Event
+-- Hub/IoT Hub triggers; a message that fails processing was previously just
+-- gone once Event Hubs' own retry policy gave up. NOT tenant data — often
+-- the tenant isn't even resolvable when a message fails, which may be *why*
+-- it failed — deliberately NOT RLS-enabled, same posture as
+-- channel_partners/channel_partner_groups: a system/ops forensic table,
+-- PeakLogic-internal access only.)
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE poison_messages (
+  id          UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  source      TEXT        NOT NULL DEFAULT 'ingest',
+  raw_payload TEXT        NOT NULL,   -- the raw message body, even if it never parsed as JSON at all
+  error       TEXT        NOT NULL,   -- the exception message/stack that caused processing to fail
+  thing_name  TEXT,                   -- best-effort extraction from the payload; null if unparseable
+  received_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX poison_messages_received_idx ON poison_messages(received_at DESC);
 
 -- ─────────────────────────────────────────────────────────────
 -- TELEMETRY HOURLY ROLLUP  (Database Schema §4.1 -- PRD §6/SRS §5.4

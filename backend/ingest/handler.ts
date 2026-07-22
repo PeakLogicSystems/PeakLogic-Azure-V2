@@ -140,28 +140,46 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
       [time, device.id],
     );
 
-    // 3. Bulk-insert telemetry rows
-    for (const [metric, value] of Object.entries(metrics)) {
-      await client.query(
-        `INSERT INTO telemetry (time, device_id, tenant_id, metric, value) VALUES ($1, $2, $3, $4, $5)`,
-        [time, device.id, device.tenant_id, metric, value],
-      );
-    }
-
-    // 3b. Maintain metric_baselines + (if enabled) score Tier 1 anomalies.
-    // AI Analytics Layer Design §2 Tier 1 / baseline.ts's own header comment
-    // for the full rationale — short version: baseline MAINTENANCE always
-    // runs (cheap, no alert-pipeline coupling, so real history exists the
-    // moment the flag flips on); anomaly SCORING is gated behind
-    // AI_ANALYTICS_ENABLED (it can emit alerts, so it gets the same
-    // zero-default-behavior-change treatment as the Policy Engine).
+    // 3. Bulk-insert telemetry rows (idempotent — migration 1784055300000,
+    // Enterprise Audit finding 2.4b) AND maintain metric_baselines + (if
+    // enabled) score Tier 1 anomalies, per metric, in one pass. Combined
+    // into one loop (previously two separate loops over the same metrics)
+    // specifically so baseline/anomaly work can be skipped for a metric
+    // whose telemetry row turns out to be a REDELIVERED DUPLICATE (Event
+    // Hubs is at-least-once) — without this, a redelivered batch would
+    // double-count that exact reading into the EWMA baseline, subtly
+    // skewing trailing_mean/trailing_stddev, even though the alert
+    // pipeline's own separate dedup (createAlertAndMaybeTicket) already
+    // protects against a duplicate ALERT.
     //
-    // Deliberately scores against the PRE-update baseline (fetched before
-    // this reading is folded in) — the question is "how unusual is this
-    // reading relative to what came before," not relative to a baseline this
-    // same reading already shifted.
+    // Baseline MAINTENANCE always runs for a genuinely new reading
+    // (cheap, no alert-pipeline coupling, so real history exists the moment
+    // AI_ANALYTICS_ENABLED flips on); anomaly SCORING stays gated behind
+    // that flag (it can emit alerts, so it gets the same zero-default-
+    // behavior-change treatment as the Policy Engine). Scores against the
+    // PRE-update baseline (fetched before this reading is folded in) — the
+    // question is "how unusual is this reading relative to what came
+    // before," not relative to a baseline this same reading already shifted.
     const aiEnabled = aiAnalyticsEnabled();
     for (const [metric, value] of Object.entries(metrics)) {
+      const insertResult = await client.query(
+        `INSERT INTO telemetry (time, device_id, tenant_id, metric, value)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (device_id, time, metric) DO NOTHING`,
+        [time, device.id, device.tenant_id, metric, value],
+      );
+      if (insertResult.rowCount === 0) {
+        // A redelivered duplicate of this EXACT reading (same device, same
+        // timestamp, same metric) — already fully processed once. Skip
+        // baseline/anomaly for this metric only; rule evaluation (step 4)
+        // still runs over the full event as before, protected by its own
+        // alert-level dedup — simpler than threading a per-metric skip list
+        // through an unrelated evaluation path for no additional safety
+        // benefit.
+        console.warn(`Duplicate telemetry delivery skipped: ${thingName} ${metric} @ ${time.toISOString()}`);
+        continue;
+      }
+
       const { rows: [existingBaseline] } = await client.query<MetricBaseline>(
         `SELECT * FROM metric_baselines WHERE device_id = $1 AND metric = $2`,
         [device.id, metric],
