@@ -14,6 +14,7 @@ import { Devices }       from '@/pages/Devices';
 import { DeviceDetail }  from '@/pages/DeviceDetail';
 import { Alerts }        from '@/pages/Alerts';
 import { Tickets }       from '@/pages/Tickets';
+import { WaterQualityReportPage } from '@/pages/WaterQualityReport';
 import { DeviceOnboard } from '@/pages/DeviceOnboard';
 import { Settings }      from '@/pages/Settings';
 
@@ -31,6 +32,7 @@ const AppRoutes = ({ signOut, user }: { signOut: () => void; user: never }) => (
         <Route path="/dashboard"           element={<Dashboard />} />
         <Route path="/sites"               element={<Sites />} />
         <Route path="/sites/:siteId"       element={<SiteDetail />} />
+        <Route path="/sites/:siteId/water-quality-report" element={<WaterQualityReportPage />} />
         <Route path="/assets"              element={<Assets />} />
         <Route path="/assets/:assetId"     element={<AssetDetail />} />
         <Route path="/devices"             element={<Devices />} />

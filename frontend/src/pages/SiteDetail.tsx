@@ -1,5 +1,5 @@
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, MapPin, Boxes, Cpu } from 'lucide-react';
+import { ArrowLeft, MapPin, Boxes, Cpu, Droplets } from 'lucide-react';
 import { MOCK_SITES, TYPE_LABEL, STATUS_BADGE, STATUS_DOT, siteAssets, assetDevices } from '@/lib/mockEstate';
 
 // NAV-1/NAV-2 (SRS §3.15) — the top of the drill-down: a site's own status
@@ -41,6 +41,24 @@ export function SiteDetail() {
           {site.status}
         </span>
       </div>
+
+      {/* PW-1 (PRD §5.17) — the weekly consumer-legible water-quality report
+          only applies to pool-chemistry sites; other site types have no
+          entry point here since there's nothing for them to report on. */}
+      {site.type === 'pool' && (
+        <Link
+          to={`/sites/${site.id}/water-quality-report`}
+          className="flex items-center gap-3 bg-white dark:bg-gray-900 rounded-xl border border-gray-200 dark:border-gray-800 p-4 shadow-sm hover:shadow-md transition-shadow"
+        >
+          <span className="flex-shrink-0 w-9 h-9 rounded-lg bg-brand-purple-soft dark:bg-brand-purple/20 flex items-center justify-center">
+            <Droplets size={17} className="text-brand-purple dark:text-brand-purple-mid" />
+          </span>
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-gray-900 dark:text-gray-100">Water Quality Report</p>
+            <p className="text-xs text-gray-500 dark:text-gray-400">Weekly sensed + technician-entered readings, sent to the property owner</p>
+          </div>
+        </Link>
+      )}
 
       <div>
         <h2 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center gap-2">
