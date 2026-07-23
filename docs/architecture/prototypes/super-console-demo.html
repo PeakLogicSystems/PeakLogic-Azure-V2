@@ -315,7 +315,7 @@
   .search input::placeholder { color: var(--text-faint); }
 
   /* Tabs */
-  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; }
+  .tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--border); margin-bottom: 20px; overflow-x: auto; overflow-y: hidden; }
   .tab {
     padding: 9px 14px; font-size: 13px; font-weight: 600; color: var(--text-muted);
     cursor: pointer; border: none; background: none; font-family: inherit; white-space: nowrap;
@@ -1951,8 +1951,8 @@
   }
 
   const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, firmware: viewFirmware, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings };
-  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings" };
-  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings" };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", firmware: "nav:firmware", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", firmware: "Firmware", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings" };
 
   function render() {
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
