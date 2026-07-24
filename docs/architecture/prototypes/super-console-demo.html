@@ -534,6 +534,10 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
         <span>Channel Partners</span><span class="nav__count" id="cnt-partners"></span>
       </button>
+      <button class="nav__item" data-action="nav:sites">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+        <span>Sites</span><span class="nav__count" id="cnt-sites"></span>
+      </button>
 
       <div class="nav__label">Fleet</div>
       <button class="nav__item" data-action="nav:devices">
@@ -1399,6 +1403,48 @@
         <tbody>${rows}</tbody></table></div>`;
   }
 
+  // Flat, fleet-wide list across every tenant's sites — the finest-grain
+  // physical location this console has, one level below Tenants. No site
+  // has its own id in this data model (only a name, unique within this
+  // seed set), so a row's only drill-through is into its parent tenant's
+  // act-as context (same manage-tenant action the Tenants list already
+  // uses) — there's no standalone per-site page to jump to yet.
+  function viewSites() {
+    const q = S.query.toLowerCase();
+    const allSites = [];
+    TENANTS.forEach(t => {
+      const p = partnerFor(t);
+      t.sites.forEach(s => allSites.push({ s, t, p }));
+    });
+    const filtered = allSites.filter(({ s, t }) => !q || s.name.toLowerCase().includes(q) || t.name.toLowerCase().includes(q));
+    const rows = filtered.map(({ s, t, p }) => {
+      const dev = s.assets.reduce((a, x) => a + x.devices.length, 0);
+      const worst = siteHealth(s);
+      return `
+      <tr class="clickable" data-action="manage-tenant:${t.id}">
+        <td><span class="strong">${esc(s.name)}</span></td>
+        <td class="muted">${esc(t.name)}</td>
+        <td>${p ? `<span style="display:inline-flex;align-items:center;gap:8px">${partnerLogo(p, 20)}<span class="muted">${esc(p.name)}</span></span>` : '<span class="faint">Direct</span>'}</td>
+        <td class="num muted">${s.assets.length}</td>
+        <td class="num muted">${dev}</td>
+        <td>${healthPill(worst)}</td>
+        <td style="text-align:right"><button class="btn btn--primary" data-action="manage-tenant:${t.id}">Open tenant
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></td>
+      </tr>`;
+    }).join("");
+    return `
+      <div class="page-head"><h1>Sites</h1><p>Every physical site across every organization you manage. A site belongs to one tenant — open its tenant to manage it in an audited act-as context.</p></div>
+      <div class="toolbar">
+        <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+          <input type="text" id="q" placeholder="Search sites…" value="${esc(S.query)}" autocomplete="off"></div>
+        <span class="faint" style="margin-left:auto;font-size:12.5px">${allSites.length} sites</span>
+      </div>
+      <div class="panel"><table class="tbl">
+        <thead><tr><th>Site</th><th>Organization</th><th>Channel partner</th><th class="num">Assets</th><th class="num">Devices</th><th>Status</th><th></th></tr></thead>
+        <tbody>${rows || `<tr><td colspan="7"><div class="empty">No sites match "${esc(S.query)}"</div></td></tr>`}</tbody>
+      </table></div>`;
+  }
+
   function viewPartnerDetail() {
     const p = partnerById(S.partner);
     if (!p) { S.view = "partners"; return viewPartners(); }
@@ -1950,9 +1996,9 @@
         </div></div>`;
   }
 
-  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, firmware: viewFirmware, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings };
-  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", devices: "nav:devices", firmware: "nav:firmware", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings" };
-  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", devices: "Devices", firmware: "Firmware", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings" };
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, firmware: viewFirmware, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", firmware: "nav:firmware", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", firmware: "Firmware", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings" };
 
   function render() {
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
@@ -1993,6 +2039,7 @@
   function setCounts() {
     $("#cnt-tenants").textContent = TENANTS.length;
     $("#cnt-partners").textContent = PARTNERS.length;
+    $("#cnt-sites").textContent = TENANTS.reduce((a, t) => a + t.sites.length, 0);
     $("#cnt-devices").textContent = allDevices().length;
     // Firmware nav badge shows what needs attention (unmanaged + behind), not the
     // whole fleet — a count of "everything" wouldn't tell an operator anything.
