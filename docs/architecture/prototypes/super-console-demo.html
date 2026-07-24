@@ -116,7 +116,11 @@
     position: sticky; top: 0; height: 100vh;
     padding: 18px 12px;
   }
-  .brand { display: flex; align-items: flex-end; gap: 9px; padding: 6px 8px 20px; }
+  .brand {
+    display: flex; align-items: flex-end; gap: 9px; padding: 6px 8px 20px;
+    border: none; background: none; cursor: pointer; width: 100%; font-family: inherit; text-align: left;
+  }
+  .brand:hover .brand__word .peak { color: #e8ecf5; }
   .brand svg { width: 30px; height: 22px; display: block; }
   .brand__word { font-size: 19px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
   .brand__word .peak { color: #ffffff; }
@@ -511,13 +515,13 @@
 
 <div class="app" id="app">
   <aside class="rail">
-    <div class="brand">
+    <button class="brand" data-action="nav:fleet" title="Fleet Overview" aria-label="PeakLogic — go to Fleet Overview">
       <svg viewBox="0 0 24 18" aria-hidden="true">
         <path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"></path>
         <path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"></path>
       </svg>
       <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
-    </div>
+    </button>
 
     <nav class="nav" id="nav">
       <button class="nav__item" data-action="nav:fleet">
