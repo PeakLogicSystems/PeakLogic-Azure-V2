@@ -1,10 +1,12 @@
 import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
-import { ok, created, notFound, parseBody } from '../../shared/response';
+import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
 import { postWebhook } from '../../shared/webhook';
 import type { AuthContext } from '../../shared/auth';
 import type { ServiceTicket } from '../../shared/types';
+import { advanceWorkOrderStage } from '../../shared/cmms/work-order-lifecycle-handler';
+import { computeFunnel, WORK_ORDER_STAGES, type WorkOrderStage } from '../../shared/cmms/work-order-lifecycle';
 
 interface TicketBody {
   assetId: string;
@@ -124,6 +126,56 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       [ticketId],
     );
     return t ? ok(t) : notFound(`Ticket ${ticketId} not found`);
+  });
+}
+
+interface AdvanceBody {
+  stage: WorkOrderStage;
+  outcome?: string | null;
+  notes?: string | null;
+}
+
+/**
+ * POST /v1/tickets/{ticketId}/advance — move a work order along the dispatch
+ * funnel (dispatched → accepted → on_site → completed). Idempotent and
+ * forward-only; on completion it records the service_visit that feeds the
+ * conversion KPI and the AI training loop.
+ */
+export async function advance(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
+  const { ticketId } = event.pathParameters!;
+  const body = parseBody<AdvanceBody>(event.body, event.isBase64Encoded);
+  if (!body.stage || !WORK_ORDER_STAGES.includes(body.stage)) {
+    return badRequest(`stage must be one of: ${WORK_ORDER_STAGES.join(', ')}`);
+  }
+  return withTenant(auth.tenantId, async (client) => {
+    const result = await advanceWorkOrderStage(client, auth.tenantId, ticketId, body.stage, new Date(), {
+      outcome: body.outcome,
+      notes: body.notes,
+    });
+    // { advanced, visitCreated } — advanced:false is a valid idempotent no-op
+    // (already at/past the stage) or an unknown ticket (RLS-scoped miss).
+    return ok(result);
+  });
+}
+
+/** GET /v1/tickets/funnel — the dispatched→on-site conversion funnel across the tenant's work orders. */
+export async function funnel(_event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
+  return withTenant(auth.tenantId, async (client) => {
+    const { rows } = await client.query<{
+      dispatched_at: Date | null;
+      accepted_at: Date | null;
+      on_site_at: Date | null;
+      completed_at: Date | null;
+    }>('SELECT dispatched_at, accepted_at, on_site_at, completed_at FROM service_tickets');
+    const f = computeFunnel(
+      rows.map((r) => ({
+        dispatchedAt: r.dispatched_at,
+        acceptedAt: r.accepted_at,
+        onSiteAt: r.on_site_at,
+        completedAt: r.completed_at,
+      })),
+    );
+    return ok(f);
   });
 }
 

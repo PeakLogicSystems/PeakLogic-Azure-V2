@@ -18,6 +18,11 @@ const routes = compileRoutes<unknown>({
   'GET /v1/settings/mfa': h('mfa'),
   'PUT /v1/settings/team/{userId}': h('teamUpdate'),
   'POST /v1/admin/tenants/{tenantId}/users': h('tenantUser'),
+  // new unified-platform route shapes
+  'GET /v1/tickets/funnel': h('funnel'),
+  'GET /v1/tickets/{ticketId}': h('ticketOne'),
+  'POST /v1/hubs/{hubId}/heartbeat': h('hubHeartbeat'),
+  'GET /v1/hubs/{hubId}/peakassist-sync': h('hubSync'),
 });
 
 async function bodyOf(method: string, path: string): Promise<string | null> {
@@ -68,5 +73,22 @@ describe('matchRoute', () => {
   it('URL-decodes path parameters', () => {
     const m = matchRoute(routes, 'PUT', '/v1/settings/team/user%40x.com');
     expect(m!.pathParameters).toEqual({ userId: 'user@x.com' });
+  });
+
+  it('prefers a literal over a param at the same depth (tickets/funnel vs {ticketId})', async () => {
+    expect(await bodyOf('GET', '/v1/tickets/funnel')).toBe('funnel');
+    const one = matchRoute(routes, 'GET', '/v1/tickets/tck-9');
+    expect(one!.pathParameters).toEqual({ ticketId: 'tck-9' });
+  });
+
+  it('matches a trailing literal after a path parameter (hub heartbeat)', () => {
+    const m = matchRoute(routes, 'POST', '/v1/hubs/hub-1/heartbeat');
+    expect(m).not.toBeNull();
+    expect(m!.pathParameters).toEqual({ hubId: 'hub-1' });
+  });
+
+  it('matches a hyphenated trailing literal (peakassist-sync)', () => {
+    const m = matchRoute(routes, 'GET', '/v1/hubs/hub-1/peakassist-sync');
+    expect(m!.pathParameters).toEqual({ hubId: 'hub-1' });
   });
 });

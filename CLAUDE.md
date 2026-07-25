@@ -186,6 +186,14 @@ Self-contained, unit-tested logic built on the v2.0 schema (migrations `17841420
 - **PeakLogic Hub fleet — registration / heartbeat / silence** (`backend/shared/hubs.ts` + `hubs-handler.ts` + `jobs/hub-silence-*`, Domain Model §2.11 / PRD §5.19). Pure `buildHubRegistration()` (a new Hub starts `provisioning`, not online — its first heartbeat flips it), `applyHeartbeat()` (→ online + last_seen + reported versions), `findSilentHubs()`/`hubHealthSummary()` — the silence logic generalizes device-silence to the edge fleet (an online Hub that stops heart-beating → offline). Handlers: `registerHub()`/`recordHeartbeat()` (request-scoped, RLS via the caller's `withTenant()`; the heartbeat COALESCEs versions so a bare beat never nulls a known agent/PeakAssist-content version) + `runHubSilenceSweep()` (scheduled, same two-phase `system_sweep_context`→`withTenant()` isolation as device silence; self-correcting on the next heartbeat). Flips status for fleet visibility only — no device-style alert (a Hub is edge infrastructure, not a monitored asset). 12 tests.
 - **Telemetry Normalization Fabric** (`backend/shared/normalization.ts`, Domain Model §2.10 / Platform Services / PRD §5.18–§5.19). Pure `applyTag()` (raw × scale + offset → engineering units) + `normalizeReadings()` — the shared vocabulary layer both **PeakLogic Hubs** (normalizing raw PLC/RTU reads) and **PeakView360** (rendering `tags`) depend on, mapping heterogeneous sources into the one canonical metric space `telemetry.metric` uses. Never-silent handling: an unmapped `sourceRef` → `unmapped`, a non-finite raw or transformed value → `rejected` (a bad PLC read never becomes a fabricated reading); duplicate `sourceRef` → first-wins, ordering-independent. 10 tests.
 
+### Unified-Platform API Routes (v2.0)
+
+Thin route wiring over the tested handlers, registered in `backend/api/router.ts` (matched by `api/match.ts`; no infra registration needed on Azure). All tenant-scoped via `withTenant()` (RLS):
+- **Hubs** (`api/routes/hubs.ts`): `GET/POST /v1/hubs`, `POST /v1/hubs/{hubId}/heartbeat`, `GET /v1/hubs/{hubId}/peakassist-sync` (returns the newer bundle to install, if any).
+- **PeakView360** (`api/routes/peakview360.ts`): `GET /v1/hmi-screens[?siteId]`, `GET /v1/tags[?siteId]` (config, not live data).
+- **CMMS** (`api/routes/tickets.ts`): `POST /v1/tickets/{ticketId}/advance` (funnel advance + `service_visit` on completion), `GET /v1/tickets/funnel` (conversion KPI from `computeFunnel`).
+- New matcher shapes (trailing-literal after a param; literal-beats-param, e.g. `/tickets/funnel` before `/tickets/{ticketId}`) are covered in `api/match.test.ts`.
+
 ### Future: Command & Control Architecture (not yet implemented)
 
 Actuation (e.g. remotely shutting off a valve) is on the roadmap but not built. Two things are worth locking in now, before that subsystem exists, so later work doesn't have to relitigate them:

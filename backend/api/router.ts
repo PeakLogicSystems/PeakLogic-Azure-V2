@@ -10,6 +10,8 @@ import * as tickets   from './routes/tickets';
 import * as telemetry from './routes/telemetry';
 import * as settings from './routes/settings';
 import * as settingsTeam from './routes/settings-team';
+import * as hubs from './routes/hubs';
+import * as peakview360 from './routes/peakview360';
 
 // Key format: "METHOD /resource/path/template" — unchanged from the AWS
 // version. The matcher (api/match.ts) resolves these templates against the
@@ -42,12 +44,24 @@ const ROUTES: Record<string, RouteHandler<AuthContext>> = {
   'GET /v1/alerts/{alertId}':     alerts.getOne,
   'PUT /v1/alerts/{alertId}':     alerts.update,
 
-  // Tickets
+  // Tickets / work orders
   'GET /v1/tickets':                tickets.list,
   'POST /v1/tickets':               tickets.create,
+  'GET /v1/tickets/funnel':         tickets.funnel,           // literal — matched before {ticketId}
   'GET /v1/tickets/{ticketId}':     tickets.getOne,
   'PUT /v1/tickets/{ticketId}':     tickets.update,
   'DELETE /v1/tickets/{ticketId}':  tickets.remove,
+  'POST /v1/tickets/{ticketId}/advance': tickets.advance,     // CMMS funnel advance + service_visit
+
+  // PeakLogic Hubs (Domain Model §2.11)
+  'GET /v1/hubs':                          hubs.list,
+  'POST /v1/hubs':                         hubs.register,
+  'POST /v1/hubs/{hubId}/heartbeat':       hubs.heartbeat,
+  'GET /v1/hubs/{hubId}/peakassist-sync':  hubs.peakassistSync,
+
+  // PeakView360 HMI configuration (Domain Model §2.10)
+  'GET /v1/hmi-screens': peakview360.listScreens,
+  'GET /v1/tags':        peakview360.listTags,
 
   // Telemetry (read-only from API; writes come via IoT Hub)
   'GET /v1/telemetry': telemetry.list,
