@@ -98,6 +98,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 |---|---|---|---|
 | PeakView360 HMI/SCADA Architecture | NEW | ⬜ | Operator screens, alarm mgmt, historian, facility viz, dual-source rendering. |
 | PeakAssist Help System Architecture | NEW | ⬜ | Formalizes unified-vision §6: contextual, one-click, offline-via-Hub, cloud-synced, two audiences. |
+| Hub Agent Runtime Design | NEW | ✅ | `hub-agent-runtime-design.md` — runtime scoping of the `PeakLogicEdge` .NET agent against the now-real Hub cloud contracts (register/heartbeat/peakassist-sync); exists/new inventory, transport-reconciliation open item, 8-step build sequence. Reconciles with `windows-endpoint-application.md`. |
 | MooreView Feature Integration & Disposition | NEW (candidate) | ⬜ | Formalizes unified-vision §4 preserve/modernize/redesign/retire as an architecture artifact; may instead be folded into the Vision/PRD. |
 
 ### Phase 4 — Naming / positioning sweep (lighter touch)
