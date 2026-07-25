@@ -1025,3 +1025,218 @@ CREATE INDEX policy_history_policy_idx ON policy_history (policy_id, version);
 --                          -- all of the above, THEN, only after verifying
 --                          -- an account_assignments row (or role = superadmin):
 --                          SET LOCAL app.current_tenant_id = '<target_tenant_uuid>';
+
+
+-- ═══════════════════════════════════════════════════════════════════════════
+-- UNIFIED PLATFORM (v2.0) — PeakView360 HMI · PeakLogic Hubs · CMMS ·
+-- Compliance · PeakAssist. Domain Model §2.10–§2.14. Mirrors migrations
+-- 1784142000000 … 1784142240000. Tenant data uses standard tenant_isolation
+-- RLS; global reference catalogs (compliance_templates, help_content*) are
+-- non-RLS PeakLogic-authored tables, same posture as other reference/ops tables.
+-- ═══════════════════════════════════════════════════════════════════════════
+
+-- PeakLogic Hubs — on-prem edge fleet (§2.11). Edge infra bound to one Site,
+-- distinct from Device. (migration 1784142000000)
+CREATE TABLE hubs (
+  id                         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id                  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  site_id                    UUID        NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name                       TEXT        NOT NULL,
+  hardware_serial            TEXT,
+  agent_version              TEXT,
+  peakassist_content_version TEXT,        -- value-links help_content_bundles.version
+  status                     TEXT        NOT NULL DEFAULT 'offline'
+                             CHECK (status IN ('online','offline','provisioning')),
+  last_seen_at               TIMESTAMPTZ,
+  protocol_config            JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at                 TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at                 TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX hubs_site_idx ON hubs(site_id);
+ALTER TABLE hubs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hubs FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON hubs
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- PeakView360 HMI config (§2.10). Alarms = existing `alerts`; historian reads
+-- existing telemetry — only screens/tags/pens are new. (migration 1784142060000)
+CREATE TABLE hmi_screens (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id        UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  site_id          UUID        NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  name             TEXT        NOT NULL,
+  screen_type      TEXT        NOT NULL DEFAULT 'overview'
+                   CHECK (screen_type IN ('overview','equipment','process')),
+  layout           JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  help_context_key TEXT        NOT NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX hmi_screens_site_idx ON hmi_screens(site_id);
+ALTER TABLE hmi_screens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE hmi_screens FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON hmi_screens
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE TABLE tags (
+  id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id        UUID             NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  site_id          UUID             NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  hub_id           UUID             REFERENCES hubs(id) ON DELETE SET NULL,
+  source_ref       TEXT             NOT NULL,
+  canonical_metric TEXT             NOT NULL,
+  unit             TEXT,
+  scale            DOUBLE PRECISION NOT NULL DEFAULT 1,
+  "offset"         DOUBLE PRECISION NOT NULL DEFAULT 0,
+  created_at       TIMESTAMPTZ      NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+CREATE INDEX tags_site_idx ON tags(site_id);
+CREATE INDEX tags_hub_idx ON tags(hub_id);
+ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
+ALTER TABLE tags FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON tags
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE TABLE historian_pens (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  screen_id  UUID        REFERENCES hmi_screens(id) ON DELETE CASCADE,
+  user_id    UUID        REFERENCES users(id) ON DELETE CASCADE,
+  tag_id     UUID        REFERENCES tags(id) ON DELETE SET NULL,
+  metric     TEXT,
+  color      TEXT,
+  axis       TEXT,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (screen_id IS NOT NULL OR user_id IS NOT NULL),
+  CHECK (tag_id IS NOT NULL OR metric IS NOT NULL)
+);
+ALTER TABLE historian_pens ENABLE ROW LEVEL SECURITY;
+ALTER TABLE historian_pens FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON historian_pens
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- Built-in CMMS (§2.12). service_tickets IS the work order (extended below);
+-- pm_schedules + the previously-missing service_visits are new.
+-- (migration 1784142120000)
+CREATE TABLE pm_schedules (
+  id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id     UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  asset_id      UUID        REFERENCES assets(id) ON DELETE CASCADE,
+  category      TEXT,
+  title         TEXT        NOT NULL,
+  interval_days INTEGER     NOT NULL CHECK (interval_days > 0),
+  next_due_at   TIMESTAMPTZ NOT NULL,
+  template      JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  enabled       BOOLEAN     NOT NULL DEFAULT true,
+  created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (asset_id IS NOT NULL OR category IS NOT NULL)
+);
+CREATE INDEX pm_schedules_due_idx ON pm_schedules(next_due_at) WHERE enabled;
+ALTER TABLE pm_schedules ENABLE ROW LEVEL SECURITY;
+ALTER TABLE pm_schedules FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON pm_schedules
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- Extend service_tickets (= the work order): complete the dispatch funnel and
+-- link PM-generated work orders. (FK added as a constraint here because
+-- service_tickets is defined earlier in this snapshot than pm_schedules.)
+ALTER TABLE service_tickets ADD COLUMN on_site_at     TIMESTAMPTZ;
+ALTER TABLE service_tickets ADD COLUMN completed_at   TIMESTAMPTZ;
+ALTER TABLE service_tickets ADD COLUMN pm_schedule_id UUID;
+ALTER TABLE service_tickets ADD CONSTRAINT service_tickets_pm_schedule_fk
+  FOREIGN KEY (pm_schedule_id) REFERENCES pm_schedules(id) ON DELETE SET NULL;
+
+CREATE TABLE service_visits (
+  id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  ticket_id    UUID        NOT NULL REFERENCES service_tickets(id) ON DELETE CASCADE,
+  outcome      TEXT,        -- supervised label the AI feedback loop consumes (#34 §3)
+  on_site_at   TIMESTAMPTZ,
+  completed_at TIMESTAMPTZ,
+  notes        TEXT,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX service_visits_ticket_idx ON service_visits(ticket_id);
+ALTER TABLE service_visits ENABLE ROW LEVEL SECURITY;
+ALTER TABLE service_visits FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON service_visits
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- Compliance automation (§2.13). templates = global catalog (non-RLS);
+-- reports + exceedances = tenant data. (migration 1784142180000)
+CREATE TABLE compliance_templates (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  key        TEXT        NOT NULL UNIQUE,
+  name       TEXT        NOT NULL,
+  definition JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+-- No RLS — global reference catalog.
+
+CREATE TABLE compliance_reports (
+  id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id       UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  site_id         UUID        NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  template_id     UUID        REFERENCES compliance_templates(id) ON DELETE SET NULL,
+  period_start    TIMESTAMPTZ NOT NULL,
+  period_end      TIMESTAMPTZ NOT NULL,
+  status          TEXT        NOT NULL DEFAULT 'draft'
+                  CHECK (status IN ('draft','issued')),
+  generated_at    TIMESTAMPTZ,
+  content_ref     TEXT,
+  source_data_ref JSONB       NOT NULL DEFAULT '{}'::jsonb,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  CHECK (period_end >= period_start)
+);
+CREATE INDEX compliance_reports_site_idx ON compliance_reports(site_id);
+ALTER TABLE compliance_reports ENABLE ROW LEVEL SECURITY;
+ALTER TABLE compliance_reports FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON compliance_reports
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+CREATE TABLE exceedance_records (
+  id             UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id      UUID             NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  site_id        UUID             NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  alert_id       UUID             REFERENCES alerts(id) ON DELETE SET NULL,
+  metric         TEXT             NOT NULL,
+  permit_limit   DOUBLE PRECISION NOT NULL,
+  observed_value DOUBLE PRECISION NOT NULL,
+  permit_ref     TEXT,
+  occurred_at    TIMESTAMPTZ      NOT NULL,
+  created_at     TIMESTAMPTZ      NOT NULL DEFAULT now()
+);
+CREATE INDEX exceedance_records_site_idx ON exceedance_records(site_id, occurred_at DESC);
+ALTER TABLE exceedance_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE exceedance_records FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON exceedance_records
+  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+
+-- PeakAssist help content (§2.14). Global PeakLogic-authored catalogs; a Hub
+-- carries a bundle offline and syncs newer ones. (migration 1784142240000)
+CREATE TABLE help_content_bundles (
+  version      TEXT        PRIMARY KEY,
+  published_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  checksum     TEXT        NOT NULL,
+  notes        TEXT
+);
+-- No RLS — global content-version catalog.
+
+CREATE TABLE help_content (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  help_context_key TEXT        NOT NULL,
+  type             TEXT        NOT NULL
+                   CHECK (type IN ('screen_guide','procedure','alarm_explanation','troubleshooting','playbook','glossary')),
+  title            TEXT        NOT NULL,
+  body             TEXT        NOT NULL,
+  alarm_type       TEXT,
+  content_version  TEXT        REFERENCES help_content_bundles(version) ON DELETE SET NULL,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX help_content_context_idx ON help_content(help_context_key);
+CREATE INDEX help_content_alarm_idx   ON help_content(alarm_type) WHERE alarm_type IS NOT NULL;
+-- No RLS — global reference catalog.

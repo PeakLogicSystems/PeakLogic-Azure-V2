@@ -83,7 +83,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 | 27 | Device Onboarding & Telemetry Acquisition | AMEND | ⬜ | Hub-relayed becomes the primary path; PLC/RTU acquisition; Path C context. |
 | 25 | Windows Endpoint Application ("The Brains") | REWRITE | ⬜ | This IS the PeakLogic Hub — rebrand + productize: protocol drivers, offline PeakView360 + PeakAssist serving, fleet mgmt. |
 | 34 | AI Analytics Layer Design | AMEND | ⬜ | Absorb MooreView PdM (asset↔tag mapping, health scoring, feature batch) into the central AI engine. |
-| 10 | Database Schema | AMEND | ⬜ | Tables backing the new Domain Model entities. |
+| 10 | Database Schema | AMEND | ✅ | Draft v1.5 §4.8 + **5 real migrations** (`1784142000000`–`…240000`): hubs, hmi_screens/tags/historian_pens, pm_schedules/service_visits + service_tickets ext, compliance_*, help_*. Mirrored in `data-model.sql`. Resolved DM §6.9 (service_tickets=work order; **service_visits created**) + §6.10 (tags=normalization fabric). |
 | 11 | API Specification | AMEND | ⬜ | PeakView360 / Hub / PeakAssist / CMMS / compliance endpoints (may itself be phased). |
 | 32 | Reporting & KPI Design | AMEND | ⬜ | Compliance/DMR report automation. |
 | 6 | User Personas | AMEND | ⬜ | Operator, technician, compliance-officer personas. |
@@ -121,7 +121,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 | 33 | Channel Partner Intelligence Layer | AMEND | ⬜ | Maps onto the service-provider pillar. |
 | 35 | White-Label Estate Branding Design | CARRY/AMEND | ⬜ | PeakView360 post-login theming. |
 | — | `azure-restructuring-plan.md` | CARRY | ⬜ | Note the merger layer on top of the Azure re-derivation. |
-| — | `docs/data-model.sql` | AMEND | ⬜ | Mirror Database Schema additions. |
+| — | `docs/data-model.sql` | AMEND | ✅ | Mirrored the 5 v2.0 migrations (unified-platform section appended). |
 
 ### Business docs (parallel)
 | Artifact | Disposition | Status | Notes |

@@ -1,11 +1,11 @@
 # Database Schema
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
-**Status:** Draft v1.4 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2/v1.3/v1.4 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending), [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (Draft v1.1, pending), [User Personas](user-personas.md) (approved v1.2), [User Stories](user-stories.md) (Draft v1.1, pending), [UX Wireframes](ux-wireframes.md) (Draft v1.4, pending), [Information Architecture](information-architecture.md) (Draft v1.1, pending), [iOS Application](ios-application.md) (Draft v1.1)
-**Last updated:** 2026-07-17
+**Company:** PeakLogic  ·  **Project codename:** Project Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Status:** 🟡 Draft v1.5 — unified-platform schema (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v1.5 are approved)
+**Depends on:** [Domain Model](domain-model.md) (Draft v2.0), [PRD](prd.md) (Draft v2.0), [SRS](srs.md) (Draft v2.0); prior dependencies (Vision, Compliance Roadmap, User Personas/Stories, UX Wireframes, Information Architecture, iOS Application) unchanged
+**Last updated:** 2026-07-25
+**v1.5 note:** first amendment in the `PeakLogic-Azure-V2` merger repo — adds §4.8, the **real migrations** backing the unified-platform Domain Model entities (§2.10–§2.14). Naming canonical per `unified-platform-integration-plan.md` §1.
 **Fork note (v1.4):** the first amendment specific to the `PeakLogic-Azure` fork — confirms, via real research, that this schema (RLS, PostGIS, UUID generation) is portable to Azure Database for PostgreSQL as-is, and confirms no new schema is needed for the map feature (GEO-1.1–6.1). See §4.7 and Revision History.
 
 ---
@@ -413,6 +413,27 @@ Resolves the open item Domain Model §6.8 flagged: whether this schema — desig
 
 ---
 
+### 4.8 Unified Platform Schema *(new — added v1.5, see Revision History)*
+
+Backs Domain Model §2.10–§2.14. **These are real, shipped migrations** (`1784142000000`–`1784142240000`), mirrored into `docs/data-model.sql`. Not run against a live DB yet — same disclosed state as every migration in this repo. Five cohesive files:
+
+| Migration | Tables | RLS |
+|---|---|---|
+| `1784142000000_peaklogic-hubs` | `hubs` | tenant_isolation |
+| `1784142060000_peakview360-hmi` | `hmi_screens`, `tags`, `historian_pens` | tenant_isolation |
+| `1784142120000_cmms-work-orders` | `pm_schedules`, `service_visits` + `service_tickets` extension | tenant_isolation |
+| `1784142180000_compliance` | `compliance_templates` (global), `compliance_reports`, `exceedance_records` | mixed — see below |
+| `1784142240000_peakassist` | `help_content_bundles`, `help_content` (both global) | none — global catalogs |
+
+**Load-bearing decisions made here (some resolving Domain Model §6.9/§6.10 open items):**
+
+- **`service_tickets` IS the work order (Domain Model §6.9 resolved).** Rather than fork a parallel `work_orders` table, we extend the existing ticket — it already carried the CMMS dispatch-attribution + funnel columns (`source`/`channel_partner_id`/`cmms_connector_id`/`dispatched_at`/`accepted_at`, migration `1783875900000`). v1.5 adds `on_site_at`/`completed_at` (completing the dispatched→accepted→on_site→completed funnel #32 specified) and `pm_schedule_id` (links PM-generated work orders). This keeps the alarm-driven ticket path (`createAlertAndMaybeTicket`) as the single work-order creation path — no fork.
+- **`service_visits` created — the real reconciliation finding.** It was referenced by both the Reporting/KPI design (#32) and the AI feedback-loop design (#34, where `service_visits.outcome` is the supervised training label closing detect→dispatch→outcome→learn) but never existed. Now created (tenant-scoped RLS), closing a gap two designs already depended on.
+- **Global reference catalogs are non-RLS.** `compliance_templates`, `help_content_bundles`, and `help_content` hold PeakLogic-authored content that is the same for every tenant (a DMR template definition or an alarm-explanation help article is not tenant data). They follow the existing non-RLS reference/ops-table posture (`channel_partners`, `poison_messages`), readable by all. **Per-tenant help/template overrides are deferred** — adding them later means a nullable `tenant_id` + the Policy-Engine platform-plus-override policy pattern, not built until a real need exists (avoids inventing a divergent RLS pattern speculatively).
+- **`tags` = the Telemetry Normalization Fabric as a row (Domain Model §6.10).** `source_ref` (PLC address or `device_id:metric`) + `scale`/`offset` → `canonical_metric` maps a raw source into the same metric space `telemetry.metric` already uses, so PeakView360, the historian, and the rule/AI pipeline share one vocabulary. `"offset"` is quoted (reserved word).
+- **No new time-series store.** The historian reads existing `telemetry`/`telemetry_hourly`; `historian_pens` is only the saved view. Alarms remain the existing `alerts` table (a PeakView360 alarm panel is a projection) — no alarm table added.
+- **Snapshot vs. migration ordering.** In `docs/data-model.sql` (a single top-to-bottom file), `service_tickets.pm_schedule_id`'s FK is added as a named `ALTER TABLE … ADD CONSTRAINT` after `pm_schedules` is defined, because `service_tickets` appears earlier in the snapshot; the migration itself uses an inline FK (its `pm_schedules` precedes the `ALTER` in the same file). Same result, load-order-safe both ways.
+
 ## 5. Indexing Strategy
 
 | Index | Table | Supports |
@@ -552,3 +573,12 @@ Resolves the open item Domain Model §6.8 flagged: whether this schema — desig
 - **Confirmed, consistent with Domain Model §6.7: no schema added for 3D facility rendering.** Inventing a shape ahead of the dedicated scoping pass would be assuming, not documenting — the same discipline Domain Model applied is applied here too.
 - **§6 gained 2 new items (12–13)**: the `azure.extensions` PostGIS allowlist as a real Infrastructure-as-Code ordering dependency this document flags but doesn't itself sequence; and the standing "verified against documentation, not against a real instance" caveat, applied symmetrically to the new Azure-portability claims the same way it already applies to every prior RLS amendment in this document.
 - **Explicitly not resolved in this pass** (tracked in `azure-restructuring-plan.md` §2): the exact Azure Postgres tier/SKU and its serverless-compute connection-pooling behavior — Multi-Tenant Architecture's (#14) amendment, using this section as input, not decided here.
+
+**v1.5 (2026-07-25)** — first amendment in the `PeakLogic-Azure-V2` merger repo, backing Domain Model v2.0's unified-platform entities (§2.10–§2.14) with **real migrations**. Forced by PRD/SRS/Domain Model v2.0 (`unified-platform-integration-plan.md`).
+
+- **§4.8 added** documenting five shipped migrations (`1784142000000`–`1784142240000`), mirrored into `docs/data-model.sql`: `hubs`; `hmi_screens`/`tags`/`historian_pens`; `pm_schedules`/`service_visits` + `service_tickets` extension; `compliance_templates`/`compliance_reports`/`exceedance_records`; `help_content_bundles`/`help_content`.
+- **Resolved Domain Model §6.9**: `service_tickets` **is** the work order (extended, not forked); `service_visits` **created** — the referenced-but-absent table both #32 and #34 depended on.
+- **Resolved Domain Model §6.10 (partial)**: `tags` is the Telemetry Normalization Fabric as a row.
+- **Global reference catalogs** (`compliance_templates`, `help_content*`) are non-RLS PeakLogic-authored tables; per-tenant overrides deferred rather than inventing a divergent RLS pattern.
+- Reuse held the line: no new time-series store (historian reads existing `telemetry`), no new alarm table (alarms stay `alerts`).
+- Not run against a live DB — same disclosed state as every migration here. Downstream: API Specification (#11) for the endpoints over these tables; backend increments where self-contained.
