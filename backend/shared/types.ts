@@ -136,6 +136,9 @@ export interface ServiceTicket {
   cmms_connector_id: string | null;
   dispatched_at: Date | null;
   accepted_at: Date | null;
+  on_site_at: Date | null; // funnel step 3 (migration 1784142120000)
+  completed_at: Date | null; // funnel step 4
+  pm_schedule_id: string | null; // set for PM-generated work orders
   due_at: Date | null;
   resolved_at: Date | null;
   created_at: Date;
