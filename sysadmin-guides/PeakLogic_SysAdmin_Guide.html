@@ -203,13 +203,14 @@
   </div>
   <div class="cover-rule"></div>
   <div class="cover-title">System Administrator Guide</div>
-  <div class="cover-sub">PeakLogic IoT SaaS Platform — v1.2.0</div>
+  <div class="cover-sub">PeakLogic — Unified Industrial Operations Platform · PeakLogicSystems · PeakView360 · PeakLogic Hubs</div>
   <div class="cover-meta">
     <span>Document Version: v1.2.0</span>
     <span>Issue Date: 2026-07-12</span>
     <span>Platform Version: v1.2.0 (MVP + Channel-Partner Portal + Internal Administration Console)</span>
     <span><strong>Fork: PeakLogic-Azure</strong> — cloud architecture restructured for Microsoft Azure 2026-07-17 (see banner above)</span>
     <span>Environment: Azure (target) — no Azure environment deployed yet; AWS-native procedures below are historical reference</span>
+    <span>Last Updated: 2026-07-25 — unified-platform framing added to §1 (pre-release doc update on dev)</span>
     <span>Audience: System Administrators, DevOps Engineers</span>
     <span>Classification: INTERNAL — CONFIDENTIAL</span>
   </div>
@@ -257,6 +258,13 @@
       <td>2026-07-17</td>
       <td>PeakLogic Engineering</td>
       <td><strong>PeakLogic-Azure restructuring.</strong> Entire cloud architecture re-platformed for Microsoft Azure across all 27 architecture documents (see the Azure Fork banner at the top of this guide for the AWS→Azure service mapping). Backend ported to Azure Functions + Microsoft Entra ID (Key Vault, real Entra JWT validation, Microsoft Graph user provisioning, IoT Hub Event Hub trigger) — typecheck clean, 81 unit tests passing, <strong>nothing deployed to Azure yet</strong>. A real identity bug was found and fixed during the port (backend keyed on Entra's pairwise <code>sub</code> claim instead of the stable <code>oid</code>). The AWS-native operational runbooks in the body of this guide are retained as historical reference for the <code>PeakLogic-AWS</code> repo and have <em>not</em> been rewritten into Azure runbooks, since no Azure environment exists to validate them against. See <code>docs/architecture/azure-review-and-improvement-roadmap.md</code>.</td>
+      <td><span class="badge badge-yellow">Design + partial code, not deployed</span></td>
+    </tr>
+    <tr>
+      <td class="col-mono">Unified&nbsp;Platform</td>
+      <td>2026-07-25</td>
+      <td>PeakLogic Engineering</td>
+      <td><strong>Unified-platform reframe (PeakLogic-first merger direction).</strong> PeakLogic is being reframed into a unified operations platform — <strong>PeakLogicSystems</strong> (cloud) + <strong>PeakView360</strong> (HMI/SCADA) + <strong>PeakLogic Hubs</strong> (on-prem edge) + <strong>PeakAssist</strong> (help) — absorbing Purple Standard's MooreView. This documentation pass adds the unified-platform framing to §1. The cloud schema for Hubs, HMI screens/tags, CMMS work orders/PM, compliance reports, and PeakAssist content ships as migrations (<code>1784142000000</code>–<code>…240000</code>), and self-contained backend logic (PM generation, compliance-report generation, PeakAssist resolution) is built and unit-tested; the <strong>PeakView360 operator app, the Hubs' PLC drivers, and PeakAssist delivery/sync are design-stage, not deployed</strong>. Canonical naming and the full plan: <code>docs/architecture/unified-platform-integration-plan.md</code>. <strong>No new platform release/tag</strong> — a pre-release documentation reconciliation on <code>dev</code>, which is why the version numbers above are unchanged.</td>
       <td><span class="badge badge-yellow">Design + partial code, not deployed</span></td>
     </tr>
   </table>
@@ -341,6 +349,18 @@
 ════════════════════════════════════════════════════════════ -->
 <div class="section page-break">
 <h2>1. System Overview</h2>
+
+<div class="box box-info">
+  <div class="box-title">Where PeakLogic is heading — the unified platform (2026)</div>
+  <p>PeakLogic is being reframed from a single-tier monitoring SaaS into a <strong>unified industrial operations platform</strong> that sits <em>above</em> existing SCADA/control systems — it never replaces safety-rated PLC control logic. Three components form one product, plus a first-class help system:</p>
+  <ul>
+    <li><strong>PeakLogicSystems</strong> — the core cloud intelligence layer (this platform): multi-tenant monitoring, AI anomaly detection, predictive maintenance, compliance automation, technician/CMMS workflows, enterprise reporting.</li>
+    <li><strong>PeakView360</strong> — the modernized HMI/SCADA operator experience: real-time screens, alarm management, equipment dashboards, historian.</li>
+    <li><strong>PeakLogic Hubs</strong> — on-prem edge units: PLC/RTU acquisition, edge processing, offline reliability, outbound-only cloud sync — a productization of the existing PeakLogic Edge (<code>windows-hub/</code>).</li>
+    <li><strong>PeakAssist</strong> — a first-class, offline-capable, contextual help system.</li>
+  </ul>
+  <p><strong>Administrator reality check:</strong> the cloud schema for Hubs, HMI screens/tags, CMMS work orders/PM, compliance reports, and PeakAssist content ships as migrations (<code>1784142000000</code>–<code>…240000</code>), and self-contained backend logic (PM-work-order generation, compliance-report generation, PeakAssist resolution) is built and unit-tested. But <strong>PeakView360, the Hubs' PLC drivers, and PeakAssist delivery/sync are design-stage — not deployed.</strong> The operations detailed in the rest of this guide remain the current reality; full admin procedures for each new component will be added as it ships. Canonical naming and the full plan: <code>docs/architecture/unified-platform-integration-plan.md</code>.</p>
+</div>
 
 <p>PeakLogic is a multi-tenant, cloud-native IoT SaaS platform that monitors industrial and commercial equipment — pumping stations, HVAC systems, pool equipment, and QSR (quick-service restaurant) assets — in real time. Sensors attached to physical equipment transmit telemetry data to AWS IoT Core over MQTT/TLS. The platform evaluates that data against threshold rules, raises alerts, and automatically creates service tickets for partner companies when critical thresholds are breached.</p>
 
