@@ -254,7 +254,7 @@
   .panel__note code { font-family: var(--mono); color: var(--accent-ink); background: var(--accent-soft); padding: 1px 6px; border-radius: 5px; }
 
   /* Tables */
-  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .tbl { width: 100%; border-collapse: collapse; font-size: 13px; color: var(--text); }
   .tbl th {
     text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em;
     color: var(--text-faint); font-weight: 700; padding: 10px 16px; border-bottom: 1px solid var(--border);
@@ -1537,20 +1537,21 @@
     }
     if (S.ptab === "branding") {
       return `<div class="panel"><div class="panel__head"><span class="panel__title">White-label configuration</span>
-          <button class="btn btn--ghost" data-action="toast:Branding saved for ${esc(p.name)}" style="margin-left:auto">Save branding</button></div>
+          <button class="btn btn--primary" data-action="save-branding:${p.id}" style="margin-left:auto">Save branding</button></div>
         <div style="padding:20px;display:flex;flex-direction:column;gap:20px">
           <div class="logo-drop">
-            ${partnerLogo(p, 52)}
+            <span id="br-mark" style="width:52px;height:52px;border-radius:15px;background:${p.brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;flex:none;letter-spacing:-.02em">${esc(p.logo || p.name[0])}</span>
             <div style="flex:1">
               <div class="strong" style="font-size:15px">${esc(p.name)}</div>
               <div class="mono muted" style="font-size:12px">${esc(p.subdomain)}</div>
-              <input type="file" accept=".svg,.png" class="hint" style="margin-top:10px">
-              <div class="hint" style="margin-top:4px">Replace the logo with a vector <code>.svg</code> (preferred) or transparent <code>.png</code>, min 512×512. Shown on the partner's co-branded portal, login page, and dispatched work orders.</div>
+              <div class="hint" style="margin-top:8px">Edit the mark and color below (live preview), then <b>Save branding</b> — it updates the partner's mark everywhere in this console. A real deploy would also accept an uploaded vector logo, min 512×512, shown on the partner's co-branded portal, login page, and dispatched work orders.</div>
             </div>
           </div>
+          <div class="field--row">
+            <div class="field"><label for="br-logo">Logo mark (initials)</label><input id="br-logo" type="text" maxlength="4" value="${esc(p.logo || p.name[0])}" style="text-transform:uppercase" autocomplete="off"></div>
+            <div class="field"><label for="br-brand">Primary color</label><input id="br-brand" type="color" value="${p.brand}" style="height:38px;padding:3px"></div>
+          </div>
           <dl class="kv">
-            <dt>Logo mark</dt><dd class="mono">${esc(p.logo || p.name[0])}</dd>
-            <dt>Primary color</dt><dd><span style="display:inline-flex;align-items:center;gap:7px"><span style="width:13px;height:13px;border-radius:3px;background:${p.brand}"></span><span class="mono">${p.brand.toUpperCase()}</span> <span class="faint">· editable</span></span></dd>
             <dt>Portal domain</dt><dd class="mono">${esc(p.subdomain)}</dd>
             <dt>Identity source</dt><dd>PeakLogicPartners (Entra External ID)</dd>
             <dt>Login page</dt><dd>Co-branded · PeakLogic footer</dd>
@@ -1558,6 +1559,22 @@
         </div></div>`;
     }
     return "";
+  }
+
+  // Apply the edited white-label branding to the partner (in-memory) and
+  // re-render, so the new mark/color show everywhere the partner appears
+  // (partner list, CMMS dispatch, act-as banner). Audited, like any real change.
+  function saveBranding(partnerId) {
+    const p = partnerById(partnerId);
+    if (!p) return;
+    const logoEl = $("#br-logo"), brandEl = $("#br-brand");
+    const logo = ((logoEl && logoEl.value) || p.name[0]).toUpperCase().trim().slice(0, 4) || p.name[0];
+    const brand = (brandEl && brandEl.value) || p.brand;
+    p.logo = logo;
+    p.brand = brand;
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "partner.branding", target: p.name, note: `White-label mark "${logo}" · ${brand.toUpperCase()}` });
+    render();
+    toast(`Branding saved for ${p.name}`);
   }
 
   function viewTenantDetail() {
@@ -2080,7 +2097,7 @@
       <td class="sev-cell"><span class="sev-stripe" style="background:var(--${d.health})"></span></td>
       <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(a.name)} · ${esc(d.metric)}</span></div></td>
       <td class="muted" style="font-size:12px">${isCrit ? "Anomaly 0.82 · above learned baseline" : "Threshold — below setpoint"}</td>
-      <td style="text-align:right"><button class="btn btn--ghost btn--sm" data-action="toast:Alarm acknowledged — ${esc(d.name)}">Ack</button>
+      <td style="text-align:right"><button class="btn btn--ghost btn--sm" data-action="toast:Alarm acknowledged — ${esc(d.name)}">Acknowledged</button>
         <button class="btn btn--ghost btn--sm" data-action="help-alarm:${isCrit ? "anomaly" : "threshold"}" title="What does this alarm mean?">?</button></td></tr>`;
     }).join("");
 
@@ -2282,7 +2299,7 @@
   const HELP = {
     peakview360: { title: "PeakView360 operator screen",
       guide: "Your live plant view. Tiles show current process values from the on-site Hub; the alarm panel lists what needs attention; the historian overlays trends. It keeps working even if the internet drops — the Hub serves it locally.",
-      steps: ["Read a tile: green is nominal, amber is off-setpoint, red is critical.", "Acknowledge an alarm with <b>Ack</b>; press <b>?</b> on an alarm for what it means and what to check.", "Overlay two metrics in the historian to spot a developing trend.", "Create a work order from an alarm to dispatch a technician."],
+      steps: ["Read a tile: green is nominal, amber is off-setpoint, red is critical.", "Acknowledge an alarm with the <b>Acknowledged</b> button; press <b>?</b> on an alarm for what it means and what to check.", "Overlay two metrics in the historian to spot a developing trend.", "Create a work order from an alarm to dispatch a technician."],
       trouble: ["No live data? Check the site's Hub is online (PeakLogic Hubs).", "A value looks frozen? The sensor may be silent — a silence alarm will confirm."] },
     hubs: { title: "PeakLogic Hubs",
       guide: "The edge units at each site. A Hub reads your PLCs/RTUs, evaluates alarms locally, serves PeakView360 and this help offline, and forwards data to the cloud outbound-only.",
@@ -2829,6 +2846,7 @@
     else if (action === "exit-actas") exitActAs();
     else if (action === "tenant-tab") { S.tab = arg; render(); }
     else if (action === "partner-tab") { S.ptab = arg; render(); }
+    else if (action === "save-branding") saveBranding(arg);
     else if (action === "device") openDeviceDrawer(arg);
     else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
@@ -2853,6 +2871,9 @@
     else if (e.target.id === "cu-role") { const d = $("#cu-role-desc"); if (d) d.textContent = ROLE_INFO[e.target.value] || ""; }
     else if (e.target.id === "cp-logo" || e.target.id === "cp-brand") {
       const mark = $("#cp-mark"); if (mark) { mark.textContent = ($("#cp-logo").value || "?").toUpperCase(); mark.style.background = $("#cp-brand").value; }
+    }
+    else if (e.target.id === "br-logo" || e.target.id === "br-brand") {
+      const mark = $("#br-mark"); if (mark) { mark.textContent = (($("#br-logo").value || "?").toUpperCase()); mark.style.background = $("#br-brand").value; }
     }
   });
 
