@@ -53,8 +53,8 @@ The resolver is **pure and I/O-free**, so it runs identically whether the catalo
 Content lives in the repo/CMS as structured Markdown with a `help_context` key + `version`, reviewed like code, seeded from the existing `sysadmin-guides/` and `user-guides/` corpus. This lets the existing guide material become the seed and holds PeakAssist to the same currency discipline.
 
 ## 8. Honesty ledger (real vs. design)
-- **Real today:** the content schema (`help_content`/`help_content_bundles`) and the **resolver** (`backend/shared/peakassist.ts`, tested); the clickable help-drawer design target.
-- **Design-stage (not built):** the cloud PeakAssist CMS, the Hub bundle-sync service, the in-app Help affordance/drawer in a production client, and the seed-content migration from the guides. No content has been authored into `help_content` yet.
+- **Real today:** the content schema (`help_content`/`help_content_bundles`); the **resolver** (`backend/shared/peakassist.ts`, tested); the **authored v1 content corpus** (`backend/shared/peakassist-content.ts`, `PEAKASSIST_CONTENT` — screen guides, alarm explanations for every emitted `alerts.type`, procedures, troubleshooting, playbooks, glossary; 17 tests enforcing the PA-7 every-screen-has-a-guide and PA-3 every-alarm-is-explained gates against the resolver); the clickable help-drawer design target.
+- **Design-stage (not built):** the cloud PeakAssist CMS, the DB-seed/Hub bundle-sync delivery of the corpus, and the in-app Help affordance/drawer in a production client. The corpus is authored in the repo (the source of truth) but not yet seeded into a live `help_content` table or bundled onto a Hub — that is the delivery step.
 
 ## 9. Open questions
 1. **Bundle format & sync** — packaging, delta strategy, checksum/signature, and the Hub-side pull mechanism (PeakLogic Hubs runtime).
