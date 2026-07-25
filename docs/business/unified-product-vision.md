@@ -11,7 +11,7 @@
 
 ## 0. The one-paragraph thesis
 
-**PeakLogic is the intelligence and operations layer that sits *above* SCADA/HMI.** It does not replace the safety-rated, deterministic control logic that lives in a plant's PLCs — that stays exactly where it is. Instead, PeakLogic unifies data across many facilities, adds AI-driven anomaly detection and predictive maintenance, automates compliance reporting, and drives technician workflows — for operators who today have none of that, or have it locked inside a single-site tool they can't see across. The unified platform has three components that are **one product**: **PeakLogic** (the multi-tenant cloud), **PeakView360** (the modern HMI/SCADA experience), and **PeakLogic Hubs** (the on-prem edge units). Two of these three already exist in the codebase today.
+**PeakLogic is the intelligence and operations layer that sits *above* SCADA/HMI.** It does not replace the safety-rated, deterministic control logic that lives in a plant's PLCs — that stays exactly where it is. Instead, PeakLogic unifies data across many facilities, adds AI-driven anomaly detection and predictive maintenance, automates compliance reporting, and drives technician workflows — for operators who today have none of that, or have it locked inside a single-site tool they can't see across. The unified platform has three components that are **one product**: **PeakLogicSystems** (the multi-tenant cloud), **PeakView360** (the modern HMI/SCADA experience), and **PeakLogic Hubs** (the on-prem edge units). Two of these three already exist in the codebase today. *(Naming: the company is **PeakLogic**; the cloud layer is **PeakLogicSystems** — see §7.1.)*
 
 ---
 
@@ -21,7 +21,7 @@ The single most important framing for leadership and investors: **this is a cons
 
 | Pillar | Status today | What's real right now |
 |---|---|---|
-| **PeakLogic** (core cloud) | **Exists** | Multi-tenant Azure platform with database-enforced row-level security (RLS), Entra ID auth, IoT telemetry ingest, device-silence detection, AI Analytics Tier-1 anomaly detection (scaffolded, feature-flagged), channel-partner white-label portal, immutable audit log, CMMS webhook connectors, and a working Super-Console operator demo. |
+| **PeakLogicSystems** (core cloud) | **Exists** | Multi-tenant Azure platform with database-enforced row-level security (RLS), Entra ID auth, IoT telemetry ingest, device-silence detection, AI Analytics Tier-1 anomaly detection (scaffolded, feature-flagged), channel-partner white-label portal, immutable audit log, CMMS webhook connectors, and a working Super-Console operator demo. |
 | **PeakLogic Hubs** (on-prem) | **Exists in embryo** | `PeakLogicEdge` — a real Windows edge runtime (`PeakLogicEdge.Host`) already running on target hardware, with an ingestion orchestrator, local telemetry cache, store-and-forward publishing over MQTT/TLS, and a commissioning flow. "PeakLogic Hubs" is the productization and hardening of this, not a new invention. |
 | **PeakView360** (HMI/SCADA) | **Net-new** — this is the build | The modern operator experience that absorbs MooreView's proven capabilities: real-time screens, alarm management, equipment dashboards, facility visualization, historian trending. This is where the majority of net-new engineering goes, and where MooreView's value is harvested. |
 
@@ -35,7 +35,7 @@ That mapping is the strategic unlock. **Purple Standard's MooreView is the faste
 
 A **full-stack industrial operations platform** for distributed, multi-site, compliance-heavy operations — starting in wastewater/water and expanding across facilities verticals. It spans from the PLC in the field to the executive dashboard in the browser, as one continuous product with one identity model, one data model, and one help system.
 
-### 2.2 PeakLogic — the core cloud intelligence platform
+### 2.2 PeakLogicSystems — the core cloud intelligence platform
 
 The brain. Multi-tenant SaaS on Azure. Owns:
 
@@ -249,12 +249,13 @@ Content lives in the repo/CMS as structured Markdown with a `help_context` key a
 
 | Name | What it is | One-liner |
 |---|---|---|
-| **PeakLogic** | The platform and the company. The core cloud intelligence layer. | "The intelligence layer for industrial operations." |
+| **PeakLogic** | The company and the platform family. | "The intelligence layer for industrial operations." |
+| **PeakLogicSystems** | The core cloud intelligence layer (the SaaS). | "The brain — multi-tenant monitoring, AI, compliance." |
 | **PeakView360** | The unified HMI/SCADA operator experience. | "See everything at your facility — live." |
 | **PeakLogic Hub** | The on-prem edge processing unit (a "Hub"; many are "Hubs"). | "The brainstem at your site — always on, even offline." |
 | **PeakAssist** | The first-class contextual help/support system. | "Help on every screen, online or off." |
 
-Naming conventions: the **Peak** prefix ties the family together. **PeakLogic** = cloud/brain. **PeakView360** = see (360° facility visibility). **Hub** = the physical anchor. **PeakAssist** = help. Avoid inventing more sub-brands than these four; descriptive module names ("compliance reporting," "predictive maintenance") stay descriptive, not branded, to keep the surface area small.
+Naming conventions: the **Peak** prefix ties the family together. **PeakLogic** = the company/platform; **PeakLogicSystems** = the cloud/brain; **PeakView360** = see (360° facility visibility); **Hub** = the physical anchor; **PeakAssist** = help. Internal project codename: **Project Vantage**. Descriptive module names ("compliance reporting," "predictive maintenance") stay descriptive, not branded. Canonical source of record: [`../architecture/unified-platform-integration-plan.md`](../architecture/unified-platform-integration-plan.md) §1. *(Naming corrected 2026-07-25 — this doc originally used "PeakLogic" for the cloud pillar; the cloud layer is **PeakLogicSystems**, distinct from the company.)*
 
 ### 7.2 Explained three ways
 

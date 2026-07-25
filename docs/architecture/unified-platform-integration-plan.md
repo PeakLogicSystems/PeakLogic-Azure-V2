@@ -7,6 +7,8 @@
 
 ---
 
+> **📊 Sweep progress (updated 2026-07-25).** **Phase 0** (naming/governance) ✅ · **Phase 1** spine — Vision/PRD/SRS/Domain Model → Draft v2.0 ✅ · **Phase 2** — Database Schema v1.5 + **5 real migrations** ✅; self-contained **backend** (PM-generation, compliance, PeakAssist; 174/174 tests) ✅; **11 substantive doc amendments** ✅; the **clickthrough demo** (PeakView360 / Hubs / CMMS / Compliance / PeakAssist + partner & tenant white-label branding, headless-verified) ✅ · **Phase 3** — 2 net-new design docs (PeakView360 HMI/SCADA, PeakAssist) ✅ · **Phase 4** — canonical-naming reconciliation across 24 docs ✅; both **guides** (User Guide v1.3, SysAdmin §1 framing) ✅; vision-doc cloud-pillar naming (PeakLogic→PeakLogicSystems) ✅. **Remaining:** a light unified-platform content note on the few Phase-4 AMEND-flagged docs (device-command-security, threat-model, compliance-cert, patent, mvp/enterprise roadmaps, channel-partner-intelligence, whitelabel-estate) — they have the naming fix but not yet a content note.
+
 ## 0. Why this document exists
 
 The `PeakLogic-Azure-V2` repo was forked to develop the **PeakLogic-first unified platform** decided in [`docs/business/unified-product-vision.md`](../business/unified-product-vision.md): a multi-tenant SCADA/HMI + CMMS + AI-intelligence platform that absorbs the proven capabilities of Purple Standard's **MooreView**, delivered as three components that are one product — **PeakLogicSystems** (cloud), **PeakView360** (HMI/SCADA), and **PeakLogic Hubs** (on-prem edge), with **PeakAssist** (help) as a first-class pillar.
