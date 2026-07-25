@@ -68,7 +68,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 ### Phase 1 — Foundational spine (checkpoint after this phase)
 | # | Artifact | Disposition | Status | Notes |
 |---|---|---|---|---|
-| 1 | Vision Document | REWRITE (→v2) | ⬜ | Reframe to unified 3-pillar SCADA/HMI+CMMS+AI; above-SCADA; MooreView absorption; compliance wedge; PeakAssist; new naming. |
+| 1 | Vision Document | REWRITE (→v2) | ✅ | Draft v2: 3-pillar model + PeakAssist; above-SCADA; multi-site/service-provider/compliance targeting; MooreView absorption; per-facility tiers; canonical naming. v1 philosophy preserved. No direct code. |
 | 2 | PRD | AMEND (→v2) | ⬜ | PeakView360, Hubs, PeakAssist, CMMS, compliance-automation, MooreView-parity requirements. |
 | 3 | SRS | AMEND (→v2) | ⬜ | Mirror PRD. |
 | 4 | Domain Model | AMEND (→v2) | ⬜ | New entities: Facility/Site first-class, Hub fleet, PeakView360 screens/tags/alarms, PeakAssist content, CMMS work orders/PM schedules, compliance reports, PdM assets. |

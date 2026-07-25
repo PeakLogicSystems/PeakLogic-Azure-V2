@@ -1,180 +1,223 @@
 # Vision Document
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
 **Company:** PeakLogic
-**Status:** Approved v1
+**Project codename:** Project Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (on-prem edge) · PeakAssist (help)
+**Status:** 🟡 Draft v2 — unified-platform reframe (base **Approved v1** remains the approved baseline until v2 is formally approved)
 **Owner:** Chief Product Officer / Chief Software Architect function
-**Last updated:** 2026-07-04
+**Last updated:** 2026-07-25
 
-*Naming is placeholder — not yet trademark-cleared (see `CLAUDE.md`).*
+> **v2 reframe note.** v1 (2026-07-04) framed a single-tier "facilities risk intelligence platform." v2 reframes the product as a **unified industrial operations platform** — a multi-tenant SCADA/HMI + CMMS + AI-intelligence layer that sits *above* existing control systems and absorbs the proven capabilities of Purple Standard's **MooreView** — per the PeakLogic-first decision in [`../business/unified-product-vision.md`](../business/unified-product-vision.md). Much of v1's philosophy carries forward intact (proactive-not-reactive, measure-the-real-thing, outbound-only networking, fail-safe-local actuation, SOC 2 from day one); v2 adds the three-component product model, the HMI/SCADA and CMMS layers, compliance automation, and PeakAssist. Naming is canonical per [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md) §1.
 
 ---
 
 ## 1. Executive Summary
 
-PeakView is a facilities and risk management IoT platform — cloud SaaS (**PeakLogicSystems**) paired with an on-site intelligence hub (**PeakView Hub**) and a device ecosystem (**PeakView 360**) — that detects abnormal equipment, facility, and energy conditions early, before they become the kind of loss that shuts a business down. It targets small-to-mid-tier commercial and residential sites (nursing homes, restaurants, pumping stations, retail, light industrial), built to scale to enterprise.
+PeakLogic is a **unified industrial operations platform** — a multi-tenant cloud (**PeakLogicSystems**) paired with a modern HMI/SCADA operator experience (**PeakView360**) and on-site edge units (**PeakLogic Hubs**), with a first-class help system (**PeakAssist**) — that detects abnormal equipment, facility, and process conditions early, automates the compliance and technician work operators are legally required to do, and does it across *many* facilities at once.
 
-Two examples anchor the value proposition: a leak sensor that raises a critical alert immediately (with automatic shutoff on the roadmap) before water damage forces a closure, and a refrigeration probe that measures the **actual temperature of stored food** rather than ambient air — simultaneously saving energy (the unit can run warmer when the product itself is still safely cold) and catching a real FDA cold-holding violation before product has to be discarded.
+The platform sits **above** existing SCADA/control systems. It does not replace the safety-rated, deterministic control logic that lives in a plant's PLCs — that stays exactly where it is. Instead it unifies data across facilities, adds AI-driven anomaly detection and predictive maintenance, and drives compliance and dispatch workflows — for operators who today have none of that, or have it locked inside a single-site tool they cannot see across.
 
-PeakLogic's bet is that this category is currently split between narrow, single-vertical point solutions and consumer smart-home ecosystems that are broad but famously painful to actually use — and that a platform built to be both genuinely extensible (able to onboard third-party and open-source devices without full in-house hardware development for every new sensor type) and radically simpler to operate can win both the depth and the ease-of-use argument at once.
+Two examples still anchor the value proposition: a leak sensor that raises a critical alert immediately (with automatic shutoff on the roadmap) before water damage forces a closure, and a refrigeration probe that measures the **actual temperature of stored food** rather than ambient air — saving energy while catching a real FDA cold-holding violation before product is lost. To these, the unified platform adds the operator's daily reality: a live plant screen, an acknowledged alarm that opens a work order, a predicted pump failure surfaced before it trips, and a regulator-ready compliance report generated automatically from the period's data.
+
+PeakLogic's bet is that the industrial-operations category is split between **single-site SCADA/HMI systems** that are blind above the plant floor, **narrow point solutions** that each cover one risk type, and **enterprise BMS/IWMS** that are too heavy and slow for distributed small-to-mid-tier operators — and that a platform which is genuinely multi-site, genuinely extensible (onboarding third-party and open-source devices without in-house hardware for every sensor), and radically simpler to operate can win distributed operators, service providers, and compliance-heavy facilities at once.
 
 ---
 
 ## 2. The Problem
 
-- Small-to-mid-tier commercial operators manage facility and equipment risk **reactively**: a leak is discovered once it has already flooded a room; a failed cooler is discovered once the food has already spoiled; a pump failure is discovered once it has already stopped a process.
-- Existing point solutions are narrow — a vendor for pool monitoring, a different vendor for energy metering, a different vendor again for leak detection — forcing operators to run several disconnected systems and dashboards to cover the risk surface of one building.
-- Consumer smart-home ecosystems (Amazon Alexa/Smart Home being the sharpest example) prove a broad device ecosystem has real value, but their device add/view/manage experience is widely, and firsthand, found to be confusing and frustrating — a real usability failure, not a hypothetical one.
-- Enterprise and increasingly mid-market networks are moving to zero-trust, internet-only postures: they will not open inbound firewall ports, stand up a dedicated VLAN, or grant a special firewall exception for a vendor's devices. A platform that isn't designed around outbound-only device communication from day one cannot credibly sell into that tier later.
+- **Reactive risk management.** Small-to-mid-tier commercial and industrial operators manage facility and equipment risk reactively: a leak is found once it has flooded a room; a failed cooler once the food has spoiled; a pump failure once it has already stopped a process.
+- **Fragmented point solutions.** One vendor for pool monitoring, another for energy metering, another for leak detection — several disconnected systems and dashboards to cover the risk surface of one building.
+- **SCADA is single-site and blind above the plant floor.** Traditional SCADA/HMI (MooreView being a capable example) is built for *one* engineered facility. It cannot see across a fleet of sites, has no multi-tenant model, no fleet-wide AI, and no way for a service provider to manage many customers' facilities from one place.
+- **Compliance is manual, painful, and non-optional.** Regulated operators (wastewater NPDES/DMR reporting the sharpest example) compile monitored values, exceedances, and corrective actions by hand into regulator-ready reports every reporting period. This is error-prone, time-consuming, and carries real regulatory risk.
+- **Distributed operators and service providers have no cross-site view.** A company running or servicing dozens of small sites has no unified pane, no cross-fleet intelligence, and no way to dispatch technicians against a live picture.
+- **Zero-trust networks reject inbound access.** Enterprise and increasingly mid-market networks will not open inbound firewall ports, stand up a dedicated VLAN, or grant a vendor firewall exception. A platform not designed around outbound-only device communication from day one cannot credibly sell into that tier later.
 
 ---
 
 ## 3. Mission
 
-> Give any facility — a nursing home, a restaurant, a pumping station, an enterprise campus — early, automatic warning of the equipment and facility conditions that cause costly losses, and make adding a new sensor as simple as talking to a voice assistant, not as painful as configuring one.
+> Give any operator — a single wastewater plant, a restaurant chain, a pool-service company running hundreds of sites, an enterprise campus — a live, unified, intelligent view of the equipment and process conditions that cause costly losses and compliance failures; automate the compliance and technician work that view makes possible; and make it simple enough that a non-technical operator can run it, online or off.
 
-Every design decision should increase how early a real risk is caught, how easily the platform extends to a new device or vertical, or how simple the day-to-day experience is for a non-technical facilities operator. When a decision trades any of those for short-term engineering convenience, the default answer is no.
-
----
-
-## 4. Product Vision
-
-PeakView is not a sensor company. It is a **facilities risk intelligence platform** that happens to ship white-label sensors as one on-ramp among several.
-
-Six pillars define the product, and every future feature should trace back to one of them:
-
-1. **Proactive, not reactive.** The product's job is to surface a real risk before it becomes a loss — a leak before a flood, a cooler drift before spoiled inventory, a pump anomaly before a failure — not to produce a better log of what already went wrong.
-2. **Extensible by adapter, not by fork.** A device-adapter architecture, orchestrated by an AI/MCP layer, lets the platform integrate white-label, third-party, and open-source devices — modeled on how a voice assistant "learns" a new skill rather than requiring a new hardware SKU and a new app for every monitoring category. This is what lets PeakLogic sell into new monitoring categories without doing full in-house hardware development for each one.
-3. **Measure the real thing, across every condition that matters, not just the easy proxy.** Electrical draw, water (flow, *and* chemical composition/quality — not just a binary leak trigger), gas, temperature, and air quality are all first-class sensing categories, not a fixed, narrow list. The refrigeration example generalizes broadly: pool chemical levels (pH, chlorine, dissolved solids) instead of a service company's periodic manual test strip, industrial equipment current draw instead of a breaker trip after the fact. Wherever a proxy and the real signal diverge in value, the platform is built to measure the real thing.
-4. **Radically simple device management.** A deliberate reaction against the clunkiness of existing consumer smart-home device management — adding, viewing, and managing a device should be obvious to a non-technical operator, not something that requires a manual.
-5. **Outbound-only, enterprise-network-compatible from day one.** Devices call out to the cloud over a persistent, encrypted connection; commands ride back over that same connection. No inbound port, dedicated VLAN, or special firewall rule is ever required of a customer's network — designed in from the start, not retrofitted once an enterprise deal demands it.
-6. **Adjacent to fire/life-safety, never inside it.** The product deliberately does not compete in the heavily regulated, UL-certified fire alarm/life-safety space — it covers the risk surface next to it (equipment, leaks, temperature, energy) that isn't covered by fire/alarm code but still causes real, costly losses.
+Every design decision should increase how early a real risk is caught, how much manual compliance/dispatch work is automated away, how easily the platform extends to a new device or vertical, or how simple the day-to-day experience is for a non-technical operator. When a decision trades any of those for short-term engineering convenience, the default answer is no.
 
 ---
 
-## 5. What PeakView Is Not
+## 4. Product Vision — one platform, four named parts
 
-- **Not a fire alarm / life-safety system.** That is a distinct, heavily regulated, UL-certified category this product deliberately stays adjacent to, not inside.
-- **Not a single-vertical point solution.** It is not "just" pool monitoring, "just" energy metering, or "just" leak detection — it is a unified platform those are examples within.
-- **Not a closed hardware ecosystem.** Unlike a typical IoT vendor, PeakView is designed to integrate third-party and open-source devices as a first-class capability, not an afterthought integration.
-- **Not, at MVP, an autonomous-actuation system.** Remote command/control (e.g. shutting off a water or gas valve) is an explicit roadmap item, not part of initial scope — MVP is detection and alerting.
-- **Not, at any near-term stage, an electrical load-control/panel product.** Actively conditioning or managing current draw (so devices don't overdraw a circuit) is a materially more regulated space — UL/NEC-adjacent electrical safety — than passive monitoring or a simple valve shutoff. It is a long-term, deliberately-scoped idea (§11), not something to back into as a side effect of energy monitoring, and the fire/life-safety adjacency principle (§4.6) applies here just as much as it does to fire alarms.
-- **Not a general home-automation platform.** No scenes, routines, or entertainment-device focus — the product's reason for existing is commercial facilities and risk management, not consumer convenience automation.
+PeakLogic is not a sensor company and not a SCADA vendor. It is an **operations intelligence layer above the plant floor** that ships white-label sensors and a modern HMI as on-ramps, and absorbs a proven single-plant SCADA/HMI product (MooreView) as the fastest path to a validated operator experience.
+
+### 4.1 The three components (one product)
+
+- **PeakLogicSystems — the core cloud intelligence layer.** Multi-tenant SaaS. Multi-site monitoring, AI anomaly detection, predictive maintenance, compliance automation, technician/CMMS workflows, cloud dashboards, enterprise reporting. The brain. Structurally does what single-plant SCADA cannot: see and reason across every facility a customer or service provider operates, scoped by database-enforced row-level security.
+- **PeakView360 — the modernized HMI/SCADA experience.** Real-time operator screens, alarm management, equipment dashboards, facility visualization, multi-pen historian trending. The face. Sources live data **locally from a Hub** (low-latency, offline-capable) and historical/cross-site data **from the cloud** — same UI, dual source. Can be the *primary* HMI for greenfield/small sites, or a *supervisory* layer alongside existing SCADA for brownfield plants that keep their control system.
+- **PeakLogic Hubs — the on-prem edge units.** PLC/RTU acquisition (Modbus/OPC-UA/EtherNet-IP), edge processing, local alarm evaluation, offline reliability, and secure outbound-only store-and-forward to the cloud. The hands and ears at each site; the offline-resilient anchor. A productization of the existing PeakLogic Edge (`windows-hub/`) work.
+- **PeakAssist — the help/support system.** First-class, contextual, one-click-from-anywhere, bundled offline on every Hub, cloud-synced. Serves both HMI users (inside PeakView360, offline via the Hub) and cloud users. Treated as a product pillar, not documentation (see §7 and the PeakAssist architecture artifact).
+
+### 4.2 The governing pillars (every feature traces to one)
+
+1. **Proactive, not reactive.** Surface a real risk before it becomes a loss — a leak before a flood, a cooler drift before spoilage, a pump anomaly before failure — not a better log of what already went wrong.
+2. **Above SCADA, never replacing safety-rated control.** PeakLogic unifies, analyzes, visualizes, and automates workflows above the plant floor. It never assumes the safety-rated, deterministic control logic in a plant's PLCs — that stays where it is. PeakView360 can be a primary HMI for sites that have none, or a supervisory layer where control already exists.
+3. **Multi-site and multi-tenant from the core.** One operator, many sites; one service provider, many customers — all in one pane, isolated by RLS so no tenant ever sees another's data. This is the structural advantage over single-plant SCADA.
+4. **Extensible by adapter, not by fork.** A device-adapter architecture, orchestrated by an AI/MCP layer, integrates white-label, third-party, and open-source devices — and the Hub's protocol drivers extend the same idea to PLCs/RTUs. New verticals and devices arrive through adapters and configuration, not a platform fork.
+5. **Measure the real thing, across every condition that matters.** Electrical draw, water (flow *and* chemistry), gas, temperature, process values — first-class sensing, not a fixed narrow list. Wherever a proxy and the real signal diverge in value, measure the real thing (product temperature over ambient air; pool chemistry over a manual test strip).
+6. **Automate the compliance and technician work the data makes possible.** Detection is the start, not the end: an acknowledged alarm becomes a work order; a period of monitored values becomes a regulator-ready compliance report; a predicted failure becomes a dispatched technician against a live route. The closed detect → dispatch → outcome loop is a moat competitors without it cannot copy.
+7. **Radically simple to operate, online or off.** Adding/viewing/managing devices and reading a plant screen should be obvious to a non-technical operator — a deliberate reaction to the clunkiness of consumer smart-home management — and must keep working when the internet does not (Hub-local PeakView360 + offline PeakAssist).
+8. **Outbound-only, enterprise-network-compatible from day one.** Devices and Hubs call out to the cloud over a persistent encrypted connection; commands ride back over that same connection. No inbound port, VLAN, or firewall exception is ever required.
+9. **Safety-critical actuation fails safe locally.** A device (or Hub) must never depend on a live cloud round-trip for a safety-critical action; the cloud channel is for remote override, reset, and audit, not the sole trigger path.
+10. **Adjacent to fire/life-safety and to plant control, never inside them.** The product covers the risk surface next to fire/life-safety (equipment, leaks, temperature, energy) without entering that UL-certified space — and sits above plant control without entering the safety-rated control space. Both boundaries are deliberate.
+11. **Enterprise-sellable from day one.** SOC 2 readiness and a real security posture are designed in from the start, not retrofitted before a big customer's security review.
 
 ---
 
-## 6. Target Market & Long-Term Vertical Expansion
+## 5. What PeakLogic Is Not
 
-**Beachhead verticals:** pumping stations, quick-service restaurants/food service, pool service monitoring, nursing homes/senior living, cold storage/refrigeration, retail, light industrial.
-
-**Long-term expansion:** any small-to-mid-tier commercial or residential site with equipment, facility-condition, or energy risk worth monitoring. The architectural implication mirrors IronQuill's own governing rule: the core platform (device-adapter framework, AI/MCP orchestration layer, multi-tenant data model) must be **vertical-agnostic**. New verticals should be reachable primarily through new device adapters and configuration, not by forking the platform.
-
-**Pool service is a particularly strong upsell example** of the sensing breadth in §4.3: remote chemical monitoring (pH, chlorine, dissolved solids), water temperature, and pump energy management — including reducing grid-load spikes at motor startup via solar/battery buffering — let a pool service company offer remote diagnostics its customers can't get today. Industrial equipment current-draw monitoring extends the same pattern to light-industrial sites. Several of these categories are also reachable through **channel partnerships** with existing equipment and chemical suppliers, not only direct PeakLogic hardware sales — a business-model extension of the same extensibility pillar, not a separate strategy.
+- **Not a SCADA/PLC replacement or a safety-control system.** PeakView360 is an HMI/visualization and supervisory layer; PeakLogic never assumes safety-rated, deterministic control logic, hard interlocks, or emergency-shutdown functions. Those stay in the plant's certified control system.
+- **Not a fire alarm / life-safety system.** A distinct, heavily regulated, UL-certified category the product deliberately stays adjacent to.
+- **Not a single-vertical point solution.** Not "just" pool, energy, or leak monitoring — a unified platform those are examples within.
+- **Not a single-site tool.** Multi-tenant, multi-site, and service-provider operation is core, not an add-on — the specific thing single-plant SCADA (including MooreView as it exists today) cannot do.
+- **Not a closed hardware ecosystem.** Third-party and open-source device integration is a first-class capability, not an afterthought.
+- **Not, at MVP, an autonomous-actuation system.** Remote command/control (e.g. valve shutoff) is a roadmap item; MVP is detection, visualization, alerting, and workflow automation.
+- **Not, at any near-term stage, an electrical load-control/panel product.** Actively conditioning current draw is a materially more regulated space (§11); a long-term, partnership-first idea, not a side effect of energy monitoring.
+- **Not a general home-automation platform.** No scenes/routines/entertainment focus — the reason for existing is commercial and industrial operations, not consumer convenience.
+- **Not the operator's system of record for compliance liability.** Compliance automation *assists* the operator's filing (the operator remains the filer of record), backed by an immutable audit trail — it does not assume regulatory responsibility.
 
 ---
 
-## 7. Guiding Principles
+## 6. Target Market & Vertical Expansion
 
-These are the tie-breakers when the PRD, SRS, or later architecture documents need one:
+**Primary buyers:** distributed operators (many small sites), **service providers** managing many customers' facilities, **multi-site** owners, and **compliance-heavy** operators for whom regulatory reporting is non-optional.
+
+**Beachhead vertical — wastewater/water.** It is MooreView's proven domain (so the operator UX is validated, not guessed), it is intensely compliance-driven (NPDES permits, DMR reporting — the compliance-automation wedge), and it is full of distributed small plants and the service providers who run them. Adjacent beachheads carried from v1: pumping stations, quick-service/food service, pool-service monitoring, nursing homes/senior living, cold storage/refrigeration, retail, light industrial.
+
+**Long-term expansion:** any distributed or multi-site operation with equipment, process-condition, compliance, or energy risk worth monitoring. The architectural implication is unchanged and load-bearing: the core (device- and protocol-adapter framework, AI/MCP orchestration, multi-tenant data model) must be **vertical-agnostic** — new verticals reachable through adapters and configuration, not a fork.
+
+**Channel-partner motion.** Service providers are a first-class go-to-market: per-facility economics let a partner onboard customer sites profitably, and PeakLogic's revenue grows with their book of business — already modeled in the channel-partner portal and white-label estate work.
+
+---
+
+## 7. Guiding Principles (tie-breakers for the PRD, SRS, and later docs)
 
 1. **Detect before loss, always the target** — a feature that only documents a failure after the fact is not fulfilling the product's reason for existing.
-2. **Measure the real thing when it diverges from the easy proxy** — food-safety-grade probe temperature over ambient air is the model to generalize from.
-3. **Extensibility lives in the adapter/skills layer, never in a fork of the core.**
-4. **Outbound-only, never inbound** — device networking must never require a customer's IT department to open a port, add a VLAN, or grant a firewall exception.
-5. **Safety-critical actuation fails safe locally** — a device must never depend on a live cloud round-trip to perform a safety-critical action; the cloud channel is for override, reset, and audit, not the sole trigger path.
-6. **AI orchestrates against defined contracts; it doesn't improvise at runtime.** The AI/MCP layer reasons about and invokes device adapters with known, tested contracts — it is not relied on to freelance an unverified integration against live hardware.
-7. **Enterprise-sellable from day one.** SOC 2 readiness and a real security posture are designed into the architecture from the start, not retrofitted in the weeks before a big customer's security review.
+2. **Above SCADA; never touch safety-rated control** — repeat this guardrail in every architecture doc that touches the device or command plane.
+3. **Measure the real thing when it diverges from the easy proxy** — product temperature over ambient air is the model to generalize.
+4. **Multi-tenant isolation is non-negotiable** — RLS-enforced, fails closed; no cross-tenant query, ever; N per-org scoped reads over one cross-tenant read.
+5. **Extensibility lives in the adapter/skills layer, never in a fork of the core.**
+6. **Outbound-only, never inbound** — device/Hub networking must never require a customer to open a port, add a VLAN, or grant a firewall exception.
+7. **Offline reliability is a requirement, not a nice-to-have** — Hub-local PeakView360 and bundled offline PeakAssist must keep working with the internet unplugged.
+8. **Safety-critical actuation fails safe locally** — cloud is override/reset/audit, not the sole trigger path.
+9. **Compliance assists, never assumes liability** — operator remains filer of record; immutable audit trail is the evidence.
+10. **AI orchestrates against defined contracts and is advisory, never authoritative** — deterministic Policy-Engine thresholds stay the safety floor; AI never arms actuation; explainable-or-it-doesn't-ship.
+11. **PeakAssist is first-class** — no screen ships without its contextual help entry.
+12. **Enterprise-sellable from day one** — SOC 2 readiness and security posture designed in, not retrofitted.
 
 ---
 
 ## 8. Risk Reduction & Compliance Philosophy
 
-PeakView's bar for success is not "as good as the status quo" — it is measurably better than how facilities currently manage this risk surface:
+PeakLogic's bar is not "as good as the status quo" — it is measurably better than how operators manage this risk and compliance surface today:
 
-| Dimension | Status Quo | PeakView (target) |
+| Dimension | Status Quo | PeakLogic (target) |
 |---|---|---|
-| Detection timing | After failure or loss has already occurred | Before, in real time, while it's still preventable |
-| Coverage | Fragmented — separate vendor per risk type | Unified platform across leak, temperature, energy, and equipment risk |
-| Device ecosystem | Closed, single-vendor hardware | Open — white-label plus third-party/open-source devices via adapters |
-| Sensing accuracy | Proxy signals where convenient (ambient air temp) | The actual asset/product condition, where it diverges in value from the proxy |
-| Network compatibility | Often requires special firewall/VLAN exceptions | Outbound-only by design; compatible with zero-trust enterprise networks |
-| Compliance posture | Bolted on before a sale, if at all | SOC 2 readiness designed into the architecture from day one |
+| Detection timing | After failure/loss | Before, in real time, while preventable |
+| Coverage | Fragmented — a vendor per risk type | Unified across leak, temperature, energy, equipment, and process risk |
+| Site scope | Single-site SCADA / point tools | Multi-site, multi-tenant, service-provider-ready |
+| Above-plant intelligence | None — SCADA is blind above the floor | Fleet-wide AI anomaly detection + predictive maintenance |
+| Device ecosystem | Closed, single-vendor | Open — white-label + third-party/open-source via adapters |
+| Sensing accuracy | Proxy where convenient (ambient air) | The actual asset/product/process condition |
+| Compliance reporting | Manual, per-period, error-prone | Automated, regulator-ready, audit-backed (operator remains filer of record) |
+| Technician workflow | Phone calls and spreadsheets | Alarm → work order → dispatch → tracked outcome |
+| Network compatibility | Often needs firewall/VLAN exceptions | Outbound-only; zero-trust compatible |
+| Offline behavior | Cloud tools go dark on an outage | Hub-local operation + offline help |
+| Compliance posture (of the vendor) | Bolted on before a sale, if at all | SOC 2 readiness designed in from day one |
 
-This table is a north star for the forthcoming Compliance & Certification Roadmap, not a final compliance claim. Actual SOC 2 attestation, and any food-safety-adjacent claim referencing FDA cold-holding guidance, require a real audit and legal review before being made externally — this document sets the target, it does not certify it.
+This table is a north star for the Compliance & Certification Roadmap, not a final claim. Actual SOC 2 attestation, any FDA-cold-holding-adjacent claim, and any regulatory-reporting feature all require real audit and legal review before external claims — and compliance automation is positioned as operator-assist, not liability-assumption, precisely because of that.
 
 ---
 
 ## 9. Competitive Positioning
 
-PeakView competes against three incumbent categories, none built to win on both breadth and simplicity at once:
+PeakLogic competes against four incumbent categories, none built to win on multi-site + intelligence + simplicity at once:
 
-- **Single-vertical IoT point solutions** (energy-only, leak-only, pool-only monitoring vendors). Strength: deep expertise in one niche. Weakness: a customer needing coverage across several risk types ends up running several disconnected vendors and dashboards.
-- **Consumer smart-home ecosystems** (Alexa, SmartThings, Google Home). Strength: broad device ecosystems, strong brand recognition, proven "skill"-style extensibility model. Weakness: not designed for commercial risk/compliance use cases, no enterprise-network-compatible security posture, and a device management UX widely experienced as confusing.
-- **Traditional Building Management Systems (BMS) / IWMS.** Strength: established trust in large facilities. Weakness: expensive, slow to deploy, built for large enterprise campuses rather than small-to-mid-tier commercial sites, and poorly suited to rapidly integrating lightweight modern IoT sensors.
+- **Single-site SCADA/HMI (e.g. MooreView-class products).** Strength: deep, proven per-plant operator UX and process visualization. Weakness: single-tenant, single-site, blind above the plant floor, no fleet AI, no service-provider model. *PeakLogic absorbs the operator UX and adds everything above it.*
+- **Single-vertical IoT point solutions** (energy-only, leak-only, pool-only). Strength: niche depth. Weakness: several disconnected vendors/dashboards to cover one building.
+- **Consumer smart-home ecosystems** (Alexa, SmartThings, Google Home). Strength: broad device ecosystems and a proven "skill"-style extensibility model. Weakness: not built for commercial/industrial risk or compliance, no enterprise-network security posture, and a device-management UX widely experienced as confusing — the deliberate anti-example.
+- **Enterprise BMS / IWMS.** Strength: established trust in large facilities. Weakness: expensive, slow to deploy, built for large campuses not distributed small-to-mid-tier operators, and poor at rapidly integrating lightweight modern IoT.
 
-PeakView's durable differentiator is the combination, not any single piece: proactive risk-specific alerting, genuine device-ecosystem extensibility, enterprise-network-compatible architecture from day one, and a device management experience deliberately built simpler than the consumer incumbents it takes usability lessons from.
+The durable differentiator is the **combination**: proactive risk-specific alerting, a modern multi-site HMI above SCADA, fleet-wide AI, automated compliance and dispatch, enterprise-network-compatible architecture from day one, and a deliberately simpler operator experience — none of which any single incumbent offers together.
 
 ---
 
-## 10. Offering Tiers & Extensibility Model
+## 10. Offering Model & Extensibility
 
-PeakLogic sells the same core platform at increasing depth, not different products:
+PeakLogic sells the same unified platform at increasing depth, per facility, not different products. The value-based, per-facility tiers (detailed in the commercialization roadmap and unified-vision pricing section):
 
-1. **SaaS only** — the PeakLogicSystems platform, for customers bringing their own compatible devices or data.
-2. **SaaS + core systems** — the platform plus PeakView Hub and white-label PeakView 360 devices.
-3. **SaaS + core systems + AI real-time analytics** — the above plus the AI/MCP-orchestrated analytics layer. Sequencing between tier 2 and tier 3 is a build decision for the PRD, not a vision-level commitment — if it isn't meaningfully harder to build the analytics layer alongside the core than to bolt it on afterward, it should ship with tier 2 rather than be artificially deferred.
+1. **Monitor** — Hub + PeakView360 + alarms + historian + PeakAssist + basic cloud dashboard. Small single-site operators.
+2. **Intelligence** — adds AI anomaly detection, predictive maintenance, CMMS work orders/PM. For preventing failures, not just watching them.
+3. **Compliance** — adds automated regulatory reporting (DMR etc.), audit exports, retention SLAs. The regulated-facility wedge.
+4. **Enterprise / Multi-site** — adds cross-facility rollups, channel-partner/service-provider management, API, SSO, custom report templates, SLAs.
 
-**Extensibility is built on two layers, deliberately kept distinct:**
-
-- A **device-adapter layer** (the actual "skill" being learned — how to talk to a specific device or protocol), the same kind of problem consumer home-automation platforms solve with large integration libraries.
-- An **AI/MCP orchestration layer** on top of it, letting the platform's AI reason about and invoke whatever device adapters exist, and letting external systems query PeakView data as a tool. PeakLogicSystems exposing its own **MCP server** (so a customer's own AI/agent stack can use PeakView data and alerts as a tool) is the near-term direction; PeakLogicSystems acting as an **MCP client** against external servers is deferred until a specific integration justifies the cost.
-
-This is a vision-level commitment because, like IronQuill's deployment-model decision, it shapes the architecture — the adapter plugin system, the AI orchestration layer, and the API design — from the beginning. Retrofitting genuine third-party device extensibility onto a closed-hardware architecture later is a rebuild, not an iteration.
+**Extensibility remains two deliberately-distinct layers:** a **device/protocol-adapter layer** (the "skill" — how to talk to a specific device, protocol, or PLC) and an **AI/MCP orchestration layer** on top (reasoning about and invoking whatever adapters exist; exposing PeakLogic data/alerts as a tool to a customer's own AI/agent stack via an MCP server — the near-term direction; PeakLogic as MCP *client* deferred until a specific integration justifies it). This shapes the architecture from the beginning — retrofitting genuine extensibility onto a closed architecture later is a rebuild, not an iteration.
 
 ---
 
 ## 11. Three-to-Five Year North Star
 
-By year three to five, PeakView should be positioned as:
+By year three to five, PeakLogic should be:
 
-- The **default answer** when a small-to-mid-tier commercial operator is asked "how do you catch equipment or facility risk before it becomes a loss?"
-- Running a device ecosystem broad enough, through the adapter/skills framework, that customers rarely hear "we don't support that sensor."
-- **SOC 2 Type II attested**, cited by enterprise buyers as an actual purchase factor, not a checkbox.
-- Held up internally as the **anti-example** to the Alexa/Smart Home device-management experience it took usability lessons from.
-- Shipping remote actuation (starting with leak and gas shutoff) safely in production, with the fail-safe-locally design principle proven, not just specified.
-- Expanding into new monitoring categories primarily through third-party/open-source device integration and channel/supplier partnerships, not new in-house hardware R&D for every category.
-- Having deliberately evaluated — not assumed — whether active electrical load conditioning (managing current draw so devices don't overdraw a circuit) belongs in the product. If pursued, the expectation is a partnership with an already-certified electrical-control hardware maker rather than in-house development, mirroring how the fire/life-safety boundary is handled in §4.6.
+- The **default answer** when a distributed or multi-site operator asks "how do I see, protect, and prove compliance for my facilities in one place?"
+- Running a device/protocol ecosystem broad enough (via adapters and Hub drivers) that customers rarely hear "we don't support that sensor or PLC."
+- The platform a **service provider** runs their whole book of customer sites on, with per-facility economics that scale with their business.
+- **SOC 2 Type II attested**, cited by enterprise buyers as an actual purchase factor.
+- Automating a regulated operator's compliance reporting end to end, with the operator as filer of record and an immutable audit trail as evidence.
+- Shipping remote actuation (starting with leak/gas shutoff) safely in production, with fail-safe-local proven, not just specified.
+- Held up internally as the **anti-example** to the Alexa/Smart Home device-management experience.
+- Having deliberately evaluated — not assumed — whether active electrical load conditioning belongs in the product, and if pursued, via partnership with an already-certified hardware maker.
 
 ---
 
 ## 12. Success Criteria
 
-- **Trust validation:** SOC 2 Type II achieved and cited by enterprise buyers as a purchase factor.
-- **Extensibility proof point:** a real customer integrates a third-party or open-source device through the adapter/skills framework without custom engineering from PeakLogic.
-- **Loss-prevention proof point:** at least one real, quantifiable case of a PeakView alert preventing a costly loss (flooding, spoilage, equipment failure) for a customer, referenceable in sales.
-- **Vertical reuse proof point:** a new vertical is onboarded primarily through configuration and device adapters, not net-new core engineering.
-- **UX proof point:** device onboarding time and friction benchmarked as meaningfully simpler than the Alexa/Smart Home baseline.
-- **Enterprise proof point:** at least one enterprise deployment live in production using outbound-only device networking, with zero special firewall or VLAN exceptions granted by the customer.
+- **Unified-platform proof point:** one reference facility running end-to-end — Hub acquiring from a PLC, PeakView360 rendering live (Hub-local) and historical (cloud), AI anomaly surfacing into an operator alarm, a work order created, PeakAssist contextual and offline.
+- **Offline proof point:** the operator screen and help keep working with the internet physically unplugged.
+- **AI-before-human proof point:** at least one real anomaly surfaced on an operator's alarm before a human noticed.
+- **Compliance proof point:** at least one regulator-relevant report generated automatically from a period's monitored data, audit-backed.
+- **Multi-site proof point:** a service provider manages multiple customer sites from one pane, isolation verified.
+- **Trust validation:** SOC 2 Type II achieved and cited by enterprise buyers.
+- **Extensibility proof point:** a real customer integrates a third-party/open-source device (or a new PLC) through the adapter framework without custom engineering from PeakLogic.
+- **Loss-prevention proof point:** at least one real, quantifiable case of a PeakLogic alert preventing a costly loss, referenceable in sales.
+- **Vertical reuse proof point:** a new vertical onboarded primarily through configuration and adapters, not net-new core engineering.
+- **UX proof point:** device onboarding and operator-screen friction benchmarked as meaningfully simpler than the incumbents.
+- **Enterprise proof point:** at least one enterprise deployment live using outbound-only networking, zero firewall/VLAN exceptions granted.
 
 ---
 
 ## 13. Key Risks & Assumptions
 
-- **Assumption — customers will pay to prevent a loss, not just absorb it as a cost of doing business.** Mitigation: lead sales motion with the highest-emotional-resonance losses (flooding a nursing home, spoiling a restaurant's walk-in) where the cost of inaction is vivid and specific.
-- **Assumption — an AI/MCP-orchestrated device-adapter framework can actually reach "add any open-source device easily."** Unproven until a real third-party integration ships without custom engineering. This is the single biggest determinant of whether PeakView becomes a broad platform or stays a narrow hardware product.
-- **Risk — a good device-adapter/skills architecture is a genuinely hard extensibility problem**, comparable to how long it took consumer home-automation platforms to mature broad integration libraries. Scope and sequencing need to be realistic, not assumed trivial because "AI" is involved.
-- **Risk — SOC 2 and an enterprise security posture add real engineering and process overhead.** Building this in now versus after a specific deal requires it is a genuine scope trade-off, not a free win.
-- **Risk — remote actuation carries real safety and liability exposure if built carelessly.** Deliberately scoped as roadmap, not MVP, with local fail-safe behavior as a non-negotiable design requirement before any actuation ships.
-- **Risk — broadening sensing scope to water chemistry, gas, and electrical draw multiplies hardware and certification complexity.** A chemical sensor, a gas detector, and an electrical monitoring device each carry their own certification and liability profile; scope and sequencing per modality should be deliberate, not assumed free just because the platform architecture is already extensible.
-- **Risk — active electrical load conditioning is meaningfully more regulated than passive monitoring or a simple valve shutoff**, and could pull the company toward the same kind of regulatory burden §4.6 deliberately avoids for fire/life-safety. Treated as a long-term, partnership-first idea (§11), not a near-term build.
-- **Assumption — the existing v1.0.0 code's validated patterns (tenant isolation via Postgres RLS, the CDK stack structure) remain sound under the architecture this document sets in motion.** Not yet verified against a PRD or SRS that don't exist yet — this is exactly what the reconciliation process in `docs/architecture/README.md` exists to check.
+- **Assumption — customers pay to prevent losses and to automate compliance, not just absorb them.** Mitigation: lead with the highest-resonance losses (flooding a nursing home, spoiling a walk-in) and the non-optional pain of regulatory reporting.
+- **Risk — scope explosion absorbing all of MooreView.** Mitigation: the unified-vision §4 disposition table (preserve/modernize/redesign/retire) is ruthless — harvest the operator surface, defer/retire CAD (MV Draw) and raw PLC programming; they are explicitly out of MVP.
+- **Risk — "you're replacing our SCADA / touching our safety system" objection.** Mitigation: the above-SCADA guardrail, stated and repeated; primary-HMI positioning limited to greenfield/small sites.
+- **Risk — offline reliability under-delivered erodes trust on the first outage.** Mitigation: Hub-local rendering + offline PeakAssist are MVP requirements; tested with the internet unplugged in the pilot.
+- **Risk — compliance automation carries regulatory liability.** Mitigation: operator-assist framing (operator is filer of record), immutable audit trail, legal review before the Compliance tier ships.
+- **Risk — AI false positives cause alarm fatigue.** Mitigation: AI ships as *context on* alarms in MVP (capped at warning, never auto-dispatch), tuned on real pilot data before raising its own alarms.
+- **Risk — industrial protocol integration is genuinely hard.** Mitigation: pilot on one well-understood protocol (Modbus/OPC-UA); breadth is Phase 2.
+- **Risk — a good device/protocol-adapter framework is a hard extensibility problem**, comparable to how long consumer platforms took to mature integration libraries. Scope realistically; "AI" does not make it trivial.
+- **Risk — remote actuation carries safety/liability exposure if built carelessly.** Scoped as roadmap, fail-safe-local non-negotiable before any actuation ships.
+- **Risk — merger terms could shift the PeakLogic-first foundation.** The unified-vision doc is the artifact to revise; the original `PeakLogic-Azure` repo remains the frozen standalone-PeakLogic fallback.
+- **Assumption — the existing v1.0.0 validated patterns (RLS isolation, the infra stack structure) remain sound under this vision.** Checked continuously by the reconciliation sweep ([`unified-platform-integration-plan.md`](unified-platform-integration-plan.md)).
 
 ---
 
 ## 14. Stakeholders & Document Governance
 
-- **Primary audience:** founding/architecture team (this document is the shared reference point for every subsequent artifact), future engineering hires, prospective investors, and design-partner customers under NDA.
-- **Governance:** this document is versioned in git alongside the rest of the architecture set. Material changes (anything beyond wording/clarity) should be called out explicitly and cross-checked against documents that depend on it — starting with the PRD.
-- **Next artifact:** Product Requirements Document (PRD), which translates §4–§12 of this document into concrete, prioritized product requirements and explicit MVP scope.
+- **Primary audience:** founding/architecture team (this is the shared reference for every subsequent artifact), future engineering hires, prospective investors, design-partner customers under NDA, and Purple Standard leadership under the merger.
+- **Governance:** versioned in git with the rest of the architecture set. Material changes are called out explicitly and cross-checked against dependents — starting with the PRD. This v2 is a material reframe; it holds Draft status until formally approved, with v1 remaining the approved baseline in the interim.
+- **Next artifact:** the PRD (#2), which translates §4–§12 into concrete, prioritized requirements and explicit MVP scope for the unified platform — the next step in the Phase-1 spine of the integration plan.
+
+---
+
+## Revision history
+
+| Version | Date | Author | Notes |
+|---|---|---|---|
+| v1 | 2026-07-04 | PeakLogic | Initial vision — single-tier facilities risk intelligence platform. Approved. |
+| Draft v2 | 2026-07-25 | PeakLogic | Unified-platform reframe: three-component model (PeakLogicSystems/PeakView360/PeakLogic Hubs) + PeakAssist; above-SCADA positioning; multi-site/service-provider/compliance-heavy targeting; MooreView absorption; compliance automation; per-facility offering tiers; canonical naming. v1 philosophy (proactive, measure-real-thing, outbound-only, fail-safe-local, SOC 2 from day one, fire/life-safety adjacency) preserved. Base v1 remains approved baseline until v2 is formally approved. |
