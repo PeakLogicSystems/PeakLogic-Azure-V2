@@ -98,7 +98,8 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 |---|---|---|---|
 | PeakView360 HMI/SCADA Architecture | NEW | ⬜ | Operator screens, alarm mgmt, historian, facility viz, dual-source rendering. |
 | PeakAssist Help System Architecture | NEW | ⬜ | Formalizes unified-vision §6: contextual, one-click, offline-via-Hub, cloud-synced, two audiences. |
-| Hub Agent Runtime Design | NEW | ✅ | `hub-agent-runtime-design.md` — runtime scoping of the `PeakLogicEdge` .NET agent against the now-real Hub cloud contracts (register/heartbeat/peakassist-sync); exists/new inventory, transport-reconciliation open item, 8-step build sequence. Reconciles with `windows-endpoint-application.md`. |
+| Hub Agent Runtime Design | NEW | ✅ | `hub-agent-runtime-design.md` — runtime scoping of the `PeakLogicEdge` .NET agent against the now-real Hub cloud contracts (register/heartbeat/peakassist-sync); exists/new inventory, transport-reconciliation open item, 8-step build sequence. Reconciles with `windows-endpoint-application.md`. Step §7.1 (commissioning loop) built. |
+| Hub Enrollment & Identity Design | NEW | ✅ | `hub-enrollment-and-identity-design.md` — resolves runtime-design Q6 (first-run auth) + Q7 (site resolution): hub = X.509/DPS IoT Hub device (reuses Device & Command Security §2), two-phase commissioning, twin-native heartbeat/sync (built handler logic reused), dual-disable revocation. Settles transport toward IoT Hub MQTT. |
 | MooreView Feature Integration & Disposition | NEW (candidate) | ⬜ | Formalizes unified-vision §4 preserve/modernize/redesign/retire as an architecture artifact; may instead be folded into the Vision/PRD. |
 
 ### Phase 4 — Naming / positioning sweep (lighter touch)
