@@ -18,18 +18,27 @@
 
 import type { HelpContentItem } from './peakassist';
 
+// Field / record separators for the checksum serialization (ASCII US / RS —
+// never present in help text), so item and field boundaries are unambiguous.
+const FS = String.fromCharCode(31);
+const RS = String.fromCharCode(30);
+
 /**
- * Deterministic content checksum (FNV-1a over the serialized corpus) for the
- * bundle's integrity field — a Hub verifies its synced bundle against it
- * (PA-5). Pure, no crypto dependency; stable across runs and platforms.
+ * Deterministic content checksum (FNV-1a). Order- and id-independent: a hash of
+ * the CONTENT itself, so the same corpus reproduces the same value whether it
+ * is hashed from the authored array or rebuilt from `help_content` rows (whose
+ * ids are DB UUIDs and whose read order is arbitrary). This is what lets a Hub
+ * verify a synced bundle against the recorded checksum (PA-5, see
+ * peakassist-sync.ts). Pure, no crypto dependency; stable across platforms.
  */
 export function contentChecksum(content: HelpContentItem[], version: string): string {
   const serialized =
     version +
     '\n' +
     content
-      .map((c) => [c.id, c.helpContextKey, c.type, c.alarmType ?? '', c.title, c.body].join(''))
-      .join('');
+      .map((c) => [c.helpContextKey, c.type, c.alarmType ?? '', c.title, c.body].join(FS))
+      .sort()
+      .join(RS);
   let h = 0x811c9dc5;
   for (let i = 0; i < serialized.length; i++) {
     h ^= serialized.charCodeAt(i);

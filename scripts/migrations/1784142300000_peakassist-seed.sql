@@ -10,7 +10,7 @@
 -- Up Migration
 
 INSERT INTO help_content_bundles (version, checksum, notes) VALUES
-  ('2026.07.1', 'fnv1a-cffbf3b5', 'PeakAssist v1 seed — 22 items, generated from peakassist-content.ts')
+  ('2026.07.1', 'fnv1a-e17daab5', 'PeakAssist v1 seed — 22 items, generated from peakassist-content.ts')
 ON CONFLICT (version) DO UPDATE SET checksum = EXCLUDED.checksum, notes = EXCLUDED.notes;
 
 DELETE FROM help_content WHERE content_version = '2026.07.1';
