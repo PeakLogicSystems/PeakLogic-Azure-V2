@@ -994,6 +994,8 @@
   const S = { view: "fleet", actingAs: null, partner: null, tab: "sites", ptab: "accounts", setTab: "profile", query: "" };
   // Personal preferences (demo-local)
   const PREFS = { notifyCritical: true, notifyDigest: true, notifyDispatch: false };
+  // Holds an uploaded logo (data URL) from the Branding tab's file picker until Save.
+  let pendingLogoUpload = null;
 
   // ---------- Helpers ----------
   const $ = (sel, root) => (root || document).querySelector(sel);
@@ -1002,10 +1004,17 @@
   const partnerById = (id) => PARTNERS.find(p => p.id === id);
   const partnerFor = (tenant) => (tenant && tenant.partnerId ? partnerById(tenant.partnerId) : null);
   // A partner's white-label logo mark (initials on the partner's brand color).
-  function partnerLogo(p, px) {
+  // Brand mark for a partner OR a tenant: an uploaded logo image (data URL)
+  // wins; otherwise an initials mark on the entity's brand color (default accent).
+  function brandMark(e, px) {
     const s = px || 34;
-    return `<span style="width:${s}px;height:${s}px;border-radius:${Math.round(s*0.28)}px;background:${p.brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:${Math.round(s*0.34)}px;flex:none;letter-spacing:-.02em">${esc(p.logo || p.name[0])}</span>`;
+    const radius = Math.round(s * 0.28);
+    if (e.logoImg) {
+      return `<span style="width:${s}px;height:${s}px;border-radius:${radius}px;background:#fff center/cover no-repeat;background-image:url('${e.logoImg}');flex:none;display:block"></span>`;
+    }
+    return `<span style="width:${s}px;height:${s}px;border-radius:${radius}px;background:${e.brand || 'var(--accent)'};display:grid;place-items:center;color:#fff;font-weight:800;font-size:${Math.round(s * 0.34)}px;flex:none;letter-spacing:-.02em">${esc(e.logo || (e.name ? e.name[0] : '?'))}</span>`;
   }
+  function partnerLogo(p, px) { return brandMark(p, px); }
 
   function healthPill(h, label) {
     const map = { good: ["good", label || "Healthy"], warn: ["warn", label || "Degraded"], crit: ["crit", label || "Critical"] };
@@ -1392,7 +1401,7 @@
       const p = partnerFor(t); const st = tenantStats(t);
       return `
       <tr>
-        <td><div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub mono">${t.id}</span></div></td>
+        <td><div style="display:flex;align-items:center;gap:11px">${brandMark(t, 30)}<div class="row-main"><span class="strong">${esc(t.name)}</span><span class="row-sub mono">${t.id}</span></div></div></td>
         <td class="muted">${esc(t.industry)}</td>
         <td>${p ? `<span style="display:inline-flex;align-items:center;gap:8px">${partnerLogo(p, 20)}<span class="muted">${esc(p.name)}</span></span>` : '<span class="faint">Direct</span>'}</td>
         <td class="muted">${esc(t.mgr)}</td>
@@ -1535,46 +1544,63 @@
         <td class="muted">${esc(r.tech)}</td><td><span class="pill pill--${st[r.status]}"><span class="dot"></span>${r.status.replace("-"," ")}</span></td></tr>`).join("");
       return `<div class="panel"><table class="tbl"><thead><tr><th>Route</th><th class="num">Stops</th><th>Technician</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table></div>`;
     }
-    if (S.ptab === "branding") {
-      return `<div class="panel"><div class="panel__head"><span class="panel__title">White-label configuration</span>
-          <button class="btn btn--primary" data-action="save-branding:${p.id}" style="margin-left:auto">Save branding</button></div>
-        <div style="padding:20px;display:flex;flex-direction:column;gap:20px">
-          <div class="logo-drop">
-            <span id="br-mark" style="width:52px;height:52px;border-radius:15px;background:${p.brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px;flex:none;letter-spacing:-.02em">${esc(p.logo || p.name[0])}</span>
-            <div style="flex:1">
-              <div class="strong" style="font-size:15px">${esc(p.name)}</div>
-              <div class="mono muted" style="font-size:12px">${esc(p.subdomain)}</div>
-              <div class="hint" style="margin-top:8px">Edit the mark and color below (live preview), then <b>Save branding</b> — it updates the partner's mark everywhere in this console. A real deploy would also accept an uploaded vector logo, min 512×512, shown on the partner's co-branded portal, login page, and dispatched work orders.</div>
-            </div>
-          </div>
-          <div class="field--row">
-            <div class="field"><label for="br-logo">Logo mark (initials)</label><input id="br-logo" type="text" maxlength="4" value="${esc(p.logo || p.name[0])}" style="text-transform:uppercase" autocomplete="off"></div>
-            <div class="field"><label for="br-brand">Primary color</label><input id="br-brand" type="color" value="${p.brand}" style="height:38px;padding:3px"></div>
-          </div>
-          <dl class="kv">
-            <dt>Portal domain</dt><dd class="mono">${esc(p.subdomain)}</dd>
-            <dt>Identity source</dt><dd>PeakLogicPartners (Entra External ID)</dd>
-            <dt>Login page</dt><dd>Co-branded · PeakLogic footer</dd>
-          </dl>
-        </div></div>`;
-    }
+    if (S.ptab === "branding") return brandingPanel("partner", p);
     return "";
   }
 
-  // Apply the edited white-label branding to the partner (in-memory) and
-  // re-render, so the new mark/color show everywhere the partner appears
-  // (partner list, CMMS dispatch, act-as banner). Audited, like any real change.
-  function saveBranding(partnerId) {
-    const p = partnerById(partnerId);
-    if (!p) return;
+  // Shared white-label branding editor for a partner OR a tenant. Upload a
+  // logo image, or set an initials mark + primary color, with live preview.
+  // (kind = 'partner' | 'tenant'.)
+  function brandingPanel(kind, e) {
+    const domain = kind === "partner" ? e.subdomain : `${e.id}.app.peaklogic.com`;
+    const idSource = kind === "partner" ? "PeakLogicPartners (Entra External ID)" : "PeakLogicCustomers (Entra External ID)";
+    const shownOn = kind === "partner"
+      ? "the partner's co-branded portal, login page, and dispatched work orders"
+      : "the tenant's app header, login page, and reports";
+    const markStyle = e.logoImg
+      ? `background:#fff center/cover no-repeat;background-image:url('${e.logoImg}')`
+      : `background:${e.brand || "var(--accent)"};display:grid;place-items:center;color:#fff;font-weight:800;font-size:18px`;
+    return `<div class="panel"><div class="panel__head"><span class="panel__title">White-label configuration</span>
+        <button class="btn btn--primary" data-action="save-branding:${kind}:${e.id}" style="margin-left:auto">Save branding</button></div>
+      <div style="padding:20px;display:flex;flex-direction:column;gap:20px">
+        <div class="logo-drop">
+          <span id="br-mark" style="width:52px;height:52px;border-radius:15px;${markStyle};flex:none;letter-spacing:-.02em">${e.logoImg ? "" : esc(e.logo || e.name[0])}</span>
+          <div style="flex:1">
+            <div class="strong" style="font-size:15px">${esc(e.name)}</div>
+            <div class="mono muted" style="font-size:12px">${esc(domain)}</div>
+            <label class="btn btn--ghost btn--sm" style="margin-top:10px;display:inline-flex;align-items:center;gap:6px;cursor:pointer">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M12 15V3m0 0L8 7m4-4 4 4M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+              Upload logo<input id="br-logo-file" type="file" accept=".svg,.png,.jpg,.jpeg" style="display:none">
+            </label>
+            <div class="hint" style="margin-top:6px">Upload a vector <code>.svg</code> (preferred) or transparent <code>.png/.jpg</code>, min 512×512 — or set an initials mark and color below (live preview). Shown on ${shownOn}. Click <b>Save branding</b> to apply everywhere.</div>
+          </div>
+        </div>
+        <div class="field--row">
+          <div class="field"><label for="br-logo">Logo mark (initials)</label><input id="br-logo" type="text" maxlength="4" value="${esc(e.logo || e.name[0])}" style="text-transform:uppercase" autocomplete="off"></div>
+          <div class="field"><label for="br-brand">Primary color</label><input id="br-brand" type="color" value="${e.brand || "#7c3aed"}" style="height:38px;padding:3px"></div>
+        </div>
+        <dl class="kv">
+          <dt>Portal domain</dt><dd class="mono">${esc(domain)}</dd>
+          <dt>Identity source</dt><dd>${idSource}</dd>
+          <dt>Login page</dt><dd>Co-branded · PeakLogic footer</dd>
+        </dl>
+      </div></div>`;
+  }
+
+  // Apply edited white-label branding to a partner or tenant (in-memory) and
+  // re-render, so the new mark/color/logo show everywhere the entity appears.
+  // Audited, like any real change.
+  function saveBranding(kind, id) {
+    const e = kind === "partner" ? partnerById(id) : tenantById(id);
+    if (!e) return;
     const logoEl = $("#br-logo"), brandEl = $("#br-brand");
-    const logo = ((logoEl && logoEl.value) || p.name[0]).toUpperCase().trim().slice(0, 4) || p.name[0];
-    const brand = (brandEl && brandEl.value) || p.brand;
-    p.logo = logo;
-    p.brand = brand;
-    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "partner.branding", target: p.name, note: `White-label mark "${logo}" · ${brand.toUpperCase()}` });
+    e.logo = ((logoEl && logoEl.value) || e.name[0]).toUpperCase().trim().slice(0, 4) || e.name[0];
+    e.brand = (brandEl && brandEl.value) || e.brand || "#7c3aed";
+    if (pendingLogoUpload) { e.logoImg = pendingLogoUpload; pendingLogoUpload = null; }
+    AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: kind + ".branding", target: e.name,
+      note: `White-label mark "${e.logo}" · ${e.brand.toUpperCase()}${e.logoImg ? " · logo image" : ""}` });
     render();
-    toast(`Branding saved for ${p.name}`);
+    toast(`Branding saved for ${e.name}`);
   }
 
   function viewTenantDetail() {
@@ -1587,11 +1613,12 @@
       { id: "devices", label: "Devices", count: st.total },
       { id: "alerts", label: "Alerts", count: st.crit + st.warn },
       { id: "tickets", label: "Tickets", count: st.tickets },
-      { id: "users", label: "Users", count: tenantUsers(t).length }
-    ].map(x => `<button class="tab ${S.tab===x.id?'tab--active':''}" data-action="tenant-tab:${x.id}">${x.label}<span class="tab__count">${x.count}</span></button>`).join("");
+      { id: "users", label: "Users", count: tenantUsers(t).length },
+      { id: "branding", label: "Branding", count: null }
+    ].map(x => `<button class="tab ${S.tab===x.id?'tab--active':''}" data-action="tenant-tab:${x.id}">${x.label}${x.count!==null?`<span class="tab__count">${x.count}</span>`:''}</button>`).join("");
 
     return `
-      <div class="page-head"><h1>${esc(t.name)}</h1>
+      <div class="page-head"><h1 style="display:flex;align-items:center;gap:11px">${brandMark(t, 30)}${esc(t.name)}</h1>
         <p>${esc(t.industry)} · Account manager ${esc(t.mgr)} · ${st.online}/${st.total} devices online. You are viewing this org exactly as its own operators do.</p></div>
       <div class="tabs">${tabs}</div>
       <div class="grow">${tenantTab(t)}</div>`;
@@ -1686,6 +1713,11 @@
         <div>These users authenticate in the <b>PeakLogicCustomers</b> directory — a separate token issuer from your staff sign-in. You manage them via act-as; you never hold their credentials.</div></div>
         <div class="panel"><table class="tbl"><thead><tr><th>User</th><th>Email</th><th>Role</th></tr></thead>
         <tbody>${users.map(u => `<tr><td class="strong">${esc(u.n)}</td><td class="mono muted">${esc(u.e)}</td><td><span class="pill pill--accent"><span class="dot"></span>${u.r}</span></td></tr>`).join("")}</tbody></table></div>`;
+    }
+    if (S.tab === "branding") {
+      return `<div class="callout">${INFO_ICON}
+        <div>A tenant's own white-label branding — its logo and color, shown in the tenant's app header, login page, and reports. Distinct from the channel partner's branding; a tenant serviced by a partner can still carry its own identity. Set here via act-as, the same screen the tenant's own admin would use.</div></div>
+        ${brandingPanel("tenant", t)}`;
     }
     return "";
   }
@@ -2846,7 +2878,7 @@
     else if (action === "exit-actas") exitActAs();
     else if (action === "tenant-tab") { S.tab = arg; render(); }
     else if (action === "partner-tab") { S.ptab = arg; render(); }
-    else if (action === "save-branding") saveBranding(arg);
+    else if (action === "save-branding") saveBranding(arg, arg2);
     else if (action === "device") openDeviceDrawer(arg);
     else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
@@ -2873,8 +2905,27 @@
       const mark = $("#cp-mark"); if (mark) { mark.textContent = ($("#cp-logo").value || "?").toUpperCase(); mark.style.background = $("#cp-brand").value; }
     }
     else if (e.target.id === "br-logo" || e.target.id === "br-brand") {
-      const mark = $("#br-mark"); if (mark) { mark.textContent = (($("#br-logo").value || "?").toUpperCase()); mark.style.background = $("#br-brand").value; }
+      // Editing initials/color clears any staged uploaded image, so preview + save agree.
+      pendingLogoUpload = null;
+      const mark = $("#br-mark");
+      if (mark) { mark.style.backgroundImage = "none"; mark.textContent = (($("#br-logo").value || "?").toUpperCase()); mark.style.background = $("#br-brand").value; mark.style.display = "grid"; mark.style.placeItems = "center"; }
     }
+  });
+
+  // File picker for a logo upload (fires 'change', not 'input'). Reads the file
+  // to a data URL, previews it, and stages it for Save.
+  document.addEventListener("change", (e) => {
+    if (e.target.id !== "br-logo-file") return;
+    const file = e.target.files && e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      pendingLogoUpload = reader.result;
+      const mark = $("#br-mark");
+      if (mark) { mark.textContent = ""; mark.style.background = "#fff"; mark.style.backgroundImage = `url('${reader.result}')`; mark.style.backgroundSize = "cover"; mark.style.backgroundPosition = "center"; }
+      toast(`${file.name} ready — click Save branding to apply`);
+    };
+    reader.readAsDataURL(file);
   });
 
   document.addEventListener("keydown", (e) => {
