@@ -1,8 +1,16 @@
-# PeakLogic — PeakVantage Hub / PeakVantage 360
+# PeakLogic — Unified Industrial Operations Platform
 
-Multi-tenant, cloud-native IoT platform for facilities and risk management — targeting small-to-mid-tier commercial and residential properties, built to scale to enterprise.
+Multi-tenant **SCADA/HMI + CMMS + AI-intelligence** platform for distributed, multi-site, compliance-heavy industrial operations. It sits **above** existing SCADA/control systems — never replacing safety-rated PLC logic — to unify data across facilities, add AI, and automate compliance and technician workflows. Targets distributed operators, service providers, and multi-site customers; built to scale to enterprise.
 
-**PeakVantage Hub** is the core intelligence/monitoring hub; **PeakVantage 360** is the full device + software ecosystem built on it. (Placeholder product naming as of 2026-07 — not yet trademark-cleared.) Company is PeakLogic; `PeakLogicSystems` remains the engineering/repo name for the underlying cloud software. See `CLAUDE.md` for the architecture-first development process this project now follows.
+**Three components, one product:**
+- **PeakLogicSystems** — the core cloud intelligence layer (multi-tenant SaaS: multi-site monitoring, AI anomaly detection, predictive maintenance, compliance automation, enterprise reporting).
+- **PeakView360** — the modernized HMI/SCADA operator experience (real-time screens, alarm management, equipment dashboards, facility visualization, historian).
+- **PeakLogic Hubs** — the on-prem edge units (PLC/RTU acquisition, edge processing, offline reliability, secure outbound-only cloud sync).
+- **PeakAssist** — the first-class, offline-capable, contextual help system spanning all layers.
+
+Company is **PeakLogic**; internal project codename **Project Vantage**. This repo (`PeakLogic-Azure-V2`) is the merger / unified-platform development line — see [`docs/business/unified-product-vision.md`](docs/business/unified-product-vision.md) for the strategy and [`docs/architecture/unified-platform-integration-plan.md`](docs/architecture/unified-platform-integration-plan.md) for the artifact + code reconciliation sweep in progress. See `CLAUDE.md` for the architecture-first development process.
+
+> Note: the AWS-specific architecture, stack, and phase sections below predate the Azure fork and the unified-platform reframe; they are reconciled later in the sweep (see the integration plan). Naming has been brought current.
 
 ## Positioning
 

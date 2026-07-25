@@ -4,13 +4,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 > **⚠️ Fork notice (2026-07-17, updated 2026-07-17):** This repo (`PeakLogic-Azure`) is a fork of the AWS-native PeakLogic repo, created to restructure PeakLogic's architecture for Azure while exploring a merger and common commercialization roadmap with **Purple Standard** (product **MooreView**), a Microsoft/Azure-centric partner company. It was seeded as a full copy at tag `aws-architecture-baseline`, when the source repo was still named `PeakLogicSystems` — **that repo has since been renamed to `PeakLogicSystems/PeakLogic-AWS`** (same GitHub account, new slug, purely so the two repos are easy to tell apart) — the rest of this file still describes the **AWS-native** architecture as of the fork point, and remains accurate for anything not yet touched by the restructuring effort. **Read `docs/architecture/azure-restructuring-plan.md` first** for what's been re-derived for Azure vs. what's still describing AWS. `PeakLogic-AWS` is untouched and continues to exist in parallel — this is not a replacement until a real decision is made; if this Azure direction doesn't pan out, `PeakLogic-AWS` is the complete, unmodified place to pick back up.
 
-## Naming
+## Naming (canonical, locked 2026-07-24 — see `docs/architecture/unified-platform-integration-plan.md` §1)
 
-- **Company:** PeakLogic
-- **Internal codename:** Vantage
-- **Product:** PeakVantage Hub (the core intelligence/monitoring hub) and PeakVantage 360 (the full device + software ecosystem built on it)
+| Layer / entity | Canonical name |
+|---|---|
+| Company | **PeakLogic** |
+| Project codename (internal) | **Project Vantage** |
+| Cloud / brain intelligence layer (SaaS) | **PeakLogicSystems** |
+| HMI / SCADA layer | **PeakView360** |
+| On-prem edge unit(s) | **PeakLogic Hub** / **PeakLogic Hubs** |
+| Help / support system | **PeakAssist** |
 
-Placeholder naming as of 2026-07 — not yet trademark-cleared, treat as provisional and update everywhere if it changes.
+Retired — do not use going forward: *PeakView Hub/360*, *PeakVantage Hub/360*, bare *Vantage* (now *Project Vantage*). The application-code prefix `peaklogic`/`PeakLogic` (e.g. `peaklogic-api`, `PeakLogic-dev-Api`) is consistent with the company name and stays — renaming deployed resource identifiers is out of scope. Still provisional pending trademark clearance.
+
+> **Unified-platform reframe in progress (2026-07-24):** this repo is `PeakLogic-Azure-V2`, the PeakLogic-first merger/unified-platform development line. The architecture artifacts are being reconciled — docs **and** code — to the three-pillar platform (PeakLogicSystems / PeakView360 / PeakLogic Hubs + PeakAssist) absorbing Purple Standard's MooreView. **Read `docs/architecture/unified-platform-integration-plan.md` for live status.** Much of the AWS-native detail below still describes the pre-reframe state until the sweep reaches it.
 
 ## Governance: architecture-first (adopted 2026-07-04)
 
