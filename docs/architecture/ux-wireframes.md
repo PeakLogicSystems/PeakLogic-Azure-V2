@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** New screens the unified platform introduces: the **PeakView360** operator screen (process tiles, docked alarm panel with AI insight, multi-pen historian), the **PeakLogic Hubs** fleet view, **CMMS** work-orders + PM, the **Compliance / DMR** report view, and the one-click **PeakAssist** help drawer (contextual, offline badge). A working clickable design target already exists in [`prototypes/super-console-demo.html`](prototypes/super-console-demo.html). Design-stage (no production UI). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

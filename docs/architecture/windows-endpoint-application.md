@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) — this document is the PeakLogic Hubs specification (2026-07-25).** In the unified platform, the on-site Windows endpoint ("The Brains") **is a PeakLogic Hub** — the on-prem edge pillar. Everything specified below (outbound-only ingestion, durable store-and-forward, local cache, kiosk/process isolation, fleet management, VPN) carries forward as the Hub's foundation. The unified-platform reframe **adds** to this spec, as design-stage work: (1) **PLC/RTU acquisition** via industrial protocol drivers (Modbus TCP / OPC-UA at MVP) — a new ingestion source alongside USB/LAN; (2) **serving PeakView360 live data on the LAN** so the site keeps operating offline (HUB-4); (3) **carrying a complete offline copy of PeakAssist** and syncing newer bundles (HUB-5 / PA-4); (4) an entity in the cloud (`hubs` table, Domain Model §2.11 / migration `1784142000000`). The Hub **reads and supervises**; it never replaces PLC safety interlocks. Naming is canonical (PeakLogic Hub / Hubs). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md); requirements: PRD §5.19 / SRS §3.21.
+
 ## 0. Ground rules
 
 This document specifies a **new, physically separate application** — a Windows process/binary that runs on customer-site hardware. It is not part of `backend/`, `frontend/`, or `infra/`, and it does not change any of them. Every integration point below targets an endpoint, topic, or contract that **already exists and already ships**:

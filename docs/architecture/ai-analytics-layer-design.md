@@ -6,6 +6,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Tier 2 (predictive maintenance) now absorbs **MooreView's PdM**: its asset↔SCADA-tag mapping is exactly the `Tag` entity (Domain Model §2.10), and feature batching feeds the existing `AiModel`(kind=`prediction`)/`AiFinding` records (§2.5) — **no new PdM entity**. PdM runs **fleet-central** in the cloud, not per-plant as MooreView did (MV-2.1). Tier 1 (shipped anomaly detection) is unchanged; Tier 2 remains design-stage. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 0. Thesis
 
 The Policy Engine gives **deterministic** intelligence — fixed and learned thresholds a human can read. The AI layer adds the three things thresholds can't do: notice that *this* device is drifting from *its own* normal (**anomaly**), that a failure is *coming* (**predictive**), and *what to do about it* (**prescriptive**). Crucially, the AI layer is **additive over the platform's existing spine, not a parallel stack**: it consumes canonical telemetry, and it *emits through the same alert/Policy-Engine pipeline* — so dedup, audit, ticketing, and CMMS dispatch all keep working unchanged. AI is a new alert **source**, never a new alert **path**.

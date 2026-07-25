@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** New top-level navigation for the unified platform — an *Operations* group (mirrored per surface): **PeakView360**, **PeakLogic Hubs**, **CMMS · Work Orders**, **Compliance** — plus a one-click **PeakAssist** help affordance on every screen (PA-1 / PA-7: no screen ships without a declared help-context key). Reflected in the clickable prototype. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

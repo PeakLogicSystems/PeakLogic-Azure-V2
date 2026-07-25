@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** New endpoint groups are needed over the v2.0 schema (migrations `1784142000000`–`…240000`): **Hubs** (`/v1/hubs` — fleet register/status), **PeakView360** (`/v1/hmi-screens`, `/v1/tags`, `/v1/historian` reading existing `telemetry`), **CMMS** (`/v1/work-orders`, `/v1/pm-schedules`, `/v1/service-visits` — extends the existing ticket + CMMS-connector routes), **Compliance** (`/v1/compliance/reports`, templates, exceedances — generation only; delivery blocked, CP-5), and **PeakAssist** (`/v1/help` — content by context key / alarm type). All tenant-scoped routes use the existing `withTenant()` RLS pattern; global catalogs (compliance templates, help content) are non-RLS reads. Design-stage — not implemented. Requirements: PRD §5.18–§5.22. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

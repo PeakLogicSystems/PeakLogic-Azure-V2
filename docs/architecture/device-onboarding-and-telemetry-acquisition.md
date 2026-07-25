@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The **hub-relayed path (Path B)** becomes the primary onboarding path for the unified platform: a **PeakLogic Hub** (the Windows-endpoint pillar) acquires from PLCs/RTUs over industrial protocols (Modbus TCP / OPC-UA), normalizes via the `Tag` model (per-source→canonical-metric, Domain Model §2.10), and store-and-forwards to the cloud. This adds a new **origin** (a PLC register, not only a device metric) to the Origin/Transport/Interpretation model here; the direct-connect (Path A) and cloud-to-cloud (Path C) paths, the telemetry envelope, and the partial-tolerance rules are unchanged. Design-stage (PLC drivers not built). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Why this document exists
 
 Every prior artifact assumes a device is already reporting telemetry and asks what happens *after* — how it's interpreted (Domain Model's `DeviceAdapter`), stored (Database Schema's `telemetry` table), alerted on (`RULES_BY_CATEGORY`). Nothing in the architecture set answers the question a real operator actually asks first: **"I have a physical sensor (or a manufacturer's cloud account) — how does data from it actually end up in PeakLogic?"** This document answers that, end to end, and makes explicit what's already adaptable by design versus what's a real, unbuilt gap.

@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** New story themes for the unified platform: an **operator** reads a live PeakView360 screen (offline-capable via the Hub) and acknowledges alarms carrying AI context; a **technician** works a CMMS work order dispatched from an alarm; a **compliance officer** generates a period DMR from monitored data; **any user** opens one-click contextual **PeakAssist** help on any screen. Mapped to PRD §5.18–§5.22. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

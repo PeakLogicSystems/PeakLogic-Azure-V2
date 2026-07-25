@@ -9,6 +9,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Three personas are added by the unified platform (PRD §3): the **Plant / Control-Room Operator** (lives in PeakView360 — real-time screens, alarm acknowledgement, historian; must keep working offline via the Hub), the **Maintenance Technician** (executes CMMS work orders — extends the existing service-partner/technician surface), and the **Compliance Officer** (automated regulatory reporting; remains the filer of record). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

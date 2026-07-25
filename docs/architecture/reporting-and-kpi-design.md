@@ -6,6 +6,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Adds **compliance / DMR automation** as a reporting class: a regulator-relevant report compiled from a period's monitored values + exceedances (wastewater NPDES/DMR first), operator-as-filer-of-record, audit-backed — schema `compliance_reports`/`compliance_templates`/`exceedance_records` (migration `1784142180000`) plus a built, tested generator (`backend/compliance/report-generator.ts`, coverage-gap-honest). Generation ≠ delivery (CP-5 blocked on absent outbound infra). The dispatch→on-site conversion funnel defined here is unchanged and now also feeds the CMMS view. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 0. The asks, precisely
 
 1. **CMMS dispatch + value KPI:** automated tickets (from critical alerts) must land in the channel partner's **CMMS** (Computerized Maintenance Management System — UpKeep, Fiix, Limble, MaintainX, eMaint, Maximo, ServiceTitan, etc.) as a **work order**. PeakLogic then needs to know **how many of those automated work orders resulted in an actual service call** — the conversion metric that proves the platform generates real service work, shown on the Super-Console.

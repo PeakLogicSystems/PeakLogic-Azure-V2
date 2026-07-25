@@ -5,6 +5,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** This north-star now spans the **three-pillar unified platform**: **PeakLogicSystems** (this cloud — the control + data planes), **PeakView360** (the HMI/SCADA operator layer — a *client* of the data plane that renders live from a Hub over the LAN **and** historical/cross-site from the cloud, dual-source), and **PeakLogic Hubs** (the on-prem device-plane anchor — productizes PeakLogic Edge; PLC/RTU acquisition, edge alarm evaluation, offline PeakView360 + PeakAssist serving), with **PeakAssist** as a first-class help system synced to Hubs. **The three planes (identity / control / device) and every trust boundary defined below are unchanged** — PeakView360 and PeakAssist are new clients of the control/data plane, and the Hub is the device-plane edge unit the outbound-only mutual-TLS model already implies. PeakLogic sits **above** SCADA and never assumes safety-rated PLC control. PeakView360, the Hubs' PLC drivers, and PeakAssist delivery are design-stage. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 0. How to read this document
 
 This is a **synthesizing** artifact. It invents no new requirements; it consolidates decisions already made across the numbered artifacts into a single reference the whole team (and any future Claude session) can hold in their head at once. Where it corrects a mental model, it says so and cites the governing doc.
