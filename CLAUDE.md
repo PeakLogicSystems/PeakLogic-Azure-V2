@@ -175,6 +175,14 @@ As of `docs/architecture/ai-analytics-layer-design.md` (artifact #34, Approved v
 - **Tiers 2 (predictive maintenance) and 3 (prescriptive/LLM enrichment) are design-only.** Tier 3's locked LLM vendor is **Claude via Microsoft Foundry** (Anthropic's models went GA there 2026-06-29, hosted on Azure infra with native Azure auth/billing — the Azure-native choice, not a vendor exception) — see design doc §7a.
 - Cross-tenant model training and cross-tenant benchmarking are both explicitly **not built** — per-tenant only, per a 2026-07-21 decision; see design doc §6/§6a for the (unbuilt) technical shape and the real legal caveats around anonymized benchmarking specifically.
 
+### Unified-Platform Backend Increments (v2.0, `PeakLogic-Azure-V2`)
+
+Self-contained, unit-tested logic built on the v2.0 schema (migrations `1784142000000`–`…240000`), same pure-logic + fan-out-handler + Timer-main shape as device-silence detection. None deployed (no Functions-hosting module yet); all fully tested independent of Azure.
+
+- **PM work-order generation** (`backend/jobs/pm-generation*.ts`, PRD §5.20 CM-3.1). Pure `findDuePmSchedules()`/`computeNextDue()` (advances a due schedule to its next *future* occurrence in one step — a badly-overdue schedule generates one work order, not a backlog). Handler fans out per tenant via the same `app.system_sweep_context` → `withTenant()` two-phase isolation as the silence sweep; a category-scoped schedule fans out to one work order per matching asset (`service_tickets.asset_id` is NOT NULL). A due schedule advances `next_due_at` in the same transaction that creates its work orders → idempotent within a run. Daily Timer (`0 0 6 * * *`).
+- **Compliance report generation** (`backend/compliance/report-generator.ts`, PRD §5.21). Pure `generateComplianceReportDraft()` — period readings + exceedances → a DMR draft (per-parameter count/min/max/avg, exceedance counts, **coverage-gap honesty** — a parameter with no readings is a gap, never interpolated). Two boundaries baked in: **generation ≠ delivery** (CP-5.1 delivery is blocked on absent outbound infra — not attempted), and an always-present **operator-is-filer-of-record disclaimer** (CP-2.1). Readings are period-bound so a late-synced prior-period reading can't leak in.
+- **PeakAssist resolution** (`backend/shared/peakassist.ts`, PRD §5.22). Pure `resolveHelp()`/`resolveAlarmHelp()` — orders a screen's help (guide → procedure → troubleshooting → …) and, when opened from an active alarm, prepends that alarm's explanation (PA-3.1) without duplication; unknown alarm type falls back to the context list (no dead link). Same content model whether loaded from the cloud DB or a Hub's offline bundle.
+
 ### Future: Command & Control Architecture (not yet implemented)
 
 Actuation (e.g. remotely shutting off a valve) is on the roadmap but not built. Two things are worth locking in now, before that subsystem exists, so later work doesn't have to relitigate them:

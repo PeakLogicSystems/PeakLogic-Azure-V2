@@ -149,6 +149,8 @@ Each artifact update is paired with reconciling the **real code** against it, no
 - **Net-new pillars** — PeakView360 (HMI/SCADA), PeakLogic Hubs (PLC drivers), PeakAssist — are **design-stage**. "Reconciliation" for these is honest recording (they don't exist yet) plus, where a genuinely self-contained first increment makes sense, building it. **This sweep does not attempt to build three whole new product pillars** — that would be dishonest to promise. New backend/schema increments are built only where they're small, real, and testable now; everything larger is sequenced as follow-on work, disclosed as such.
 - **One change, one commit; code and its doc land together or back-to-back.** Typecheck (`npm run typecheck`) and, where tests exist, the test suite must pass before committing any code change.
 
+**Backend increments built (2026-07-25, user directive "build everything"):** on the v2.0 schema, three self-contained tested modules (pure logic + fan-out handler + Timer main, mirroring silence-detection): **PM work-order generation** (`backend/jobs/pm-generation*`), **compliance report generation** (`backend/compliance/report-generator`, generation≠delivery, operator=filer-of-record), **PeakAssist resolution** (`backend/shared/peakassist`). **20 new tests; full suite 174/174 green; typecheck clean.** Not deployed (no Functions-hosting module yet) — same disclosed state as silence-detection. The PeakView360 SPA, PLC drivers, and PeakAssist delivery/sync remain large net-new surfaces, not built.
+
 ## 5. Revision history
 | Version | Date | Notes |
 |---|---|---|
