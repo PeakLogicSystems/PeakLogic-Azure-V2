@@ -13,7 +13,13 @@ public sealed record SiteIdentity(
     [property: JsonPropertyName("siteId")] string SiteId,
     [property: JsonPropertyName("tenantId")] string TenantId,
     [property: JsonPropertyName("displayName")] string DisplayName,
-    [property: JsonPropertyName("assignedAccessMode")] string AssignedAccessMode = "shellLauncher");
+    [property: JsonPropertyName("assignedAccessMode")] string AssignedAccessMode = "shellLauncher",
+    // The server-assigned hub id from POST /v1/hubs (PeakLogicApiClient.
+    // RegisterHubAsync), persisted once commissioning registers this hub with
+    // the cloud. Null means registration was deferred (no backend/credential
+    // yet) — this hub exists locally but PeakLogicSystems doesn't know it.
+    // Optional + trailing so it stays backward-compatible with existing config.
+    [property: JsonPropertyName("hubId")] string? HubId = null);
 
 public sealed record BackendConfig(
     [property: JsonPropertyName("apiBaseUrl")] string ApiBaseUrl,

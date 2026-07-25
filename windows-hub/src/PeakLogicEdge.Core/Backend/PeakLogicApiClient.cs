@@ -26,6 +26,11 @@ public sealed record Device(
     [property: JsonPropertyName("status")] string Status,
     [property: JsonPropertyName("asset_id")] string? AssetId);
 
+// The server-assigned identity returned by POST /v1/hubs — mirrors the
+// backend's `created({ id })` response (backend/api/routes/hubs.ts).
+public sealed record HubRegistration(
+    [property: JsonPropertyName("id")] string Id);
+
 public sealed class PeakLogicApiClient
 {
     private readonly HttpClient _http;
@@ -78,6 +83,26 @@ public sealed class PeakLogicApiClient
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<Device>(JsonOptions, ct)
             ?? throw new InvalidOperationException("Claim response did not deserialize.");
+    }
+
+    // POST /v1/hubs — register THIS hub for a site, closing the commissioning
+    // loop (hub-agent-runtime-design.md §7 step 1). Mirrors the real, tested
+    // contract in backend/api/routes/hubs.ts exactly: { siteId, name,
+    // hardwareSerial?, agentVersion? } in; the server-assigned hub id out. The
+    // hub starts `provisioning` server-side and its first heartbeat flips it
+    // online. Admin-gated server-side (requireRole 'admin'), so the caller's
+    // token must carry admin — see §8 Q6 (first-run auth) for how a bare hub
+    // obtains one. `siteId` is the real site FK, not a display name — see §8 Q7
+    // (site resolution). The returned id is persisted to SiteIdentity.HubId.
+    public async Task<string> RegisterHubAsync(
+        string siteId, string name, string? hardwareSerial, string? agentVersion, CancellationToken ct)
+    {
+        using var request = await AuthorizedRequestAsync(HttpMethod.Post, "/hubs", ct);
+        request.Content = JsonContent.Create(new { siteId, name, hardwareSerial, agentVersion });
+        using var response = await _http.SendAsync(request, ct);
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<HubRegistration>(JsonOptions, ct)
+            ?? throw new InvalidOperationException("Hub registration response did not deserialize.")).Id;
     }
 
     public async Task AcknowledgeAlertAsync(string alertId, string idempotencyKey, CancellationToken ct)
