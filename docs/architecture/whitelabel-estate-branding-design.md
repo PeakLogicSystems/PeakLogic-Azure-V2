@@ -5,6 +5,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Branding now extends to **PeakView360** (post-login theming of the operator surface) and to **tenants** as well as channel partners — a tenant carries its own logo/color, distinct from its servicing partner (demonstrated in the clickable prototype's partner *and* tenant Branding tabs). The holding-company/group model and the post-login-only decision here are unchanged. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 0. The three audiences — only one had branding designed before this
 
 | Who | Where they log in | Branding before this artifact |

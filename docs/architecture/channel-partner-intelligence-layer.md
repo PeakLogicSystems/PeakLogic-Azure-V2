@@ -6,6 +6,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The channel-partner offering maps directly onto the unified platform's **service-provider** pillar: a partner runs many customers' sites through PeakLogicSystems (system of intelligence, not system of record), dispatches via the built-in CMMS, and can carry its own white-label brand (now also applied to tenants). The overlay-not-lock-in framing here is unchanged. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 0. The thesis
 
 A channel partner (a pool-service company, an HVAC contractor, a facilities firm) already has a business: customers, technicians, trucks, a CMMS/FSM they dispatch from, a revenue model. **PeakLogic does not replace any of that.** It gives them an **intelligence and estate-management layer** they log into to onboard customers and devices, monitor equipment, set thresholds, and get AI analytics — and the *output* of that intelligence flows **back into their own management systems**. The result: the partner adds a sensing-and-intelligence tier on top of their pre-existing model, delivering higher-quality, more efficient, more proactive service — and growing/optimizing their revenue while doing it.

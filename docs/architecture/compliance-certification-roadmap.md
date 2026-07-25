@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Compliance is now a **product wedge**, not only SOC 2 readiness: automated regulatory reporting (wastewater NPDES/**DMR** first) is a first-class capability (PRD §5.21). **Guardrail:** PeakLogic assists — the operator remains the **filer of record**; PeakLogic does not file with a regulator or assume regulatory responsibility, backed by the immutable audit trail. Legal review is a gate before any external compliance claim or the Compliance tier ships. Platform SOC 2 readiness is unchanged. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

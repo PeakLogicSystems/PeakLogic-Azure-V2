@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The unified platform adds a **secure command path from PeakView360 / the partner portal back to the device** (e.g. a remote valve shutoff on leak detection) — this document's command/actuation model governs it. Unchanged guarantees: outbound-only device connection (no inbound firewall hole), gated + fully-audited command issuance, and **safety-critical actuation fails safe locally** (the device/Hub trips off its own reading, never dependent on a cloud round-trip). PeakLogic remains **above** safety-rated PLC control. Design-stage (actuation not built). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

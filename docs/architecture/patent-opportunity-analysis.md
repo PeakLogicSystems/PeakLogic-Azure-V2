@@ -15,6 +15,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The unified platform sharpens the strongest candidate moat: the **closed detect → dispatch → outcome → learn loop** — an alarm auto-creates a CMMS work order, a technician resolves it, and the `service_visits.outcome` becomes a supervised training label for fleet-wide predictive maintenance. That loop is hard to copy for anyone without both the monitoring *and* the dispatch surface, which the unified platform (PeakLogicSystems + CMMS + PeakLogic Hubs + AI) uniquely combines. Not legal advice; no filing action recommended now (see the disclaimer above). Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose & Scope

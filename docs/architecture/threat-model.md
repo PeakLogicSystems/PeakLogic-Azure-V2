@@ -11,6 +11,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** New surfaces to threat-model as they're built: **PeakLogic Hubs** (edge unit — physical access, offline credential cache, the LAN-serving path to PeakView360, PLC-protocol connections), **PeakView360** (a new client of the data plane — same RLS; a supervisory/command path if actuation ships), **PeakAssist** offline bundles (integrity/checksum on sync), and the **command path** back to devices (Device & Command Security Architecture). Every existing trust boundary is unchanged; these are additive. Design-stage. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

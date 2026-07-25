@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The MVP target is now the **unified-platform pilot** (unified-vision §5.5): one wastewater reference site end-to-end — a PeakLogic Hub acquiring from a PLC, PeakView360 rendering live (Hub-local) + historical (cloud), an AI anomaly surfacing into an operator alarm, a CMMS work order, and PeakAssist contextual + offline. The three explicit success demos: prove offline operation, AI-before-human, and an auto-generated compliance report. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose

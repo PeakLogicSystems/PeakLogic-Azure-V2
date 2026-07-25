@@ -10,6 +10,8 @@
 
 ---
 
+> **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** The enterprise roadmap now sequences the unified-platform initiatives (unified-vision §5.5 Phase 1–2 / long-term): fleet-wide predictive maintenance, compliance/DMR automation, multi-site rollups, deeper protocol coverage, the PeakView360 mobile/technician surfaces, optional 3D, and vertical expansion beyond water — all above-SCADA and outcome-aligned. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
+
 ## 1. Introduction
 
 ### 1.1 Purpose
