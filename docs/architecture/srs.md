@@ -1,11 +1,11 @@
 # Software Requirements Specification (SRS)
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
-**Status:** Draft v1.9 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6–v1.9 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.9, pending — mirrors this amendment)
-**Last updated:** 2026-07-19
+**Company:** PeakLogic  ·  **Project codename:** Project Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Status:** 🟡 Draft v2.0 — unified-platform reframe (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6–v2.0 are approved)
+**Depends on:** [Vision Document](vision-document.md) (Draft v2), [PRD](prd.md) (Draft v2.0 — mirrors this amendment)
+**Last updated:** 2026-07-25
+**v2.0 reframe note:** mirrors PRD v2.0's unified-platform requirements — adds §3.20–§3.25 (PeakView360, PeakLogic Hubs, CMMS, compliance automation, PeakAssist, MooreView absorption). Naming canonical per `unified-platform-integration-plan.md` §1.
 **Fork note (v1.7):** mirrors the PeakLogic-Azure fork's PRD v1.7 amendment (`azure-restructuring-plan.md` §3) — see Revision History. The AWS-native `PeakLogic-AWS` repo's own SRS is unaffected.
 
 ---
@@ -402,6 +402,94 @@ Reused from PRD §3 (full personas deferred to artifact #6):
 
 ---
 
+### 3.20 PeakView360 — HMI/SCADA Operator Layer (→ PRD §5.18 PV-1–PV-8) *(added v2.0 — see Revision History)*
+
+**Description:** The modernized HMI/SCADA operator experience absorbing MooreView's proven surface. Sources live data locally from a PeakLogic Hub (§3.21) and historical/cross-site data from the cloud. A supervisory/visualization layer only — never a control system.
+
+| ID | Requirement |
+|---|---|
+| PV-1.1 | The system shall render a real-time operator screen showing live process values and equipment state (running / fault / offline) for a site, refreshed on a live cadence |
+| PV-2.1 | The system shall present active alarms with acknowledgement and alarm history, built on the **existing** `alerts` model and alert pipeline (§3.3), not a parallel alarm store; the alarm UI shall be a docked, responsive panel (MooreView's floating-window pattern is redesigned) |
+| PV-3.1 | The system shall provide a multi-pen historian trend allowing overlay of multiple metrics over a selectable range (24h / 7d / 30d / custom) with CSV export — superseding the current single-fixed-window per-metric chart |
+| PV-4.1 | The system shall provide a per-asset equipment dashboard combining live telemetry, trend, and (Intelligence tier) an AI/PdM health score with a recommended action that can create a work order (§3.22) |
+| PV-5.1 | The system shall render facility visualization as a 2D process schematic by default; 3D rendering (§3.17) is an opt-in mode, not the default |
+| PV-6.1 | The system shall render live data sourced from the local Hub over the LAN (offline-capable) and historical/cross-site data sourced from the cloud, transparently to the operator (dual-source; see HUB-4.1) |
+| PV-7.1 | The system shall not implement, assume, or depend on safety-rated control logic, hardware interlocks, or emergency-shutdown functions — PeakView360 is HMI/visualization/supervisory only |
+| PV-8.1 | The system shall support deployment as either the primary HMI (greenfield/small sites) or a supervisory layer alongside an existing control system (brownfield) without change to its data model |
+
+**Error/edge conditions:** loss of cloud connectivity shall degrade PeakView360 to Hub-local live data + locally-cached history, not a blank screen (see HUB-4.1); a site with no Hub yet configured shall present a clear empty/setup state, not an error.
+
+### 3.21 PeakLogic Hubs — On-Prem Edge Units (→ PRD §5.19 HUB-1–HUB-7) *(added v2.0 — see Revision History)*
+
+**Description:** The on-prem edge pillar — a productization of the existing PeakLogic Edge (`windows-hub/`). Acquires from field equipment, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN, and store-and-forwards to the cloud over an outbound-only channel.
+
+| ID | Requirement |
+|---|---|
+| HUB-1.1 | The Hub shall acquire telemetry from PLCs/RTUs via at least one industrial protocol (Modbus TCP or OPC-UA) at MVP; additional protocols are Phase 2 |
+| HUB-2.1 | The Hub shall buffer telemetry locally and store-and-forward it to PeakLogicSystems over outbound-only MQTT/TLS — reconciling the existing PeakLogic Edge store-and-forward, not replacing it; no inbound port/VLAN/firewall exception shall ever be required (CC-1/CC-2 parity) |
+| HUB-3.1 | The Hub shall evaluate safety-relevant alarm conditions locally, without dependence on a cloud round-trip |
+| HUB-4.1 | The Hub shall serve PeakView360's live data on the LAN so the site continues operating during a loss of internet connectivity |
+| HUB-5.1 | The Hub shall carry a complete offline copy of PeakAssist content (PA-4.1) and serve it to PeakView360 on the LAN |
+| HUB-6.1 | The Hub estate shall be centrally manageable (fleet inventory, patch/version governance, secure remote administration) — reconciling the Windows Endpoint Application spec (#25), re-scoped as this pillar |
+| HUB-7.1 | The Hub shall read and supervise only; it shall not replace PLC safety interlocks, and any future actuation it relays shall fail safe locally (CC-4 parity) |
+
+**Error/edge conditions:** a protocol read failure on one device shall not stop acquisition from the others; a prolonged cloud outage shall accumulate buffered telemetry up to a bounded local-retention limit and forward on reconnection without data reordering that would corrupt the historian.
+
+### 3.22 Built-in CMMS — Work Orders & PM Schedules (→ PRD §5.20 CM-1–CM-4) *(added v2.0 — see Revision History)*
+
+**Description:** Native work-order and preventive-maintenance workflow, reconciling the existing `service_tickets`/`service_visits` tables and the CMMS-connector design (#32).
+
+| ID | Requirement |
+|---|---|
+| CM-1.1 | The system shall support work orders created manually or automatically (alarm-driven), assignable to a technician, with a status lifecycle (dispatched → accepted → on-site → completed) and a recorded outcome — reconciling `service_tickets`/`service_visits` |
+| CM-2.1 | An acknowledged or critical alarm shall be able to auto-create a work order — reconciling the existing critical-alert → service-ticket + webhook path |
+| CM-3.1 | The system shall support recurring preventive-maintenance schedules per asset/category, with a "generate due work orders" action |
+| CM-4.1 | The system shall support a bi-directional CMMS connector — durable/idempotent outbound work-order push to an external CMMS plus inbound status sync — reconciling the #32 connector framework (`generic_webhook` adapter) |
+
+**Error/edge conditions:** a failed outbound push to an external CMMS shall be retried durably and never silently dropped; a PM schedule generating a work order for an asset with no assigned technician shall produce an unassigned work order in a valid queued state, not an error.
+
+### 3.23 Compliance Automation (→ PRD §5.21 CP-1–CP-5) *(added v2.0 — see Revision History)*
+
+**Description:** Automated compilation of regulator-relevant reports from monitored data, with the operator as filer of record. The market wedge (wastewater NPDES/DMR first).
+
+| ID | Requirement |
+|---|---|
+| CP-1.1 | The system shall compile a reporting period's monitored values, exceedances, and recorded corrective actions into a regulator-relevant report (wastewater DMR as the first template) |
+| CP-2.1 | The system shall present compliance reports as operator-assist artifacts: the operator remains the filer of record; the system shall not transmit filings to a regulator or represent itself as assuming regulatory responsibility |
+| CP-3.1 | Every issued compliance report shall be backed by the immutable audit trail (§3.10) and be reproducible from the retained underlying data |
+| CP-4.1 | The system shall maintain an exceedance log and honor the Compliance-tier retention SLAs |
+| CP-5.1 | *(Blocked — see PRD CP-5)* Automated recurring delivery of compliance reports depends on outbound-delivery infrastructure that does not yet exist (shared with PW-7/PW-8, SET-8); report **generation** shall be independent of and not blocked by **delivery** |
+
+**Error/edge conditions:** a period with sensor coverage gaps shall show the gap rather than interpolate across it (consistent with PW-3.x provenance rules); a report requested for a period with no monitored data shall produce a valid "no data for period" report, not a fabricated one.
+
+### 3.24 PeakAssist — Help / Support System (→ PRD §5.22 PA-1–PA-7) *(added v2.0 — see Revision History)*
+
+**Description:** The mandatory first-class help system — contextual, one-click, offline-via-Hub, cloud-synced — serving both HMI and cloud users. Seeded from the existing `sysadmin-guides/` and `user-guides/` corpus.
+
+| ID | Requirement |
+|---|---|
+| PA-1.1 | The system shall present a Help affordance reachable in one click from every PeakView360 screen and every cloud page |
+| PA-2.1 | Opening Help shall scope content to the current screen's declared help-context key, leading with that screen's guidance; global search and a full browsable index shall be at most one further click away |
+| PA-3.1 | PeakAssist shall provide screen guides, step-by-step procedures, alarm explanations (deep-linked from an active alarm), troubleshooting guides, workflow playbooks, and a glossary |
+| PA-4.1 | Every PeakLogic Hub shall carry a complete copy of PeakAssist; the full help system shall function on PeakView360 with the internet unavailable |
+| PA-5.1 | The cloud PeakAssist CMS shall be the source of truth; each Hub shall pull content deltas in the background when connectivity exists and shall display the current content version to the user |
+| PA-6.1 | The same PeakAssist content model shall serve HMI users (in PeakView360, offline via the Hub) and cloud users (browser, latest) |
+| PA-7.1 | No screen shall ship without a declared PeakAssist help-context entry — enforced as a release gate, not left optional |
+
+**Error/edge conditions:** a screen missing a help-context key shall fall back to the top-level index (never a dead Help button); a Hub that has never synced shall still serve the content bundled at install time, labeled with that version.
+
+### 3.25 MooreView Feature Absorption (→ PRD §5.23 MV-1–MV-3) *(added v2.0 — see Revision History)*
+
+**Description:** Governs how MooreView's capabilities are harvested into the sections above, per the disposition table in [`../business/unified-product-vision.md`](../business/unified-product-vision.md) §4.1.
+
+| ID | Requirement |
+|---|---|
+| MV-1.1 | Preserved capabilities (operator screens, alarm model, historian, CMMS workflow, contextual help, reporting/ROI) shall be realized through §3.20–§3.24, not re-invented |
+| MV-2.1 | Modernized capabilities shall follow the disposition: alarm UI floating→docked (PV-2.1), facility view 3D-default→2D-default (PV-5.1), PdM per-plant→fleet-central (§3.7/#34), historian store per-plant-Mongo→cloud-time-series (PV-3.1) |
+| MV-3.1 | Retired/deferred capabilities: the single-tenant per-project file lifecycle is not reproduced; MV Draw (CAD) and raw PLC-tag programming are out of MVP scope |
+
+---
+
 ## 4. External Interface Requirements
 
 ### 4.1 User Interfaces
@@ -501,6 +589,12 @@ Every **shall** requirement in §3–§5 must be verifiable by an automated test
 | §3.12 Partner Territory & Dispatch | PRD §5.10 (TR-1–TR-3) | 1:1 elaboration — added v1.5 |
 | §3.16 Geospatial Site Portfolio Visualization | PRD §5.14 (GEO-1–GEO-6) | 1:1 elaboration — added v1.7 |
 | §3.17 3D Facility Rendering | PRD §5.15 (3DR-1–3DR-3) | 1:1 elaboration — added v1.7, first-pass |
+| §3.20 PeakView360 HMI/SCADA | PRD §5.18 (PV-1–PV-8) | 1:1 elaboration — added v2.0 |
+| §3.21 PeakLogic Hubs | PRD §5.19 (HUB-1–HUB-7) | 1:1 elaboration — added v2.0 |
+| §3.22 Built-in CMMS | PRD §5.20 (CM-1–CM-4) | 1:1 elaboration — added v2.0 |
+| §3.23 Compliance Automation | PRD §5.21 (CP-1–CP-5) | 1:1 elaboration — added v2.0; CP-5.1 blocked |
+| §3.24 PeakAssist Help System | PRD §5.22 (PA-1–PA-7) | 1:1 elaboration — added v2.0 |
+| §3.25 MooreView Feature Absorption | PRD §5.23 (MV-1–MV-3) | 1:1 elaboration — added v2.0 |
 | §5 Non-Functional Requirements | PRD §6 | 1:1 elaboration per category |
 
 Where a future artifact (Domain Model, Database Schema, Security Architecture, etc.) forces a change to a requirement above, that change should be made explicitly in a revision to this document, per the governance rule carried from the Vision Document and PRD.
@@ -518,6 +612,8 @@ Where a future artifact (Domain Model, Database Schema, Security Architecture, e
 7. **Every Azure service selection this v1.7 amendment left as "mechanism TBD"** (§2.1, §2.4, §4.3) — IoT device connectivity, serverless compute host, identity provider, API layer, CDN/static hosting — deferred to Device & Command Security Architecture (#12), Security Architecture (#13), and Infrastructure as Code (#16) *(added v1.7)*.
 8. **Mapping technology for §3.16** (Azure Maps vs. a third-party option) — deferred to UX Wireframes (#8)/API Specification (#11), per `azure-restructuring-plan.md` §4 *(added v1.7)*.
 9. **3D rendering scope for §3.17** (file format, rendering approach, storage) — deliberately unresolved pending a dedicated scoping pass; not assumed by this SRS or any document downstream of it until that pass happens *(added v1.7)*.
+10. **Unified-platform entities (§3.20–§3.24) do not yet exist in the Domain Model or `docs/data-model.sql`** *(added v2.0)* — PeakView360 screen/tag/alarm-view entities, the Hub-fleet entity, CMMS work-order/PM-schedule entities, compliance-report entities, and PeakAssist content/version entities are all deferred to the Domain Model (#4) and Database Schema (#10) amendments sequenced next in `unified-platform-integration-plan.md`. The PLC-driver, PeakView360-app, and PeakAssist-delivery subsystems are design-stage, not built.
+11. **Outbound-delivery infrastructure (CP-5.1, and the shared PW-7/PW-8, SET-8 dependency)** *(added v2.0)* — compliance-report and other recurring delivery is blocked on an outbound email/hosted-report capability that does not exist anywhere in the codebase; it must be scoped as a prerequisite project before CP-5.1 can be met.
 
 ---
 
@@ -588,3 +684,15 @@ Approved as-is at v1; no changes requested during that review. See Revision Hist
 - **A limit recorded instead of designed around**: for the three reagent parameters the report carries an *attested* value, not a measured one. PW-12.1 (must bind to a checked-in `route_stops` row) and PW-13.1 (plausible-range challenge) raise the cost of a bad entry without changing that fact; only direct instrument integration would, and it is explicitly out of scope at this revision.
 - **§2.4's technician gains a write responsibility** for the first time — previously read-only apart from ack/ticket/route-confirm. The water-test write path has no endpoint, entity, or schema today; flagged for Domain Model, Database Schema and API Specification rather than assumed to exist.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass): User Personas (§2.4), Domain Model + Database Schema + API Specification (the water-test entity, its `route_stops` binding, the technician write endpoint), iOS Application (#26 — capture screen and offline-queue extension), UX Wireframes (report layout and capture form), plus a new owner for outbound email infrastructure.
+
+**Draft v2.0 (2026-07-25)** — mirrors the PRD's v2.0 **unified-platform reframe** (`../business/unified-product-vision.md`; `unified-platform-integration-plan.md`). First SRS amendment in the `PeakLogic-Azure-V2` merger repo; follows Vision Draft v2 and PRD Draft v2.0. Non-silent per §8.
+
+- **Header/naming corrected** to canonical, retiring "PeakView Hub / PeakView 360."
+- **§3.20 added (PV-1.1–PV-8.1)**: PeakView360 HMI/SCADA — real-time screens, alarm mgmt on the existing `alerts` pipeline, multi-pen historian, equipment dashboards, 2D-default facility viz, dual-source (Hub-local/cloud) rendering, supervisory-not-control boundary.
+- **§3.21 added (HUB-1.1–HUB-7.1)**: PeakLogic Hubs — PLC/RTU acquisition, edge alarm eval, offline PeakView360 + PeakAssist serving, store-and-forward (reconciles PeakLogic Edge, re-scopes #25).
+- **§3.22 added (CM-1.1–CM-4.1)**: built-in CMMS (reconciles `service_tickets`/`service_visits` + #32).
+- **§3.23 added (CP-1.1–CP-5.1)**: compliance automation — DMR-first, operator-as-filer-of-record, audit-backed; **CP-5.1 blocked** on unbuilt outbound delivery.
+- **§3.24 added (PA-1.1–PA-7.1)**: PeakAssist — one-click contextual help, offline-via-Hub, cloud-synced, no-screen-without-help gate.
+- **§3.25 added (MV-1.1–MV-3.1)**: MooreView absorption disposition.
+- **Traceability matrix + §9 open issues extended**: new items 10 (unified-platform entities absent from the Domain Model/schema — deferred to #4/#10) and 11 (outbound-delivery infra prerequisite).
+- **Downstream artifacts** (sequenced by the integration plan): Domain Model, Database Schema, API Specification, Security Architecture, Multi-Tenant Architecture, User Personas/Stories, UX Wireframes, Information Architecture, AI Analytics, Reporting/KPI, Windows Endpoint App (→ Hubs), Platform Services, Target Reference Architecture, plus the net-new PeakView360 and PeakAssist design docs.
