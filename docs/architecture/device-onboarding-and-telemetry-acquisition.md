@@ -1,8 +1,8 @@
 # Device Onboarding & Telemetry Acquisition Architecture
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v0.2 — full rewrite for Azure (not yet reviewed; base document remains Draft v0.1 — AWS-native)
 **Depends on:** [Domain Model](domain-model.md) (Draft v1.4), [Database Schema](database-schema.md) (Draft v1.4), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.2), [Device & Command Security Architecture](device-command-security-architecture.md) (Draft v2.0)
 **Last updated:** 2026-07-17

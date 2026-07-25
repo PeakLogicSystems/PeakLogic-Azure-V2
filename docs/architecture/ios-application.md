@@ -1,8 +1,8 @@
 # iOS Application
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v1.3 — specification only, no code shipped (amendment pending review — see Revision History, end of document)
 **Depends on:** [Security Architecture](security-architecture.md) (Draft v2.0), [API Specification](api-specification.md) (Draft v1.4), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4), [Windows Endpoint Application](windows-endpoint-application.md) (Draft v1.2)
 **Last updated:** 2026-07-17 (v1.3 — Azure fork amendment)

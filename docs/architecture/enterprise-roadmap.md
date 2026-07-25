@@ -1,8 +1,8 @@
 # Enterprise Roadmap
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.0 — AWS-native — until v1.1 is approved)
 **Depends on:** Every Azure-track artifact amended/rewritten as of this fork's 2026-07-17 restructuring pass — this document is still a synthesis, not new analysis
 **Last updated:** 2026-07-17

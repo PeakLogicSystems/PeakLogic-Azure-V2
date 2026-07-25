@@ -1,6 +1,6 @@
 # Azure Architecture — Deep Review & Improvement Roadmap
 
-**Product:** PeakView Hub / PeakView 360 (PeakLogic-Azure fork)
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help) (PeakLogic-Azure fork)
 **Status:** Review artifact — findings + recommendations for review, not yet approved decisions
 **Depends on:** the full 27-artifact Azure-restructuring pass (`azure-restructuring-plan.md` §2, all ✅ as of 2026-07-17) plus the first implementation slice (`infra-azure/`, ported `backend/shared/db.ts`+`auth.ts`)
 **Last updated:** 2026-07-17

@@ -1,8 +1,8 @@
 # Windows Endpoint Application ("The Brains")
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v1.2 — specification only, no code shipped (amendment pending review — see Revision History, end of document)
 **Depends on:** [Device & Command Security Architecture](device-command-security-architecture.md) (Draft v2.0, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending), [API Specification](api-specification.md) (Draft v1.4, pending), [Database Schema](database-schema.md) (Draft v1.4, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4, pending)
 **Last updated:** 2026-07-17 (v1.2 — Azure fork amendment)

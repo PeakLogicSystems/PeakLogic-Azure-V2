@@ -1,8 +1,8 @@
 # Patent Opportunity Analysis
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Approved v1
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [Domain Model](domain-model.md) (approved v1), [Device & Command Security Architecture](device-command-security-architecture.md) (approved v1)
 **Last updated:** 2026-07-11

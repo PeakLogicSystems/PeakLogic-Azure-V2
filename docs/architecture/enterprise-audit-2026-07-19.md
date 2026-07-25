@@ -1,6 +1,6 @@
 # Enterprise Audit — PeakLogic Platform
 
-**Product:** PeakView Hub / PeakView 360
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
 **Status:** Point-in-time audit, 2026-07-19 — findings frozen as of commit `30f4d1d`; remediation tracked in §6/§7, not by editing findings in place
 **Auditor scope:** senior-architect-level review across strategy, codebase, device plane, security/compliance, and UX
 **Audit depth (honest disclosure):** spot-verified, not line-by-line. Security-critical paths were read end-to-end as of the audit date (`backend/shared/db.ts`, `backend/shared/auth.ts`, `backend/ingest/handler.ts`, route samples, both infra trees); `frontend/` internals, `windows-hub/` internals, and the full 25+ document set were assessed from targeted checks and prior session-verified state. Findings marked ✅ were verified directly against code; findings marked 📄 come from the project's own documents/registers.

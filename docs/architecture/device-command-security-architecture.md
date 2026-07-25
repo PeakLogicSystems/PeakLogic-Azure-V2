@@ -1,8 +1,8 @@
 # Device & Command Security Architecture
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v2.0 — full rewrite for Azure (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 — AWS-native — until v2.0 is approved)
 **Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [Domain Model](domain-model.md) (Draft v1.4, pending), [Database Schema](database-schema.md) (Draft v1.4, pending), [API Specification](api-specification.md) (Draft v1.4, pending)
 **Last updated:** 2026-07-17

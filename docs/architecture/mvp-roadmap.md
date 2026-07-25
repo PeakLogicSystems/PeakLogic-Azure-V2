@@ -1,8 +1,8 @@
 # MVP Roadmap
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v2.0 — full resequencing for Azure (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.0 — AWS-native — until v2.0 is approved)
 **Depends on:** Every Azure-track document amended/rewritten as part of this fork's 2026-07-17 restructuring pass (`azure-restructuring-plan.md` §2) — PRD v1.7, SRS v1.7, Domain Model v1.4, Compliance & Certification Roadmap v1.1, User Stories v1.1, UX Wireframes v1.4, Information Architecture v1.1, Database Schema v1.4, API Specification v1.4, Device & Command Security Architecture v2.0, Security Architecture v2.0, Multi-Tenant Architecture v1.4, Deployment Architecture v2.0, Infrastructure as Code v2.0, CI/CD Pipeline v0.2, Threat Model v1.1, SOC 2 Control Mapping v1.1
 **Last updated:** 2026-07-17

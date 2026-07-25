@@ -1,8 +1,8 @@
 # CI/CD Pipeline
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v0.2 — full rewrite for Azure (still Draft, same as the AWS version — blocked on the same "no real cloud account yet" gate)
 **Depends on:** [Deployment Architecture](deployment-architecture.md) (Draft v2.0, pending), [Infrastructure as Code](infrastructure-as-code.md) (Draft v2.0, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending)
 **Last updated:** 2026-07-17

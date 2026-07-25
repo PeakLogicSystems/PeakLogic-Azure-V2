@@ -1,8 +1,8 @@
 # SOC 2 Control Mapping & Evidence Plan
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Company:** PeakLogic
+**Project codename:** Project Vantage
 **Status:** Draft v1.1 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1 — AWS-native — until v1.1 is approved)
 **Depends on:** [Compliance & Certification Roadmap](compliance-certification-roadmap.md) (Draft v1.1, pending), [Security Architecture](security-architecture.md) (Draft v2.0, pending), [Multi-Tenant Architecture](multi-tenant-architecture.md) (Draft v1.4, pending), [Threat Model](threat-model.md) (Draft v1.1, pending)
 **Last updated:** 2026-07-17
