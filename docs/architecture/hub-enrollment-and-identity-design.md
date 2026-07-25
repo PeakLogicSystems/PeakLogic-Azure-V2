@@ -92,7 +92,7 @@ The hub can't present a human Entra token, so the **hub-facing** heartbeat/sync 
 ## 9. Open decisions (down-scoped from Q6/Q7 to concrete choices)
 
 - **D1:** Phase-2 bootstrap — provisioning package (A, recommended) vs. claim-code exchange (B). B unblocks lowest-touch field install but requires a threat-model pass first.
-- **D2:** heartbeat/sync channel — twin-native (recommended) vs. mTLS-HTTP (Option B-HTTP). Blocks Runtime §7.2/§7.3.
+- **D2 — ✅ DECIDED 2026-07-25: twin-native.** Heartbeat = twin reported-properties + IoT Hub connection-state events; PeakAssist target = twin desired-properties; the built `recordHeartbeat`/`syncForHub` logic is reused behind twin/Event-Grid triggers, and the hub-side sync *engine* (`PeakAssistSync`) is built + tested. The IoT Hub twin *transport* binding on both sides awaits infra (item 1).
 - **D3:** individual vs. group DPS enrollment for hubs — individual (recommended, mirrors the device decision at design-partner scale); revisit at fleet scale (Device & Command Security §8.8).
 - **D4:** exact `hubs` schema additions (§7) — finalize with the migration when Azure device-provisioning code is first written.
 
