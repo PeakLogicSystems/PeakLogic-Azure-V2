@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
+using PeakLogicEdge.Core.Alarms;
 using PeakLogicEdge.Core.Caching;
 using PeakLogicEdge.Core.Configuration;
 using PeakLogicEdge.Core.Ingestion;
@@ -30,6 +31,16 @@ public sealed record AlertRow(long Id, string ThingName, string Severity, string
 public sealed class EdgeRuntimeService : INotifyPropertyChanged
 {
     private const int MaxRecentReadings = 25;
+
+    // DEMO placeholder rule set, fed through the real EdgeAlarmEvaluator until
+    // authoritative rules are delivered from the cloud (§7.6). Same salt_ppm
+    // band the previous inline check used, now expressed as real rules — the
+    // evaluation is real; only the rule content is a stand-in.
+    private static readonly IReadOnlyList<EdgeAlarmRule> DemoAlarmRules = new[]
+    {
+        new EdgeAlarmRule("salt_ppm", AlarmCondition.GreaterThan, 3400, "warning", "Salt (demo rule)"),
+        new EdgeAlarmRule("salt_ppm", AlarmCondition.LessThan, 2700, "warning", "Salt (demo rule)"),
+    };
 
     private readonly ILogger _log;
     private readonly SiteIdentity _site;
@@ -152,18 +163,18 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
                 reading.ObservedAt.ToLocalTime().ToString("HH:mm:ss"),
                 string.Join("  ", reading.Metrics.Select(kv => $"{kv.Key}={kv.Value:0.##}")));
 
-            // A deliberately minimal, clearly-labeled DEMO threshold check --
-            // NOT the real alerting pipeline. Real alert evaluation lives
-            // server-side by design (backend/ingest/rules.ts's
-            // RULES_BY_CATEGORY) and is not duplicated here; this exists
-            // solely so the local-clear mechanism (LocalAlertStore, S6.4-
-            // adjacent) has something real to demonstrate against before a
-            // real backend or a real cloud-alert-delivery channel exists.
-            // Remove once real alerts flow to this device instead.
-            if (reading.Metrics.TryGetValue("salt_ppm", out var salt) && (salt < 2700 || salt > 3400))
+            // Offline alarm evaluation via the real EdgeAlarmEvaluator (§7.6) --
+            // the same gt/lt math the cloud uses (backend/ingest/rules.ts), so an
+            // offline alarm matches what the cloud would raise. The RULE SET here
+            // is still a clearly-labeled DEMO placeholder (DemoAlarmRules): the
+            // authoritative rules live cloud-side and will be delivered/cached
+            // like a PeakAssist bundle. What's real now is the evaluation path;
+            // what's a stand-in is only the rule content, until rule delivery
+            // exists. (Dedup of repeat firings is future work -- unchanged from
+            // the previous inline check, which also raised each violating read.)
+            foreach (var alarm in EdgeAlarmEvaluator.Evaluate(DemoAlarmRules, reading.Metrics))
             {
-                await _alerts!.RaiseAsync(thingName, "warning",
-                    $"salt_ppm={salt:0} is outside the expected 2700-3400 range (demo threshold check)");
+                await _alerts!.RaiseAsync(thingName, alarm.Rule.Severity, alarm.Message);
                 await RefreshAlertsAsync();
             }
 
