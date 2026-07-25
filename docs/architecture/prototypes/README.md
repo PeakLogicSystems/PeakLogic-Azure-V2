@@ -18,4 +18,16 @@ Open it in any browser (it's a single HTML file — inline CSS/JS, no server, no
 - **Zero-touch registration** — "Register devices" creates cloud **intent records** (individual or DPS enrollment-group) in state `registered`; they appear in the global inventory *awaiting first connection*, then can be configured via twin push.
 - Brand-accurate: command rail pinned dark in both themes (matching the real Edge app), light/dark content plane, semantic severity color kept distinct from the purple accent, monospace instrument type for device IDs and telemetry.
 
-**Scope caveats (deliberate):** all data is illustrative and lives in the file; there is no auth, no API, no persistence (a refresh resets state). Interactions model the *intended* behavior of endpoints that already exist or are already designed — they do not call a backend. This is the design target for roadmap items 8–9 (build the Super-Console frontend on the render-everything/act-as model + a shared UI component package), not an implementation of them.
+### Unified-platform views (v2.0, added 2026-07-25)
+
+The demo now also makes the **unified-platform reframe** operable — an *Operations* nav group plus a one-click **PeakAssist** help affordance (top bar), backing PRD/SRS §5.18–§5.22:
+
+- **PeakView360** — a live HMI/SCADA operator screen for a wastewater plant (the beachhead): process-value tiles with severity accents, a **docked alarm panel** (with AI-insight context and per-alarm "?" deep-links into help), and a **multi-pen historian** trend. States the "above SCADA / Hub-local offline" framing on the page.
+- **PeakLogic Hubs** — the on-prem edge fleet: status, protocols, tags acquired, agent + PeakAssist content version, last-seen; shows an offline Hub and a content-version-behind Hub.
+- **CMMS · Work Orders** — the work-order queue (alarm-driven + PM) across the `dispatched → accepted → on_site → completed` funnel, plus PM schedules with next-due.
+- **Compliance** — an automated NPDES/**DMR** parameter summary with a real exceedance and a coverage gap (shown, never interpolated) and the operator-is-filer-of-record framing.
+- **PeakAssist** — the top-bar Help button opens a **contextual** drawer (scoped to the current screen), with an "available offline on this site's Hub" badge, a screen guide, how-to steps, and troubleshooting. An alarm's "?" deep-links to that alarm type's explanation.
+
+Verified in a headless browser: all four views render, the contextual help drawer opens, existing views still work, **zero console errors**.
+
+**Scope caveats (deliberate):** all data is illustrative and lives in the file; there is no auth, no API, no persistence (a refresh resets state). Interactions model the *intended* behavior of endpoints that already exist or are already designed — they do not call a backend. This is the design target for roadmap items 8–9 (build the Super-Console frontend on the render-everything/act-as model + a shared UI component package) and for the PeakView360/Hub/CMMS/Compliance/PeakAssist build, not an implementation of them.
