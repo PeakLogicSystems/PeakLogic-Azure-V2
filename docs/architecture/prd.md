@@ -1,11 +1,11 @@
 # Product Requirements Document (PRD)
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
-**Status:** Draft v1.9 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6–v1.9 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1)
-**Last updated:** 2026-07-19
+**Company:** PeakLogic  ·  **Project codename:** Project Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Status:** 🟡 Draft v2.0 — unified-platform reframe (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.5 until v1.6–v2.0 are approved)
+**Depends on:** [Vision Document](vision-document.md) (Draft v2 — unified-platform reframe)
+**Last updated:** 2026-07-25
+**v2.0 reframe note:** adds the unified-platform requirements (§5.18–§5.23) — PeakView360 HMI/SCADA, PeakLogic Hubs edge, built-in CMMS, compliance automation, PeakAssist, MooreView absorption — per the PeakLogic-first decision (`../business/unified-product-vision.md`) and the integration plan (`unified-platform-integration-plan.md`). Naming canonical per that plan §1.
 **Fork note (v1.7):** this amendment folds in the Azure-pivot feature backlog (`docs/architecture/azure-restructuring-plan.md` §3) into the PeakLogic-Azure fork specifically — see Revision History for what changed and why. The AWS-native `PeakLogic-AWS` repo's own PRD is unaffected and continues independently.
 
 ---
@@ -50,10 +50,15 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 | **External AI/Agent Consumer** *(system actor via MCP, not a login role)* | A customer's own AI/agent stack, or PeakLogic's own analytics | Query device/alert/telemetry data as a tool through the MCP server |
 | **PeakLogic Superadmin** *(added v1.6)* | Internal PeakLogic staff, not a customer or partner | The only role able to create a new Tenant (customer) or Channel Partner — top-level business-entity provisioning (§5.11) |
 | **PeakLogic Account Manager** *(added v1.6)* | Internal PeakLogic staff, assigned to a specific subset of tenants/partners (a "book of business") | Sets up user access, onboards devices, configures preliminary alert baselines, and manages alerts on behalf of their assigned accounts — cannot create new tenants or partners (§5.11) |
+| **Plant / Control-Room Operator** *(added v2.0)* | On-site operator watching live process on PeakView360 (e.g. a wastewater plant operator) | Real-time operator screens, alarm acknowledgement, historian trends — must keep working offline via the local Hub (§5.18) |
+| **Maintenance Technician** *(added v2.0)* | Field/maintenance staff executing work orders | Work-order queue, asset/alarm context, completion capture — extends the existing Service Partner/technician surface into the built-in CMMS (§5.20) |
+| **Compliance Officer** *(added v2.0)* | Staff responsible for regulatory reporting at a regulated site (e.g. wastewater NPDES/DMR) | Automated period reports, exceedance logs, audit exports — remains the filer of record; PeakLogic assists, does not assume liability (§5.21) |
 
 ---
 
 ## 4. MVP Scope: In / Out
+
+> **v2.0 unified-platform scope note.** The unified-platform capabilities in **§5.18–§5.23** (PeakView360, PeakLogic Hubs, built-in CMMS, compliance automation, PeakAssist) are **in scope for the unified-platform pilot MVP** defined in the [unified product vision](../business/unified-product-vision.md) §5.5 and sequenced by the [MVP Roadmap](mvp-roadmap.md). Hard boundaries: PeakLogic is **above SCADA** and never assumes safety-rated PLC control logic; MooreView's MV Draw CAD tool and raw PLC-tag programming are **explicitly out of MVP** (§5.23). The pilot targets one wastewater reference site end-to-end. The pre-existing device-adapter cloud-SaaS scope below is unchanged and is the foundation these build on.
 
 ### In scope for MVP
 
@@ -326,6 +331,71 @@ What is genuinely **new** and must be designed: this persona has so far only eve
 
 ---
 
+> **§5.18–§5.23 — Unified Platform Requirements (added v2.0).** The requirements below realize the Vision Document Draft v2 three-component model. Each notes where existing shipped code is **reconciled and kept** versus where **new** work is required, per the "reconcile the code as we go" rule (`unified-platform-integration-plan.md` §4a). PeakView360, the Hub's PLC drivers, and PeakAssist are **design-stage** — not yet built.
+
+### 5.18 PeakView360 — HMI/SCADA Operator Layer *(added v2.0 — Vision §4.1, pillars 2/3/7)*
+
+- **PV-1 (Must):** A real-time operator screen renders live process values and equipment state (running/fault/offline) for a site, refreshed on a live cadence.
+- **PV-2 (Must):** Alarm management — active-alarm panel, acknowledgement, and alarm history — built on the **existing** `alerts` model and pipeline (`createAlertAndMaybeTicket`), not a parallel one. MooreView's floating-window alarm UI is **redesigned** as a docked, responsive panel.
+- **PV-3 (Must):** Multi-pen historian trend — overlay multiple metrics, select range (24h / 7d / 30d / custom), export CSV. *New:* the current frontend has only single fixed-window charts per metric.
+- **PV-4 (Must):** Per-asset equipment dashboard — live telemetry + trend, and (Intelligence tier) an AI/PdM health score and recommended action that one-clicks into a work order (§5.20).
+- **PV-5 (Should):** Facility visualization — a fast **2D process schematic by default**; the existing 3D rendering (§5.15) is retained as an **opt-in** for sites that want it, not the default (MooreView's 3D-default is demoted).
+- **PV-6 (Must):** **Dual-source rendering** — PeakView360 sources live data locally from the Hub over the LAN (low-latency, offline-capable) and historical/cross-site data from the cloud, transparently to the operator (§5.19 HUB-4).
+- **PV-7 (Must, boundary):** PeakView360 is an HMI / visualization / supervisory surface only. It **never** assumes safety-rated control logic, interlocks, or emergency-shutdown functions (Vision pillar 2).
+- **PV-8 (Should):** PeakView360 can be deployed as the **primary HMI** for greenfield/small sites with no existing SCADA, or as a **supervisory layer** alongside an existing control system for brownfield plants.
+
+*Reconcile:* the mock `frontend/` pages and the real `alerts`/ticket pipeline are the seed; PeakView360 as an operator-app surface is a net-new build (its own architecture artifact, Phase 3).
+
+### 5.19 PeakLogic Hubs — On-Prem Edge Units *(added v2.0 — Vision §4.1, pillars 6/8/9)*
+
+- **HUB-1 (Must):** Acquire from PLCs/RTUs via **at least one** industrial protocol at MVP (Modbus TCP or OPC-UA); broader coverage (EtherNet/IP, DNP3) is Phase 2.
+- **HUB-2 (Must):** Local historian buffer + **store-and-forward** over outbound-only MQTT/TLS to PeakLogicSystems — **reconciling** PeakLogic Edge's existing telemetry store-and-forward (`windows-hub/`), not rebuilding it.
+- **HUB-3 (Must):** Evaluate safety-relevant alarm conditions **locally** at the edge, so they do not depend on a cloud round-trip.
+- **HUB-4 (Must):** Serve PeakView360's live data on the LAN so the site keeps operating with the internet down (offline reliability).
+- **HUB-5 (Must):** Bundle a **complete offline copy of PeakAssist** (§5.22 PA-4).
+- **HUB-6 (Should):** Fleet management / patch governance / secure remote administration of the Hub estate — **reconciling** the Windows Endpoint Application spec (#25), which is re-scoped as *this* pillar.
+- **HUB-7 (Must, boundary):** The Hub **reads and supervises**; it does not replace PLC safety interlocks, and any future safety-critical actuation fails safe locally (Vision pillar 9).
+
+*Reconcile:* PeakLogic Hubs are the **productization** of the existing PeakLogic Edge (`windows-hub/`); the PLC/RTU protocol drivers and the offline PeakView360/PeakAssist serving are net-new, design-stage.
+
+### 5.20 Built-in CMMS — Work Orders & PM Schedules *(added v2.0 — Vision pillar 6)*
+
+- **CM-1 (Must):** Work orders — created manually or **alarm-driven**, assignable, with a status lifecycle (dispatched → accepted → on-site → completed) and a tracked outcome — **reconciling** the existing `service_tickets` / `service_visits` tables and CMMS-connector design (#32).
+- **CM-2 (Must):** An acknowledged/critical alarm can auto-create a work order — **reconciling** the existing critical-alert → service-ticket + webhook path.
+- **CM-3 (Should):** PM schedules — recurring preventive-maintenance per asset/category with a "generate due work orders" action (absorbed/modernized from MooreView).
+- **CM-4 (Should):** Bi-directional CMMS connector — durable/idempotent outbound work-order push to a partner's external CMMS plus inbound status sync — **reconciling** the #32 connector framework (`generic_webhook` = today's `postWebhook` as adapter #1).
+- **Out of scope:** replacing a customer's ERP/FSM system of record; PeakLogic is the system of intelligence that feeds it (Channel Partner Intelligence Layer #33).
+
+### 5.21 Compliance Automation *(added v2.0 — Vision §8, the market wedge)*
+
+- **CP-1 (Must):** Compile a reporting period's monitored values, exceedances, and corrective actions into a **regulator-relevant report** — wastewater **DMR** (Discharge Monitoring Report) as the first template.
+- **CP-2 (Must, boundary):** **Operator-assist framing** — the operator remains the **filer of record**; PeakLogic does not file with regulators and does not assume regulatory liability.
+- **CP-3 (Must):** Every issued report is backed by the **immutable audit trail** — **reconciling** the existing audit log and the alerts-never-hard-deleted schema rule.
+- **CP-4 (Should):** Exceedance log + retention SLAs (Compliance tier).
+- **🔴 CP-5 (blocked):** Automated recurring delivery of compliance reports depends on **outbound email / hosted-report infrastructure that does not yet exist** — the same unbuilt dependency flagged for PW-7/PW-8 (§5.17) and SET-8 (§5.12). Must be scoped as a prerequisite before CP-1 reports can be auto-delivered; generation is independent of delivery.
+- **Depends on:** legal review before any external compliance claim (Vision §8/§13).
+
+### 5.22 PeakAssist — Help / Support System *(added v2.0 — Vision §7 principle 11; MANDATORY first-class)*
+
+- **PA-1 (Must):** A one-click Help affordance on **every** PeakView360 screen and **every** cloud page — never more than one click.
+- **PA-2 (Must):** **Contextual** — Help opens scoped to the current screen's declared help-context key, leading with that screen's guidance.
+- **PA-3 (Must):** Content types — screen guides, step-by-step procedures, **alarm explanations** (deep-linked from active alarms), troubleshooting guides, workflow playbooks, and a glossary.
+- **PA-4 (Must):** **Offline** — every PeakLogic Hub bundles a complete copy; the full help system works with the internet down (§5.19 HUB-5).
+- **PA-5 (Must):** **Cloud-synced** — the cloud PeakAssist CMS is the source of truth; Hubs pull content deltas in the background; the current content version is visible to the operator ("Help content current as of …").
+- **PA-6 (Must):** **Two audiences, one content model** — SCADA/HMI users (in PeakView360, offline via the Hub) and cloud users (browser, latest).
+- **PA-7 (Must, governance):** **No screen ships without its PeakAssist context entry** — enforced, not aspirational.
+
+*Reconcile:* seeded from the existing `sysadmin-guides/` and `user-guides/` corpus; the contextual/offline delivery system is net-new (its own architecture artifact, Phase 3).
+
+### 5.23 MooreView Feature Absorption *(added v2.0 — Vision §9; unified-vision §4)*
+
+- **MV-1 (Preserve):** real-time operator screens, the alarm model, multi-pen historian, the CMMS work-order/PM workflow, contextual help, and reporting/ROI concepts are harvested into the requirements above (§5.18–§5.22).
+- **MV-2 (Modernize/redesign):** alarm UI (floating window → docked responsive panel); facility view (3D-default → 2D-schematic-default, 3D opt-in); PdM (per-plant → **fleet-central** on the existing AI engine, #34); historian store (per-plant MongoDB → the multi-tenant cloud time-series).
+- **MV-3 (Retire/defer):** the single-tenant per-project save/deploy/share **file lifecycle** is retired (our multi-tenant, server-versioned config model supersedes it); **MV Draw** (CAD site-design) and **raw PLC-tag programming** are deferred **out of MVP** (Phase 2 / partner evaluation).
+- The authoritative disposition table lives in [`../business/unified-product-vision.md`](../business/unified-product-vision.md) §4.1; a dedicated MooreView Integration architecture artifact may formalize it (Phase 3).
+
+---
+
 ## 6. Non-Functional Requirements
 
 | Category | Requirement |
@@ -442,3 +512,16 @@ This PRD intentionally does not specify: precise domain entities and relationshi
 - **Honesty limit stated explicitly**: for the three reagent parameters the report carries a value the technician *typed*. PW-12/PW-13 raise the cost of a bad entry and PW-4 keeps provenance visible, but such a value is **attested, not measured**, and only direct instrument integration (Bluetooth photometer) genuinely closes it — named as the roadmap answer, deliberately not required at MVP.
 - **Geolocation at capture deliberately not required** — it would strengthen PW-12 and the coordinates already exist, but tracking staff location is the partner's labour/privacy decision, not one PeakLogic imposes by default.
 - **Downstream artifacts requiring their own amendments as a result** (not done in this pass): SRS (this document's own pass, done alongside), User Personas (§2.4 gains a write responsibility), Domain Model + Database Schema + API Specification (the water-test entity, its binding to `route_stops`, and the technician write endpoint), iOS Application (#26 — the capture screen and its offline-queue extension), UX Wireframes (the report itself and the capture form), and whatever artifact ends up owning outbound email infrastructure.
+
+**Draft v2.0 (2026-07-25)** — the **unified-platform reframe**. Forced by the PeakLogic-first strategic decision (`../business/unified-product-vision.md`) that PeakLogic absorbs Purple Standard's MooreView into one platform. First PRD amendment in the `PeakLogic-Azure-V2` merger development repo, governed by `unified-platform-integration-plan.md`; follows Vision Document Draft v2. Handled as an explicit, non-silent amendment per §9, like every prior revision.
+
+- **Header/naming corrected** to canonical (company PeakLogic; codename Project Vantage; cloud PeakLogicSystems; HMI/SCADA PeakView360; edge PeakLogic Hubs; help PeakAssist), retiring the "PeakView Hub / PeakView 360" placeholder.
+- **§3 roles extended**: Plant/Control-Room Operator, Maintenance Technician, Compliance Officer.
+- **§4 scope note added**: the §5.18–§5.23 capabilities are in scope for the unified-platform pilot MVP (one wastewater reference site, end-to-end); the above-SCADA boundary is restated; MV Draw CAD + raw PLC programming are explicitly out.
+- **§5.18 added (PV-1–PV-8)**: PeakView360 HMI/SCADA layer — real-time screens, alarm management (on the existing `alerts` pipeline), multi-pen historian, equipment dashboards, 2D-default facility viz (3D demoted to opt-in), dual-source (Hub-local/offline + cloud) rendering, and the supervisory-not-control boundary.
+- **§5.19 added (HUB-1–HUB-7)**: PeakLogic Hubs — PLC/RTU acquisition (one protocol at MVP), edge alarm eval, offline PeakView360 + PeakAssist serving, store-and-forward. Reconciles the existing PeakLogic Edge (`windows-hub/`) and re-scopes the Windows Endpoint App (#25) as this pillar; PLC drivers are net-new.
+- **§5.20 added (CM-1–CM-4)**: built-in CMMS — work orders (incl. alarm-driven), PM schedules, bi-directional connector. Reconciles the existing `service_tickets`/`service_visits` + CMMS-connector design (#32).
+- **§5.21 added (CP-1–CP-5)**: compliance automation — period report compilation (wastewater DMR first), operator-assist framing (operator = filer of record), audit-backed. **CP-5 blocked** on the same unbuilt outbound-delivery infra as PW-7/PW-8/SET-8; legal-review gate before external claims.
+- **§5.22 added (PA-1–PA-7)**: PeakAssist — one-click contextual help, offline-via-Hub, cloud-synced, two audiences, no-screen-without-help governance. Seeded from the existing SysAdmin/User guides.
+- **§5.23 added (MV-1–MV-3)**: MooreView feature absorption per unified-vision §4 disposition (preserve/modernize/redesign/retire).
+- **Downstream artifacts requiring their own amendments** (sequenced by the integration plan, not all in this pass): SRS (done alongside), Domain Model, Database Schema, API Specification, Security Architecture, Multi-Tenant Architecture, User Personas/Stories, UX Wireframes, Information Architecture, AI Analytics (PdM), Reporting/KPI (compliance), Windows Endpoint App (→ PeakLogic Hubs), Platform Services, Target Reference Architecture, plus two net-new design docs (PeakView360 HMI/SCADA, PeakAssist Help System).
