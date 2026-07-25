@@ -1,11 +1,11 @@
 # Domain Model
 
-**Product:** PeakView Hub / PeakView 360
-**Cloud Platform:** PeakLogicSystems
-**Project Codename:** Vantage
-**Status:** Draft v1.6 (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v1.6 are approved)
-**Depends on:** [Vision Document](vision-document.md) (approved v1), [PRD](prd.md) (Draft v1.7, pending), [SRS](srs.md) (Draft v1.7, pending), [iOS Application](ios-application.md) (Draft v1.1 — §2.1a locks the Channel Partner Manager role decisions this amendment formalizes), [White-Label Estate Branding Design](whitelabel-estate-branding-design.md) (#35, Approved v1.0 — locks the ChannelPartnerGroup/Site.channel_partner_id decisions v1.5 formalizes)
-**Last updated:** 2026-07-21
+**Company:** PeakLogic  ·  **Project codename:** Project Vantage
+**Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
+**Status:** 🟡 Draft v2.0 — unified-platform reframe (amendment pending review/approval — see Revision History, end of document; base document remains Approved v1.1 until v1.2–v2.0 are approved)
+**Depends on:** [Vision Document](vision-document.md) (Draft v2), [PRD](prd.md) (Draft v2.0), [SRS](srs.md) (Draft v2.0); prior dependencies ([iOS Application](ios-application.md) #26, [White-Label Estate Branding Design](whitelabel-estate-branding-design.md) #35) unchanged
+**Last updated:** 2026-07-25
+**v2.0 reframe note:** adds the unified-platform entities (§2.10–§2.14) — PeakView360 HMI, PeakLogic Hub fleet, CMMS, compliance, PeakAssist — per PRD/SRS v2.0. **Verified against `docs/data-model.sql`: all are new** (no migrations are written here — that is Database Schema's #10 job in Phase 2, after the spine checkpoint). Naming canonical per `unified-platform-integration-plan.md` §1.
 **Fork note (v1.4):** the first Domain Model amendment specific to the `PeakLogic-Azure` fork's own Azure-pivot feature backlog (PRD/SRS v1.7). See Revision History. The AWS-native `PeakLogic-AWS` repo's own Domain Model is unaffected.
 
 ---
@@ -284,6 +284,99 @@ The entity behind the iOS app's locked §2.1a decision: one person, **not employ
 
 ---
 
+### 2.10 PeakView360 HMI *(new — added v2.0; PRD §5.18 / SRS §3.20)*
+
+The operator layer reuses existing entities wherever possible — **alarms are the existing `Alert` (§2.4), not a new entity; a PeakView360 alarm panel is a projection over `Alert`**. What is genuinely new is the *screen and tag* configuration.
+
+**HmiScreen** *(new — verified absent from `docs/data-model.sql`)* — a configured operator screen for a Site (PV-1.1).
+| Attribute | Notes |
+|---|---|
+| screen_id, tenant_id, site_id | RLS-scoped like every operational entity (`tenant_id` denormalized, §4.1) |
+| name, screen_type | `overview` / `equipment` / `process` |
+| layout (JSONB) | Placement of tiles/tags/widgets; render-target agnostic |
+| help_context_key | The PeakAssist context this screen declares (§2.14, PA-2.1/PA-7.1) — a screen without one fails the release gate |
+
+**Tag** *(new — verified absent)* — a named process point mapping a **source** (a Hub's PLC register, or a Device+metric) to a **canonical metric** shown on screens and the historian (HUB-1.1, PV-1.1/PV-3.1). This is the entity form of the Telemetry Normalization Fabric concept (Platform Services #30).
+| Attribute | Notes |
+|---|---|
+| tag_id, tenant_id, site_id | |
+| hub_id (nullable) | The acquiring Hub (§2.11); null for a cloud-direct device metric |
+| source_ref | PLC address (e.g. Modbus register / OPC-UA node) or `device_id`+`metric` |
+| canonical_metric, unit, scale, offset | Maps a raw source value into the same canonical metric space `Telemetry.metric` already uses — so PeakView360, the historian, and the rule/AI pipeline all see one vocabulary |
+
+**HistorianPen** *(new — verified absent)* — a saved multi-pen trend configuration (PV-3.1). The historian itself reads the existing `telemetry`/`telemetry_hourly` tables — no new time-series store; this entity is just the saved *view*.
+| Attribute | Notes |
+|---|---|
+| pen_id, tenant_id, owner (screen_id or user_id) | |
+| tag_id or metric, color, axis | |
+
+### 2.11 PeakLogic Hub Fleet *(new — added v2.0; PRD §5.19 / SRS §3.21)*
+
+**Hub** *(new — verified absent; reconciles PeakLogic Edge `windows-hub/`, which has no DB entity today)* — a registered on-prem PeakLogic Hub unit. Distinct from `Device`: a Hub is edge *infrastructure* (the acquiring/serving gateway at a site); Devices are the monitored things. A hub-relayed Device (Device Onboarding #27 Path B) acquires through a Hub; a direct-connect Device (Path A) does not.
+| Attribute | Notes |
+|---|---|
+| hub_id, tenant_id, site_id | A Site has **0..\*** Hubs; a Hub belongs to **exactly one** Site |
+| name, hardware_serial | |
+| agent_version, peakassist_content_version | The latter drives PA-5.1's "content current as of…" (§2.14) |
+| status, last_seen_at | Reuses the same online/offline semantics as `devices.status`; silence detection generalizes to Hubs |
+| protocol_config (JSONB) | Which PLC/RTU protocol(s) and endpoints this Hub polls (HUB-1.1) |
+
+A Hub acquires from **0..\*** Devices/Tags; store-and-forwards `Telemetry` to the cloud (HUB-2.1); serves `HmiScreen` live data and `HelpContent` on the LAN (HUB-4.1/HUB-5.1).
+
+### 2.12 CMMS — Work Orders & PM *(new/reconciled — added v2.0; PRD §5.20 / SRS §3.22)*
+
+**WorkOrder** *(new — reconciles the existing `ServiceTicket`, §2.4)* — the generalized maintenance work item. The existing `service_tickets` table (auto-created for critical Alerts) is the **seed**; whether v2.0 **renames/extends `ServiceTicket` into `WorkOrder`** or adds `WorkOrder` as a supertype is a Database Schema (#10) decision, flagged in §6.9 — modeled here conceptually to avoid a parallel duplicate.
+| Attribute | Notes |
+|---|---|
+| work_order_id, tenant_id, asset_id, alert_id (nullable) | `alert_id` set for alarm-driven WOs (CM-2.1), reusing `service_tickets`' existing nullable FK |
+| pm_schedule_id (nullable) | Set for PM-generated WOs (§below) |
+| assigned_to, title, description, priority | |
+| status | `dispatched` → `accepted` → `on_site` → `completed` (the dispatch funnel, #32) — supersedes `service_tickets.status`'s simpler set |
+| source, channel_partner_id, cmms_connector_id, dispatched_at | Per the #32 design (attribution + connector linkage) |
+
+**PMSchedule** *(new — verified absent)* — a recurring preventive-maintenance definition (CM-3.1).
+| Attribute | Notes |
+|---|---|
+| pm_schedule_id, tenant_id, asset_id or category | |
+| interval, next_due_at, template | "Generate due work orders" creates a `WorkOrder` per due schedule |
+
+**ServiceVisit** *(new — ⚠️ design-only: `service_visits` is referenced by the #32 Reporting/KPI design and the AI feedback-loop design but is **NOT an actual table** — verified absent from `docs/data-model.sql`)* — the dispatch-outcome record that closes the detect→dispatch→outcome loop and doubles as AI training labels (AI design §3). Its absence is a real reconciliation finding: two approved/draft designs assume it exists. Building it is Database Schema (#10) work.
+| Attribute | Notes |
+|---|---|
+| visit_id, tenant_id, work_order_id | |
+| outcome, on_site_at, completed_at | `outcome` is the supervised label the AI feedback loop consumes |
+
+### 2.13 Compliance *(new — added v2.0; PRD §5.21 / SRS §3.23)*
+
+**ComplianceReport** *(new — verified absent)* — a generated regulator-relevant report for a period (CP-1.1), operator-assist only (CP-2.1), audit-backed and reproducible (CP-3.1).
+| Attribute | Notes |
+|---|---|
+| report_id, tenant_id, site_id | |
+| template_id | e.g. wastewater `npdes_dmr` (§below) |
+| period_start, period_end, generated_at, status | |
+| content_ref, source_data_ref | Reproducible from retained `telemetry`/`alerts`; `AuditLogEntry` (§2.6) records issuance |
+
+**ComplianceTemplate** *(new — verified absent)* — the report definition per regulation/jurisdiction (platform-scoped, `tenant_id` NULL like Policy Engine platform defaults; per-tenant overrides allowed).
+
+**ExceedanceRecord** *(new — verified absent; largely a projection over `Alert`)* — a logged permit-limit exceedance (CP-4.1). An exceedance is a compliance-specific record over a threshold `Alert` (§2.4) evaluated against a permit limit — modeled separately because a permit limit is a *regulatory* threshold distinct from an operational alarm threshold, and the two can differ.
+
+### 2.14 PeakAssist Content *(new — added v2.0; PRD §5.22 / SRS §3.24)*
+
+Mostly **platform-global** content (`tenant_id` NULL, authored in the cloud CMS), with optional per-tenant overrides — same platform-default-plus-override pattern as the Policy Engine.
+
+**HelpContent** *(new — verified absent; seeded from `sysadmin-guides/` + `user-guides/`)* — a unit of contextual help (PA-3.1).
+| Attribute | Notes |
+|---|---|
+| content_id, help_context_key | The key an `HmiScreen`/cloud page declares (PA-2.1); §2.10's screens reference it |
+| type | `screen_guide` / `procedure` / `alarm_explanation` / `troubleshooting` / `playbook` / `glossary` |
+| title, body, alarm_type (nullable) | `alarm_type` deep-links an `Alert.type` to its explanation (PA-3.1) |
+| content_version | The bundle version this belongs to (below) |
+
+**HelpContentBundle** *(new — verified absent)* — a versioned, checksummed content set synced to Hubs (PA-4.1/PA-5.1).
+| Attribute | Notes |
+|---|---|
+| version, published_at, checksum | A Hub's `peakassist_content_version` (§2.11) points at one of these; drives "content current as of…" |
+
 ## 3. Relationship Diagram
 
 ```mermaid
@@ -375,6 +468,12 @@ PRD §5.15/SRS §3.17 (3DR-1–3DR-3) require a Site or Asset to optionally carr
 ### 6.8 Site geo-coordinates on Azure — confirmed, not re-litigated *(added v1.4)*
 `sites.lat`/`sites.lng` (`DOUBLE PRECISION`, nullable) require no Domain-Model-level change to support GEO-1.1 (SRS §3.16) — they already exist, and Postgres geometry (`DOUBLE PRECISION`, and the existing `postgis` extension already used by Territory's containment query, §2.7) is standard Postgres, portable to Azure Database for PostgreSQL as-is per `azure-restructuring-plan.md` item 10. The concrete confirmation that Azure Database for PostgreSQL supports the installed `postgis` extension version this schema depends on is Database Schema's (#10) job, not re-litigated here — flagged so that artifact doesn't have to rediscover the dependency.
 
+### 6.9 WorkOrder vs. ServiceTicket, and the missing `service_visits` table — flagged for Database Schema *(added v2.0)*
+Two real reconciliation items surfaced while modeling §2.12: (1) whether the unified CMMS `WorkOrder` is a **rename/extension** of the existing `service_tickets` table or a supertype above it — a schema-shape decision deferred to Database Schema (#10), modeled conceptually here to avoid a duplicate; (2) `service_visits` is **referenced by two designs** (Reporting/KPI #32 and the AI feedback loop #34) **but is not an actual table** in `docs/data-model.sql`. That gap is now recorded, not assumed away — the detect→dispatch→outcome loop and the AI's supervised training labels both depend on an entity that has never shipped.
+
+### 6.10 PeakView360 `Tag` vs. the Telemetry Normalization Fabric; PdM asset↔tag mapping — flagged, not urgent *(added v2.0)*
+§2.10's `Tag` entity and Platform Services' (#30) Telemetry Normalization Fabric are the **same concept** at two altitudes (a per-source→canonical-metric mapping) — they must be unified, not built twice, when Platform Services and Database Schema are amended. Separately, MooreView's PdM (asset↔SCADA-tag mapping + feature batching, absorbed per MV-2.1) extends the existing `AiModel`/`AiFinding` (§2.5, `kind='prediction'`) rather than adding a parallel entity; the asset↔tag mapping it needs is exactly §2.10's `Tag`. No new PdM entity is modeled until Tier 2 is actually scoped.
+
 ---
 
 ## 7. Traceability
@@ -384,6 +483,8 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 **Added v1.3:** §2.9 (ChannelPartnerManager, ChannelPartnerManagerAssignment) traces to the iOS Application doc's (#26) locked §2.1a role decision — a real precedent for a downstream artifact forcing a Domain Model amendment, same as §2.7/§2.8's PRD/SRS-driven amendments, except the forcing document is a client-application spec rather than the PRD/SRS directly. No PRD/SRS requirement ID exists yet for this role — flagged in §6 below as an open item for whoever picks up the PRD/SRS amendment this should eventually get.
 
 **Added v1.4:** `Site.lat`/`Site.lng` (§2.2) trace to PRD §5.14/SRS §3.16 (GEO-1.1) as a newly-load-bearing existing attribute, no new entity. The 3D-model-asset-reference concept (PRD §5.15/SRS §3.17) is explicitly *not* traced to a concrete entity yet — see §6.7 — since the PRD itself defers that shape to a dedicated scoping pass.
+
+**Added v2.0:** §2.10 (HmiScreen, Tag, HistorianPen) traces to PRD §5.18/SRS §3.20; §2.11 (Hub) to PRD §5.19/SRS §3.21; §2.12 (WorkOrder, PMSchedule, ServiceVisit) to PRD §5.20/SRS §3.22; §2.13 (ComplianceReport, ComplianceTemplate, ExceedanceRecord) to PRD §5.21/SRS §3.23; §2.14 (HelpContent, HelpContentBundle) to PRD §5.22/SRS §3.24. All verified new against `docs/data-model.sql`; none is authoritative for Database Schema (#10) until this document is Approved. Two reconciliation findings recorded in §6.9–§6.10 (WorkOrder/ServiceTicket shape; `service_visits` referenced-but-absent; Tag ≡ Normalization Fabric).
 
 ---
 
@@ -467,3 +568,15 @@ Every entity/attribute above cites the SRS requirement it formalizes inline, or 
 - **No new entities or tables** — this reuses `devices.last_seen_at` (existing) and emits into the existing `alerts` table (`type` has always been unconstrained TEXT, no CHECK constraint to widen).
 - **A new, narrowly-scoped RLS carve-out on `Tenant`** (migration `1784051700000`, mirrors `app.ingest_context`'s existing precedent): a scheduled sweep needs to enumerate tenant ids before fanning out per-tenant work through the unmodified `withTenant()` — documented in full in the migration's own header comment, not repeated here.
 - **Deliberately out of scope**: a device that has *never* reported at all (`last_seen_at` null) is a different failure mode (onboarding/connectivity, not "was alive, went dark") and isn't flagged by this pass. Per-category severity escalation (e.g. `leak_sensor`/`gas_sensor` silence going straight to `critical`, matching those categories' real-threshold precedent of skipping the warning tier) is flagged as a reasonable follow-up once operational data justifies it, not built speculatively.
+
+**Draft v2.0 (2026-07-25)** — the **unified-platform reframe**, forced by PRD/SRS v2.0 (`../business/unified-product-vision.md`; `unified-platform-integration-plan.md`). First Domain Model amendment in the `PeakLogic-Azure-V2` merger repo; follows Vision Draft v2. Non-silent per §7.
+
+- **Header/naming corrected** to canonical, retiring "PeakView Hub / PeakView 360."
+- **§2.10 added** (PeakView360 HMI): `HmiScreen`, `Tag` (per-source→canonical-metric mapping — the entity form of the Telemetry Normalization Fabric), `HistorianPen`. **Deliberate reuse call: alarms are the existing `Alert` (§2.4), not a new entity** — a PeakView360 alarm panel is a projection over `Alert`; the historian reads existing `telemetry`/`telemetry_hourly`, no new time-series store.
+- **§2.11 added** (PeakLogic Hub fleet): `Hub` — reconciles PeakLogic Edge (`windows-hub/`), which has **no DB entity today**. Modeled as edge infrastructure distinct from `Device`; reuses `devices.status` online/offline semantics.
+- **§2.12 added** (CMMS): `WorkOrder` (reconciles/generalizes existing `service_tickets`), `PMSchedule` (new), `ServiceVisit` — **flagged design-only: `service_visits` is referenced by #32 and #34 but is not an actual table** (verified absent). Real reconciliation finding, recorded in §6.9.
+- **§2.13 added** (compliance): `ComplianceReport`, `ComplianceTemplate`, `ExceedanceRecord` (the last largely a projection over `Alert` against a permit limit).
+- **§2.14 added** (PeakAssist): `HelpContent`, `HelpContentBundle` — platform-global-plus-override pattern (like Policy Engine), seeded from the existing guides corpus; `HmiScreen.help_context_key` binds screens to help (PA-2.1/PA-7.1).
+- **§6.9/§6.10 added** (open questions): WorkOrder/ServiceTicket schema shape + the missing `service_visits` table (→ Database Schema #10); `Tag` ≡ Normalization Fabric unification and PdM reusing `AiModel`/`AiFinding` + `Tag` (→ Platform Services #30 / Tier-2 scoping).
+- **§7 traceability extended.** **Code reconciliation was verification-only** (grep against `docs/data-model.sql`): every §2.10–§2.14 entity confirmed new; no migrations written — that is Database Schema's (#10) job in Phase 2, after the spine checkpoint. The one substantive finding (`service_visits` referenced-but-absent) is carried into Phase 2.
+- **Downstream (sequenced by the integration plan):** Database Schema (#10, the real migrations), API Specification (#11), plus the Phase-2/3 architecture and design docs.

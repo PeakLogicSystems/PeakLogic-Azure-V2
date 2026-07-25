@@ -65,13 +65,15 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 | `README.md` (architecture index) | AMEND | ✅ | Read-first banner pointing here + canonical naming. |
 | Canonical-naming memory | NEW | ✅ | `project_peaklogic_canonical_naming.md` + MEMORY.md index line. |
 
-### Phase 1 — Foundational spine (checkpoint after this phase)
+### Phase 1 — Foundational spine ✅ COMPLETE (checkpoint reached — awaiting user review before Phase 2)
 | # | Artifact | Disposition | Status | Notes |
 |---|---|---|---|---|
 | 1 | Vision Document | REWRITE (→v2) | ✅ | Draft v2: 3-pillar model + PeakAssist; above-SCADA; multi-site/service-provider/compliance targeting; MooreView absorption; per-facility tiers; canonical naming. v1 philosophy preserved. No direct code. |
 | 2 | PRD | AMEND (→v2) | ✅ | Draft v2.0: §5.18–§5.23 (PeakView360, Hubs, CMMS, compliance automation, PeakAssist, MooreView absorption) + roles/scope/naming. CP-5 flagged blocked on outbound-delivery infra. No direct code. |
 | 3 | SRS | AMEND (→v2) | ✅ | Draft v2.0: §3.20–§3.25 mirror PRD §5.18–§5.23; traceability + open-issues (10/11) + naming. No direct code. |
-| 4 | Domain Model | AMEND (→v2) | ⬜ | New entities: Facility/Site first-class, Hub fleet, PeakView360 screens/tags/alarms, PeakAssist content, CMMS work orders/PM schedules, compliance reports, PdM assets. |
+| 4 | Domain Model | AMEND (→v2) | ✅ | Draft v2.0: §2.10–§2.14 (HMI screens/tags, Hub fleet, CMMS, compliance, PeakAssist). Verification-only code reconciliation (all new vs `data-model.sql`); **real finding: `service_visits` referenced by #32/#34 but absent** — carried to Phase 2. No migrations here. |
+
+> **⏸️ CHECKPOINT — the spine is complete. Recommended: pause here for user review before Phase 2** cascades the reframe into ~30 downstream docs (and begins the real code reconciliation at Database Schema #10). Phase 1 was docs-only (the spine carries no direct code); Phase 2 is where migrations/backend changes begin.
 
 ### Phase 2 — Architecture docs needing real additions
 | # | Artifact | Disposition | Status | Notes |
