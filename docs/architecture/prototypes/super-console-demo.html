@@ -342,6 +342,8 @@
   .callout svg { width: 18px; height: 18px; color: var(--accent); flex: none; margin-top: 1px; }
   .callout b { font-weight: 700; }
   .callout code { font-family: var(--mono); font-size: 11.5px; background: var(--surface); padding: 1px 5px; border-radius: 4px; color: var(--accent-ink); }
+  .linklike { background: none; border: none; padding: 0; margin: 0; font: inherit; font-weight: 600; color: var(--accent-ink); cursor: pointer; text-align: left; }
+  .linklike:hover { text-decoration: underline; }
 
   .empty { padding: 40px; text-align: center; color: var(--text-faint); font-size: 13px; }
   .kv { display: grid; grid-template-columns: auto 1fr; gap: 6px 18px; font-size: 12.5px; }
@@ -665,7 +667,18 @@
             { id: "ace-3310-b", name: "Pump Runtime", state: "reporting", metric: "18 min/hr", spark: [16,17,18,18,19,18,18,18], health: "good" } ] } ] },
         { name: "Gandy Blvd Station", lat: 27.881, lng: -82.523, assets: [
           { name: "Overflow Monitor", cat: "leak_sensor", health: "warn", devices: [
-            { id: "ace-3350-a", name: "Overflow Sensor", state: "reporting", metric: "dry", spark: [0,0,0,0,0,0,0,0], health: "warn" } ] } ] } ] },
+            { id: "ace-3350-a", name: "Overflow Sensor", state: "reporting", metric: "dry", spark: [0,0,0,0,0,0,0,0], health: "warn" } ] } ] },
+        { name: "Riverside Water Reclamation Facility", lat: 27.842, lng: -82.418, assets: [
+          { name: "Headworks", cat: "wastewater", health: "good", devices: [
+            { id: "ace-4001-a", name: "Influent Flow Meter", state: "reporting", metric: "2.41 MGD", spark: [1.9,2.0,2.2,2.6,2.8,2.7,2.5,2.41], health: "good" } ] },
+          { name: "Aeration Basin", cat: "wastewater", health: "crit", devices: [
+            { id: "ace-4010-a", name: "Aeration Blower 2 — current", state: "reporting", metric: "63 A ▲", spark: [46,48,52,56,58,60,62,63], health: "crit" },
+            { id: "ace-4010-b", name: "Dissolved Oxygen probe", state: "reporting", metric: "1.9 mg/L", spark: [2.3,2.2,2.4,2.1,2.0,2.1,1.95,1.9], health: "warn" },
+            { id: "ace-4010-c", name: "pH probe", state: "reporting", metric: "pH 7.1", spark: [7.0,7.1,7.2,7.1,7.0,7.1,7.1,7.1], health: "good" },
+            { id: "ace-4010-d", name: "ORP probe (anoxic)", state: "reporting", metric: "-142 mV", spark: [-150,-146,-144,-140,-142,-143,-142,-142], health: "good" } ] },
+          { name: "Secondary Clarifier", cat: "wastewater", health: "good", devices: [
+            { id: "ace-4020-a", name: "RAS Pump", state: "reporting", metric: "running", spark: [1,1,1,1,1,1,1,1], health: "good" },
+            { id: "ace-4020-b", name: "Clarifier Drive", state: "reporting", metric: "torque 22%", spark: [20,21,22,22,21,22,22,22], health: "good" } ] } ] } ] },
 
     // ── Boyette Pump & Well — well pumps + FLOW METERS at pumping stations ──
     { id: "fishhawk", name: "FishHawk Water District", industry: "Water utility", partnerId: "boyette", mgr: "Raj Patel",
@@ -845,7 +858,8 @@
     leak_sensor:  { interval: 15,  metrics: ["moisture", "flow_gpm"],                   fw: "stable-4.2.1", thresholds: "moisture = dry" },
     flow_meter:   { interval: 30,  metrics: ["flow_gpm", "totalizer_gal", "pressure_psi"], fw: "stable-4.2.1", thresholds: "flow 200–1200 GPM · pressure ≤ 65psi" },
     lift_station: { interval: 60,  metrics: ["wet_well_level_pct", "pump_runtime_min", "flow_gpm"], fw: "stable-4.2.1", thresholds: "wet-well ≤ 80%" },
-    roof_moisture:{ interval: 300, metrics: ["moisture_pct", "temp_f"],                 fw: "stable-4.2.1", thresholds: "moisture ≤ 12%" }
+    roof_moisture:{ interval: 300, metrics: ["moisture_pct", "temp_f"],                 fw: "stable-4.2.1", thresholds: "moisture ≤ 12%" },
+    wastewater:   { interval: 30,  metrics: ["do_mgl", "ph", "orp_mv", "blower_amp", "flow_mgd"], fw: "stable-4.2.1", thresholds: "DO ≥ 2.0 mg/L · pH 6.0–9.0" }
   };
 
   // ---------- Device & Firmware Version Catalog (PRD §5.16 FW-1, SRS §3.18 FW-1.1) ----------
@@ -863,7 +877,8 @@
     leak_sensor:  { product: "Leak / moisture sensor",    channels: { stable: ["2.6.2", "2.6.0", "2.5.7"], beta: [] } },
     flow_meter:   { product: "Flow meter",                channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
     lift_station: { product: "Lift-station controller",   channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
-    roof_moisture:{ product: "Roof-moisture grid",        channels: { stable: ["2.6.2"],                   beta: [] } }
+    roof_moisture:{ product: "Roof-moisture grid",        channels: { stable: ["2.6.2"],                   beta: [] } },
+    wastewater:   { product: "Wastewater process controller", channels: { stable: ["4.2.1", "4.1.6"],       beta: ["4.3.0"] } }
   };
 
   // A twin firmware value is stored as "<channel>-<version>" (e.g. "stable-4.2.1").
@@ -951,7 +966,7 @@
     silent:      { label: "Silent", pill: "crit" },
     decommissioned: { label: "Decommissioned", pill: "neutral" }
   };
-  const CAT_LABEL = { pool_system: "Pool system", hvac: "HVAC", refrigeration: "Refrigeration", energy_meter: "Energy meter", leak_sensor: "Leak sensor", pump: "Pump", flow_meter: "Flow meter", lift_station: "Lift station", roof_moisture: "Roof moisture" };
+  const CAT_LABEL = { pool_system: "Pool system", hvac: "HVAC", refrigeration: "Refrigeration", energy_meter: "Energy meter", leak_sensor: "Leak sensor", pump: "Pump", flow_meter: "Flow meter", lift_station: "Lift station", roof_moisture: "Roof moisture", wastewater: "Wastewater" };
 
   // Standard report catalog (reporting-and-kpi-design.md §4.1)
   const STANDARD_REPORTS = [
@@ -2046,42 +2061,44 @@
 
   // ---------- PeakView360 (HMI/SCADA operator screen) ----------
   function viewPeakView360() {
-    const tiles = [
-      { l: "Influent Flow", v: "2.41", u: "MGD", s: "ok", how: "Live flow at the plant headworks, read from the PLC via the on-site Hub.", why: "The plant's load right now — drives aeration and pumping decisions." },
-      { l: "Dissolved O₂ (Aeration)", v: "1.9", u: "mg/L", s: "warn", how: "DO probe in the aerobic zone.", why: "Below the 2.0 mg/L setpoint — under-aeration risks the biology; over-aeration wastes blower energy." },
-      { l: "pH", v: "7.1", u: "", s: "ok", how: "Inline pH at the outfall.", why: "Permit parameter — must stay inside the NPDES band." },
-      { l: "ORP (Anoxic)", v: "-142", u: "mV", s: "ok", how: "Oxidation-reduction potential in the anoxic zone.", why: "Confirms denitrification is happening where it should." },
-      { l: "Blower 2 Current", v: "63", u: "A", s: "crit", how: "Motor current on the #2 aeration blower.", why: "Trending high vs. its own baseline — the AI layer flagged possible bearing wear." },
-      { l: "RAS Pump", v: "Run", u: "", s: "ok", how: "Return activated sludge pump run state.", why: "Keeps the biology recirculating; a stop here backs up the process." },
-    ].map(t => `<div class="stat"><div class="stat__accent" style="background:var(--${t.s === 'ok' ? 'good' : t.s})"></div>
-      <div class="stat__label" style="display:flex;align-items:center;gap:5px">${t.l} ${explain(t.how, t.why)}</div>
-      <div class="stat__value">${t.v}<span style="font-size:15px;color:var(--muted);font-weight:600"> ${t.u}</span></div>
-      <div class="stat__sub">${pvPill(t.s)}</div></div>`).join("");
+    // Data-driven from the REAL estate: Bayfront Municipal District's wastewater
+    // plant, serviced by ACE Septic & Waste. Same site the fleet map, devices,
+    // firmware, CMMS, and compliance views all reference — nothing invented here.
+    const t = tenantById("bayfront");
+    const site = t.sites.find(s => s.name.indexOf("Riverside Water Reclamation") === 0);
+    const p = partnerFor(t);
+    const flat = site.assets.flatMap(a => a.devices.map(d => ({ d, a })));
 
-    const alarms = [
-      { sev: "crit", asset: "Aeration Blower 2", msg: "Motor current high — 63 A vs. ~48 A baseline", ai: "Anomaly 0.82 · consistent with bearing wear", when: "4 min ago", alarmType: "anomaly" },
-      { sev: "warn", asset: "Aerobic Zone", msg: "Dissolved oxygen 1.9 mg/L below 2.0 setpoint", ai: "Threshold", when: "12 min ago", alarmType: "threshold" },
-    ].map(a => `<tr>
-      <td class="sev-cell"><span class="sev-stripe" style="background:var(--${a.sev})"></span></td>
-      <td><div class="row-main"><span class="strong">${esc(a.asset)}</span><span class="row-sub">${esc(a.msg)}</span></div></td>
-      <td class="muted" style="font-size:12px">${esc(a.ai)}</td>
-      <td class="mono muted" style="font-size:12px">${a.when}</td>
-      <td style="text-align:right"><button class="btn btn--ghost btn--sm" data-action="toast:Alarm acknowledged — ${esc(a.asset)}">Ack</button>
-        <button class="btn btn--ghost btn--sm" data-action="help-alarm:${a.alarmType}" title="What does this alarm mean?">?</button></td></tr>`).join("");
+    const tiles = flat.map(({ d }) => `<div class="stat"><div class="stat__accent" style="background:var(--${d.health})"></div>
+      <div class="stat__label">${esc(d.name)}</div>
+      <div class="stat__value" style="font-size:25px">${esc(d.metric)}</div>
+      <div class="stat__sub">${pvPill(d.health === 'good' ? 'ok' : d.health)}</div></div>`).join("");
 
+    const alarms = flat.filter(x => x.d.health !== "good").sort((a, b) => HRANK[b.d.health] - HRANK[a.d.health]).map(({ d, a }) => {
+      const isCrit = d.health === "crit";
+      return `<tr>
+      <td class="sev-cell"><span class="sev-stripe" style="background:var(--${d.health})"></span></td>
+      <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(a.name)} · ${esc(d.metric)}</span></div></td>
+      <td class="muted" style="font-size:12px">${isCrit ? "Anomaly 0.82 · above learned baseline" : "Threshold — below setpoint"}</td>
+      <td style="text-align:right"><button class="btn btn--ghost btn--sm" data-action="toast:Alarm acknowledged — ${esc(d.name)}">Ack</button>
+        <button class="btn btn--ghost btn--sm" data-action="help-alarm:${isCrit ? "anomaly" : "threshold"}" title="What does this alarm mean?">?</button></td></tr>`;
+    }).join("");
+
+    const doDev = flat.find(x => x.d.name.indexOf("Dissolved Oxygen") === 0).d;
+    const flowDev = flat.find(x => x.d.name.indexOf("Influent Flow") === 0).d;
     const trend = penChart([
-      { label: "Dissolved O₂ (mg/L)", color: "#7c3aed", data: [2.3, 2.2, 2.4, 2.1, 2.0, 2.1, 1.95, 1.9, 1.9] },
-      { label: "Influent Flow (MGD)", color: "#22c55e", data: [1.9, 2.0, 2.2, 2.6, 2.8, 2.7, 2.5, 2.45, 2.41] },
+      { label: "Dissolved O₂ (mg/L)", color: "#7c3aed", data: doDev.spark },
+      { label: "Influent Flow (MGD)", color: "#22c55e", data: flowDev.spark },
     ]);
 
     return `
-      <div class="page-head"><h1>PeakView360 — MLE Wastewater Plant</h1>
-        <p>Live operator screen · Riverview, FL. Rendered from the on-site <b>PeakLogic Hub</b> over the LAN — keeps working if the internet drops — with history and cross-site views from the cloud.</p></div>
+      <div class="page-head"><h1>PeakView360 — ${esc(site.name)}</h1>
+        <p>Live operator screen · customer <b>${esc(t.name)}</b> · serviced by <b>${esc(p.name)}</b>. Rendered from the on-site <b>PeakLogic Hub</b> over the LAN — keeps working if the internet drops — with history and cross-site views from the cloud. This is exactly what the plant's own operators see when they sign in, scoped to just their site.</p></div>
       <div class="stats">${tiles}</div>
       <div class="grid2" style="margin-top:22px">
         <div class="panel">
           <div class="panel__head"><span class="panel__title">Active alarms</span><span class="panel__note">docked · acknowledge in place</span></div>
-          <table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset · condition</th><th>Insight</th><th>When</th><th></th></tr></thead>
+          <table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset · condition</th><th>Insight</th><th></th></tr></thead>
             <tbody>${alarms}</tbody></table>
         </div>
         <div class="panel">
@@ -2090,27 +2107,43 @@
         </div>
       </div>
       <div class="callout" style="margin-top:22px">${INFO_ICON}
-        <div><b>Above SCADA, never replacing it.</b> PeakView360 visualizes and supervises — it does not run the plant's safety-rated PLC control logic. The AI insight on Blower 2 (an <i>anomaly</i>, capped at warning) surfaces right beside the live value that triggered it; a one-click work order (CMMS) turns it into a dispatched technician. Live data is served <b>Hub-local</b> for offline resilience.</div></div>`;
+        <div><b>Above SCADA, never replacing it.</b> PeakView360 visualizes and supervises — it does not run the plant's safety-rated PLC control logic. The AI insight on <b>Aeration Blower 2</b> (an <i>anomaly</i>, capped at warning) surfaces beside the live value that triggered it; a one-click work order dispatches it to <b>${esc(p.name)}</b>'s CMMS. Live data is served <b>Hub-local</b> for offline resilience.</div></div>`;
   }
 
   // ---------- PeakLogic Hubs (on-prem edge fleet) ----------
-  const HUBS = [
-    { id: "hub-mle-01", site: "MLE Wastewater Plant", org: "Riverview Ag & Irrigation", status: "online", agent: "1.4.2", content: "2026.07.1", protocols: "Modbus TCP · OPC-UA", tags: 82, seen: "just now" },
-    { id: "hub-ballast", site: "Ballast Point Lift Station", org: "City Water District", status: "online", agent: "1.4.2", content: "2026.07.1", protocols: "Modbus TCP", tags: 24, seen: "1 min ago" },
-    { id: "hub-gandy", site: "Gandy Blvd Station", org: "City Water District", status: "online", agent: "1.4.1", content: "2026.06.2", protocols: "Modbus TCP", tags: 18, seen: "2 min ago" },
-    { id: "hub-cold-01", site: "Tampa Cold Logistics — DC1", org: "Tampa Cold Logistics", status: "offline", agent: "1.4.2", content: "2026.07.1", protocols: "OPC-UA · EtherNet/IP", tags: 46, seen: "14 min ago" },
-    { id: "hub-coastal", site: "Coastal Kitchen — Riverview", org: "Coastal Kitchen Restaurants", status: "online", agent: "1.4.2", content: "2026.07.1", protocols: "Modbus TCP", tags: 12, seen: "just now" },
-    { id: "hub-brisa", site: "Brisa Pilot — QSR Group", org: "Brisa Pilot — QSR Group", status: "provisioning", agent: "1.4.2", content: "2026.07.1", protocols: "— (setup)", tags: 0, seen: "—" },
-  ];
+  // Derived from the REAL estate: one Hub per physically-located site. Status is
+  // derived from the site's device states (a silent device -> the Hub can't reach
+  // it -> offline; a provisioning device -> the Hub is still being set up), so the
+  // edge fleet can never disagree with the devices it acquires.
+  function fleetHubs() {
+    const hubs = [];
+    TENANTS.forEach(t => t.sites.forEach((s, si) => {
+      if (s.lat == null) return;
+      const states = s.assets.flatMap(a => a.devices.map(d => d.state));
+      const status = states.includes("provisioning") ? "provisioning" : states.includes("silent") ? "offline" : "online";
+      const cats = [...new Set(s.assets.map(a => a.cat))];
+      const protocols = status === "provisioning" ? "— (setup)"
+        : (cats.includes("wastewater") || cats.includes("energy_meter")) ? "Modbus TCP · OPC-UA"
+        : cats.includes("refrigeration") ? "OPC-UA · EtherNet/IP" : "Modbus TCP";
+      let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
+      const content = h % 5 === 0 ? "2026.06.2" : "2026.07.1";
+      const tags = status === "provisioning" ? 0 : s.assets.reduce((a, x) => a + x.devices.length, 0) * 6 + 6;
+      hubs.push({ id: `hub-${t.id}-${si + 1}`, orgId: t.id, org: t.name, site: s.name, status, protocols, content,
+        agent: content === "2026.06.2" ? "1.4.1" : "1.4.2", tags,
+        seen: status === "online" ? "just now" : status === "offline" ? "17 min ago" : "—" });
+    }));
+    return hubs;
+  }
   function viewHubs() {
-    const online = HUBS.filter(h => h.status === "online").length;
-    const stale = HUBS.filter(h => h.content !== "2026.07.1").length;
+    const hubs = fleetHubs();
+    const online = hubs.filter(h => h.status === "online").length;
+    const stale = hubs.filter(h => h.content !== "2026.07.1").length;
     const stats = [
-      { label: "Hubs online", value: `${online} / ${HUBS.length}`, sub: `${HUBS.length - online} offline or provisioning`, accent: online === HUBS.length ? "var(--good)" : "var(--warn)" },
-      { label: "Tags acquired", value: HUBS.reduce((a, h) => a + h.tags, 0), sub: "PLC/RTU points across the fleet", accent: "var(--accent)" },
-      { label: "PeakAssist content", value: `${HUBS.length - stale} current`, sub: `${stale} Hub(s) behind v2026.07.1`, accent: stale ? "var(--warn)" : "var(--good)" },
+      { label: "Hubs online", value: `${online} / ${hubs.length}`, sub: `${hubs.length - online} offline or provisioning`, accent: online === hubs.length ? "var(--good)" : "var(--warn)" },
+      { label: "Tags acquired", value: hubs.reduce((a, h) => a + h.tags, 0), sub: "PLC/RTU points across the fleet", accent: "var(--accent)" },
+      { label: "PeakAssist content", value: `${hubs.length - stale} current`, sub: `${stale} Hub(s) behind v2026.07.1`, accent: stale ? "var(--warn)" : "var(--good)" },
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
-    const rows = HUBS.map(h => `<tr>
+    const rows = hubs.map(h => `<tr class="clickable" data-action="manage-tenant:${h.orgId}">
       <td class="mono strong">${esc(h.id)}</td>
       <td><div class="row-main"><span class="strong">${esc(h.site)}</span><span class="row-sub">${esc(h.org)}</span></div></td>
       <td>${pvPill(h.status)}</td>
@@ -2121,71 +2154,91 @@
       <td class="mono muted">${h.seen}</td></tr>`).join("");
     return `
       <div class="page-head"><h1>PeakLogic Hubs</h1>
-        <p>The on-prem edge fleet — each Hub acquires from PLCs/RTUs, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN (offline-capable), and store-and-forwards to the cloud over an outbound-only connection.</p></div>
+        <p>The on-prem edge fleet — each Hub acquires from PLCs/RTUs, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN (offline-capable), and store-and-forwards to the cloud over an outbound-only connection. Click a Hub to open its customer.</p></div>
       <div class="stats">${stats}</div>
       <div class="panel" style="margin-top:22px">
-        <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${HUBS.length} Hubs · fan-out per org</span></div>
+        <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${hubs.length} Hubs · one per located site · fan-out per org</span></div>
         <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Protocols</th><th>Tags</th><th>Agent</th><th>PeakAssist</th><th>Last seen</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
       <div class="callout" style="margin-top:20px">${INFO_ICON}
-        <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. <code>hub-cold-01</code> is offline — its site keeps operating on Hub-local PeakView360, but cloud sync is paused until it reconnects. <code>hub-gandy</code> is a content version behind and will pull the newer PeakAssist bundle on its next sync.</div></div>`;
+        <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. An offline Hub's site keeps operating on Hub-local PeakView360 while cloud sync pauses; a Hub a content version behind pulls the newer PeakAssist bundle on its next sync.</div></div>`;
   }
 
   // ---------- CMMS (work orders + PM schedules) ----------
-  const WORK_ORDERS = [
-    { id: "WO-4821", asset: "Aeration Blower 2 · MLE Plant", src: "automated", origin: "Anomaly alarm", status: "on_site", tech: "Boyette Pump & Well", when: "today" },
-    { id: "WO-4818", asset: "Grease Trap · Coastal Kitchen", src: "automated", origin: "Critical alarm", status: "accepted", tech: "ACE Septic & Waste", when: "today" },
-    { id: "WO-4815", asset: "Duplex Lift Station · Ballast Pt", src: "pm", origin: "PM schedule", status: "dispatched", tech: "Boyette Pump & Well", when: "today" },
-    { id: "WO-4809", asset: "Rack Compressor A · Cold Log.", src: "automated", origin: "Critical alarm", status: "completed", tech: "Brisa Climate", when: "yesterday" },
-    { id: "WO-4802", asset: "Clarifier Drive · MLE Plant", src: "pm", origin: "PM schedule", status: "completed", tech: "Boyette Pump & Well", when: "2 days ago" },
-  ];
+  // Work orders are DERIVED from the same real alarms the fleet shows, each
+  // dispatched to the servicing channel partner of the customer whose asset
+  // alarmed (tenant.partnerId -> partnerFor). This is the CMMS↔partner↔customer
+  // chain: customer alarm -> auto work order -> that customer's partner's CMMS.
+  const WO_STATUS_PILL = { dispatched: '<span class="pill pill--neutral"><span class="dot"></span>Dispatched</span>', accepted: '<span class="pill pill--info"><span class="dot"></span>Accepted</span>', on_site: '<span class="pill pill--warn"><span class="dot"></span>On site</span>', completed: '<span class="pill pill--good"><span class="dot"></span>Completed</span>' };
+  function fleetWorkOrders() {
+    return needsAttention().map((r, i) => {
+      const t = tenantById(r.orgId);
+      const p = partnerFor(t);
+      const tech = p ? (p.technicians.find(x => x.status === "on-route") || p.technicians[0]) : null;
+      const status = r.health === "crit" ? (i % 2 === 0 ? "on_site" : "accepted") : (i % 3 === 0 ? "dispatched" : i % 3 === 1 ? "accepted" : "completed");
+      return { id: "WO-" + (4830 - i), r, t, p, tech, status, origin: r.health === "crit" ? "Critical / anomaly alarm" : "Warning alarm" };
+    });
+  }
   const PM_SCHED = [
-    { title: "Quarterly blower service", scope: "category: pump/blower", every: "90 days", next: "in 6 days" },
-    { title: "Monthly lift-station inspection", scope: "asset: Duplex Lift Station", every: "30 days", next: "in 2 days" },
-    { title: "Semi-annual clarifier drive PM", scope: "asset: Clarifier Drive", every: "180 days", next: "in 71 days" },
-    { title: "Weekly probe calibration check", scope: "category: pool_chemistry", every: "7 days", next: "tomorrow" },
+    { title: "Quarterly aeration-blower service", scope: "Aeration Basin · Riverside WRF", every: "90 days", next: "in 6 days", warn: false },
+    { title: "Monthly lift-station inspection", scope: "Duplex Lift Station · Bayfront", every: "30 days", next: "in 2 days", warn: true },
+    { title: "Semi-annual clarifier-drive PM", scope: "Secondary Clarifier · Riverside WRF", every: "180 days", next: "in 71 days", warn: false },
+    { title: "Weekly pool-probe calibration", scope: "Competition Pool · Sunset Aquatic", every: "7 days", next: "tomorrow", warn: true },
   ];
   function viewCmms() {
-    const woStatusPill = (s) => ({ dispatched: '<span class="pill pill--neutral"><span class="dot"></span>Dispatched</span>', accepted: '<span class="pill pill--info"><span class="dot"></span>Accepted</span>', on_site: '<span class="pill pill--warn"><span class="dot"></span>On site</span>', completed: '<span class="pill pill--good"><span class="dot"></span>Completed</span>' }[s]);
-    const open = WORK_ORDERS.filter(w => w.status !== "completed").length;
-    const auto = WORK_ORDERS.filter(w => w.src === "automated").length;
+    const wos = fleetWorkOrders();
+    const ff = fleetFunnel();
+    const open = wos.filter(w => w.status !== "completed").length;
     const stats = [
-      { label: "Open work orders", value: open, sub: `${WORK_ORDERS.length - open} completed recently`, accent: "var(--info)" },
-      { label: "Alarm-driven", value: auto, sub: "auto-created from critical/anomaly alarms", accent: "var(--accent)" },
-      { label: "PM schedules", value: PM_SCHED.length, sub: "recurring preventive maintenance", accent: "var(--good)" },
+      { label: "Open work orders", value: open, sub: `${wos.length} total, all alarm-driven`, accent: "var(--info)" },
+      { label: "Dispatched → on-site", value: conversionPct(ff) + "%", sub: `${ff.onsite.toLocaleString()} on-site of ${ff.dispatched.toLocaleString()} dispatched`, accent: "var(--good)" },
+      { label: "PM schedules", value: PM_SCHED.length, sub: "recurring preventive maintenance", accent: "var(--accent)" },
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
-    const woRows = WORK_ORDERS.map(w => `<tr>
+    const woRows = wos.map(w => `<tr>
       <td class="mono strong">${w.id}</td>
-      <td class="strong">${esc(w.asset)}</td>
-      <td>${w.src === "pm" ? '<span class="pill pill--neutral"><span class="dot"></span>PM</span>' : '<span class="pill pill--info"><span class="dot"></span>Auto</span>'} <span class="muted" style="font-size:12px">${esc(w.origin)}</span></td>
-      <td>${woStatusPill(w.status)}</td>
-      <td class="muted">${esc(w.tech)}</td>
-      <td class="mono muted">${w.when}</td></tr>`).join("");
+      <td><button class="linklike" data-action="manage-tenant:${w.t.id}" title="Act as this customer">${esc(w.t.name)}</button></td>
+      <td><div class="row-main"><span class="strong">${esc(w.r.device)}</span><span class="row-sub">${esc(w.r.site)}</span></div></td>
+      <td>${w.p ? `<button class="linklike" data-action="manage-partner:${w.p.id}" title="Act as this channel partner">${esc(w.p.name)}</button>` : '<span class="muted">Direct</span>'}</td>
+      <td>${w.r.health === "crit" ? '<span class="pill pill--crit"><span class="dot"></span>Critical</span>' : '<span class="pill pill--warn"><span class="dot"></span>Warning</span>'} <span class="muted" style="font-size:11.5px">${esc(w.origin)}</span></td>
+      <td>${WO_STATUS_PILL[w.status]}</td>
+      <td class="muted">${w.tech ? esc(w.tech.name) : "—"}</td></tr>`).join("");
     const pmRows = PM_SCHED.map(p => `<tr>
       <td class="strong">${esc(p.title)}</td>
       <td class="mono muted">${esc(p.scope)}</td>
       <td class="num muted">${p.every}</td>
-      <td>${p.next === "tomorrow" || p.next.includes("2 days") ? `<span class="pill pill--warn"><span class="dot"></span>Due ${p.next}</span>` : `<span class="pill pill--neutral"><span class="dot"></span>Due ${p.next}</span>`}</td></tr>`).join("");
+      <td>${p.warn ? `<span class="pill pill--warn"><span class="dot"></span>Due ${p.next}</span>` : `<span class="pill pill--neutral"><span class="dot"></span>Due ${p.next}</span>`}</td></tr>`).join("");
     return `
       <div class="page-head"><h1>CMMS — Work Orders &amp; PM</h1>
-        <p>Built-in maintenance workflow. A critical or anomaly alarm auto-creates a work order and dispatches it; preventive-maintenance schedules generate work orders when due. The dispatched → on-site → completed funnel feeds the conversion KPI.</p></div>
+        <p>Fleet-wide maintenance queue. Every work order started as an alarm on a <b>customer's</b> asset, auto-created here, and was dispatched to that customer's servicing <b>channel partner's</b> CMMS. Click a customer or a partner to open it in its own scoped view.</p></div>
       <div class="stats">${stats}</div>
-      <div class="panel" style="margin-top:22px">
+      <div class="callout" style="margin:22px 0">${INFO_ICON}
+        <div><b>How CMMS ties customers and channel partners together — and keeps them separated.</b>
+        A work order flows <b>customer alarm → auto work order → the customer's partner's CMMS → partner technician → funnel</b>.
+        Data stays segregated by who signs in: a <b>customer</b> (PeakLogicCustomers directory) sees only their own sites and tickets — never another customer, never the partner's technician roster.
+        A <b>channel partner</b> (PeakLogicPartners directory) sees only work orders for the accounts assigned to them, plus their own techs and routes — operational scope only, never a customer's full admin.
+        You (PeakLogic staff) see all of it here via <b>fan-out</b>, every act-as session audited. Click any <b>Customer</b> or <b>Dispatched to</b> link below to enter that scoped context and see the boundary hold.</div></div>
+      <div class="panel" style="margin-top:6px">
         <div class="panel__head"><span class="panel__title">Work orders</span>
           <span class="panel__note"><button class="btn btn--ghost btn--sm" data-action="toast:PM due check run — new work orders generated">Generate due PM work orders</button></span></div>
-        <table class="tbl"><thead><tr><th>WO</th><th>Asset</th><th>Origin</th><th>Status</th><th>Assigned</th><th>Updated</th></tr></thead>
+        <table class="tbl"><thead><tr><th>WO</th><th>Customer</th><th>Asset · site</th><th>Dispatched to</th><th>Origin</th><th>Status</th><th>Technician</th></tr></thead>
           <tbody>${woRows}</tbody></table></div>
-      <div class="panel" style="margin-top:22px">
-        <div class="panel__head"><span class="panel__title">PM schedules</span><span class="panel__note">${PM_SCHED.length} active</span></div>
-        <table class="tbl"><thead><tr><th>Schedule</th><th>Scope</th><th>Interval</th><th>Next due</th></tr></thead>
-          <tbody>${pmRows}</tbody></table></div>
+      <div class="grid2" style="margin-top:22px">
+        <div class="panel">
+          <div class="panel__head"><span class="panel__title">Dispatch → service-call conversion</span><span class="panel__note">fleet · sum of partner funnels</span></div>
+          <div style="padding:14px 18px">${renderFunnel(ff)}</div>
+        </div>
+        <div class="panel">
+          <div class="panel__head"><span class="panel__title">PM schedules</span><span class="panel__note">${PM_SCHED.length} active</span></div>
+          <table class="tbl"><thead><tr><th>Schedule</th><th>Scope</th><th>Interval</th><th>Next due</th></tr></thead>
+            <tbody>${pmRows}</tbody></table></div>
+      </div>
       <div class="callout" style="margin-top:20px">${INFO_ICON}
-        <div>Work orders are the existing service-ticket record extended with the full <code>dispatched → accepted → on_site → completed</code> funnel — one creation path, whether the trigger is an alarm or a PM schedule. Each completed visit's outcome doubles as a training label for the AI layer (detect → dispatch → outcome → learn).</div></div>`;
+        <div>A work order is the existing service-ticket record extended with the full <code>dispatched → accepted → on_site → completed</code> funnel — one creation path, whether the trigger is an alarm or a PM schedule. Each completed visit's outcome doubles as a training label for the AI layer (detect → dispatch → outcome → learn).</div></div>`;
   }
 
   // ---------- Compliance (DMR automation) ----------
   const DMR = {
-    site: "MLE Wastewater Plant", period: "June 2026", permit: "NPDES · FL0-XXXXXX",
+    site: "Riverside Water Reclamation Facility", tenantId: "bayfront", period: "June 2026", permit: "NPDES · FL0-124987",
     params: [
       { p: "Flow", unit: "MGD", n: 30, min: "1.8", max: "3.1", avg: "2.4", limit: "4.0 (max)", ok: true },
       { p: "pH", unit: "s.u.", n: 30, min: "6.9", max: "7.6", avg: "7.2", limit: "6.0–9.0", ok: true },
@@ -2209,9 +2262,10 @@
       { label: "Exceedances", value: exceed, sub: exceed ? "flagged for the operator" : "none this period", accent: exceed ? "var(--crit)" : "var(--good)" },
       { label: "Coverage gaps", value: gaps, sub: "parameters with no data — shown, not interpolated", accent: gaps ? "var(--warn)" : "var(--good)" },
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+    const dt = tenantById(DMR.tenantId); const dp = partnerFor(dt);
     return `
       <div class="page-head"><h1>Compliance — Discharge Monitoring Report</h1>
-        <p>Automated NPDES/DMR compilation for <b>${esc(DMR.site)}</b> · ${esc(DMR.permit)}. Generated from the period's retained monitoring data — the operator remains the filer of record.</p></div>
+        <p>Automated NPDES/DMR compilation for <b>${esc(DMR.site)}</b> · customer <b>${esc(dt.name)}</b> · ${esc(DMR.permit)}. Generated from the period's retained monitoring data — the operator remains the filer of record. Serviced by ${esc(dp.name)}.</p></div>
       <div class="stats">${stats}</div>
       <div class="panel" style="margin-top:22px">
         <div class="panel__head"><span class="panel__title">${esc(DMR.period)} — parameter summary</span>
