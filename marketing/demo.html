@@ -35,6 +35,11 @@
 
   .grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; margin: 28px 0; }
   @media (max-width: 720px) { .grid { grid-template-columns: 1fr; } }
+  .grid.grid-3 { grid-template-columns: repeat(3, 1fr); }
+  @media (max-width: 900px) { .grid.grid-3 { grid-template-columns: 1fr; } }
+  .pv { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 600; color: #7dd3fc; background: rgba(56,189,248,.12); border-radius: 999px; padding: 2px 9px; }
+  .pv-band { background: rgba(56,189,248,.06); border-color: rgba(56,189,248,.22); }
+  .pv-band a { color: #7dd3fc; }
 
   .card { background: linear-gradient(180deg, var(--panel), var(--panel2)); border: 1px solid var(--line); border-radius: 16px; padding: 20px; display: flex; flex-direction: column; gap: 10px; transition: border-color .15s, transform .15s; }
   .card:hover { border-color: #3b4d78; }
@@ -88,56 +93,52 @@
   </header>
 
   <section class="hero">
-    <h1>One core. Four surfaces. <span class="g">Every audience.</span></h1>
-    <p>The same <b>PeakLogicSystems</b> cloud core runs every experience below. Each surface is a <b>separate app for a different audience</b>, with its own login and its own slice of the data — that separation is the platform, not a limitation. Launch any of them.</p>
+    <h1>One core. Three portals. <span class="g">One operator app.</span></h1>
+    <p>The same <b>PeakLogicSystems</b> cloud core runs <b>three portals</b> — one per audience, each with its own login and its own slice of the data. <b>PeakView360</b>, the live operator view, runs <b>inside</b> all three — it is not a separate login. That separation is the platform, not a limitation.</p>
   </section>
 
-  <!-- The surfaces -->
-  <div class="grid">
+  <!-- The three portals -->
+  <div class="grid grid-3">
     <div class="card">
       <div class="head">
         <h3 class="t-partner">Channel Partner Portal</h3>
         <span class="aud a-partner">Service partners</span>
       </div>
       <p>A service company's book of business across all of <em>their</em> customers: sites/pools, devices (set up, monitor, control), work orders, and the Facility Builder. White-labeled per partner.</p>
-      <p class="who"><b>Who logs in:</b> Ace Septic &amp; Waste, WTR DR — the companies that install &amp; service the equipment. <b>Switch between them live in the header.</b></p>
+      <p class="who"><b>Who logs in:</b> Ace Septic &amp; Waste, WTR DR — the companies that install &amp; service the equipment. Switch between them live in the header.<br><span class="pv">▸ Launches PeakView360</span></p>
       <div class="actions"><a class="btn open" href="http://localhost:5174" target="_blank" rel="noreferrer">Open portal ↗</a><span class="port">:5174</span></div>
     </div>
 
     <div class="card">
       <div class="head">
-        <h3 class="t-operator">PeakView360</h3>
-        <span class="aud a-operator">Plant operators</span>
-      </div>
-      <p>The HMI/SCADA operator surface: live process screens, alarms, historian trends, equipment PdM, and an interactive Facility View. Served by the on-site <b>Hub over the LAN</b> — works even if the internet is down.</p>
-      <p class="who"><b>Who logs in:</b> the operator standing at the plant/site. A distinct client because it runs at the edge, offline-capable.</p>
-      <div class="actions"><a class="btn open" href="http://localhost:5175" target="_blank" rel="noreferrer">Open PeakView360 ↗</a><span class="port">:5175</span></div>
-    </div>
-
-    <div class="card">
-      <div class="head">
-        <h3 class="t-tenant">Customer / Tenant App</h3>
+        <h3 class="t-tenant">Customer Portal</h3>
         <span class="aud a-tenant">End customers</span>
       </div>
-      <p>The customer's own view of only <em>their</em> sites &amp; devices — health, alerts, reports. A municipality, an HOA, or a homeowner sees this.</p>
-      <p class="who"><b>Who logs in:</b> a <b>customer of Ace or WTR DR</b> (e.g., the HOA whose pool WTR DR services) — <b>not</b> the partner portal. Different audience, different data.</p>
-      <div class="actions"><a class="btn open" href="http://localhost:5173" target="_blank" rel="noreferrer">Open tenant app ↗</a><span class="port">:5173</span></div>
+      <p>The customer's own view of only <em>their</em> sites &amp; devices — health, alerts, and compliance reports. A municipality, an HOA, or a homeowner sees this.</p>
+      <p class="who"><b>Who logs in:</b> a <b>customer of a partner</b> (e.g., Bayfront Municipal District, serviced by Ace) — <b>not</b> the partner portal. Different audience, different data.<br><span class="pv">▸ Launches PeakView360</span></p>
+      <div class="actions"><a class="btn open" href="http://localhost:5176" target="_blank" rel="noreferrer">Open portal ↗</a><span class="port">:5176</span></div>
     </div>
 
     <div class="card">
       <div class="head">
-        <h3 class="t-staff">Platform Control Center</h3>
+        <h3 class="t-staff">Control Center</h3>
         <span class="aud a-staff">PeakLogic staff</span>
       </div>
-      <p>PeakLogic's own command plane: fleet-wide device lifecycle, release channels, drift &amp; compliance, and support — across every tenant, at scale.</p>
-      <p class="who"><b>Who logs in:</b> PeakLogic operators. Never a customer or partner.</p>
-      <div class="actions"><span class="btn soon">Roadmapped</span></div>
+      <p>PeakLogic's own command plane — the <b>updated &amp; revised Super Admin Console</b> (the Platform Control Center): fleet-wide device lifecycle, release channels, drift &amp; compliance, and support across every tenant, at scale.</p>
+      <p class="who"><b>Who logs in:</b> PeakLogic operators. Never a customer or partner.<br><span class="pv">▸ Launches PeakView360</span></p>
+      <div class="actions"><span class="btn soon">Designed · SPA build next</span></div>
     </div>
+  </div>
+
+  <!-- PeakView360 — the operator app inside every portal -->
+  <div class="layer pv-band">
+    <span class="lbl" style="min-width:96px">Operator app</span>
+    <span class="body"><b>PeakView360</b> — the live HMI/SCADA view (process screens, alarms, historian trends, equipment PdM, interactive Facility View). <b>Launched from within any portal</b> for a given site — served by the on-site <b>Hub over the LAN</b>, offline-capable. It is <b>not a separate login surface</b>. <a href="http://localhost:5175" target="_blank" rel="noreferrer">Preview it standalone ↗ :5175</a></span>
   </div>
 
   <div class="callout">
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style="flex-shrink:0;margin-top:1px"><circle cx="12" cy="12" r="9" stroke="#38BDF8" stroke-width="2"/><path d="M12 8v5" stroke="#38BDF8" stroke-width="2" stroke-linecap="round"/><circle cx="12" cy="16" r="1" fill="#38BDF8"/></svg>
-    <span><b>The hierarchy, plainly:</b> a customer of Ace does <b>not</b> see Ace's partner portal — they log into the <b>Tenant App</b> (their sites only). Ace sees the <b>Partner Portal</b> (all their customers). The plant operator uses <b>PeakView360</b> at the site. PeakLogic staff run the <b>Platform Control Center</b>. Four audiences, one core.</span>
+    <span><b>The hierarchy, plainly:</b> a customer of Ace logs into the <b>Customer Portal</b> (their sites only) — not Ace's partner portal. Ace uses the <b>Channel Partner Portal</b> (all their customers). PeakLogic staff run the <b>Control Center</b>. And <b>PeakView360</b> opens <em>inside</em> any of these for a live site view. Three portals, one operator app, one core.</span>
   </div>
 
   <!-- Edge + core layers -->
@@ -150,7 +151,7 @@
     <span class="body"><b>PeakLogicSystems</b> — the multi-tenant Azure cloud: row-level-security data plane, IoT ingestion, AI analytics, CMMS, compliance automation, and an immutable audit log. Every surface above is a view onto this one core, scoped to who's looking.</span>
   </div>
 
-  <p class="note">Local preview. Launch each app's dev server first (partner portal :5174, PeakView360 :5175, tenant app :5173). Data is preview/demo — no backend wired.</p>
+  <p class="note">Local preview. Launch each app's dev server first (Channel Partner Portal :5174, Customer Portal :5176, PeakView360 :5175). Data is preview/demo — no backend wired.</p>
 
   <footer>
     <span>Powered by</span>
