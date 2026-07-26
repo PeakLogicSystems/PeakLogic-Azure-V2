@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { Construction, Loader2 } from 'lucide-react';
 import { AppShell } from './components/AppShell';
+import { Equipment } from './screens/Equipment';
 import { OperatorScreen } from './screens/OperatorScreen';
 import { PeakViewProvider } from './store';
 import { ThemeProvider } from './theme';
@@ -26,10 +27,7 @@ export function App() {
                   </Suspense>
                 }
               />
-              <Route
-                path="/equipment"
-                element={<ComingSoon title="Equipment dashboard" note="Per-asset live telemetry, trend, and (Intelligence tier) a PdM health score that one-clicks into a CMMS work order (PV-4)." />}
-              />
+              <Route path="/equipment" element={<Equipment />} />
               <Route
                 path="/facility"
                 element={<ComingSoon title="Facility visualization" note="A fast 2D process schematic by default; the 3D view is an opt-in mode (PV-5)." />}
