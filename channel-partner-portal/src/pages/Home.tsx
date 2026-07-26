@@ -1,25 +1,27 @@
 import { Link } from 'react-router-dom';
-import { Activity, Boxes, ChevronRight, MapPin, Radio, TicketCheck, TriangleAlert, Wrench } from 'lucide-react';
-import { kpis, openTickets, siteById, SITES } from '@/data/ace';
+import { Activity, ChevronRight, MapPin, Radio, TicketCheck, TriangleAlert, Waves, Wrench } from 'lucide-react';
+import { usePartner } from '@/PartnerContext';
+import { kpis, openTickets, siteById } from '@/data/types';
 import { HealthPill, PriorityTag, TicketStatusTag } from '@/components/ui';
 
-// The channel partner's home dashboard: every site they service (across their
-// customers), fleet health at a glance, and their open work. Deep links into a
-// site (devices, control, facility, tickets).
+// The partner's home dashboard: every site/pool they service (across customers),
+// fleet health at a glance, and open work. Reads the active partner's data + its
+// vertical terminology.
 export function Home() {
-  const k = kpis();
-  const recent = openTickets().slice(0, 5);
+  const { partner } = usePartner();
+  const k = kpis(partner);
+  const recent = openTickets(partner).slice(0, 5);
+  const t = partner.terms;
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Good morning, Ace</h1>
-        <p className="text-sm text-slate-500">Here's how your serviced sites are running right now.</p>
+        <h1 className="text-xl font-bold text-slate-900">Good morning, {partner.name}</h1>
+        <p className="text-sm text-slate-500">{t.homeGreeting}</p>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <Kpi icon={MapPin} label="Sites" value={k.sites} />
+        <Kpi icon={partner.vertical === 'pool' ? Waves : MapPin} label={t.sitePlural} value={k.sites} />
         <Kpi icon={Radio} label="Devices online" value={`${k.devicesOnline}/${k.devicesTotal}`} />
         <Kpi icon={Activity} label="Active alarms" value={k.activeAlarms} tone={k.activeAlarms ? 'warn' : 'ok'} />
         <Kpi icon={Wrench} label="Faults" value={k.faults} tone={k.faults ? 'warn' : 'ok'} />
@@ -27,26 +29,22 @@ export function Home() {
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Sites */}
         <section className="lg:col-span-2">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Your sites</h2>
+          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">{t.sitesHeading}</h2>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {SITES.map((s) => {
+            {partner.sites.map((s) => {
               const online = s.devices.filter((d) => d.status === 'online').length;
               return (
-                <Link
-                  key={s.id}
-                  to={`/sites/${s.id}`}
-                  className="group rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-partner-primary"
-                >
+                <Link key={s.id} to={`/sites/${s.id}`} className="group rounded-xl border border-slate-200 bg-white p-4 transition-colors hover:border-partner-primary">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate font-semibold text-slate-900">{s.name}</p>
-                      <p className="truncate text-xs text-slate-500">{s.customer} · {s.location}</p>
+                      <p className="truncate text-xs text-slate-500">
+                        <span className="capitalize">{s.kind}</span> · {s.location}
+                      </p>
                     </div>
                     <HealthPill health={s.health} />
                   </div>
-
                   <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
                     <span className="flex items-center gap-3">
                       <span>{online}/{s.devices.length} online</span>
@@ -57,7 +55,7 @@ export function Home() {
                       )}
                     </span>
                     <span className="flex items-center gap-1.5">
-                      {s.hasFacility && <Boxes size={14} className="text-partner-primary" aria-label="Facility built" />}
+                      {s.hasFacility && <Waves size={14} className="text-partner-primary" aria-label={`${t.facilityNoun} built`} />}
                       <ChevronRight size={16} className="text-slate-400 transition-transform group-hover:translate-x-0.5" />
                     </span>
                   </div>
@@ -67,27 +65,24 @@ export function Home() {
           </div>
         </section>
 
-        {/* Recent tickets */}
         <section>
           <div className="mb-3 flex items-center justify-between">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Open work</h2>
-            <Link to="/tickets" className="text-xs font-medium text-partner-primary hover:underline">
-              All tickets
-            </Link>
+            <Link to="/tickets" className="text-xs font-medium text-partner-primary hover:underline">All tickets</Link>
           </div>
           <ul className="space-y-2">
-            {recent.map((t) => {
-              const site = siteById(t.siteId);
+            {recent.map((tk) => {
+              const site = siteById(partner, tk.siteId);
               return (
-                <li key={t.id} className="rounded-xl border border-slate-200 bg-white p-3">
+                <li key={tk.id} className="rounded-xl border border-slate-200 bg-white p-3">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="font-mono text-xs text-slate-400">{t.id}</span>
-                    <TicketStatusTag status={t.status} />
+                    <span className="font-mono text-xs text-slate-400">{tk.id}</span>
+                    <TicketStatusTag status={tk.status} />
                   </div>
-                  <p className="mt-1 text-sm font-medium text-slate-800">{t.title}</p>
+                  <p className="mt-1 text-sm font-medium text-slate-800">{tk.title}</p>
                   <p className="mt-1 flex items-center justify-between text-xs text-slate-500">
                     <span className="truncate">{site?.name}</span>
-                    <PriorityTag priority={t.priority} />
+                    <PriorityTag priority={tk.priority} />
                   </p>
                 </li>
               );

@@ -1,19 +1,19 @@
 import type { ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
 import { LayoutDashboard, Ticket } from 'lucide-react';
-import { DEMO_PARTNER } from '@/data/partnerBranding';
+import { usePartner } from '@/PartnerContext';
+import { PartnerSwitcher } from '@/components/PartnerSwitcher';
 
-// The white-labeled partner portal shell. The header + primary actions use the
-// PARTNER's own colors (--partner-primary/secondary from their branding), with a
-// small "Powered by PeakLogic" attribution — the real white-label mechanism, not
-// a hardcoded skin.
+// The white-labeled partner portal shell. Header + primary actions use the
+// ACTIVE partner's own colors (--partner-primary/secondary), with a small
+// "Powered by PeakLogic" attribution and the demo partner switcher.
 const NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/tickets', label: 'Tickets', icon: Ticket, end: false },
 ];
 
 export function PartnerShell({ children }: { children: ReactNode }) {
-  const p = DEMO_PARTNER;
+  const { partner: p } = usePartner();
   return (
     <div
       className="min-h-screen bg-slate-50 text-slate-900"
@@ -22,7 +22,7 @@ export function PartnerShell({ children }: { children: ReactNode }) {
       <header className="text-white" style={{ backgroundColor: p.primaryColor }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
-            <span className="grid h-9 w-9 place-items-center rounded-lg text-sm font-black tracking-tight text-white" style={{ backgroundColor: p.secondaryColor }}>
+            <span className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-sm font-black tracking-tight text-white ${p.lowercaseLogo ? 'lowercase' : ''}`} style={{ backgroundColor: p.secondaryColor }}>
               {p.logoText}
             </span>
             <div className="leading-tight">
@@ -31,22 +31,25 @@ export function PartnerShell({ children }: { children: ReactNode }) {
             </div>
           </div>
 
-          <nav className="flex items-center gap-1">
-            {NAV.map(({ to, label, icon: Icon, end }) => (
-              <NavLink
-                key={to}
-                to={to}
-                end={end}
-                className={({ isActive }) =>
-                  `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                    isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
-                  }`
-                }
-              >
-                <Icon size={16} /> <span className="hidden sm:inline">{label}</span>
-              </NavLink>
-            ))}
-          </nav>
+          <div className="flex items-center gap-2">
+            <nav className="flex items-center gap-1">
+              {NAV.map(({ to, label, icon: Icon, end }) => (
+                <NavLink
+                  key={to}
+                  to={to}
+                  end={end}
+                  className={({ isActive }) =>
+                    `flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                      isActive ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
+                    }`
+                  }
+                >
+                  <Icon size={16} /> <span className="hidden sm:inline">{label}</span>
+                </NavLink>
+              ))}
+            </nav>
+            <PartnerSwitcher />
+          </div>
         </div>
       </header>
 

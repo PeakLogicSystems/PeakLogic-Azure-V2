@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Power, ShieldAlert, X } from 'lucide-react';
-import type { Device } from '@/data/ace';
+import type { Device } from '@/data/types';
 
 // The device control panel. Controlling field equipment (a pump, a blower, a
 // chemical feed) is a real, legitimate capability for an authorized service

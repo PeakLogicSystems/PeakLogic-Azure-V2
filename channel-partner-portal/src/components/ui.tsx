@@ -1,4 +1,4 @@
-import type { DeviceStatus, SiteHealth, TicketPriority, TicketStatus } from '@/data/ace';
+import type { DeviceStatus, SiteHealth, TicketPriority, TicketStatus } from '@/data/types';
 
 const HEALTH: Record<SiteHealth, { label: string; cls: string }> = {
   healthy: { label: 'Healthy', cls: 'bg-emerald-100 text-emerald-700' },
