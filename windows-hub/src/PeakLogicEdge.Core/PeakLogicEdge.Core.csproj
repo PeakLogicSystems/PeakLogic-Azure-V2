@@ -1,29 +1,43 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0-windows</TargetFramework>
+    <!-- Multi-targeted so the hub agent runs on BOTH Windows 11 and Linux
+         (dual-platform-hub-design.md). `net8.0` is the portable surface the
+         Linux hub (Azure IoT Edge module) builds against; `net8.0-windows`
+         additionally compiles the two genuinely Windows-only pieces below.
+         Everything else in Core — SQLite cache, MQTT, HTTP backend client,
+         Modbus/OPC-UA/REST ingestion, normalization, PeakAssist sync, edge
+         alarms — is portable and builds under both. -->
+    <TargetFrameworks>net8.0;net8.0-windows</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <RootNamespace>PeakLogicEdge.Core</RootNamespace>
-    <!-- net8.0-windows (not plain net8.0): SerialPort and DPAPI (ProtectedData)
-         are both meaningfully Windows-specific, and this project is never
-         going to run anywhere else. Targeting -windows explicitly rather
-         than pretending cross-platform portability matters here. -->
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Serial ingestion (§2.2, windows-endpoint-application.md) -->
-    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
-    <!-- Local caching: durable queue (§4) -->
+    <!-- Local caching: durable queue (§4) — cross-platform -->
     <PackageReference Include="Microsoft.Data.Sqlite" Version="8.0.8" />
-    <!-- DPAPI-backed secret storage (§9.3) -->
-    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
-    <!-- Outbound per-device MQTT publishing to AWS IoT Core (§5.1) -->
+    <!-- Outbound MQTT publishing (§5.1) — cross-platform -->
     <PackageReference Include="MQTTnet" Version="4.3.7.1207" />
-    <!-- Structured logging -->
+    <!-- Structured logging — cross-platform -->
     <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Logging.Console" Version="8.0.0" />
     <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- Windows-only surface: DPAPI secret storage (§9.3) and serial ingestion
+       (§2.2). Both are behind seams (ISecretStore / IIngestionSource), so the
+       portable build simply omits these implementations; a Linux secret store
+       and, if needed, a Linux serial source are separate impls of the same
+       seams (dual-platform-hub-design.md §4). -->
+  <ItemGroup Condition="'$(TargetFramework)' == 'net8.0-windows'">
+    <PackageReference Include="System.IO.Ports" Version="8.0.0" />
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup Condition="'$(TargetFramework)' != 'net8.0-windows'">
+    <Compile Remove="Security/DpapiSecretStore.cs" />
+    <Compile Remove="Ingestion/SerialIngestionSource.cs" />
   </ItemGroup>
 
 </Project>
