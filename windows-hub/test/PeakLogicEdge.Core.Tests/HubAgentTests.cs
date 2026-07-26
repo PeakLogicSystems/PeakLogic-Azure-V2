@@ -54,4 +54,54 @@ public class HubAgentTests
             if (File.Exists(cachePath)) File.Delete(cachePath);
         }
     }
+
+    [Fact]
+    public async Task Run_InvokesObservationHooks_WithResolvedThingName_AndStatus()
+    {
+        // The observation hooks are the seam the WinUI kiosk (EdgeRuntimeService)
+        // now projects from instead of re-implementing the pipeline — so a reading
+        // must reach OnReadingQueued (with the mapped thingName) and OnStatus fire.
+        var cachePath = Path.Combine(Path.GetTempPath(), $"peaklogic-hubhooks-{Guid.NewGuid():N}.db");
+        try
+        {
+            var seen = new System.Collections.Concurrent.ConcurrentQueue<HubReadingEvent>();
+            long lastStatus = -1;
+
+            var agent = new HubAgent(
+                sourceFactory: writer => new IIngestionSource[]
+                {
+                    new SimulatedIngestionSource(
+                        deviceKey: "dev-1",
+                        metrics: new Dictionary<string, (double Base, double Spread)> { ["temp_c"] = (25, 1) },
+                        sink: writer,
+                        log: NullLogger.Instance,
+                        interval: TimeSpan.FromMilliseconds(20)),
+                },
+                options: new HubAgentOptions
+                {
+                    CachePath = cachePath,
+                    ThingNameByDeviceKey = new Dictionary<string, string> { ["dev-1"] = "plg-mapped-0001" },
+                    StatusInterval = TimeSpan.FromMilliseconds(50),
+                },
+                log: NullLogger.Instance)
+            {
+                OnReadingQueued = (e, _) => { seen.Enqueue(e); return Task.CompletedTask; },
+                OnStatus = (p, _) => { Interlocked.Exchange(ref lastStatus, p); return Task.CompletedTask; },
+            };
+
+            using var cts = new CancellationTokenSource();
+            var run = agent.RunAsync(cts.Token);
+            await Task.Delay(400);
+            cts.Cancel();
+            await run;
+
+            Assert.False(seen.IsEmpty, "OnReadingQueued should have fired");
+            Assert.All(seen, e => Assert.Equal("plg-mapped-0001", e.ThingName)); // deviceKey -> thingName resolved
+            Assert.True(Volatile.Read(ref lastStatus) >= 0, "OnStatus should have fired with a queue depth");
+        }
+        finally
+        {
+            if (File.Exists(cachePath)) File.Delete(cachePath);
+        }
+    }
 }

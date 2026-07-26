@@ -3,11 +3,11 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Logging;
 using Microsoft.UI.Dispatching;
+using PeakLogicEdge.Core.Agent;
 using PeakLogicEdge.Core.Alarms;
 using PeakLogicEdge.Core.Caching;
 using PeakLogicEdge.Core.Configuration;
 using PeakLogicEdge.Core.Ingestion;
-using PeakLogicEdge.Core.Normalization;
 
 namespace PeakLogicEdge.App.Services;
 
@@ -15,19 +15,17 @@ public sealed record RecentReadingRow(string ThingName, string ObservedAt, strin
 
 public sealed record AlertRow(long Id, string ThingName, string Severity, string Message, string RaisedAt);
 
-// Owns the real ingestion -> normalization -> durable-caching pipeline --
-// mirrors PeakLogicEdge.Host's Program.cs exactly (same
-// SimulatedIngestionSource demo device, same TelemetryBus/
-// IngestionOrchestrator/TelemetryCache), but drives UI-bound observable
-// state instead of Console.WriteLine. This is the "built against the
-// now-working data layer, not mocked separately" piece architecture doc
-// S11.1's build sequence explicitly requires for the Kiosk UI step -- the
-// App is a real consumer of Core, not a second implementation with fake
-// data standing in for it.
+// The kiosk's projection of the shared, portable HubAgent (Core) into WinUI-
+// bound observable state. It no longer owns a second copy of the ingestion ->
+// normalization -> durable-caching pipeline (that lived here AND in the Host
+// harness AND in PeakLogicEdge.Agent) — it constructs a HubAgent and subscribes
+// to its OnReadingQueued / OnStatus hooks, doing only the UI-specific work here:
+// observable collections, offline alarm evaluation, and the local alert store.
+// The App is a real consumer of the exact same agent the headless services run.
 //
-// ObservableCollection/property-changed updates must happen on the UI
-// thread in WinUI 3 -- everything that mutates observable state here goes
-// through the DispatcherQueue captured at StartAsync time.
+// ObservableCollection/property-changed updates must happen on the UI thread in
+// WinUI 3 — everything that mutates observable state goes through the
+// DispatcherQueue captured at StartAsync time.
 public sealed class EdgeRuntimeService : INotifyPropertyChanged
 {
     private const int MaxRecentReadings = 25;
@@ -42,42 +40,46 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
         new EdgeAlarmRule("salt_ppm", AlarmCondition.LessThan, 2700, "warning", "Salt (demo rule)"),
     };
 
-    private readonly ILogger _log;
     private readonly SiteIdentity _site;
-    private readonly TelemetryBus _bus = new();
-    private readonly IngestionOrchestrator _orchestrator;
-    private readonly Dictionary<string, string> _thingNameByDeviceKey = new()
-    {
-        ["demo-chlorinator"] = "plg-demo-0001",
-    };
+    private readonly HubAgent _agent;
 
     private DispatcherQueue? _dispatcher;
-    private TelemetryCache? _cache;
     private LocalAlertStore? _alerts;
     private int _pendingCount;
 
     public EdgeRuntimeService(ILogger log, SiteIdentity site)
     {
-        _log = log;
         _site = site;
-        _orchestrator = new IngestionOrchestrator(log);
 
-        // Demo-only device, standing in for real sensor hardware -- this
-        // hub isn't wired to any real device yet (S2 "no real hardware
-        // yet" disclosure, unchanged). Attributed to whatever site this
-        // hub was commissioned for during Setup, not hardcoded to a
-        // specific customer.
-        _orchestrator.Register(new SimulatedIngestionSource(
-            deviceKey: "demo-chlorinator",
-            metrics: new Dictionary<string, (double Base, double Spread)>
+        // The SAME shared agent the headless PeakLogicEdge.Agent runs — the demo
+        // device stands in for real hardware (unchanged disclosure), attributed
+        // to this hub's commissioned site. UI state is driven by the hooks below,
+        // not by a re-implemented pipeline.
+        _agent = new HubAgent(
+            sourceFactory: writer => new IIngestionSource[]
             {
-                ["temp_c"] = (27.8, 1.5),
-                ["salt_ppm"] = (3200, 100),
-                ["flow_lpm"] = (112, 8),
+                new SimulatedIngestionSource(
+                    deviceKey: "demo-chlorinator",
+                    metrics: new Dictionary<string, (double Base, double Spread)>
+                    {
+                        ["temp_c"] = (27.8, 1.5),
+                        ["salt_ppm"] = (3200, 100),
+                        ["flow_lpm"] = (112, 8),
+                    },
+                    sink: writer,
+                    log: log,
+                    interval: TimeSpan.FromSeconds(5)),
             },
-            sink: _bus.Writer,
-            log: log,
-            interval: TimeSpan.FromSeconds(5)));
+            options: new HubAgentOptions
+            {
+                ThingNameByDeviceKey = new Dictionary<string, string> { ["demo-chlorinator"] = "plg-demo-0001" },
+                StatusInterval = TimeSpan.FromSeconds(2), // a live UI can afford a faster status cadence than a log line
+            },
+            log: log)
+        {
+            OnReadingQueued = HandleReadingQueuedAsync,
+            OnStatus = HandleStatusAsync,
+        };
     }
 
     public string SiteDisplayName => _site.DisplayName;
@@ -86,7 +88,7 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
 
     public ObservableCollection<AlertRow> ActiveAlerts { get; } = new();
 
-    public IReadOnlyDictionary<string, string> IngestionHealth => _orchestrator.Health;
+    public IReadOnlyDictionary<string, string> IngestionHealth => _agent.IngestionHealth;
 
     public int PendingCount
     {
@@ -108,21 +110,62 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
         var cacheDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "PeakLogicEdge");
         Directory.CreateDirectory(cacheDir);
-        _cache = await TelemetryCache.OpenAsync(Path.Combine(cacheDir, "edge-cache.db"));
+        // The local alert store is UI/alarm state, owned here — separate from the
+        // telemetry durable queue, which the shared HubAgent owns.
         _alerts = await LocalAlertStore.OpenAsync(Path.Combine(cacheDir, "edge-alerts.db"));
 
         await RefreshAlertsAsync();
 
-        _ = _orchestrator.RunAsync(ct);
-        _ = NormalizationLoopAsync(ct);
-        _ = StatusPollLoopAsync(ct);
+        _ = _agent.RunAsync(ct);
     }
 
-    // Locally-cleared here means dismissed on THIS device only -- it does
-    // not claim the alert was acknowledged in any cloud system, since none
-    // is connected. A real cloud acknowledgment (PeakLogicApiClient.
-    // AcknowledgeAlertAsync) is a separate, already-designed call this
-    // method does not attempt to make.
+    // Called by HubAgent after each reading is durably queued — the UI-specific
+    // projection: recent-readings list + offline alarm evaluation.
+    private async Task HandleReadingQueuedAsync(HubReadingEvent evt, CancellationToken ct)
+    {
+        var reading = evt.Reading;
+        var row = new RecentReadingRow(
+            evt.ThingName,
+            reading.ObservedAt.ToLocalTime().ToString("HH:mm:ss"),
+            string.Join("  ", reading.Metrics.Select(kv => $"{kv.Key}={kv.Value:0.##}")));
+
+        // Offline alarm evaluation via the real EdgeAlarmEvaluator (§7.6) — same
+        // gt/lt math the cloud uses, so an offline alarm matches what the cloud
+        // would raise. The rule SET is still a labeled DEMO stand-in until cloud
+        // rule delivery exists. (Repeat-firing dedup is future work.)
+        if (_alerts is not null)
+        {
+            foreach (var alarm in EdgeAlarmEvaluator.Evaluate(DemoAlarmRules, reading.Metrics))
+            {
+                await _alerts.RaiseAsync(evt.ThingName, alarm.Rule.Severity, alarm.Message);
+                await RefreshAlertsAsync();
+            }
+        }
+
+        _dispatcher?.TryEnqueue(() =>
+        {
+            RecentReadings.Insert(0, row);
+            while (RecentReadings.Count > MaxRecentReadings)
+                RecentReadings.RemoveAt(RecentReadings.Count - 1);
+        });
+    }
+
+    // Called by HubAgent each status tick with the durable-queue depth.
+    private Task HandleStatusAsync(long pending, CancellationToken ct)
+    {
+        _dispatcher?.TryEnqueue(() =>
+        {
+            PendingCount = (int)pending;
+            OnPropertyChanged(nameof(IngestionHealth));
+        });
+        return Task.CompletedTask;
+    }
+
+    // Locally-cleared here means dismissed on THIS device only -- it does not
+    // claim the alert was acknowledged in any cloud system, since none is
+    // connected. A real cloud acknowledgment (PeakLogicApiClient.
+    // AcknowledgeAlertAsync) is a separate, already-designed call this method
+    // does not attempt to make.
     public async Task ClearAlertAsync(long id)
     {
         if (_alerts is null) return;
@@ -143,70 +186,6 @@ public sealed class EdgeRuntimeService : INotifyPropertyChanged
             ActiveAlerts.Clear();
             foreach (var row in mapped) ActiveAlerts.Add(row);
         });
-    }
-
-    private async Task NormalizationLoopAsync(CancellationToken ct)
-    {
-        await foreach (var reading in _bus.Reader.ReadAllAsync(ct))
-        {
-            var thingName = _thingNameByDeviceKey.GetValueOrDefault(reading.SourceDeviceKey, reading.SourceDeviceKey);
-            var envelope = new TelemetryEnvelope
-            {
-                ThingName = thingName,
-                ObservedAt = reading.ObservedAt,
-                Metrics = reading.Metrics,
-            };
-            await _cache!.EnqueueAsync(envelope.ThingName, envelope.ToWirePayload());
-
-            var row = new RecentReadingRow(
-                thingName,
-                reading.ObservedAt.ToLocalTime().ToString("HH:mm:ss"),
-                string.Join("  ", reading.Metrics.Select(kv => $"{kv.Key}={kv.Value:0.##}")));
-
-            // Offline alarm evaluation via the real EdgeAlarmEvaluator (§7.6) --
-            // the same gt/lt math the cloud uses (backend/ingest/rules.ts), so an
-            // offline alarm matches what the cloud would raise. The RULE SET here
-            // is still a clearly-labeled DEMO placeholder (DemoAlarmRules): the
-            // authoritative rules live cloud-side and will be delivered/cached
-            // like a PeakAssist bundle. What's real now is the evaluation path;
-            // what's a stand-in is only the rule content, until rule delivery
-            // exists. (Dedup of repeat firings is future work -- unchanged from
-            // the previous inline check, which also raised each violating read.)
-            foreach (var alarm in EdgeAlarmEvaluator.Evaluate(DemoAlarmRules, reading.Metrics))
-            {
-                await _alerts!.RaiseAsync(thingName, alarm.Rule.Severity, alarm.Message);
-                await RefreshAlertsAsync();
-            }
-
-            _dispatcher?.TryEnqueue(() =>
-            {
-                RecentReadings.Insert(0, row);
-                while (RecentReadings.Count > MaxRecentReadings)
-                    RecentReadings.RemoveAt(RecentReadings.Count - 1);
-            });
-        }
-    }
-
-    // Ingestion health (a plain dictionary, not observable) and pending
-    // count both change outside any single UI-triggered event -- polled on
-    // an interval rather than pushed, same tradeoff Program.cs's console
-    // status line already made (a 15s status line there, a faster poll
-    // here since a live UI can afford to refresh more often than a log
-    // line worth printing).
-    private async Task StatusPollLoopAsync(CancellationToken ct)
-    {
-        while (!ct.IsCancellationRequested)
-        {
-            try { await Task.Delay(TimeSpan.FromSeconds(2), ct); }
-            catch (OperationCanceledException) { return; }
-
-            var pending = await _cache!.PendingCountAsync();
-            _dispatcher?.TryEnqueue(() =>
-            {
-                PendingCount = pending;
-                OnPropertyChanged(nameof(IngestionHealth));
-            });
-        }
     }
 
     private void OnPropertyChanged([CallerMemberName] string? name = null)
