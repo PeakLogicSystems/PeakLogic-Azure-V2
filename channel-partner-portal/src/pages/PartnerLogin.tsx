@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Droplets } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Truck } from 'lucide-react';
 import { DEMO_PARTNER } from '@/data/partnerBranding';
 
 // Implements UX Wireframes §2.11 (Partner Portal Login, CH-3 / Security
@@ -19,14 +20,17 @@ import { DEMO_PARTNER } from '@/data/partnerBranding';
 // against pretending mock screens are wired to something real.
 export function PartnerLogin() {
   const partner = DEMO_PARTNER;
+  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
+  // Demo: no real PartnerPool/Cognito auth exists (no backend). Submitting holds
+  // a brief loading state, then enters the portal so the demo flows end to end.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => setSubmitting(false), 900);
+    setTimeout(() => navigate('/'), 900);
   };
 
   return (
@@ -51,8 +55,8 @@ export function PartnerLogin() {
             style={{ background: `linear-gradient(135deg, ${partner.primaryColor}, ${partner.secondaryColor})` }}
           >
             <div className="inline-flex items-center gap-2 bg-white/15 backdrop-blur-sm rounded-full px-4 py-2 mb-5">
-              <Droplets size={20} className="text-white" />
-              <span className="text-xl font-bold tracking-tight text-white lowercase">{partner.logoText}</span>
+              <Truck size={20} className="text-white" />
+              <span className="text-xl font-bold tracking-tight text-white">{partner.logoText}</span>
             </div>
             <p className="text-sm text-white/85 font-medium">{partner.tagline}</p>
           </div>
@@ -75,7 +79,7 @@ export function PartnerLogin() {
                   onChange={e => setEmail(e.target.value)}
                   className="w-full px-3.5 py-2.5 rounded-lg border border-slate-300 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:border-transparent transition-shadow"
                   style={{ boxShadow: email ? `0 0 0 2px ${partner.primaryColor}40` : undefined }}
-                  placeholder="you@wtrdr.com"
+                  placeholder="you@acesepticwaste.com"
                 />
               </div>
               <div>

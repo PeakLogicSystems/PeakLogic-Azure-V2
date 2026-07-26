@@ -1,13 +1,33 @@
+import { BrowserRouter, Outlet, Route, Routes } from 'react-router-dom';
+import { PartnerShell } from '@/components/PartnerShell';
+import { Home } from '@/pages/Home';
 import { PartnerLogin } from '@/pages/PartnerLogin';
+import { SiteDetail } from '@/pages/SiteDetail';
+import { Tickets } from '@/pages/Tickets';
 
-// Single-screen demo for now -- UX Wireframes §2.12-2.15 (territory
-// editor, technician management, daily dispatch route) are approved but
-// not built here. The user's explicit ask was specifically "what the
-// channel partner login page would look like" for an investor demo, not
-// the full post-login portal -- scoped intentionally, not an oversight.
-// Real routing (react-router-dom is already a dependency, matching
-// frontend/'s convention) is a straightforward next step once there's a
-// second screen to route to.
+// The channel partner portal for Ace Septic & Waste. Login is a full-screen
+// route; the rest lives inside the white-labeled PartnerShell (header + nav):
+// the home dashboard (all serviced sites), a site detail (devices — setup,
+// monitor, control — plus Facility Builder access and site work), and tickets.
 export function App() {
-  return <PartnerLogin />;
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/login" element={<PartnerLogin />} />
+        <Route element={<ShellLayout />}>
+          <Route path="/" element={<Home />} />
+          <Route path="/sites/:siteId" element={<SiteDetail />} />
+          <Route path="/tickets" element={<Tickets />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
+  );
+}
+
+function ShellLayout() {
+  return (
+    <PartnerShell>
+      <Outlet />
+    </PartnerShell>
+  );
 }

@@ -11,23 +11,18 @@ export interface PartnerBranding {
   secondaryColor: string;
 }
 
-// Real prospective channel partner, not a placeholder -- WTR DR
-// (wtrdr.com), a pool service company in Land O' Lakes, FL. Branding
-// details (blue/white palette, "wtr dr" lowercase wordmark, "Your
-// Prescription for Clean WTR" tagline) pulled from their real public
-// site, 2026-07-16, for an accurate investor-facing demo rather than
-// an invented placeholder brand.
+// The demo channel partner across the PeakLogic demo: Ace Septic & Waste, a
+// septic / grease / wastewater service company that services the demo's
+// wastewater sites (Riverside Water Reclamation, Bayfront, etc.). Navy +
+// service-orange -- an authentic industrial-service palette.
 //
-// In the real system this resolves server-side from the requested
-// partner's own subdomain/slug (undesigned specifically -- UX
-// Wireframes §3 item 3 flags "no self-service signup, no 'forgot
-// branding' fallback" as open) and is fetched via GET /v1/partner
-// before authentication. Hardcoded here since no backend exists to
-// call -- swap this constant for a real fetch once one does.
+// In the real system this resolves server-side from the partner's own
+// subdomain/slug and is fetched via GET /v1/partner before authentication --
+// hardcoded here since no backend exists to call; swap for a real fetch later.
 export const DEMO_PARTNER: PartnerBranding = {
-  name: 'WTR DR',
-  tagline: 'Your Prescription for Clean WTR',
-  logoText: 'wtr dr',
-  primaryColor: '#0EA5E9',
-  secondaryColor: '#0C4A6E',
+  name: 'Ace Septic & Waste',
+  tagline: 'Septic · Grease · Wastewater Services',
+  logoText: 'ACE',
+  primaryColor: '#12455F', // utility navy
+  secondaryColor: '#EA7317', // service orange
 };
