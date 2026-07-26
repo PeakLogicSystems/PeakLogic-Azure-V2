@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Truck, Waves } from 'lucide-react';
+import { useAuth } from '@/AuthContext';
 import { usePartner } from '@/PartnerContext';
 
 // Implements UX Wireframes §2.11 (Partner Portal Login, CH-3 / Security
@@ -20,18 +21,29 @@ import { usePartner } from '@/PartnerContext';
 // against pretending mock screens are wired to something real.
 export function PartnerLogin() {
   const { partner } = usePartner();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const LogoIcon = partner.vertical === 'pool' ? Waves : Truck;
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  // Demo: no real PartnerPool/Cognito auth exists (no backend). Submitting holds
-  // a brief loading state, then enters the portal so the demo flows end to end.
+  // Demo: no real PartnerPool/Cognito auth exists (no backend). Whatever is
+  // typed is accepted -- submitting holds a brief loading state, then enters
+  // the portal so the demo flows end to end. Real credential checking is
+  // deliberately out of scope until PartnerPool auth is actually built.
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    setTimeout(() => navigate('/'), 900);
+    setTimeout(() => {
+      signIn();
+      navigate('/');
+    }, 900);
+  };
+
+  const bypass = () => {
+    signIn();
+    navigate('/');
   };
 
   return (
@@ -117,11 +129,24 @@ export function PartnerLogin() {
             <p className="text-center text-xs text-slate-400 mt-6">
               Accounts are created by your {partner.name} administrator.
             </p>
+
+            <div className="flex items-center gap-3 my-5">
+              <div className="h-px flex-1 bg-slate-100" />
+              <span className="text-[11px] uppercase tracking-wide text-slate-400">Demo</span>
+              <div className="h-px flex-1 bg-slate-100" />
+            </div>
+            <button
+              type="button"
+              onClick={bypass}
+              className="w-full py-2.5 rounded-lg text-sm font-semibold border border-slate-200 text-slate-700 hover:border-slate-300 hover:bg-slate-50 transition-colors"
+            >
+              Continue with demo credentials
+            </button>
           </div>
         </div>
 
         <p className="text-center text-xs text-slate-400 mt-6">
-          Demo build — no real account exists yet.
+          Demo build — any email/password is accepted; no real account or auth exists yet.
         </p>
         <div className="flex items-center justify-center gap-1.5 mt-3">
           <span className="text-[11px] text-slate-400">Powered by</span>

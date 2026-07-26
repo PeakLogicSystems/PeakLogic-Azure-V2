@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Bell, FileText, LayoutDashboard, LogOut, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { useAuth } from '@/AuthContext';
 import { CUSTOMER } from '@/data';
 import { useSettings } from '@/settings';
 
@@ -78,9 +79,17 @@ function ThemeToggle() {
 }
 
 function UserMenu() {
+  const { signOut } = useAuth();
+  const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const u = CUSTOMER.user;
   const initials = u.name.split(' ').map((n) => n[0]).join('').slice(0, 2).toUpperCase();
+
+  const handleSignOut = () => {
+    setOpen(false);
+    signOut();
+    navigate('/login');
+  };
   return (
     <div className="relative">
       <button onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 rounded-lg py-1 pl-1 pr-2 hover:bg-white/10" title={u.name}>
@@ -100,9 +109,9 @@ function UserMenu() {
             <Link to="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-slate-800">
               <SettingsIcon size={15} /> Settings
             </Link>
-            <a href="http://localhost:5180/" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-rose-600 hover:bg-slate-50 dark:hover:bg-slate-800">
+            <button onClick={handleSignOut} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-rose-600 hover:bg-slate-50 dark:hover:bg-slate-800">
               <LogOut size={15} /> Sign out
-            </a>
+            </button>
           </div>
         </>
       )}

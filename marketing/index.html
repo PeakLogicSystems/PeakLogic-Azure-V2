@@ -36,6 +36,9 @@
   * { box-sizing: border-box; }
   body { margin: 0; }
   .pl { font-family: var(--sans); color: var(--ink); background: var(--white); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  /* #modal-root / #portal-root sit OUTSIDE .pl, so give them the same base font
+     (otherwise the sign-in modal falls back to the browser serif default). */
+  #modal-root, #portal-root { font-family: var(--sans); color: var(--ink); line-height: 1.55; -webkit-font-smoothing: antialiased; }
   img, svg { max-width: 100%; }
   a { color: inherit; text-decoration: none; }
   .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
@@ -464,7 +467,7 @@
           <span class="eyebrow" style="color:rgba(255,255,255,.85)">See it in action</span>
           <h2 class="h2" style="margin-top:10px">Take a look inside PeakLogic.</h2>
           <p>Tour a live monitoring workspace and watch a reading on a device turn into a service call in your system.</p>
-          <button class="btn btn--light" data-login="signin">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+          <button class="btn btn--light" data-login="all">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
         </div>
       </div>
     </section>
@@ -778,7 +781,9 @@
   "use strict";
   const $ = (s, r) => (r || document).querySelector(s);
   const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
-  const SUPER_CONSOLE = "/demo.html";  // V2: staff/Control Center entry -> platform hub
+  // V2: the real portal apps live on their own dev servers; "the demo" is the hub.
+  const APPS = { customer: "http://localhost:5176/", partner: "http://localhost:5174/", control: "/control-center.html", hub: "/demo.html" };
+  const SUPER_CONSOLE = APPS.control;  // Staff -> Control Center (revised super admin console)
 
   // ---------- Inline icon set ----------
   const I = {
@@ -1126,8 +1131,8 @@
   // Demo routing. In production, a single "Log in" authenticates the user and
   // sends them to their own workspace; employees use a separate internal entry.
   const ROLES = {
-    customer: () => openPortal("customer"),
-    partner: () => openPortal("partner"),
+    customer: () => { window.location.href = APPS.customer; },
+    partner: () => { window.location.href = APPS.partner; },
   };
   function openSignin() {
     $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog" style="max-width:440px">
@@ -1157,8 +1162,12 @@
   // Public entry points route here. "signin" opens the sign-in screen; the
   // section preview buttons open a workspace directly.
   function openLogin(which) {
-    window.location.href = "/demo.html"; return;  // V2: the live click-through demo lives in the platform hub, which launches the real portal apps
-    if (which === "customer") return openPortal("customer");
+    // "all" = the full click-through demo hub; portal buttons deep-link to the
+    // real portal apps (each shows its own bypassable login); "signin" opens the
+    // marketing sign-in screen (kept — a real login surface, fonts now matched).
+    if (which === "all") { window.location.href = APPS.hub; return; }
+    if (which === "partner") { window.location.href = APPS.partner; return; }
+    if (which === "customer") { window.location.href = APPS.customer; return; }
     openSignin();
   }
   function closeModal() { $("#modal-root").innerHTML = ""; }

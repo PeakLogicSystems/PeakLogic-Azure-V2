@@ -1,4 +1,5 @@
-import { BrowserRouter, Outlet, Route, Routes } from 'react-router-dom';
+import { BrowserRouter, Navigate, Outlet, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from '@/AuthContext';
 import { PartnerProvider } from '@/PartnerContext';
 import { SettingsProvider } from '@/SettingsContext';
 import { PartnerShell } from '@/components/PartnerShell';
@@ -15,22 +16,31 @@ import { Tickets } from '@/pages/Tickets';
 export function App() {
   return (
     <BrowserRouter>
-      <PartnerProvider>
-        <SettingsProvider>
-          <Routes>
-            <Route path="/login" element={<PartnerLogin />} />
-            <Route element={<ShellLayout />}>
-              <Route path="/" element={<Home />} />
-              <Route path="/sites/:siteId" element={<SiteDetail />} />
-              <Route path="/sites/:siteId/facility" element={<Facility />} />
-              <Route path="/tickets" element={<Tickets />} />
-              <Route path="/settings" element={<Settings />} />
-            </Route>
-          </Routes>
-        </SettingsProvider>
-      </PartnerProvider>
+      <AuthProvider>
+        <PartnerProvider>
+          <SettingsProvider>
+            <Routes>
+              <Route path="/login" element={<PartnerLogin />} />
+              <Route element={<RequireAuth />}>
+                <Route element={<ShellLayout />}>
+                  <Route path="/" element={<Home />} />
+                  <Route path="/sites/:siteId" element={<SiteDetail />} />
+                  <Route path="/sites/:siteId/facility" element={<Facility />} />
+                  <Route path="/tickets" element={<Tickets />} />
+                  <Route path="/settings" element={<Settings />} />
+                </Route>
+              </Route>
+            </Routes>
+          </SettingsProvider>
+        </PartnerProvider>
+      </AuthProvider>
     </BrowserRouter>
   );
+}
+
+function RequireAuth() {
+  const { authed } = useAuth();
+  return authed ? <Outlet /> : <Navigate to="/login" replace />;
 }
 
 function ShellLayout() {
