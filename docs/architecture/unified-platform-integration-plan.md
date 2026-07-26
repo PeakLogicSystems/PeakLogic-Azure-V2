@@ -96,7 +96,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 ### Phase 3 — Net-new design artifacts
 | Artifact | Disposition | Status | Notes |
 |---|---|---|---|
-| PeakView360 HMI/SCADA Architecture | NEW | ✅ | Operator screens, alarm mgmt, historian, facility viz, dual-source rendering. **Operator SPA first slice BUILT** (`peakview360/`, build-verified): operator screen (PV-1) + docked alarm panel (PV-2), preview-data mode; other 3 surfaces honest placeholders. |
+| PeakView360 HMI/SCADA Architecture | NEW | ✅ | Operator screens, alarm mgmt, historian, facility viz, dual-source rendering. **Operator SPA first slice BUILT** (`peakview360/`, build-verified): operator screen (PV-1) + alarm panel (PV-2) + Historian (PV-3, multi-pen trends), preview-data mode; other 2 surfaces honest placeholders. |
 | PeakAssist Help System Architecture | NEW | ⬜ | Formalizes unified-vision §6: contextual, one-click, offline-via-Hub, cloud-synced, two audiences. |
 | Hub Agent Runtime Design | NEW | ✅ | `hub-agent-runtime-design.md` — runtime scoping of the `PeakLogicEdge` .NET agent against the now-real Hub cloud contracts (register/heartbeat/peakassist-sync); exists/new inventory, transport-reconciliation open item, 8-step build sequence. Reconciles with `windows-endpoint-application.md`. Step §7.1 (commissioning loop) built. |
 | Hub Enrollment & Identity Design | NEW | ✅ | `hub-enrollment-and-identity-design.md` — resolves runtime-design Q6 (first-run auth) + Q7 (site resolution): hub = X.509/DPS IoT Hub device (reuses Device & Command Security §2), two-phase commissioning, twin-native heartbeat/sync (built handler logic reused), dual-disable revocation. Settles transport toward IoT Hub MQTT. |
