@@ -2,7 +2,7 @@
 
 **Company:** PeakLogic  ·  **Project codename:** Project Vantage
 **Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
-**Status:** 🟡 Draft v0.1 (2026-07-25) — architecture + validation for the operational command layer
+**Status:** 🟡 Draft v0.2 (2026-07-25) — architecture + validation; **direction decided** (D1/D2 closed, §10). The scale architecture (§5) is now the committed reference design for millions of devices, not an analysis.
 **Naming decision:** supersedes **"Super Admin Console"** as the primary product concept (§1). The staff-facing console (`super-console-implementation-plan.md`) becomes the Platform Control Center's UI.
 **Depends on / reconciles with:** [Device & Command Security](device-command-security-architecture.md) (DPS/IoT Hub identity) · [Hub Enrollment & Identity](hub-enrollment-and-identity-design.md) (Q6) · [Hub Agent Runtime](hub-agent-runtime-design.md) (the device-side reconciler) · [Dual-Platform Hub](dual-platform-hub-design.md) · [Multi-Tenant Architecture](multi-tenant-architecture.md) · [Target Reference Architecture](target-reference-architecture.md) · [Security Architecture](security-architecture.md) · [Policy Engine](policy-engine-design.md) · [Super-Console Plan](super-console-implementation-plan.md)
 
@@ -21,6 +21,8 @@
 Per the requirement, **"Super Admin Console" is retired as the primary product concept.** The Platform Control Center is the operational command layer *within* PeakLogicSystems (the cloud pillar). The existing staff-facing console work (`super-console-implementation-plan.md`, `prototypes/super-console-demo.html`) is **the PCC's operator UI** — not a separate product. A terminology sweep (super-console → Platform Control Center across docs/prototype/code) is a follow-up, not done in this pass (same disposition as the `windows-hub/` rename).
 
 **Layering (important):** the PCC spans two audiences the RBAC roles already imply — **platform operators** (PeakLogic staff: Platform/Release/Security Admin, Support) and **delegated customer/partner admins** (Customer Administrator, Field Technician, Read-Only Auditor). This is the same platform-operator-vs-tenant boundary the super-console's load-bearing invariant protects: **the PCC never issues a cross-tenant query; fleet-wide views are aggregations, never ambient cross-tenant reads** (§5 has the scale consequence).
+
+**Scope boundary — DECIDED (D2, 2026-07-25):** the PCC owns **only platform + device/fleet operations** (identity, artifacts, channels, deployment, drift, override, rollback, ops intelligence). Customer/partner **business** functions — white-label branding/estate, AI dispatch, territory, billing/invoicing, the consumer-facing pool report — **stay in the tenant and channel-partner portals**, not the PCC. The PCC and the portals share the same identity plane and audit substrate but are distinct surfaces: the PCC is the *command plane*, the portals are the *business/relationship plane*. This keeps the PCC focused, and keeps regulated device-command capability off the customer-facing portals.
 
 ## 2. The requirement, accepted (with reconciliation notes)
 
@@ -82,23 +84,52 @@ Assessed the requirement (as specified, plus the §3 mechanisms) against the nam
 | Compliance reporting at scale | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | 🟡 |
 | Audit / full traceability | ✅ | ✅ | 🟡 | ✅ | 🟡 | ✅ | 🟡 | 🟡 |
 | Supply-chain integrity (signing custody, SBOM, provenance) | 🟡 (signatures) | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 | 🟡 |
-| Proven scale (100k–millions) | ❓ (unstated) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
+| Proven scale (100k–millions) | ✅ *(designed, §5)* | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 
 **Reading of the matrix:** the requirement's **functional breadth is genuinely enterprise-class** — on channels, drift, override, rollback, RBAC, multi-tenancy and audit it meets or exceeds several named platforms. Its **gaps are mechanistic**, concentrated in the ❌/🟡 rows: health-gated automation, A/B/delta update safety, CDN delivery, and (critically) the *unstated* scale architecture.
 
-## 5. Scale analysis — does this manage millions of devices?
+## 5. Scale & reference architecture — designed for millions of devices (committed)
 
-**As written, the requirement is silent on scale, and one inherited invariant actively threatens it.** A design that scales to millions requires these, none of which the requirement states:
+**This is the committed design, not an analysis.** The requirement is silent on scale; this section supplies the architecture that makes it hold at 10⁶+ devices. Everything below is built on Azure's documented scaling primitives (verify exact numeric limits at capacity-planning time against current Azure docs — the *architecture* is the commitment, the *figures* are directional).
 
-1. **Control-plane / data-plane separation.** The PCC (management: intent, workflow, audit) must be architecturally distinct from the device data plane (telemetry, twin sync). Millions of devices connect to the **data plane** (IoT Hub, horizontally partitioned by DPS across multiple hubs); the PCC issues *intent* and consumes *events*. Conflating them (a console that directly queries every device) does not scale.
-2. **Event-driven, not polling.** Fleet state changes must propagate via **Event Grid** (twin-change, connection-state, deployment-status events) into **materialized read models** — never per-device polling and never synchronous fan-out for a fleet view.
-3. **⚠️ The super-console's "global views are fan-outs of individually-scoped reads" invariant does not scale to millions.** That model is correct for *isolation* but a fleet-wide compliance/drift view computed by synchronously fanning out per-tenant RLS reads is O(tenants×devices) per view — fine at design-partner scale, untenable at millions. **Required change:** keep the isolation guarantee, but serve fleet/compliance views from an **event-sourced, tenant-partitioned read model / projection** (updated by Event Grid), so a "fleet compliance" query is an indexed read of a materialized projection, not a live fan-out. Isolation is preserved by partitioning the projection by tenant, not by avoiding aggregation.
-4. **Artifact distribution at scale:** content-addressed store + **CDN edge distribution** + **delta updates** + resumable, bandwidth-aware, rate-limited download — otherwise a 100%-ring release is a **thundering herd** that saturates egress and the herd re-downloads full images.
-5. **Rollout backpressure & partitioning:** the rollout controller must throttle concurrent deployments, respect per-region/per-link bandwidth, and shard by device group — a fleet rollback of millions cannot be a single synchronous operation.
-6. **Regional distribution / data residency:** multi-region IoT Hub + DPS allocation policies, and tenant data-residency (EU/US) as a first-class control-plane concept.
-7. **Control-plane HA/DR:** the PCC itself needs HA + a tested DR/RPO story; a control plane that can go down and strand a fleet mid-rollout is not enterprise-grade.
+### 5.1 Control-plane / data-plane separation (foundational)
+Two physically separate planes:
+- **Data plane** — where millions of devices actually connect: **IoT Hub** (device-to-cloud telemetry, twin sync, C2D), fronted by **DPS**. This plane never touches the PCC's request path.
+- **Control plane** — the PCC: intent (release channels, deployments, overrides), workflow/approvals, RBAC, and audit. It **issues intent** (writes twin desired properties / creates ADU deployments) and **consumes events** — it never fans out live queries to devices or synchronously scans the fleet.
 
-**Verdict on scale:** the *functional* model can manage millions **only if** these are added. As specified (feature list without scale mechanics, plus a fan-out read invariant), a literal implementation tops out at **thousands–tens of thousands**, not millions.
+The PCC's read/write path is bounded by *tenant/operator* cardinality and *event* throughput, **not** by device count. That decoupling is what makes millions tractable.
+
+### 5.2 Horizontal device partitioning (how you physically reach millions)
+- **Shard across multiple IoT Hubs.** A single IoT Hub scales to a large device population; to reach millions — and for blast-radius isolation, regional residency, and independent scale-unit tuning — devices are distributed across **many IoT Hubs**, with **DPS allocation policies** routing each device to its home hub at provisioning (by region, tenant tier, or load). This is Azure's documented fleet-scale pattern; DPS is the seam that makes the hub count invisible to the device and to the PCC.
+- **DPS enrollment groups** (Q6) provision device *families* against a signing CA rather than one record per unit — the zero-touch enabler at fleet scale (individual enrollment stays the fallback for high-value units).
+- **The PCC addresses devices by group/segment, never by enumerating units.** Targeting is by twin-tag query + ADU group, so a "deploy to 200k devices" intent is one group operation, not 200k writes.
+
+### 5.3 Event-sourced, tenant-partitioned read model (the key correction)
+**⚠️ The super-console's "fleet views = synchronous fan-out of per-tenant RLS reads" invariant does NOT scale** — it is O(tenants × devices) per view, fine at design-partner scale, untenable at millions. **Committed change (isolation preserved, scale gained):**
+- **Ingest:** Event Grid emits twin-change, connection-state, and deployment-status events. Functions consume them and **update materialized projections** (compliance-by-channel, drift-by-category, adoption, deployment-success).
+- **Store:** projections live in a **tenant-partitioned read store** (recommend **Cosmos DB with `tenantId` as the partition key**, or a partitioned Postgres read model) — a fleet-compliance query is a **single indexed read of a pre-aggregated projection**, O(1) in device count, physically partitioned per tenant so isolation is *stronger* than fan-out, not weaker.
+- **Write model stays authoritative + RLS-scoped** (Postgres); the read model is a derived, eventually-consistent projection. Classic CQRS — the only shape that serves fleet-wide views over millions without scanning.
+
+### 5.4 Artifact delivery at scale (avoid the thundering herd)
+- **Content-addressed artifact store** (Blob, keyed by digest) → **Azure Front Door / CDN edge distribution** so a 100%-ring release is served from the edge, not from origin egress.
+- **Delta / differential updates** (ADU delta) so a herd of devices downloads *diffs*, not full images — the difference between a survivable and a saturating release.
+- **Resumable, bandwidth-aware, rate-limited** download; the rollout controller (§3.2) paces concurrency so egress and device-side bandwidth stay within budget.
+
+### 5.5 Rollout backpressure, regions, and HA/DR
+- **Backpressure & partitioning:** the rollout controller throttles concurrent deployments, shards by group/region, and respects per-link bandwidth — a fleet rollback of millions is a *coordinated, paced* group operation, never one synchronous call.
+- **Regional distribution / data residency:** multi-region IoT Hub + DPS allocation; tenant data-residency (EU/US) is a first-class control-plane attribute driving hub placement.
+- **Control-plane HA/DR:** the PCC runs HA (multi-AZ Functions/App + geo-redundant read/write stores) with a tested DR/RPO; a control plane that can strand a fleet mid-rollout is not enterprise-grade. Deployments are **idempotent and resumable** so a control-plane failover does not corrupt an in-flight rollout.
+
+### 5.6 Scale envelope (targets, to verify at capacity planning)
+| Dimension | Design target | How it's met |
+|---|---|---|
+| Devices | 10⁶+ | Sharded across many IoT Hubs via DPS allocation (§5.2) |
+| Fleet-view query cost | O(1) in device count | Event-sourced tenant-partitioned projections (§5.3) |
+| Release to a large ring | Edge-served, delta | CDN + ADU delta + paced rollout (§5.4) |
+| PCC request path | Bounded by operators/events, not devices | Control/data-plane separation (§5.1) |
+| Blast radius | Per-hub / per-region / per-group | Sharding + group targeting + backpressure (§5.2/§5.5) |
+
+**Net:** with §5.1–§5.5 the architecture is designed for millions. The load-bearing decisions are the **control/data-plane split**, **device sharding via DPS across many IoT Hubs**, and the **event-sourced tenant-partitioned read model** replacing synchronous fan-out.
 
 ## 6. Missing enterprise capabilities (gap analysis)
 
@@ -116,9 +147,11 @@ Beyond the §3 mechanisms and §5 scale items, the following enterprise capabili
 - **Maintenance windows & change freeze:** per-tenant/site deployment blackout windows (regulated/industrial sites demand them).
 - **Break-glass / emergency access** with heightened audit (the "emergency override" hints at it; the access path itself needs specifying).
 
-## 7. Recommended architecture (the target)
+## 7. Committed architecture (D1 decided, 2026-07-25)
 
-1. **Build the PCC as a control-plane LAYER over Azure device-management primitives** — the top recommendation:
+**D1 is decided: build the PCC as a control-plane layer over Azure device-management primitives — do NOT hand-roll OTA, the twin store, or device identity.** The items below are the committed architecture, not options.
+
+1. **Build the PCC as a control-plane LAYER over Azure device-management primitives** — the committed foundation:
    - **Identity/provisioning:** DPS (individual + enrollment groups; §Q6 already designed this for hubs) with attestation.
    - **Desired/reported state:** IoT Hub **device twins** as the reconciliation substrate; the **hub agent already reports** — generalize it to full desired-state.
    - **OTA:** **Device Update for IoT Hub (ADU)** for deployments, groups, compliance, delta, and rollback — do **not** hand-roll an OTA engine.
@@ -151,16 +184,17 @@ With 1–6, the Platform Control Center is a genuine enterprise control plane ca
 - **Design-stage (this document):** the entire PCC as specified — reconciler generalization, release channels, ADU integration, progressive-rollout engine, A/B update safety, drift/override/rollback engines, the scale read model, and the expanded RBAC. **Nothing here is built**, and most is **infrastructure-gated** (no Azure subscription / IoT Hub / DPS / ADU / Event Grid / CDN — infra item 1). Same standing caveat as the whole Azure track.
 - **Not validated against a real fleet:** every scale claim is architectural reasoning, unverified against a running deployment.
 
-## 10. Open decisions
+## 10. Decisions
 
-- **D1:** Confirm the "build on ADU + IoT Hub twins, don't hand-roll OTA" direction (§7.1) — the load-bearing decision.
-- **D2:** PCC scope boundary — does it own *only* platform/device ops, with customer/partner-facing functions (white-label, dispatch, billing) staying in the tenant/partner portals? Recommend yes (keep the PCC the ops command plane).
-- **D3:** On-device update strategy for the Windows-11 hub vs. the Linux IoT Edge hub (A/B host + IoT Edge module updates vs. MSIX) — reconciles with dual-platform-hub-design §6/§7.8.
-- **D4:** The fleet read-model technology (§5.3) — projection store + Event Grid pipeline.
-- **D5:** RBAC permission model — attribute/role hybrid, and how granular permissions are stored/evaluated.
+- **D1 — ✅ CLOSED (2026-07-25): build on Azure IoT Hub twins + DPS + ADU + Event Grid; do not hand-roll OTA / twin store / device identity.** The committed foundation (§7).
+- **D2 — ✅ CLOSED (2026-07-25): the PCC owns only platform + device/fleet ops.** Customer/partner business functions (white-label, dispatch, territory, billing, pool report) stay in the tenant/partner portals (§1). PCC = command plane; portals = business plane.
+- **D3 (open):** On-device update strategy for the Windows-11 hub vs. the Linux IoT Edge hub (A/B host + IoT Edge module updates vs. MSIX) — reconciles with dual-platform-hub-design §6/§7.8. Needed for §3.3.
+- **D4 (open):** The fleet read-model technology (§5.3) — recommend Cosmos DB (`tenantId` partition key) or partitioned Postgres; finalize at build time.
+- **D5 (open):** RBAC permission model — attribute/role hybrid, and how granular permissions are stored/evaluated across the 7 roles.
 
 ## 11. Revision history
 
 | Version | Date | Change |
 |---|---|---|
+| Draft v0.2 | 2026-07-25 | **D1 + D2 closed.** §7 elevated from recommendation to committed architecture (build on Azure IoT Hub/DPS/ADU/Event Grid). §1 adds the decided PCC/portal scope boundary. **§5 rewritten from analysis into the committed scale & reference architecture for millions** — control/data-plane separation, device sharding across many IoT Hubs via DPS, the event-sourced tenant-partitioned CQRS read model (replacing synchronous fan-out), CDN+delta delivery, backpressure/regional/HA-DR, and a scale-envelope table. Matrix scale row → designed. |
 | Draft v0.1 | 2026-07-25 | Establishes the Platform Control Center (supersedes "Super Admin Console"). Accepts the 8-area functional spec + RBAC; specifies the four control-plane mechanisms (reconciler, progressive-rollout, A/B safety, delivery/eventing); validates against Intune/WUfB/AWS IoT DM/Azure IoT Hub+ADU/Mender/Balena/Jamf/Workspace ONE/hawkBit; scale analysis to millions (incl. the fan-out-read-model finding); gap analysis; recommends building on Azure primitives; honest dashboard-vs-control-plane verdict + required changes. |
