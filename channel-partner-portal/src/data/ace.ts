@@ -6,7 +6,6 @@ import type { Partner } from './types';
 export const ACE: Partner = {
   id: 'ace',
   name: 'Ace Septic & Waste',
-  tagline: 'Septic · Grease · Wastewater Services',
   logoText: 'ACE',
   lowercaseLogo: false,
   primaryColor: '#12455F',

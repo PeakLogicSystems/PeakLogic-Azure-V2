@@ -3,7 +3,7 @@ import { resolveEstateBranding, type EstatePartnerRef, type EstateGroupRef } fro
 
 const wtrDr: EstatePartnerRef = {
   id: 'wtr-dr', name: 'WTR DR', groupId: 'purple-standard',
-  branding: { logo_url: null, primary_color: '#0EA5E9', secondary_color: '#0C4A6E', tagline: 'Your Prescription for Clean WTR' },
+  branding: { logo_url: null, primary_color: '#0EA5E9', secondary_color: '#0C4A6E', tagline: null },
 };
 const aceSeptic: EstatePartnerRef = {
   id: 'ace-septic', name: 'ACE Septic & Waste', groupId: 'purple-standard',

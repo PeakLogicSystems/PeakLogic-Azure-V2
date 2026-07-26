@@ -27,7 +27,9 @@ export function PartnerShell({ children }: { children: ReactNode }) {
             </span>
             <div className="leading-tight">
               <p className="text-base font-bold leading-tight">{p.name}</p>
-              <p className="text-[11px] text-white/70">{p.tagline}</p>
+              {/* System-generated categorization, not the partner's own marketing
+                  voice -- never invent a tagline attributed to a real company. */}
+              <p className="text-[11px] capitalize text-white/70">{p.vertical} · on PeakLogicSystems</p>
             </div>
           </div>
 

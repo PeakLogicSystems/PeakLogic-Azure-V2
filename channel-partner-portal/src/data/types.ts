@@ -3,6 +3,12 @@
 // each with its own branding, vertical terminology, sites, devices, and work.
 // This is the demonstration that two separate partner businesses, built for
 // their own purposes, run on one PeakLogicSystems core. Preview data throughout.
+//
+// Deliberately NO tagline/slogan field: these are real company names, and
+// inventing marketing copy in their voice ("Your Prescription for Clean WTR")
+// misrepresents their brand. Anywhere their name is shown, pair it only with
+// plain, PeakLogic-system-generated categorization (e.g. `vertical`), never
+// with invented brand language -- add a real one only if the partner supplies it.
 
 export type SiteHealth = 'healthy' | 'watch' | 'critical';
 export type DeviceStatus = 'online' | 'offline' | 'fault';
@@ -59,7 +65,6 @@ export interface VerticalTerms {
 export interface Partner {
   id: string;
   name: string;
-  tagline: string;
   logoText: string;
   lowercaseLogo: boolean;
   primaryColor: string;

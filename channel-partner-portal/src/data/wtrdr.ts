@@ -8,7 +8,6 @@ import type { Partner } from './types';
 export const WTRDR: Partner = {
   id: 'wtrdr',
   name: 'WTR DR',
-  tagline: 'Your Prescription for Clean WTR',
   logoText: 'wtr dr',
   lowercaseLogo: true,
   primaryColor: '#0EA5E9',
