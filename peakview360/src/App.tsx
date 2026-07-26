@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { Construction, Loader2 } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { AppShell } from './components/AppShell';
 import { Equipment } from './screens/Equipment';
+import { FacilityView } from './screens/FacilityView';
 import { OperatorScreen } from './screens/OperatorScreen';
 import { PeakViewProvider } from './store';
 import { ThemeProvider } from './theme';
@@ -28,10 +29,7 @@ export function App() {
                 }
               />
               <Route path="/equipment" element={<Equipment />} />
-              <Route
-                path="/facility"
-                element={<ComingSoon title="Facility visualization" note="A fast 2D process schematic by default; the 3D view is an opt-in mode (PV-5)." />}
-              />
+              <Route path="/facility" element={<FacilityView />} />
             </Routes>
           </AppShell>
         </BrowserRouter>
@@ -44,21 +42,6 @@ function ScreenLoading() {
   return (
     <div className="flex h-full items-center justify-center text-slate-400">
       <Loader2 className="animate-spin" size={22} />
-    </div>
-  );
-}
-
-// Honest placeholder — these surfaces are designed (peakview360-hmi-architecture.md
-// §3.2) but not built in this pass. Deliberately not faked with mock screens.
-function ComingSoon({ title, note }: { title: string; note: string }) {
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <div className="max-w-md rounded-xl border border-dashed border-slate-300 p-8 text-center dark:border-slate-700">
-        <Construction size={28} className="mx-auto text-brand-purple-mid" />
-        <h1 className="mt-3 text-lg font-bold text-slate-900 dark:text-white">{title}</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">{note}</p>
-        <p className="mt-4 text-xs font-medium uppercase tracking-wide text-slate-400">Designed · not built yet</p>
-      </div>
     </div>
   );
 }

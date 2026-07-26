@@ -11,7 +11,7 @@ const NAV = [
   { to: '/', label: 'Operator', icon: LayoutGrid, end: true },
   { to: '/historian', label: 'Historian', icon: LineChart, end: false },
   { to: '/equipment', label: 'Equipment', icon: Gauge, end: false },
-  { to: '/facility', label: 'Facility', icon: Factory, end: false },
+  { to: '/facility', label: 'Facility View', icon: Factory, end: false },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {
