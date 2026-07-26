@@ -1,16 +1,17 @@
 import { Link } from 'react-router-dom';
 import { Activity, ChevronRight, MapPin, Radio, TicketCheck, TriangleAlert, Waves, Wrench } from 'lucide-react';
 import { usePartner } from '@/PartnerContext';
-import { kpis, openTickets, siteById } from '@/data/types';
+import { kpis, siteById } from '@/data/types';
 import { HealthPill, PriorityTag, TicketStatusTag } from '@/components/ui';
 
 // The partner's home dashboard: every site/pool they service (across customers),
 // fleet health at a glance, and open work. Reads the active partner's data + its
 // vertical terminology.
 export function Home() {
-  const { partner } = usePartner();
+  const { partner, tickets } = usePartner();
   const k = kpis(partner);
-  const recent = openTickets(partner).slice(0, 5);
+  const open = tickets.filter((tk) => tk.status !== 'completed');
+  const recent = open.slice(0, 5);
   const t = partner.terms;
 
   return (
@@ -25,7 +26,7 @@ export function Home() {
         <Kpi icon={Radio} label="Devices online" value={`${k.devicesOnline}/${k.devicesTotal}`} />
         <Kpi icon={Activity} label="Active alarms" value={k.activeAlarms} tone={k.activeAlarms ? 'warn' : 'ok'} />
         <Kpi icon={Wrench} label="Faults" value={k.faults} tone={k.faults ? 'warn' : 'ok'} />
-        <Kpi icon={TicketCheck} label="Open tickets" value={k.openTickets} />
+        <Kpi icon={TicketCheck} label="Open tickets" value={open.length} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">

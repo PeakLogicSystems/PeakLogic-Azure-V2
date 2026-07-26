@@ -23,6 +23,7 @@ export const WTRDR: Partner = {
     facilityBuild: 'Draw pool & pump system',
     facilityNoun: 'pool & pump layout',
   },
+  technicians: ['D. Ruiz', 'A. Patel', 'S. Kim', 'L. Nguyen'],
   sites: [
     {
       id: 'pool-sunsetridge',

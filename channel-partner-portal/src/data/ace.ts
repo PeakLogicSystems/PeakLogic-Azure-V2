@@ -21,6 +21,7 @@ export const ACE: Partner = {
     facilityBuild: 'Build in Facility Builder',
     facilityNoun: 'facility',
   },
+  technicians: ['M. Alvarez', 'J. Chen', 'R. Diaz', 'T. Okafor'],
   sites: [
     {
       id: 'site-riverside',

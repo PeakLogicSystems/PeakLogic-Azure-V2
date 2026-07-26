@@ -5,9 +5,10 @@
 export function BrandMark() {
   return (
     <div className="flex items-center gap-2 select-none">
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-        <path d="M2 21 L9 7 L13 15 L16 10 L22 21 Z" fill="#22C55E" />
-        <path d="M9 7 L13 15 L11.2 15 L9 10.4 Z" fill="#7C3AED" />
+      {/* The real PeakLogic mark (marketing/favicon.svg): purple mountain + green peak. */}
+      <svg width="22" height="22" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
+        <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />
       </svg>
       <span className="text-[15px] font-extrabold tracking-tight">
         <span className="text-white">Peak</span>

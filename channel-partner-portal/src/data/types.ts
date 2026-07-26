@@ -66,6 +66,7 @@ export interface Partner {
   secondaryColor: string;
   vertical: Vertical;
   terms: VerticalTerms;
+  technicians: string[]; // the partner's field crew (for ticket assignment)
   sites: Site[];
   tickets: Ticket[];
 }
