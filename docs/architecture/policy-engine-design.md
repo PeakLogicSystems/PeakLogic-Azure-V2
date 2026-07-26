@@ -270,7 +270,7 @@ Rollback at any step = flip the flag off (legacy hardcoded path) — always avai
 
 All RLS-scoped, audited, versioned:
 - **Tenant portal** (`withTenant`): `GET/POST/PUT/DELETE /v1/policies` — a tenant admin manages its own overrides.
-- **Super-Console** (`withStaffActingOnTenant`): `.../v1/admin/tenants/{id}/policies` — staff manage a tenant's policies via act-as.
+- **Platform Control Center** (`withStaffActingOnTenant`): `.../v1/admin/tenants/{id}/policies` — staff manage a tenant's policies via act-as.
 - **Platform catalog** (staff, superadmin-gated): manage the `tenant_id NULL` defaults.
 - Reads return the **effective** (resolved) policy set plus the raw overrides, so a UI can show "inherited vs overridden."
 

@@ -21,7 +21,7 @@ The single most important framing for leadership and investors: **this is a cons
 
 | Pillar | Status today | What's real right now |
 |---|---|---|
-| **PeakLogicSystems** (core cloud) | **Exists** | Multi-tenant Azure platform with database-enforced row-level security (RLS), Entra ID auth, IoT telemetry ingest, device-silence detection, AI Analytics Tier-1 anomaly detection (scaffolded, feature-flagged), channel-partner white-label portal, immutable audit log, CMMS webhook connectors, and a working Super-Console operator demo. |
+| **PeakLogicSystems** (core cloud) | **Exists** | Multi-tenant Azure platform with database-enforced row-level security (RLS), Entra ID auth, IoT telemetry ingest, device-silence detection, AI Analytics Tier-1 anomaly detection (scaffolded, feature-flagged), channel-partner white-label portal, immutable audit log, CMMS webhook connectors, and a working Platform Control Center operator demo. |
 | **PeakLogic Hubs** (on-prem) | **Exists in embryo** | `PeakLogicEdge` — a real Windows edge runtime (`PeakLogicEdge.Host`) already running on target hardware, with an ingestion orchestrator, local telemetry cache, store-and-forward publishing over MQTT/TLS, and a commissioning flow. "PeakLogic Hubs" is the productization and hardening of this, not a new invention. |
 | **PeakView360** (HMI/SCADA) | **Net-new** — this is the build | The modern operator experience that absorbs MooreView's proven capabilities: real-time screens, alarm management, equipment dashboards, facility visualization, historian trending. This is where the majority of net-new engineering goes, and where MooreView's value is harvested. |
 
@@ -180,7 +180,7 @@ One identity fabric across all three layers, built on PeakLogic's existing model
 
 ### 5.1 What PeakLogic already provides (don't rebuild)
 
-Multi-tenant RLS data model · Entra auth · IoT telemetry ingest · device-silence/offline detection · AI Tier-1 anomaly detection · channel-partner white-label portal · immutable audit log · CMMS webhook connectors · Super-Console operator demo · the PeakLogicEdge Windows edge runtime.
+Multi-tenant RLS data model · Entra auth · IoT telemetry ingest · device-silence/offline detection · AI Tier-1 anomaly detection · channel-partner white-label portal · immutable audit log · CMMS webhook connectors · Platform Control Center operator demo · the PeakLogicEdge Windows edge runtime.
 
 ### 5.2 Immediate migrations from MooreView (harvest first)
 

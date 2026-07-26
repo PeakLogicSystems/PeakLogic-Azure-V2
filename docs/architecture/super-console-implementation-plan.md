@@ -1,4 +1,6 @@
-# Super-Console — Frontend Implementation Plan (Sketch)
+# Platform Control Center — Frontend Implementation Plan (Sketch)
+
+> **Naming (2026-07-26):** this is the UI plan for the **Platform Control Center** (`platform-control-center-architecture.md`) — the concept formerly called the "Super Admin Console" / "super-console". The **file name** (`super-console-implementation-plan.md`) and the prototype filenames are a deferred mechanical rename; the prose here uses the current name.
 
 **Status:** 🟡 Draft v0.1 (2026-07-18) — implementation sketch, not a committed schedule
 **Delivers:** Roadmap items 8–9 ([Azure Review Roadmap §5](azure-review-and-improvement-roadmap.md)) — the internal management platform ([Target Reference Architecture §5](target-reference-architecture.md)), resolving [TD-42](technical-debt-register.md) (admin console has backend but no frontend).

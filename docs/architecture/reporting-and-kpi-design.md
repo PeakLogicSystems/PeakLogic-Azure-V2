@@ -10,7 +10,7 @@
 
 ## 0. The asks, precisely
 
-1. **CMMS dispatch + value KPI:** automated tickets (from critical alerts) must land in the channel partner's **CMMS** (Computerized Maintenance Management System — UpKeep, Fiix, Limble, MaintainX, eMaint, Maximo, ServiceTitan, etc.) as a **work order**. PeakLogic then needs to know **how many of those automated work orders resulted in an actual service call** — the conversion metric that proves the platform generates real service work, shown on the Super-Console.
+1. **CMMS dispatch + value KPI:** automated tickets (from critical alerts) must land in the channel partner's **CMMS** (Computerized Maintenance Management System — UpKeep, Fiix, Limble, MaintainX, eMaint, Maximo, ServiceTitan, etc.) as a **work order**. PeakLogic then needs to know **how many of those automated work orders resulted in an actual service call** — the conversion metric that proves the platform generates real service work, shown on the Platform Control Center.
 2. **Reports section:** run standard, industry-typical reports for these services/devices, plus custom reports.
 
 The KPI depends on a **bi-directional CMMS integration**: push the work order *out*, and learn the outcome *back*. That integration is the backbone of this doc; the KPI and Reports sit on top of it.
@@ -144,13 +144,13 @@ Completed / resolved             (service_visits.completed_at)         61
 
 **Isolation:** every stage count is assembled by **fan-out** — computed per tenant/partner through a scoped read and merged in app code, never a cross-tenant query (Target Ref §5.3). Superadmin fans out over the whole book of business; a partner sees only their own.
 
-**Where it surfaces:** Super-Console Fleet Overview (headline conversion card + trend), partner detail (their full funnel), and the Reports section (full breakdown + export).
+**Where it surfaces:** Platform Control Center Fleet Overview (headline conversion card + trend), partner detail (their full funnel), and the Reports section (full breakdown + export).
 
 ---
 
 ## 4. The Reports section
 
-A new Super-Console section (scoped variants in the tenant/partner portals). Two tiers.
+A new Platform Control Center section (scoped variants in the tenant/partner portals). Two tiers.
 
 ### 4.1 Standard report catalog (predefined, industry-typical)
 

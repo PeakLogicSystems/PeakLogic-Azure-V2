@@ -62,18 +62,18 @@ Your reference — Cisco's dashboard model (Meraki / Catalyst Center): one conso
 
 | Surface | Who logs in | Identity (Entra) | Sees |
 |---|---|---|---|
-| **Internal Super-Console** (new UI, the "single pane") | PeakLogic staff | PeakLogic's own **corporate Entra ID workforce tenant** (Security Architecture §2.5) | Everything, *via act-as* — never a raw cross-tenant query |
+| **Internal Platform Control Center** (new UI, the "single pane") | PeakLogic staff | PeakLogic's own **corporate Entra ID workforce tenant** (Security Architecture §2.5) | Everything, *via act-as* — never a raw cross-tenant query |
 | **Tenant Portal** (the existing React app) | Customer admins/operators | **PeakLogicCustomers** External ID tenant | Only their own org's data (RLS) |
 | **Channel-Partner Portal** (white-label, separate app) | Partner admins/technicians/managers | **PeakLogicPartners** External ID tenant | Only their attributed accounts |
 
 These are three separate Entra tenants and three separate front-end apps by design — that *is* the "clear separation." A customer can never authenticate into the staff console; a partner's branded portal is its own surface. This separation is structural (different token issuers, different RLS scoping), not just a UI convention.
 
-### 3.2 What the Super-Console actually shows (the Meraki-style layout)
+### 3.2 What the Platform Control Center actually shows (the Meraki-style layout)
 
 A concrete first-cut information architecture, built entirely on endpoints that already exist or are already designed:
 
 ```
-Super-Console (PeakLogic staff)
+Platform Control Center (PeakLogic staff)
 ├── Fleet Overview            ← global health: every tenant/partner, open-issue counts,
 │                               device online/offline rollup, "needs attention" list
 │                               (fan-out over assigned accounts — §3.4)
@@ -102,9 +102,9 @@ Super-Console (PeakLogic staff)
 You said you want to *log into* all of these. There are two real ways, and the choice matters:
 
 **Option A — Render-everything (the Meraki model). Recommended.**
-Staff never separately "log in" to a tenant or partner portal. They stay authenticated to the Super-Console (corporate Entra ID) and "Manage <Org>" switches the *active org context*. The console calls the admin API, which uses the **already-built** `withStaffActingOnTenant()` handoff — verify the staff member's assignment, then run the *exact same* queries the tenant portal runs, scoped by RLS. Every action is audit-logged to the acting staff member.
+Staff never separately "log in" to a tenant or partner portal. They stay authenticated to the Platform Control Center (corporate Entra ID) and "Manage <Org>" switches the *active org context*. The console calls the admin API, which uses the **already-built** `withStaffActingOnTenant()` handoff — verify the staff member's assignment, then run the *exact same* queries the tenant portal runs, scoped by RLS. Every action is audit-logged to the acting staff member.
 - **Pros:** no second credential, no impersonation-token risk, isolation preserved by construction (the fan-out discipline of §3.4), one navigation model, exactly how Meraki/Catalyst work.
-- **Cons:** the Super-Console has to *re-render* tenant/partner views (shared component library helps — the three apps can share a UI package).
+- **Cons:** the Platform Control Center has to *re-render* tenant/partner views (shared component library helps — the three apps can share a UI package).
 
 **Option B — Impersonation / launch-in-context token.**
 Staff click "Open portal as this tenant" and the backend mints a scoped, short-lived, audit-tagged token for that tenant/partner surface, opening the real portal in an impersonation session.
@@ -115,7 +115,7 @@ Staff click "Open portal as this tenant" and the backend mints a scoped, short-l
 
 ### 3.4 The isolation guarantee (finding A5, stated as a rule)
 
-**The Super-Console must never issue a query that reads across tenants directly.** Every "global" view (Fleet Overview, the needs-attention list) is built by **fan-out**: loop the staff member's assigned orgs, open the single-org `withStaffActingOnTenant()` / `withManagerActingOnChannelPartner()` handoff once per org, collect, merge in application code. This is the identical pattern already designed and reasoned-about for the channel-partner-manager cross-account overview (API Specification §4.10, Multi-Tenant Architecture §2.7) — N small individually-scoped queries, not one cross-scope query, so the RLS surface never grows and the three-pass isolation hardening keeps holding. Scale is fine (staff oversee tens–hundreds of orgs, not millions). **This rule is what makes "central management" and "clear separation" coexist rather than conflict.**
+**The Platform Control Center must never issue a query that reads across tenants directly.** Every "global" view (Fleet Overview, the needs-attention list) is built by **fan-out**: loop the staff member's assigned orgs, open the single-org `withStaffActingOnTenant()` / `withManagerActingOnChannelPartner()` handoff once per org, collect, merge in application code. This is the identical pattern already designed and reasoned-about for the channel-partner-manager cross-account overview (API Specification §4.10, Multi-Tenant Architecture §2.7) — N small individually-scoped queries, not one cross-scope query, so the RLS surface never grows and the three-pass isolation hardening keeps holding. Scale is fine (staff oversee tens–hundreds of orgs, not millions). **This rule is what makes "central management" and "clear separation" coexist rather than conflict.**
 
 ---
 
@@ -151,7 +151,7 @@ The elegant part: all three of your paths reduce to **one model** — *a "device
 
 ### 4.4 Sequenced ZTP phases
 
-1. **Phase 1 — Cloud registration surface.** In the Super-Console (§3): a "Register devices" flow that creates intent rows + desired-config, individually or by batch/CSV. Still individual-enrollment-backed (no new security decision yet). Delivers "register via cloud" immediately.
+1. **Phase 1 — Cloud registration surface.** In the Platform Control Center (§3): a "Register devices" flow that creates intent rows + desired-config, individually or by batch/CSV. Still individual-enrollment-backed (no new security decision yet). Delivers "register via cloud" immediately.
 2. **Phase 2 — Enrollment groups + twin config push.** Adopt DPS enrollment groups (§4.1, with its threat-model pass) and device-twin desired properties (§4.3). Delivers true zero-touch for direct-connect (Path A) and hub (Path B) devices: connect in field → self-register → config auto-pushed.
 3. **Phase 3 — Reconciliation + lifecycle visibility.** The one reconciliation engine (§4.2) across all three triggers, plus device-silence detection (finding A6) surfaced in the console: *registered / provisioning / configured / reporting / silent / decommissioned* as first-class states.
 4. **Phase 4 — Path C (OEM cloud-to-cloud) auto-discovery.** Per-OEM integrations that reconcile OEM-cloud device appearance against intent rows — sequenced per real OEM partnership (Device Onboarding §6's existing "design against a named need, not speculatively" discipline).
@@ -176,12 +176,12 @@ Ordered by "unblocks the most / lowest regret," not by effort.
 7. Write the remaining Bicep modules: `iot.bicep`, `api.bicep`, `frontend.bicep`, `budget.bicep` (monitoring/alerts) — and run PSRule for Azure against all of them.
 
 **Tier 3 — the central management platform (your Cisco-style vision)**
-8. Build the Super-Console frontend (A1) on the **render-everything / act-as** model (§3.3 Option A), with the fan-out isolation rule (§3.4) as a hard architectural constraint.
-9. Extract a **shared UI component package** so the three surfaces (super-console, tenant portal, partner portal) render the same Site→Asset→Device views without three copies.
+8. Build the Platform Control Center frontend (A1) on the **render-everything / act-as** model (§3.3 Option A), with the fan-out isolation rule (§3.4) as a hard architectural constraint.
+9. Extract a **shared UI component package** so the three surfaces (Platform Control Center, tenant portal, partner portal) render the same Site→Asset→Device views without three copies.
 10. (Later, narrow) Add the impersonation/launch-in-context flow (§3.3 Option B) for support "see what the customer sees," as its own threat-modeled artifact.
 
 **Tier 4 — zero-touch provisioning**
-11. Phase 1 (cloud registration surface) — deliverable as soon as the Super-Console exists.
+11. Phase 1 (cloud registration surface) — deliverable as soon as the Platform Control Center exists.
 12. Phase 2+ (enrollment groups + twin config push) — after the IoT Hub foundation is deployed; the enrollment-group security decision gets its own threat-model pass.
 
 **Cross-cutting**

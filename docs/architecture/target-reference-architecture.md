@@ -18,7 +18,7 @@ Authoritative sources it draws on:
 - [Multi-Tenant Architecture](multi-tenant-architecture.md) — the cross-scope isolation framework
 - [Device & Command Security Architecture](device-command-security-architecture.md) — DPS, Direct Methods, safety-critical actuation
 - [Device Onboarding & Telemetry Acquisition](device-onboarding-and-telemetry-acquisition.md) — the 3-path device taxonomy
-- [Azure Review & Improvement Roadmap](azure-review-and-improvement-roadmap.md) — the Super-Console design (§3) and ZTP roadmap (§4)
+- [Azure Review & Improvement Roadmap](azure-review-and-improvement-roadmap.md) — the Platform Control Center design (§3) and ZTP roadmap (§4)
 - [Threat Model](threat-model.md) and [SOC 2 Control Mapping](soc2-control-mapping.md) — the security posture this must satisfy
 
 **When this doc and a numbered artifact disagree, the numbered artifact wins** until this one is promoted past Draft — this is a proposal for the consolidated target, offered for review.
@@ -78,7 +78,7 @@ The most common architecture mistake — the one the reviewed diagram made — i
 │  + PIM for privileged roles │   │                             │   │                             │
 └──────────────┬──────────────┘   └──────────────┬──────────────┘   └──────────────┬──────────────┘
      issues staff JWT                  issues customer JWT               issues partner JWT
-   (audience: super-console)         (audience: tenant portal)        (audience: partner portal)
+   (audience: control center)        (audience: tenant portal)        (audience: partner portal)
 ```
 
 **These are three distinct token issuers with three distinct audiences.** This is the structural root of "hard separation." A customer's token is minted by a directory the staff console does not trust and cannot be replayed against it. The backend validates each request against the *specific* issuer/JWKS/audience for its surface (`validateEntraToken(kind)` — `'customers' | 'partners' | 'staff'`).
@@ -87,17 +87,17 @@ The most common architecture mistake — the one the reviewed diagram made — i
 
 **Custom claims** carry authorization context: `extension_tenantId` (customer's org), `extension_channelPartnerId` (partner). These are verified against Entra's documented directory-extension convention on first real-tenant wiring (finding A7 — the claim name can carry an app-id infix).
 
-**Privileged-access hardening for staff:** the corporate workforce tenant gates the Super-Console behind **Conditional Access** (compliant device + MFA) and puts `superadmin` behind **Entra PIM** (just-in-time elevation, time-boxed, approval-logged) rather than standing admin. An account manager's day-to-day role is *not* superadmin.
+**Privileged-access hardening for staff:** the corporate workforce tenant gates the Platform Control Center behind **Conditional Access** (compliant device + MFA) and puts `superadmin` behind **Entra PIM** (just-in-time elevation, time-boxed, approval-logged) rather than standing admin. An account manager's day-to-day role is *not* superadmin.
 
 ---
 
-## 5. Control plane — the three surfaces and the Super-Console
+## 5. Control plane — the three surfaces and the Platform Control Center
 
 ### 5.1 Three surfaces, genuinely separate
 
 | Surface | Who | Backed by | Sees |
 |---|---|---|---|
-| **Internal Super-Console** (new UI) | PeakLogic staff | Corporate workforce Entra ID | Their book of business, via act-as (superadmin = all) |
+| **Internal Platform Control Center** (new UI) | PeakLogic staff | Corporate workforce Entra ID | Their book of business, via act-as (superadmin = all) |
 | **Tenant Portal** (existing React app) | Customer admins/operators | PeakLogicCustomers | Only their own org (RLS) |
 | **Channel-Partner Portal** (white-label) | Partner admins/techs/managers | PeakLogicPartners | Only attributed accounts (RLS) |
 
@@ -107,12 +107,12 @@ Three separate front-end apps, three separate issuers. A **shared UI component p
 >
 > **Implementation plan:** [`super-console-implementation-plan.md`](super-console-implementation-plan.md) turns that prototype into a phased build — grounded in the real admin API on `dev`, with the fan-out isolation rule as an enforced architecture test.
 
-### 5.2 The Super-Console act-as model — **act-as, not impersonation**
+### 5.2 The Platform Control Center act-as model — **act-as, not impersonation**
 
 This is the correction the reviewed diagram most needed. There are two models; they are not the same, and the default matters enormously:
 
 **Option A — Render-everything / server-side act-as. ✅ The architecture.**
-Staff stay authenticated to the Super-Console with their *own* corporate identity. "Manage &lt;Org&gt;" switches the **active org context**; the console calls the admin API, which runs the **already-built** `withStaffActingOnTenant()` handoff:
+Staff stay authenticated to the Platform Control Center with their *own* corporate identity. "Manage &lt;Org&gt;" switches the **active org context**; the console calls the admin API, which runs the **already-built** `withStaffActingOnTenant()` handoff:
 1. Verify the staff member's assignment to that org (`account_assignments`).
 2. Open a DB transaction, `SET LOCAL app.current_tenant_id`, `FORCE ROW LEVEL SECURITY`.
 3. Run the *exact same* RLS-scoped queries the tenant portal runs.
@@ -127,7 +127,7 @@ Mint a short-lived, audit-tagged, scoped token and open the *literal* customer p
 
 ### 5.3 The isolation guarantee — **fan-out, never cross-tenant**
 
-**The Super-Console must never issue a query that reads across tenants directly.** Every "global" view — Fleet Overview, the needs-attention list, global device inventory — is assembled by **fan-out**:
+**The Platform Control Center must never issue a query that reads across tenants directly.** Every "global" view — Fleet Overview, the needs-attention list, global device inventory — is assembled by **fan-out**:
 
 ```
 for org in staffMember.assignedOrgs:        # tens–hundreds, not millions
@@ -145,7 +145,7 @@ N small individually-scoped queries, each passing through the identical RLS gate
 |---|---|---|
 | `withTenant()` | Tenant portal | Customer's own `tenantId` from JWT |
 | `withChannelPartner()` | Partner portal | Partner's `channelPartnerId` from JWT |
-| `withStaffActingOnTenant()` | Super-Console | Staff assignment → target `tenantId` |
+| `withStaffActingOnTenant()` | Platform Control Center | Staff assignment → target `tenantId` |
 | `withManagerActingOnChannelPartner()` | Partner-manager (design-only, v1.3) | Manager assignment → target partner |
 
 Every one of them is a transaction that sets a `SET LOCAL` scope var and lets RLS enforce. **No route touches the DB outside one of these wrappers** — the single exception is ingest (§7.4).
@@ -220,7 +220,7 @@ The reviewed diagram was ingestion-only (arrows up). The target architecture als
 - **Register in cloud:** batch-register a device *family* via **DPS enrollment groups** (one signing CA, not one record per unit) — the actual "zero-touch at fleet scale" enabler (finding A3). Trade-off: lower friction, higher blast radius on a leaked group CA → mitigated by per-device disenrollment, short-lived leaf certs, CA in Key Vault/HSM. **This gets its own threat-model pass — it is a security decision, not a config flag.** Keep individual enrollment as the fallback for one-off/high-value devices.
 - **Connect in field → auto-register + config push:** device self-provisions (DPS) → assigned to the right IoT Hub → **device-twin desired properties push the full config down** (§8). True zero-touch for Paths A and B; Path C reconciles via OEM-cloud polling.
 
-**Lifecycle as first-class state:** `registered → provisioning → configured → reporting → silent → decommissioned`, surfaced in the Super-Console's global device inventory (folds in device-silence detection, finding A6).
+**Lifecycle as first-class state:** `registered → provisioning → configured → reporting → silent → decommissioned`, surfaced in the Platform Control Center's global device inventory (folds in device-silence detection, finding A6).
 
 ---
 
@@ -265,7 +265,7 @@ Boundary 7: Corporate net ↔ superadmin     → PIM just-in-time elevation, tim
                           (aud: console)          (aud: tenant app)        (aud: partner app)
                                  │                        │                        │
           ┌──────────────────────▼───┐      ┌─────────────▼──────────┐  ┌──────────▼───────────────┐
-          │  INTERNAL SUPER-CONSOLE  │      │   TENANT PORTAL (React) │  │ CHANNEL-PARTNER PORTAL   │
+          │  PLATFORM CONTROL CENTER │      │   TENANT PORTAL (React) │  │ CHANNEL-PARTNER PORTAL   │
           │  staff · act-as · fan-out│      │   customer admins/ops   │  │ (white-label) · techs    │
           └──────────────┬───────────┘      └────────────┬───────────┘  └──────────┬───────────────┘
         per-org scoped calls, fanned out         withTenant()            withChannelPartner()
@@ -305,7 +305,7 @@ Boundary 7: Corporate net ↔ superadmin     → PIM just-in-time elevation, tim
 | Three-tenant identity separation | **Designed & ported** (auth.ts validates per-issuer; `oid` bug fixed this cycle) |
 | `withTenant` / `withChannelPartner` / `withStaffActingOnTenant` | **Built** (ported to Azure, RLS logic cloud-agnostic) |
 | Internal admin console backend + settings (v1.2) | **Shipped on `dev`** (20 endpoints) — but no frontend UI yet |
-| Super-Console frontend (the single pane) | **Designed, not built** (roadmap Tier 3, items 8–9) |
+| Platform Control Center frontend (the single pane) | **Designed, not built** (roadmap Tier 3, items 8–9) |
 | `withManagerActingOnChannelPartner` (v1.3) | **Design-only** — no code/migration yet |
 | Ingestion (IoT Hub + DPS individual enrollment) | **Designed**; not deployed (no Azure subscription yet) |
 | Device twins / Direct Methods / config push | **Designed, not claimed in code yet** (findings A4/A3) |
@@ -314,7 +314,7 @@ Boundary 7: Corporate net ↔ superadmin     → PIM just-in-time elevation, tim
 | Managed Identity + Key Vault DB auth | **Ported** (db.ts); `dev` has tracked plaintext exception (TD-43) |
 | Bicep: network + data modules | **Written**, not `bicep build`-validated; iot/api/frontend/budget **not written** |
 
-**The honest through-line:** the *control-plane security model is real and largely built*; the *device plane and the Super-Console UI are designed but await a real Azure subscription and frontend work*. Nothing here has run against a live Azure deployment yet.
+**The honest through-line:** the *control-plane security model is real and largely built*; the *device plane and the Platform Control Center UI are designed but await a real Azure subscription and frontend work*. Nothing here has run against a live Azure deployment yet.
 
 ---
 

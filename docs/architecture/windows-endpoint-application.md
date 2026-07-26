@@ -876,7 +876,7 @@ Everything in §8 (MSIX packaging, background update agent) governs **PeakLogic 
                                                                         ▼
                                                           ┌───────────────────────────┐
                                                           │ Fleet Management Plane      │
-                                                          │ (super-admin console, §10.4)│
+                                                          │ (Control Center, §10.4)   │
                                                           │ reaches hubs by their stable │
                                                           │ private VPN IP — no NAT      │
                                                           │ traversal, no inbound port    │
@@ -901,7 +901,7 @@ They are deliberately kept as two separate approval/rollout tracks — a critica
 
 Part of the existing Watchdog service (§7.3), not a new process — it already runs elevated-enough and already exists on every hub. Adds:
 
-- **Enumeration:** queries the Windows Update Agent (WUA) COM API (`Microsoft.Update.Session`) on a schedule (default every 6h) for pending updates, their KB IDs, and Microsoft's own classification (`Critical`, `Security`, `Important`, `Feature`, etc.) — this classification is what drives the "critical patch" flagging the super-admin console surfaces, not a locally-invented severity scheme.
+- **Enumeration:** queries the Windows Update Agent (WUA) COM API (`Microsoft.Update.Session`) on a schedule (default every 6h) for pending updates, their KB IDs, and Microsoft's own classification (`Critical`, `Security`, `Important`, `Feature`, etc.) — this classification is what drives the "critical patch" flagging the Platform Control Center surfaces, not a locally-invented severity scheme.
 - **Reporting:** posts a compact status document over the VPN-bound Local Management API's outbound leg (or, simpler and equally valid, over the existing REST API client's connection — patch status is not sensitive control-plane data, no VPN requirement for the *reporting* direction, only for direct *reach-in* actions in §10.4) to a new fleet-management endpoint (not yet built — see §12 Open Questions).
 - **Enforcement:** does **not** decide what to install. Installation is driven entirely by **Windows Update for Business (WUfB) deferral policy**, configured per-hub via the existing Group Policy/MDM CSP mechanism Windows already provides — the agent's job is visibility and a narrow "install this approved-and-promoted set now" trigger (`usoclient StartInstall` scoped to specific KBs), not reimplementing what WUfB already does well.
 
@@ -924,14 +924,14 @@ public sealed class PatchReportingAgent
 }
 ```
 
-### 10.4 Super-admin console: review, ring, and targeted rollout
+### 10.4 Platform Control Center: review, ring, and targeted rollout
 
 **Update rings, driven by the existing `EdgeConfig` model (§8.1), one new field:**
 
 ```json
 {
   "patchGovernance": {
-    "updateRing": "canary",   // "canary" | "broad" | "production" — assigned per hub, super-admin-editable
+    "updateRing": "canary",   // "canary" | "broad" | "production" — assigned per hub, editable in the Platform Control Center
     "wufbDeferDaysFeature": 14,
     "wufbDeferDaysQuality": 3
   }
@@ -940,7 +940,7 @@ public sealed class PatchReportingAgent
 
 Workflow, mirroring the same "draft → review → approve → promote" discipline this project already applies to its own architecture docs, applied here to patches instead:
 
-1. Every reporting hub's pending-KB list rolls up into the super-admin console's **Patch Review** screen — grouped by KB, showing how many hubs (and which rings) it's pending on, and Microsoft's own severity classification surfaced directly (a `Critical`/`Security` KB gets a visible badge, matching this project's existing badge-driven UI language).
+1. Every reporting hub's pending-KB list rolls up into the Platform Control Center's **Patch Review** screen — grouped by KB, showing how many hubs (and which rings) it's pending on, and Microsoft's own severity classification surfaced directly (a `Critical`/`Security` KB gets a visible badge, matching this project's existing badge-driven UI language).
 2. An admin explicitly **approves a KB for the `canary` ring** — a small, deliberately-chosen subset of hubs (a handful of low-risk sites, configured via `updateRing: "canary"` in each hub's config). This does not install anything by itself; it flips those hubs' WUfB deferral window down to zero for that specific KB (or, for out-of-band critical patches WUfB's normal cadence is too slow for, triggers the agent's narrow `usoclient StartInstall` path directly).
 3. After a configurable bake period (default 72h) with no regression signal (hub still reporting normal heartbeat/telemetry — regression detection here is intentionally simple: "did the hub go dark," not a sophisticated health-scoring system), the admin **promotes the KB to `broad`**, then eventually **`production`** — each promotion is a deliberate console action, never automatic, and every promotion is written to the local audit log (§9.4) on the affected hubs plus a corresponding fleet-level audit record.
 4. **Targeted push** outside the ring model — e.g. "patch only the 12 hubs in Texas" — is just a saved filter over the same hub inventory (by `siteId`/region metadata already in `EdgeConfig.siteIdentity`), not a separate mechanism.

@@ -2,7 +2,7 @@
 
 **Status:** 🟡 Draft v0.1 (2026-07-18)
 **Purpose:** Fold a Cisco-style service decomposition of the device-management platform into PeakLogic's existing security-first architecture — adopting the genuinely world-class additions it surfaces, keeping every isolation guarantee we've built, and refusing the over-engineering it could be misread to imply.
-**Reads with:** [Target Reference Architecture](target-reference-architecture.md) (the plane/trust model — unchanged by this doc), [Super-Console Implementation Plan](super-console-implementation-plan.md), [Device Onboarding](device-onboarding-and-telemetry-acquisition.md), [Multi-Tenant Architecture](multi-tenant-architecture.md).
+**Reads with:** [Target Reference Architecture](target-reference-architecture.md) (the plane/trust model — unchanged by this doc), [Platform Control Center Implementation Plan](super-console-implementation-plan.md), [Device Onboarding](device-onboarding-and-telemetry-acquisition.md), [Multi-Tenant Architecture](multi-tenant-architecture.md).
 
 ---
 
@@ -28,7 +28,7 @@ The reference design decomposes the "core platform" into eight services (tenant 
 | **Policy Engine** (thresholds, config templates, notifications) | **Hardcoded** `RULES_BY_CATEGORY` in `ingest/rules.ts`; per-tenant `webhook_url` only | **New — the headline improvement (§3)** |
 | **Branding & White-Label Layer** | Channel-partner branding fields exist; not a platform service | **Partial → generalize (§8)** |
 | **Analytics & Reporting** (dashboards, scorecards) | Dashboards + fan-out aggregation; **no reports/scorecards** | **Partial → New (§9)** |
-| **Super Admin Console / Support-NOC** | Console designed + prototyped (Target Ref §5); support = a role | **Have** (NOC = a console mode, not a new app — §10) |
+| **Platform Control Center / Support-NOC** | Console designed + prototyped (Target Ref §5); support = a role | **Have** (NOC = a console mode, not a new app — §10) |
 
 **Net:** nothing here forces a rewrite. Three genuinely new services, three generalizations, one cost-gated addition, and a strong existing security core to build them on.
 
@@ -154,7 +154,7 @@ Built on the **fan-out aggregation pattern** (never cross-tenant). Heavy reporti
 
 ## 10. Support / NOC — a console mode, not a new app
 
-The reference design separates "Support/NOC Tools." PeakLogic gets the same capability more cheaply as a **role-gated read-only mode of the Super-Console**: a `support_engineer` sees troubleshooting views and can enter *read-only* act-as, without a second application, second deploy, or second auth surface. The distinction the design draws is a *permission boundary*, and we already have the role. Build the mode, not the app.
+The reference design separates "Support/NOC Tools." PeakLogic gets the same capability more cheaply as a **role-gated read-only mode of the Platform Control Center**: a `support_engineer` sees troubleshooting views and can enter *read-only* act-as, without a second application, second deploy, or second auth surface. The distinction the design draws is a *permission boundary*, and we already have the role. Build the mode, not the app.
 
 ---
 

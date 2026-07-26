@@ -122,7 +122,7 @@ Beyond naming, the pivot introduces these genuinely new concepts the old artifac
 | 23 | Enterprise Roadmap | AMEND | ⬜ | Unified-platform initiatives. |
 | 24 | Technical Debt Register | CARRY | ⬜ | Naming + any new items surfaced during the sweep. |
 | 26 | iOS Application | CARRY/AMEND | ⬜ | PeakView360 mobile framing. |
-| 29 | Super-Console Implementation Plan | CARRY | ⬜ | Staff console over the unified platform. |
+| 29 | Platform Control Center Implementation Plan (`super-console-implementation-plan.md`) | CARRY | ⬜ | The PCC operator UI over the unified platform (file rename deferred). |
 | 31 | Policy Engine Design | CARRY/AMEND | ⬜ | PeakView360 alarm-config surface. |
 | 33 | Channel Partner Intelligence Layer | AMEND | ⬜ | Maps onto the service-provider pillar. |
 | 35 | White-Label Estate Branding Design | CARRY/AMEND | ⬜ | PeakView360 post-login theming. |

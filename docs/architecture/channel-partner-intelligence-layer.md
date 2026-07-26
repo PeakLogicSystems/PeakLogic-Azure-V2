@@ -37,7 +37,7 @@ Everything the partner does in the layer, mapped to what's already designed or b
 | **Log in** | Branded, isolated partner access | `PeakLogicPartners` Entra External ID tenant; white-label branding | Designed (identity ported; branding partial) |
 | **Onboard customers** | Add & attribute customer orgs | Tenant/attribution model; `account`/partner attribution | Built (data model) |
 | **Onboard devices** | Register + field-provision equipment | ZTP + [Device Onboarding](device-onboarding-and-telemetry-acquisition.md) (register-in-cloud → connect → config-push) | Designed (roadmap) |
-| **Monitor** | Live estate view: sites → assets → devices, health, alerts | Telemetry ingestion + dashboards + Super-Console-style views (shared UI package) | Built/designed |
+| **Monitor** | Live estate view: sites → assets → devices, health, alerts | Telemetry ingestion + dashboards + Platform Control Center-style views (shared UI package) | Built/designed |
 | **Set thresholds** | Tune what alerts, per customer/site/asset | **[Policy Engine](policy-engine-design.md)** — tenant/site/asset threshold overrides, inheritance, audited | **Built (steps 1+3), flag-gated** |
 | **Get AI analytics** | Anomaly / predictive / prescriptive intelligence beyond fixed thresholds | **AI Analytics layer (§3)** | **GAP — not yet designed** |
 | **Output to their systems** | Actionable work → their CMMS/FSM | **[CMMS dispatch connector](reporting-and-kpi-design.md)** (bi-directional) | Designed |
