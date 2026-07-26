@@ -1,3 +1,5 @@
+using PeakLogicEdge.Core.Versioning;
+
 namespace PeakLogicEdge.Core.PeakAssist;
 
 // The hub's PeakAssist bundle-sync engine — the .NET half of
@@ -71,24 +73,10 @@ public static class PeakAssistSync
     /// <summary>
     /// Compare two 'YYYY.MM.N' versions numerically, component-wise, shorter
     /// zero-padded. Returns -1 / 0 / 1. Mirrors compareContentVersions in
-    /// peakassist-sync.ts; a non-numeric component is treated as 0.
+    /// peakassist-sync.ts; a non-numeric component is treated as 0. Delegates to
+    /// the shared <see cref="DottedVersion"/> so ordering is defined once.
     /// </summary>
-    public static int CompareContentVersions(string a, string b)
-    {
-        var pa = a.Split('.');
-        var pb = b.Split('.');
-        var len = Math.Max(pa.Length, pb.Length);
-        for (var i = 0; i < len; i++)
-        {
-            var x = ParseComponent(i < pa.Length ? pa[i] : "0");
-            var y = ParseComponent(i < pb.Length ? pb[i] : "0");
-            if (x < y) return -1;
-            if (x > y) return 1;
-        }
-        return 0;
-    }
-
-    private static int ParseComponent(string s) => int.TryParse(s, out var n) ? n : 0;
+    public static int CompareContentVersions(string a, string b) => DottedVersion.Compare(a, b);
 
     /// <summary>
     /// Deterministic content checksum (FNV-1a) — a byte-for-byte port of

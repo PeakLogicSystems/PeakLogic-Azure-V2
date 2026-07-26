@@ -56,6 +56,8 @@ A control plane is **declarative and self-converging**: you declare desired stat
 
 **Without this loop, "inherit desired state" is a label on a dashboard.** With it, the PCC is a reconciler.
 
+> 🟢 **Built (2026-07-26):** the device-side reconciler logic exists and is tested — `PeakLogicEdge.Core.Reconciliation.DesiredStateReconciler` (`windows-hub/`). Given a `DesiredStateBundle` (the Release Channel — firmware/bootloader/drivers/app/config/security/AI-model/help, each with a version + optional checksum) and the device's `ReportedState`, it computes per-component **drift** (InSync/Behind/Ahead/Missing/Unexpected, categorized), a **convergence plan** (bring Behind/Missing to desired, in the channel's declared order; never auto-downgrade; never touch an overridden component), and a **compliance verdict** (compliant iff every deviation is InSync or covered by an active **override** = expected drift, PCC §6). This generalizes `PeakAssistSync` from one artifact to a whole bundle; both now share `Core.Versioning.DottedVersion`. **Infra-gated remainder:** the transport — receiving the bundle via IoT Hub twin *desired* properties, driving the on-device apply from the plan, and writing convergence back to twin *reported* properties. 13 tests (incl. the spec's Stable-channel bundle).
+
 ### 3.2 Progressive-rollout orchestration engine
 Staged rollout (Internal→Engineering→QA→Pilot→Canary→5→20→50→100%) is only a control plane if promotion is **automated and health-gated**, not a human clicking "next ring." Required: a **rollout controller** that, per ring, evaluates **health SLOs / an error budget** (deployment success rate, boot-success, crash rate, telemetry-error rate, security events) and **auto-promotes on green, auto-halts on breach** — the pattern in Eclipse hawkBit (rollout groups with error thresholds), WUfB (safeguard holds), and progressive-delivery tooling. Manual approve/pause/cancel remain as overrides.
 
@@ -180,7 +182,7 @@ With 1–6, the Platform Control Center is a genuine enterprise control plane ca
 
 ## 9. Honesty ledger (real vs. design)
 
-- **Real foundations that exist today:** the hub agent's twin-style reporting + `PeakAssistSync` reconciliation precedent (the device-side reconciler seed); DPS/IoT-Hub device identity design (Q6); append-only `audit_log_entries`; the multi-tenant isolation invariant + `withStaffActingOnTenant`; the coarse Entra App-Roles RBAC; the super-console backend (staff registry) + prototype UI.
+- **Real foundations that exist today:** the **device-side desired-state reconciler** (`DesiredStateReconciler`, §3.1 — built + tested 2026-07-26); the hub agent's twin-style reporting + `PeakAssistSync` (now a specialization of the reconciler, sharing `DottedVersion`); DPS/IoT-Hub device identity design (Q6); append-only `audit_log_entries`; the multi-tenant isolation invariant + `withStaffActingOnTenant`; the coarse Entra App-Roles RBAC; the Platform Control Center backend (staff registry) + prototype UI.
 - **Design-stage (this document):** the entire PCC as specified — reconciler generalization, release channels, ADU integration, progressive-rollout engine, A/B update safety, drift/override/rollback engines, the scale read model, and the expanded RBAC. **Nothing here is built**, and most is **infrastructure-gated** (no Azure subscription / IoT Hub / DPS / ADU / Event Grid / CDN — infra item 1). Same standing caveat as the whole Azure track.
 - **Not validated against a real fleet:** every scale claim is architectural reasoning, unverified against a running deployment.
 
