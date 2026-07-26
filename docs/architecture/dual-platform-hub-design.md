@@ -43,7 +43,7 @@ What was already portable vs. Windows-locked in the real code, and what changed:
 ## 3. Target structure
 
 - **`PeakLogicEdge.Core` (portable `net8.0` + `net8.0-windows`)** — done. The shared agent logic; Windows-only impls compile only under the Windows TFM.
-- **`PeakLogicEdge.Agent` (portable `net8.0`, headless)** — the real hub runtime, promoted from `Host`. Runs as: a **Linux IoT Edge module / systemd unit**, or a **Windows Service**, or under the WinUI app's `EdgeRuntimeService` (which already hosts the same Core pipeline). One agent, three ways to launch it.
+- **`PeakLogicEdge.Agent` (portable `net8.0`, headless)** — 🟢 *built (2026-07-25).* The real hub runtime. `Program.cs` = `Host.CreateDefaultBuilder().UseSystemd().UseWindowsService()` so **one binary** runs as a Linux systemd unit (and the IoT Edge module process model), a Windows Service, or a console; `HubAgentService : BackgroundService` runs the shared `Core.Agent.HubAgent` pipeline. **Cross-compiled to a real Linux ELF executable** (`linux-x64` + `linux-arm64`) — verified. The pipeline itself (`HubAgent`) was extracted into portable Core so it's no longer duplicated across launchers.
 - **`PeakLogicEdge.App` (WinUI 3, `net8.0-windows`)** — Windows-11 optional local touch shell. Unchanged; not shipped to Linux.
 - **PeakView360 browser UI** — the cross-platform operator surface, served by the agent on the LAN (§7.7). Same UI on both OSes.
 
@@ -69,9 +69,9 @@ Net: **on Linux/IoT Edge, more of the hub's plumbing is delegated to the platfor
 
 ## 7. Honesty ledger (real vs. design)
 
-- **Done & verified (2026-07-25):** `PeakLogicEdge.Core` multi-targets `net8.0;net8.0-windows`; the portable build compiles with DPAPI/serial correctly excluded; both framework outputs produced; 51 tests green (run via the Windows TFM).
-- **Design-stage (not built):** the promoted `PeakLogicEdge.Agent` headless project; the IoT Edge module packaging + deployment manifest; the Linux `ISecretStore`/serial impls (delegated/deferred per §4); the PeakView360 browser UI (its own doc, unbuilt).
-- **Unverified:** nothing here has *run* on Linux or on IoT Edge — no Linux host, no Azure subscription/IoT Hub (infra item 1). The portable **build** is verified; portable **runtime** is not. Same standing caveat as all Azure-track design.
+- **Done & verified (2026-07-25):** `PeakLogicEdge.Core` multi-targets `net8.0;net8.0-windows` (portable build compiles, DPAPI/serial excluded). **`PeakLogicEdge.Agent` headless project built** — the shared `HubAgent` pipeline extracted into portable Core (dedups Host + the App's `EdgeRuntimeService`), hosted as a systemd/Windows-Service/console binary, **cross-compiled to real `linux-x64`+`linux-arm64` ELF executables**. `Host` refactored to the same shared agent and retargeted portable. 52 tests green (incl. a new end-to-end HubAgent durable-queue test).
+- **Design-stage (not built):** the IoT Edge module packaging (Dockerfile + deployment manifest); the Linux `ISecretStore`/serial impls (delegated/deferred per §4); the PeakView360 browser UI (its own doc, unbuilt); wiring the App's `EdgeRuntimeService` onto the shared `HubAgent` (it still runs its own copy — a later dedup).
+- **Unverified:** a Linux ELF binary is *produced and* the code is portable, but the agent has not been *run* on Linux or IoT Edge — no Linux host, no Azure subscription/IoT Hub (infra item 1). Build + cross-compile verified; runtime-on-Linux is not. Same standing caveat as all Azure-track design.
 - **Not reinvented:** the Linux identity/secret story delegates to the Enrollment & Identity (Q6) + IoT Edge, rather than duplicating a device-identity or secret mechanism on the edge.
 
 ## 8. Open items

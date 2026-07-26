@@ -1,0 +1,32 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <!-- Portable net8.0: this is THE cross-platform headless hub runtime
+         (dual-platform-hub-design.md §3). It runs on Linux (Azure IoT Edge
+         module / systemd) and Windows (a Windows Service) from one binary.
+         Referencing the multi-targeted Core, it resolves Core's portable
+         net8.0 target — so building this is also a check that Core's portable
+         surface is genuinely consumable. -->
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PeakLogicEdge.Agent</RootNamespace>
+    <!-- Industrial gateways are commonly ARM; publish for both Linux arches
+         plus Windows. -->
+    <RuntimeIdentifiers>linux-x64;linux-arm64;win-x64</RuntimeIdentifiers>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <!-- One binary adapts to how it's launched; each no-ops off its own OS. -->
+    <PackageReference Include="Microsoft.Extensions.Hosting.Systemd" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Hosting.WindowsServices" Version="8.0.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PeakLogicEdge.Core\PeakLogicEdge.Core.csproj" />
+  </ItemGroup>
+
+</Project>
