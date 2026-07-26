@@ -3,143 +3,1309 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PeakLogic Solutions</title>
-<meta name="description" content="PeakLogic Solutions — industrial IoT monitoring and control. Site launching soon.">
+<meta name="description" content="PeakLogic Solutions — an intelligence layer for essential field services: 24/7 monitoring, real-time alerts, and automated dispatch for the equipment you already service.">
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<title>PeakLogic Solutions — Field Services Intelligence, Asset & Risk Management</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body {
-    height: 100%;
-    background: #0F172A;
-    font-family: 'Inter', system-ui, sans-serif;
-    color: #E2E8F0;
+  :root {
+    --white: #ffffff;
+    --paper: #f7f8fb;
+    --paper-2: #eef0f7;
+    --ink: #0f172a;
+    --ink-2: #334155;
+    --muted: #5b6478;
+    --faint: #94a0b5;
+    --line: #e7e6f1;
+    --line-2: #d9d8ea;
+    --purple: #7c3aed;
+    --purple-mid: #8b5cf6;
+    --purple-deep: #6d28d9;
+    --purple-soft: #f2effe;
+    --green: #22c55e;
+    --green-ink: #15803d;
+    --green-soft: #e8fbef;
+    --amber: #f59e0b;
+    --dark: #0b1120;
+    --dark-2: #131c30;
+    --shadow: 0 1px 2px rgba(16,21,42,.04), 0 10px 30px rgba(16,21,42,.06);
+    --shadow-lg: 0 24px 60px rgba(16,21,42,.14);
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+    --r: 16px; --r-sm: 10px;
   }
-  body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 24px;
-    background:
-      radial-gradient(circle at 20% 20%, rgba(124, 58, 237, 0.15), transparent 40%),
-      radial-gradient(circle at 80% 80%, rgba(34, 197, 94, 0.1), transparent 40%),
-      #0F172A;
-  }
-  main {
-    text-align: center;
-    max-width: 520px;
-  }
-  .logo-mark {
-    margin-bottom: 1.75rem;
-  }
-  .wordmark {
-    font-size: 2.75rem;
-    font-weight: 800;
-    letter-spacing: -0.02em;
-    line-height: 1;
-    margin-bottom: 0.5rem;
-  }
-  .wordmark .peak { color: #FFFFFF; }
-  .wordmark .logic { color: #8B5CF6; }
-  .tagline {
-    font-size: 0.95rem;
-    font-weight: 500;
-    color: #94A3B8;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    margin-bottom: 2.5rem;
-  }
-  .coming-soon {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: rgba(124, 58, 237, 0.12);
-    border: 1px solid rgba(124, 58, 237, 0.35);
-    color: #C4B5FD;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.03em;
-    padding: 0.5rem 1.1rem;
-    border-radius: 999px;
-    margin-bottom: 2.5rem;
-  }
-  .coming-soon .dot {
-    width: 7px;
-    height: 7px;
-    border-radius: 50%;
-    background: #22C55E;
-    box-shadow: 0 0 8px #22C55E;
-  }
-  p.blurb {
-    color: #94A3B8;
-    font-size: 1rem;
-    line-height: 1.6;
-    margin-bottom: 2.5rem;
-  }
-  .actions {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: center;
-    flex-wrap: wrap;
-  }
-  .btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.7rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
-    font-weight: 600;
-    text-decoration: none;
-    transition: transform 0.15s ease, background 0.15s ease;
-  }
-  .btn:hover { transform: translateY(-1px); }
-  .btn-primary {
-    background: #7C3AED;
-    color: #FFFFFF;
-  }
-  .btn-primary:hover { background: #8B5CF6; }
-  .btn-secondary {
-    background: transparent;
-    color: #E2E8F0;
-    border: 1px solid rgba(255, 255, 255, 0.15);
-  }
-  .btn-secondary:hover { border-color: rgba(255, 255, 255, 0.3); }
-  footer {
-    margin-top: 3rem;
-    font-size: 0.78rem;
-    color: #475569;
-  }
+  * { box-sizing: border-box; }
+  body { margin: 0; }
+  .pl { font-family: var(--sans); color: var(--ink); background: var(--white); -webkit-font-smoothing: antialiased; line-height: 1.55; }
+  img, svg { max-width: 100%; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+  .eyebrow { font-family: var(--mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--purple); font-weight: 600; }
+  h1, h2, h3 { letter-spacing: -.025em; text-wrap: balance; margin: 0; }
+  .h1 { font-size: clamp(34px, 5.2vw, 60px); font-weight: 800; line-height: 1.04; }
+  .h2 { font-size: clamp(26px, 3.6vw, 40px); font-weight: 780; line-height: 1.1; }
+  .h3 { font-size: 20px; font-weight: 720; }
+  .lede { font-size: clamp(16px, 1.7vw, 19px); color: var(--muted); max-width: 62ch; }
+  .muted { color: var(--muted); } .faint { color: var(--faint); }
+  .center { text-align: center; } .mx { margin-left: auto; margin-right: auto; }
+
+  /* Buttons */
+  .btn { display: inline-flex; align-items: center; gap: 8px; font-family: var(--sans); font-size: 15px; font-weight: 650; padding: 12px 20px; border-radius: 999px; border: 1px solid transparent; cursor: pointer; transition: transform .06s ease, background .15s ease, box-shadow .15s ease; white-space: nowrap; }
+  .btn:active { transform: translateY(1px); }
+  .btn--primary { background: var(--purple); color: #fff; box-shadow: 0 8px 20px rgba(124,58,237,.28); }
+  .btn--primary:hover { background: var(--purple-deep); }
+  .btn--ghost { background: #fff; color: var(--ink); border-color: var(--line-2); }
+  .btn--ghost:hover { border-color: var(--purple); color: var(--purple); }
+  .btn--light { background: rgba(255,255,255,.12); color: #fff; border-color: rgba(255,255,255,.22); }
+  .btn--light:hover { background: rgba(255,255,255,.2); }
+  .btn--sm { padding: 9px 16px; font-size: 14px; }
+  .btn svg { width: 16px; height: 16px; }
+
+  /* Nav */
+  .nav { position: sticky; top: 0; z-index: 40; background: rgba(255,255,255,.82); backdrop-filter: blur(12px); border-bottom: 1px solid var(--line); }
+  .nav__in { display: flex; align-items: center; gap: 26px; height: 68px; }
+  .brand { display: flex; align-items: flex-end; gap: 8px; cursor: pointer; }
+  .brand svg { width: 30px; height: 22px; }
+  .brand__word { font-size: 21px; font-weight: 800; letter-spacing: -.03em; line-height: 1; }
+  .brand__word .peak { color: var(--ink); } .brand__word .logic { color: var(--purple); }
+  .nav__links { display: flex; gap: 24px; margin-left: 12px; }
+  .nav__links a { font-size: 14.5px; font-weight: 550; color: var(--ink-2); cursor: pointer; }
+  .nav__links a:hover { color: var(--purple); }
+  .nav__cta { margin-left: auto; display: flex; gap: 10px; align-items: center; }
+  @media (max-width: 900px) { .nav__links { display: none; } }
+
+  /* Section rhythm */
+  section { padding: 86px 0; }
+  .sec-paper { background: var(--paper); }
+  .sec-dark { background: var(--dark); color: #fff; }
+  .sec-head { max-width: 720px; margin: 0 auto 46px; text-align: center; }
+  .sec-head .lede { margin: 14px auto 0; }
+
+  /* Hero */
+  .hero { padding: 74px 0 70px; position: relative; overflow: hidden; }
+  .hero::before { content: ""; position: absolute; inset: 0; background:
+    radial-gradient(60% 60% at 82% 8%, rgba(139,92,246,.10), transparent 70%),
+    radial-gradient(50% 40% at 10% 100%, rgba(34,197,94,.07), transparent 70%); pointer-events: none; }
+  .hero__grid { display: grid; grid-template-columns: 1.05fr .95fr; gap: 48px; align-items: center; position: relative; }
+  @media (max-width: 940px) { .hero__grid { grid-template-columns: 1fr; gap: 34px; } }
+  .hero h1 { margin: 16px 0 18px; }
+  .hero .cta-row { display: flex; gap: 12px; margin-top: 26px; flex-wrap: wrap; }
+  .hero__stats { display: flex; gap: 30px; margin-top: 34px; flex-wrap: wrap; }
+  .hero__stat b { display: block; font-size: 26px; font-weight: 800; letter-spacing: -.02em; }
+  .hero__stat span { font-size: 12.5px; color: var(--muted); }
+
+  /* Pills / chips */
+  /* Animated field-services hero scene */
+  .hero-scene { width: 100%; height: auto; display: block; overflow: visible; }
+  .hs-float { animation: hs-bob 5s ease-in-out infinite; }
+  @keyframes hs-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-7px); } }
+  .hs-pulse { transform-box: fill-box; transform-origin: center; animation: hs-ping 2.4s ease-out infinite; }
+  @keyframes hs-ping { 0% { transform: scale(.5); opacity: .5; } 70%,100% { transform: scale(2.8); opacity: 0; } }
+  .hs-flow { stroke-dasharray: 4 8; animation: hs-flow 1.4s linear infinite; }
+  @keyframes hs-flow { to { stroke-dashoffset: -36; } }
+  .hs-spark { stroke-dasharray: 320; stroke-dashoffset: 320; animation: hs-draw 4.5s ease-in-out infinite; }
+  @keyframes hs-draw { 0% { stroke-dashoffset: 320; } 45%,100% { stroke-dashoffset: 0; } }
+  .hs-bar { transform-box: fill-box; transform-origin: center bottom; animation: hs-bar 1.5s ease-in-out infinite; }
+  @keyframes hs-bar { 0%,100% { transform: scaleY(.4); } 50% { transform: scaleY(1); } }
+  .hs-legend { display: flex; flex-wrap: wrap; gap: 8px 14px; margin-top: 14px; justify-content: center; }
+  .hs-legend span { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--muted); font-weight: 600; }
+  .hs-legend i { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+  @media (prefers-reduced-motion: reduce) { .hs-float, .hs-flow, .hs-spark, .hs-bar { animation: none; } .hs-pulse { opacity: 0; } }
+
+  .chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-deep); font-size: 12.5px; font-weight: 650; }
+  .chip .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+
+  /* Cards */
+  .grid { display: grid; gap: 20px; }
+  .g-3 { grid-template-columns: repeat(3, 1fr); }
+  .g-4 { grid-template-columns: repeat(4, 1fr); }
+  .g-2 { grid-template-columns: repeat(2, 1fr); }
+  @media (max-width: 900px) { .g-3, .g-4 { grid-template-columns: repeat(2, 1fr); } }
+  @media (max-width: 620px) { .g-2, .g-3, .g-4 { grid-template-columns: 1fr; } }
+  .card { background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 26px; box-shadow: var(--shadow); transition: transform .12s ease, box-shadow .12s ease; }
+  .card--hover:hover { transform: translateY(-3px); box-shadow: var(--shadow-lg); }
+  .card .ico { width: 46px; height: 46px; border-radius: 12px; display: grid; place-items: center; background: var(--purple-soft); color: var(--purple); margin-bottom: 16px; }
+  .card .ico svg { width: 24px; height: 24px; }
+  .card h3 { margin-bottom: 8px; }
+  .card p { color: var(--muted); font-size: 14.5px; margin: 0; }
+
+  /* Value pillars w/ number */
+  .pillar { position: relative; }
+  .pillar .n { font-family: var(--mono); font-size: 12px; color: var(--faint); letter-spacing: .1em; }
+
+  /* How it works flow */
+  .flow { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; align-items: stretch; margin-top: 20px; }
+  @media (max-width: 860px) { .flow { grid-template-columns: 1fr 1fr; gap: 16px; } }
+  .flow__step { position: relative; padding: 22px 18px; text-align: center; }
+  .flow__step .fico { width: 54px; height: 54px; border-radius: 14px; margin: 0 auto 14px; display: grid; place-items: center; background: #fff; border: 1px solid var(--line); box-shadow: var(--shadow); color: var(--purple); }
+  .flow__step .fico svg { width: 26px; height: 26px; }
+  .flow__step h4 { margin: 0 0 6px; font-size: 15.5px; font-weight: 700; }
+  .flow__step p { margin: 0; font-size: 13px; color: var(--muted); }
+  .flow__step:not(:last-child)::after { content: ""; position: absolute; top: 40px; right: -1px; width: 2px; height: 0; }
+  .flow__step .arrow { position: absolute; top: 34px; right: -10px; color: var(--line-2); }
+  @media (max-width: 860px) { .flow__step .arrow { display: none; } }
+
+  /* Why-unique list */
+  .why { display: grid; grid-template-columns: 1.1fr 1fr; gap: 40px; align-items: center; }
+  @media (max-width: 900px) { .why { grid-template-columns: 1fr; } }
+  .why__item { display: flex; gap: 14px; padding: 16px 0; border-top: 1px solid var(--line); }
+  .why__item:first-child { border-top: none; }
+  .why__item .k { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+  .why__item .k svg { width: 20px; height: 20px; }
+  .why__item h4 { margin: 0 0 4px; font-size: 16px; font-weight: 700; }
+  .why__item p { margin: 0; font-size: 14px; color: var(--muted); }
+
+  /* Industries */
+  .ind { display: flex; align-items: flex-start; gap: 14px; padding: 18px; border: 1px solid var(--line); border-radius: var(--r-sm); background: #fff; transition: border-color .12s, transform .12s; }
+  .ind:hover { border-color: var(--purple); transform: translateY(-2px); }
+  .ind .iico { width: 40px; height: 40px; border-radius: 10px; flex: none; display: grid; place-items: center; color: var(--purple); background: var(--purple-soft); }
+  .ind .iico svg { width: 22px; height: 22px; }
+  .ind b { font-size: 14.5px; } .ind span { font-size: 12.5px; color: var(--faint); display: block; }
+
+  /* Stats band */
+  .statband { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+  @media (max-width: 720px) { .statband { grid-template-columns: 1fr 1fr; } }
+  .statband .s b { font-size: clamp(30px, 4vw, 44px); font-weight: 800; letter-spacing: -.02em; display: block; background: linear-gradient(100deg, #fff, #c4b5fd); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .statband .s span { color: #9fb0cf; font-size: 13.5px; }
+
+  /* Partner logos */
+  .plogos { display: flex; flex-wrap: wrap; gap: 14px; justify-content: center; }
+  .plogo { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border: 1px solid var(--line); border-radius: 999px; background: #fff; }
+  .plogo .mk { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 11px; }
+  .plogo b { font-size: 13.5px; } .plogo span { font-size: 11px; color: var(--faint); }
+
+  /* CTA band */
+  .ctaband { background: linear-gradient(120deg, #6d28d9, #8b5cf6 55%, #22c55e 160%); color: #fff; border-radius: 24px; padding: 54px; text-align: center; position: relative; overflow: hidden; }
+  .ctaband h2 { color: #fff; } .ctaband p { color: rgba(255,255,255,.85); max-width: 60ch; margin: 12px auto 26px; }
+
+  /* Footer */
+  footer { background: var(--dark); color: #c7cfdf; padding: 60px 0 34px; }
+  .foot__grid { display: grid; grid-template-columns: 1.4fr 1fr 1fr 1fr; gap: 30px; }
+  @media (max-width: 800px) { .foot__grid { grid-template-columns: 1fr 1fr; } }
+  footer h5 { color: #fff; font-size: 12px; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 14px; }
+  footer a { display: block; color: #9fb0cf; font-size: 14px; padding: 5px 0; cursor: pointer; }
+  footer a:hover { color: #fff; }
+  .foot__brand .brand__word .peak { color: #fff; }
+  .foot__bottom { border-top: 1px solid rgba(255,255,255,.1); margin-top: 34px; padding-top: 20px; display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 12.5px; color: #7c89a5; }
+
+  /* Ribbon note */
+  .demo-ribbon { background: var(--purple-soft); color: var(--purple-deep); text-align: center; font-size: 12.5px; font-weight: 600; padding: 7px 16px; }
+  .demo-ribbon b { font-weight: 800; }
+
+  /* Modal */
+  .ov { position: fixed; inset: 0; background: rgba(15,23,42,.5); backdrop-filter: blur(4px); z-index: 60; display: grid; place-items: center; padding: 20px; animation: fade .18s ease; }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  .modal { background: #fff; border-radius: 22px; width: min(560px, 100%); box-shadow: var(--shadow-lg); overflow: hidden; animation: pop .2s ease; }
+  @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+  .modal__head { padding: 26px 28px 8px; }
+  .modal__head h3 { font-size: 22px; } .modal__head p { color: var(--muted); font-size: 14px; margin: 8px 0 0; }
+  .modal__body { padding: 16px 28px 8px; display: flex; flex-direction: column; gap: 12px; }
+  .role { display: flex; align-items: center; gap: 14px; padding: 16px; border: 1px solid var(--line); border-radius: 14px; cursor: pointer; text-align: left; background: #fff; font-family: inherit; transition: border-color .12s, background .12s; width: 100%; }
+  .role:hover { border-color: var(--purple); background: var(--purple-soft); }
+  .role .ri { width: 44px; height: 44px; border-radius: 11px; flex: none; display: grid; place-items: center; color: #fff; }
+  .role b { font-size: 15px; display: block; } .role span { font-size: 13px; color: var(--muted); }
+  .role .arr { margin-left: auto; color: var(--faint); }
+  .modal__foot { padding: 14px 28px 24px; font-size: 12px; color: var(--faint); text-align: center; }
+  .signin-demo { margin: 8px 28px 0; padding: 14px 0 4px; border-top: 1px solid var(--line); }
+  .signin-demo__lbl { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--faint); font-weight: 700; text-align: center; margin-bottom: 10px; }
+  .signin-demo__row { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+
+  /* ---------- Portal shells ---------- */
+  .portal { min-height: 100vh; background: var(--paper); }
+  .phead { background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 20; }
+  .phead__in { display: flex; align-items: center; gap: 16px; height: 62px; }
+  .phead__badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; background: var(--purple-soft); color: var(--purple-deep); }
+  .phead__sp { margin-left: auto; }
+  .pwho { display: flex; align-items: center; gap: 10px; font-size: 13px; }
+  .pwho .av { width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center; color: #fff; font-weight: 700; font-size: 12px; }
+  .pmain { padding: 30px 0 60px; }
+  .ptitle { font-size: 26px; font-weight: 780; letter-spacing: -.02em; margin: 0 0 4px; }
+  .pgrid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 22px 0; }
+  @media (max-width: 800px) { .pgrid { grid-template-columns: 1fr 1fr; } }
+  .pstat { background: #fff; border: 1px solid var(--line); border-radius: var(--r-sm); padding: 16px 18px; }
+  .pstat b { font-size: 26px; font-weight: 780; letter-spacing: -.02em; display: block; }
+  .pstat span { font-size: 12px; color: var(--muted); }
+  .panel2 { background: #fff; border: 1px solid var(--line); border-radius: var(--r); overflow: hidden; box-shadow: var(--shadow); }
+  .panel2__h { padding: 15px 18px; border-bottom: 1px solid var(--line); font-weight: 700; font-size: 14.5px; display: flex; align-items: center; gap: 8px; }
+  .ptbl { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .ptbl th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--faint); font-weight: 700; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+  .ptbl td { padding: 12px 16px; border-bottom: 1px solid var(--line); }
+  .ptbl tr:last-child td { border-bottom: none; }
+  .tag { display: inline-flex; align-items: center; gap: 6px; font-size: 11.5px; font-weight: 650; padding: 3px 9px; border-radius: 999px; }
+  .tag .d { width: 6px; height: 6px; border-radius: 50%; }
+  .tag--good { background: var(--green-soft); color: var(--green-ink); } .tag--good .d { background: var(--green); }
+  .tag--warn { background: #fef3c7; color: #b45309; } .tag--warn .d { background: var(--amber); }
+  .tag--crit { background: #fee2e2; color: #b91c1c; } .tag--crit .d { background: #ef4444; }
+  .tag--info { background: #dbeafe; color: #1d4ed8; } .tag--info .d { background: #2563eb; }
+  .cols2 { display: grid; grid-template-columns: 1.4fr 1fr; gap: 18px; align-items: start; }
+  @media (max-width: 860px) { .cols2 { grid-template-columns: 1fr; } }
+
+  /* Pricing */
+  .tiers { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; align-items: stretch; }
+  @media (max-width: 900px) { .tiers { grid-template-columns: 1fr; max-width: 460px; margin: 0 auto; } }
+  .tier { background: #fff; border: 1px solid var(--line); border-radius: var(--r); padding: 28px; display: flex; flex-direction: column; box-shadow: var(--shadow); }
+  .tier--pop { border-color: var(--purple); box-shadow: 0 22px 54px rgba(124,58,237,.16); position: relative; }
+  .tier__badge { position: absolute; top: -12px; left: 28px; background: var(--purple); color: #fff; font-size: 11px; font-weight: 700; padding: 4px 12px; border-radius: 999px; letter-spacing: .04em; }
+  .tier__name { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--purple-deep); }
+  .billing-toggle { display: inline-flex; gap: 4px; padding: 4px; background: var(--paper-2); border-radius: 999px; border: 1px solid var(--line); }
+  .bt { border: none; background: none; font-family: inherit; font-size: 14px; font-weight: 650; padding: 8px 18px; border-radius: 999px; cursor: pointer; color: var(--muted); display: inline-flex; align-items: center; gap: 8px; }
+  .bt.on { background: #fff; color: var(--ink); box-shadow: var(--shadow); }
+  .bt .save { font-size: 10.5px; font-weight: 700; color: var(--green-ink); background: var(--green-soft); padding: 2px 7px; border-radius: 999px; }
+  .tier__price { font-size: 40px; font-weight: 800; letter-spacing: -.03em; margin: 12px 0 0; }
+  .tier__price .amt { font-size: 40px; font-weight: 800; letter-spacing: -.03em; color: var(--ink); }
+  .tier__price span { font-size: 15px; font-weight: 600; color: var(--muted); letter-spacing: 0; }
+  .tier__desc { color: var(--muted); font-size: 14px; margin: 8px 0 0; min-height: 40px; }
+  .tier ul { list-style: none; padding: 0; margin: 20px 0; display: flex; flex-direction: column; gap: 11px; flex: 1; }
+  .tier li { display: flex; gap: 10px; font-size: 14px; align-items: flex-start; }
+  .tier li svg { width: 18px; height: 18px; color: var(--green); flex: none; margin-top: 1px; }
+  .tier li.off { color: var(--faint); } .tier li.off svg { color: var(--line-2); }
+  .price-note { text-align: center; color: var(--muted); font-size: 13.5px; margin-top: 22px; }
+  .partner-band { background: linear-gradient(120deg, #f2effe, #eef0f7); border: 1px solid var(--line); border-radius: 20px; padding: 34px; display: grid; grid-template-columns: 1.4fr 1fr; gap: 24px; align-items: center; }
+  @media (max-width: 760px) { .partner-band { grid-template-columns: 1fr; } }
+  .faq { max-width: 780px; margin: 0 auto; }
+  .faq__item { border-top: 1px solid var(--line); padding: 20px 0; }
+  .faq__item:first-child { border-top: none; }
+  .faq__item h4 { margin: 0 0 6px; font-size: 16.5px; }
+  .faq__item p { margin: 0; color: var(--muted); font-size: 14.5px; }
+
+  /* About */
+  .value-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
+  @media (max-width: 760px) { .value-grid { grid-template-columns: 1fr; } }
+  .team { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+  @media (max-width: 800px) { .team { grid-template-columns: 1fr 1fr; } }
+  .team .m { text-align: center; }
+  .team .av { width: 74px; height: 74px; border-radius: 50%; margin: 0 auto 12px; display: grid; place-items: center; color: #fff; font-weight: 800; font-size: 22px; }
+  .team .m b { font-size: 14.5px; display: block; } .team .m span { font-size: 12.5px; color: var(--muted); }
+  .about-hero { display: grid; grid-template-columns: 1.1fr .9fr; gap: 40px; align-items: center; }
+  @media (max-width: 900px) { .about-hero { grid-template-columns: 1fr; } }
+
+  /* Contact / form */
+  .contact-grid { display: grid; grid-template-columns: .82fr 1.18fr; gap: 40px; align-items: start; }
+  @media (max-width: 860px) { .contact-grid { grid-template-columns: 1fr; } }
+  .contact-info .ci { display: flex; gap: 12px; align-items: flex-start; padding: 15px 0; border-top: 1px solid var(--line); }
+  .contact-info .ci:first-child { border-top: none; }
+  .contact-info .ci .k { width: 38px; height: 38px; border-radius: 10px; flex: none; display: grid; place-items: center; background: var(--purple-soft); color: var(--purple); }
+  .contact-info .ci .k svg { width: 19px; height: 19px; }
+  .contact-info .ci b { font-size: 14px; display: block; } .contact-info .ci span { font-size: 13px; color: var(--muted); }
+  .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 560px) { .form-grid { grid-template-columns: 1fr; } }
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field.full { grid-column: 1 / -1; }
+  .field label { font-size: 13px; font-weight: 600; color: var(--ink-2); }
+  .field label .req { color: var(--purple); }
+  .field input, .field select, .field textarea { font-family: inherit; font-size: 14.5px; padding: 11px 13px; border: 1px solid var(--line-2); border-radius: 10px; background: #fff; color: var(--ink); outline: none; width: 100%; }
+  .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--purple); box-shadow: 0 0 0 3px var(--purple-soft); }
+  .field textarea { min-height: 108px; resize: vertical; }
+  .form-success { text-align: center; padding: 44px 20px; }
+  .form-success .ok { width: 64px; height: 64px; border-radius: 50%; margin: 0 auto 18px; display: grid; place-items: center; background: var(--green-soft); color: var(--green-ink); }
+  .form-success .ok svg { width: 32px; height: 32px; }
+
+  .hidden { display: none !important; }
 </style>
-</head>
-<body>
-<main>
-  <div class="logo-mark">
-    <svg width="72" height="54" viewBox="4 10 24 18" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-      <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
-      <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />
+
+<div class="pl" id="site">
+  <div class="demo-ribbon">Interactive preview of <b>PeakLogicSolutions.com</b>. Select <b>Log in</b> or <b>Launch the demo</b> to open the live platform demo.</div>
+  <nav class="nav">
+    <div class="wrap nav__in">
+      <div class="brand" data-go="home">
+        <svg viewBox="0 0 24 18" aria-hidden="true"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
+        <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+      </div>
+      <div class="nav__links">
+        <a data-scroll="platform">Platform</a>
+        <a data-scroll="industries">Industries</a>
+        <a data-go="ecosystem">Device Ecosystem</a>
+        <a data-go="pricing">Pricing</a>
+        <a data-go="about">About</a>
+        <a data-go="contact">Contact</a>
+      </div>
+      <div class="nav__cta">
+        <button class="btn btn--ghost btn--sm" data-login="signin">Log in</button>
+        <button class="btn btn--primary btn--sm" data-go="contact">Request a demo</button>
+      </div>
+    </div>
+  </nav>
+
+  <main id="home-view">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero__grid">
+        <div>
+          <span class="chip"><span class="dot"></span>Field Services Intelligence, Asset &amp; Risk Management</span>
+          <h1 class="h1">An intelligence layer for <span style="color:var(--purple)">essential</span> field services.</h1>
+          <p class="lede">PeakLogic connects the equipment your business already services to a live stream of monitoring, alerts, and automated dispatch. Issues surface early, and the right work lands in the systems you already use. Asset visibility and risk reduction, delivered as a service.</p>
+          <div class="cta-row">
+            <button class="btn btn--primary" data-go="contact">Request a demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+            <button class="btn btn--ghost" data-scroll="how">How it works</button>
+          </div>
+          <div class="hero__stats">
+            <div class="hero__stat"><b style="color:var(--purple)">24/7</b><span>continuous device monitoring</span></div>
+            <div class="hero__stat"><b style="color:var(--green-ink)">CMMS</b><span>work orders in your existing system</span></div>
+            <div class="hero__stat"><b>Traceable</b><span>every change in an audit trail</span></div>
+          </div>
+        </div>
+        <div id="hero-art"></div>
+      </div>
+    </section>
+
+    <!-- PLATFORM / WHAT WE DO -->
+    <section class="sec-paper" id="platform">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">The Platform</span>
+          <h2 class="h2" style="margin-top:10px">One platform for system intelligence, asset visibility, and risk management.</h2>
+          <p class="lede">Everything an essential-services operator needs to see, understand, and act on the condition of the equipment they're responsible for.</p>
+        </div>
+        <div class="grid g-4">
+          <div class="card card--hover"><div class="ico" id="i-monitor"></div><h3 class="h3">Monitor everything</h3><p>Pumps, HVAC, refrigeration, energy panels, flow meters, lift stations, and more, normalized into one live view no matter the vendor.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-predict"></div><h3 class="h3">Catch issues early</h3><p>Set the thresholds that matter for each asset and get a real-time alert the moment a reading drifts out of range.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-dispatch"></div><h3 class="h3">Sync to CMMS</h3><p>Critical alerts become service tickets automatically and flow into the tools you already run. PeakLogic adds a layer of intelligence; it doesn't replace your operation.</p></div>
+          <div class="card card--hover"><div class="ico" id="i-prove"></div><h3 class="h3">See the outcome</h3><p>Track alerts, tickets, and service calls in clear dashboards and reports, so you can see what the platform surfaced and what got done.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- HOW IT WORKS -->
+    <section id="how">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">How it works</span>
+          <h2 class="h2" style="margin-top:10px">Sense. Understand. Act. Measure.</h2>
+          <p class="lede">A clear path from a reading on a device to a service call in your system.</p>
+        </div>
+        <div class="flow">
+          <div class="flow__step"><div class="fico" id="f1"></div><h4>Sense</h4><p>Devices and gateways stream readings over secure, outbound-only connections.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f2"></div><h4>Normalize</h4><p>Each vendor's data is mapped to one common model, so nothing gets ripped and replaced.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f3"></div><h4>Detect</h4><p>Configurable thresholds flag readings that move out of range, per asset.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f4"></div><h4>Act</h4><p>A critical alert creates a service ticket and sends it to the system you already use.</p><span class="arrow">→</span></div>
+          <div class="flow__step"><div class="fico" id="f5"></div><h4>Measure</h4><p>Alerts, tickets, and service calls are recorded so you can track results over time.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- WHY UNIQUE -->
+    <section class="sec-paper" id="why">
+      <div class="wrap why">
+        <div>
+          <span class="eyebrow">Why PeakLogic is different</span>
+          <h2 class="h2" style="margin:10px 0 14px">An intelligence layer, not a rip-and-replace.</h2>
+          <p class="lede" style="margin-bottom:8px">Most monitoring tools ask you to change how you work. PeakLogic fits on top of the operation and the systems you already have, then gets out of the way.</p>
+          <div id="why-art"></div>
+        </div>
+        <div>
+          <div class="why__item"><div class="k" id="w1"></div><div><h4>Leverage your CMMS</h4><p>Alerts and tickets flow into the CMMS and tools you already run. It's additive, not a migration.</p></div></div>
+          <div class="why__item"><div class="k" id="w2"></div><div><h4>Device &amp; vendor agnostic</h4><p>Mixed equipment from different manufacturers is normalized into one view, so adding a device type is a setup step, not a project.</p></div></div>
+          <div class="why__item"><div class="k" id="w3"></div><div><h4>Configurable to your equipment</h4><p>Set the thresholds and rules that matter for each asset and site. The platform adapts to your operation, not the other way around.</p></div></div>
+          <div class="why__item"><div class="k" id="w4"></div><div><h4>Secure and fully traceable</h4><p>Data is encrypted and scoped to each customer, and every change is recorded in an append-only audit log you can trace end to end.</p></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INDUSTRIES -->
+    <section id="industries">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">Industries we serve</span>
+          <h2 class="h2" style="margin-top:10px">Built for the trades that keep critical systems running.</h2>
+          <p class="lede">Wherever equipment failure means downtime, a safety risk, or a compliance issue, PeakLogic is your intelligence layer.</p>
+        </div>
+        <div class="grid g-4" id="industries-grid"></div>
+      </div>
+    </section>
+
+    <!-- STATS BAND -->
+    <section class="sec-dark">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow" style="color:var(--purple-mid)">What the platform does</span><h2 class="h2" style="color:#fff;margin-top:10px">Built to do the essentials well.</h2></div>
+        <div class="statband">
+          <div class="s center"><b>24/7</b><span>continuous device monitoring</span></div>
+          <div class="s center"><b>Real-time</b><span>threshold alerts, per asset</span></div>
+          <div class="s center"><b>Automatic</b><span>tickets into the systems you use</span></div>
+          <div class="s center"><b>Traceable</b><span>secure audit trail of all changes</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DEVICE ECOSYSTEM TEASER -->
+    <section>
+      <div class="wrap cols2" style="align-items:center">
+        <div>
+          <span class="eyebrow">Device Ecosystem</span>
+          <h2 class="h2" style="margin:10px 0 14px">Critical systems, many devices. One view.</h2>
+          <p class="lede">From edge gateways to third-party OEM clouds, PeakLogic ingests and normalizes the data, so adding a new device type is a setup step rather than a rebuild. It's designed to bring units online quickly when a technician connects them in the field.</p>
+          <div style="margin-top:22px"><button class="btn btn--ghost" data-go="ecosystem">Explore the ecosystem <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+        </div>
+        <div id="eco-art-sm"></div>
+      </div>
+    </section>
+
+    <!-- PARTNERS -->
+    <section class="sec-paper" id="partners">
+      <div class="wrap">
+        <div class="sec-head">
+          <span class="eyebrow">For service companies</span>
+          <h2 class="h2" style="margin-top:10px">Your brand. Your customers. Our intelligence underneath.</h2>
+          <p class="lede">Run PeakLogic as a monitoring service branded as your own, on your own domain. Onboard your customers, set the thresholds that matter, and keep the work flowing into the systems you already use. It's a way to add a recurring-revenue service to the book of business you already have.</p>
+        </div>
+        <div class="plogos">
+          <div class="plogo"><span class="mk" style="background:var(--purple)">A</span><div><b>Your logo &amp; colors</b><span>front and center</span></div></div>
+          <div class="plogo"><span class="mk" style="background:var(--green)">B</span><div><b>Your own domain</b><span>a portal your customers recognize</span></div></div>
+          <div class="plogo"><span class="mk" style="background:#0369a1">C</span><div><b>Your customers</b><span>onboarded and managed by you</span></div></div>
+        </div>
+        <div class="center" style="margin-top:28px">
+          <button class="btn btn--primary" data-login="partner">See a branded workspace <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section>
+      <div class="wrap">
+        <div class="ctaband">
+          <span class="eyebrow" style="color:rgba(255,255,255,.85)">See it in action</span>
+          <h2 class="h2" style="margin-top:10px">Take a look inside PeakLogic.</h2>
+          <p>Tour a live monitoring workspace and watch a reading on a device turn into a service call in your system.</p>
+          <button class="btn btn--light" data-login="signin">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ECOSYSTEM PAGE (placeholder) -->
+  <main id="ecosystem-view" class="hidden">
+    <section>
+      <div class="wrap">
+        <span class="chip" style="background:#fef3c7;color:#b45309"><span class="dot" style="background:var(--amber)"></span>Preview — full page coming soon</span>
+        <div class="sec-head" style="text-align:left;margin:16px 0 30px;max-width:760px">
+          <h1 class="h1" style="font-size:clamp(30px,4.4vw,48px)">The PeakLogic Device Ecosystem</h1>
+          <p class="lede" style="margin-top:14px">A living catalog of everything PeakLogic can sense, control, and reason about. This page is a placeholder — the full, filterable ecosystem library is on the way.</p>
+        </div>
+        <div id="eco-art-lg" style="margin-bottom:34px"></div>
+        <div class="grid g-3" id="eco-cats"></div>
+        <div class="card" style="margin-top:26px;display:flex;gap:16px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div><h3 class="h3">Don't see your device?</h3><p class="muted" style="font-size:14px">New device types are onboarded as configuration — a capability definition plus an adapter, not a rebuild.</p></div>
+          <button class="btn btn--primary" data-go="contact">Talk to us</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- PRICING PAGE -->
+  <main id="pricing-view" class="hidden">
+    <section>
+      <div class="wrap">
+        <div class="sec-head" style="max-width:1040px">
+          <span class="eyebrow">Pricing</span>
+          <h1 class="h1" style="font-size:clamp(26px,3.4vw,40px);line-height:1.2;margin-top:10px;text-wrap:balance">Pricing for the critical operations and uptime we help safeguard for your business.</h1>
+          <p class="lede" style="max-width:70ch;margin-left:auto;margin-right:auto">Predictable per-site subscriptions — never per sensor, never per seat. Every plan includes unlimited users and a full audit trail, so the cost scales with the operation you're protecting, not the size of your team.</p>
+        </div>
+        <div style="text-align:center;margin-bottom:18px">
+          <div class="billing-toggle">
+            <button class="bt on" data-aud="commercial">Commercial</button>
+            <button class="bt" data-aud="residential">Residential</button>
+          </div>
+        </div>
+        <div style="text-align:center;margin-bottom:34px">
+          <div class="billing-toggle">
+            <button class="bt on" data-bill="monthly">Month-to-month</button>
+            <button class="bt" data-bill="annual">12-month contract <span class="save">Save 20%</span></button>
+          </div>
+          <div id="bill-note" class="faint" style="font-size:12.5px;margin-top:11px"></div>
+        </div>
+        <div class="tiers" id="tiers-commercial">
+          <div class="tier">
+            <div class="tier__name">Essentials</div>
+            <div class="tier__price"><span class="amt" data-m="99" data-a="79">$99</span><span class="amt-suffix" data-unit=" / site / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
+            <div class="tier__desc">Continuous monitoring, real-time alerts, and live dashboards so a single site or small operator sees trouble the moment it starts — and acts before it becomes downtime.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 device monitoring</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time alerts (app, email, SMS)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Standard device &amp; sensor support</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Live dashboards &amp; site map</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited users</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Custom thresholds per asset</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated ticket dispatch</li>
+            </ul>
+            <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start 30-day free trial</button>
+          </div>
+          <div class="tier tier--pop">
+            <span class="tier__badge">MOST POPULAR</span>
+            <div class="tier__name">Professional</div>
+            <div class="tier__price"><span class="amt" data-m="299" data-a="249">$299</span><span class="amt-suffix" data-unit=" / site / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / site / mo</span></div>
+            <div class="tier__desc">Turn alerts into action. Custom rules, automated dispatch into the systems you already run, and the KPIs to hold response time and outcomes accountable across a growing operation.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Essentials</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Custom thresholds &amp; rules per asset</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated service-ticket dispatch to your systems</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Reports, KPIs &amp; conversion tracking</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Priority alerting &amp; escalation</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Role-based access control</li>
+            </ul>
+            <button class="btn btn--primary" data-go="contact" style="width:100%;justify-content:center">Request a demo</button>
+          </div>
+          <div class="tier">
+            <div class="tier__name">Enterprise</div>
+            <div class="tier__price">Custom</div>
+            <div class="tier__desc">Portfolio-wide operational assurance. Multi-site oversight, SSO/SCIM, the integrations your stack demands, and a dedicated team standing behind your uptime and business continuity.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Professional</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-site portfolio management</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>SSO / SCIM</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Custom integrations</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Dedicated support &amp; SLA</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Security-review support</li>
+            </ul>
+            <button class="btn btn--ghost" data-go="contact" style="width:100%;justify-content:center">Contact sales</button>
+          </div>
+        </div>
+        <div class="tiers hidden" id="tiers-residential">
+          <div class="tier">
+            <div class="tier__name">Free</div>
+            <div class="tier__price"><span class="amt" data-m="0" data-a="0">$0</span><span class="amt-suffix" data-unit=" / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / mo</span></div>
+            <div class="tier__desc">Monitor one device at your home, always free. See real-time alerts firsthand before you monitor the whole property.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>1 device monitored</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time app alerts</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mobile dashboard</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>7-day reading history</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Email &amp; SMS alerts</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Whole-property, multi-device monitoring</li>
+            </ul>
+            <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Get started free</button>
+          </div>
+          <div class="tier tier--pop">
+            <span class="tier__badge">MOST POPULAR</span>
+            <div class="tier__name">Home</div>
+            <div class="tier__price"><span class="amt" data-m="29" data-a="24">$29</span><span class="amt-suffix" data-unit=" / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / mo</span></div>
+            <div class="tier__desc">Continuous monitoring for a single home — your septic system, well, or pool — with real-time alerts the moment something needs attention.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>24/7 monitoring for one property</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Real-time alerts (app, email, SMS)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Mobile dashboard</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Unlimited household users</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Automated service-request routing</li>
+              <li class="off"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>Multi-system monitoring</li>
+            </ul>
+            <button class="btn btn--ghost" data-login="signin" style="width:100%;justify-content:center">Start 30-day free trial</button>
+          </div>
+          <div class="tier">
+            <div class="tier__name">Home Plus</div>
+            <div class="tier__price"><span class="amt" data-m="59" data-a="49">$59</span><span class="amt-suffix" data-unit=" / mo" style="font-size:15px;font-weight:600;color:var(--muted);letter-spacing:0"> / mo</span></div>
+            <div class="tier__desc">For homes with more to watch. Monitor septic, well, and pool systems together, with priority alerts and service requests routed straight to your provider.</div>
+            <ul>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Everything in Home</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Multi-system monitoring (septic, well, pool)</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Automated service-request routing to your provider</li>
+              <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>Priority alerting &amp; escalation</li>
+            </ul>
+            <button class="btn btn--primary" data-go="contact" style="width:100%;justify-content:center">Request a demo</button>
+          </div>
+        </div>
+        <p class="price-note">With a 12-month contract, sensors and installation are included in your plan. On month-to-month billing, sensors and installation are a separate one-time charge, quoted based on your equipment. Every plan includes unlimited users and a full audit trail.</p>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="partner-band">
+          <div>
+            <span class="eyebrow">For service companies</span>
+            <h2 class="h2" style="margin:10px 0 10px">Run PeakLogic branded as your own.</h2>
+            <p class="muted" style="margin:0;font-size:15px">Partner pricing plus revenue share on the accounts you bring. Your logo, your domain, and your customers, with PeakLogic as the intelligence layer underneath, feeding work into the systems you already run.</p>
+          </div>
+          <div style="text-align:right"><button class="btn btn--primary" data-login="partner">See a branded workspace</button></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">FAQ</span><h2 class="h2" style="margin-top:10px">Common questions</h2></div>
+        <div class="faq">
+          <div class="faq__item"><h4>What counts as a “site”?</h4><p>A physical location you monitor, such as one restaurant, one pumping station, or one building. Devices and users at that site are unlimited.</p></div>
+          <div class="faq__item"><h4>Do I have to replace my current CMMS or software?</h4><p>No. PeakLogic sits on top of your existing operation and sends work into the systems you already use. It's additive, not a rip-and-replace.</p></div>
+          <div class="faq__item"><h4>Can I brand it for my customers?</h4><p>Yes. On the partner plans, PeakLogic runs on your own domain with your logo and colors, so your customers see your brand.</p></div>
+          <div class="faq__item"><h4>What devices do you support?</h4><p>Common field equipment across pumps, HVAC, refrigeration, energy, flow, and leak or level sensing, plus edge gateways and select third-party OEM clouds. New device types are added as a configuration.</p></div>
+          <div class="faq__item"><h4>Is my data secure and traceable?</h4><p>Yes. Your data is encrypted, scoped to your organization, and every access is recorded in an append-only audit log, so activity is fully traceable.</p></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ABOUT PAGE -->
+  <main id="about-view" class="hidden">
+    <section>
+      <div class="wrap about-hero">
+        <div>
+          <span class="eyebrow">About PeakLogic</span>
+          <h1 class="h1" style="font-size:clamp(30px,4.2vw,50px);margin:12px 0 16px">We turn essential field services into a system of intelligence.</h1>
+          <p class="lede">Pumps, lift stations, commercial HVAC, electrical systems, and refrigeration systems keep critical facilities running. When they fail, they tend to fail quietly and expensively. The people who service them deserve to see it coming. PeakLogic is the asset, risk, and intelligence layer that helps them do it.</p>
+        </div>
+        <div>
+          <div class="card" style="padding:30px;background:linear-gradient(150deg,#faf9ff,#f2effe);border-color:#e6e1fb">
+            <svg viewBox="0 0 24 24" width="34" fill="#c4b5fd" aria-hidden="true"><path d="M7 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3H7zM15 7h4v6c0 2-1 3-3 4l-1-1c1-1 2-2 2-3h-2z"/></svg>
+            <p style="font-size:19px;font-weight:650;line-height:1.5;margin:12px 0 0;letter-spacing:-.01em">Most of the equipment we service fails with little warning. Being able to see it coming, and act before a small problem becomes a big one, is exactly what our customers count on us for.</p>
+            <div style="margin-top:18px;display:flex;align-items:center;gap:11px">
+              <span style="width:40px;height:40px;border-radius:50%;background:var(--purple-soft);color:var(--purple);display:grid;place-items:center;flex:none">
+                <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.6 3.1-6.2 7-6.2s7 2.6 7 6.2"/></svg>
+              </span>
+              <div><div style="font-weight:700;font-size:14.5px">Owner</div><div class="faint" style="font-size:12.5px;font-weight:600">Septic &amp; Waste Company</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">What we believe</span><h2 class="h2" style="margin-top:10px">Four principles we build on.</h2></div>
+        <div class="value-grid">
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/></svg></div><h3 class="h3">Overlay, don't replace</h3><p>We add intelligence to the business you already run and feed it back into your systems of record — never a rip-and-replace.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/></svg></div><h3 class="h3">Prevention over reaction</h3><p>The most valuable service call is the one that happens before the failure. We're built to catch problems early.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg></div><h3 class="h3">Show the work</h3><p>The platform is built to record what it surfaced and what got done, so value is something you can see rather than just hear about.</p></div>
+          <div class="card"><div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg></div><h3 class="h3">Security by construction</h3><p>Encryption, scoped access, and a full audit trail aren't add-ons. They're the foundation.</p></div>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap cols2" style="align-items:center">
+        <div>
+          <span class="eyebrow">Where we started</span>
+          <h2 class="h2" style="margin:10px 0 14px">Built by people who know field services.</h2>
+          <p class="lede">PeakLogic is designed and tested against real routes, real equipment, and the way service companies actually work, so it fits the field rather than the other way around.</p>
+          <div class="hero__stats" style="margin-top:26px">
+            <div class="hero__stat"><b style="color:var(--purple)">Field-first</b><span>designed for the trades</span></div>
+            <div class="hero__stat"><b style="color:var(--green-ink)">Tampa Bay</b><span>headquarters</span></div>
+            <div class="hero__stat"><b>Security-first</b><span>traceable &amp; audited by design</span></div>
+          </div>
+        </div>
+        <div id="about-art"></div>
+      </div>
+    </section>
+
+    <section class="sec-paper">
+      <div class="wrap">
+        <div class="sec-head"><span class="eyebrow">The team</span><h2 class="h2" style="margin-top:10px">Operators, engineers, and field veterans.</h2></div>
+        <div class="team">
+          <div class="m"><div class="av" style="background:#7c3aed">ML</div><b>Marcus Lindqvist</b><span>Founder &amp; Head of Platform &amp; Architecture</span></div>
+          <div class="m"><div class="av" style="background:#0369a1">RP</div><b>Raj Patel</b><span>Head of Device &amp; Edge Engineering</span></div>
+          <div class="m"><div class="av" style="background:#f59e0b">EM</div><b>Elena Márquez</b><span>Operations Manager</span></div>
+          <div class="m"><div class="av" style="background:#16a34a">DW</div><b>Dana Whitfield</b><span>Customer Success Manager</span></div>
+        </div>
+        <p class="center muted" style="margin-top:22px;font-size:12.5px">Team shown for demonstration.</p>
+      </div>
+    </section>
+
+    <section>
+      <div class="wrap">
+        <div class="ctaband">
+          <span class="eyebrow" style="color:rgba(255,255,255,.85)">Join us</span>
+          <h2 class="h2" style="margin-top:10px">See what an intelligence layer does for your business.</h2>
+          <p>Walk through the platform, or talk to us about a channel-partner program.</p>
+          <button class="btn btn--light" data-login="all">Launch the demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- CONTACT / REQUEST A DEMO -->
+  <main id="contact-view" class="hidden">
+    <section>
+      <div class="wrap">
+        <div class="sec-head" style="text-align:left;max-width:660px;margin-bottom:38px">
+          <span class="eyebrow">Contact</span>
+          <h1 class="h1" style="font-size:clamp(30px,4.2vw,48px);margin-top:10px">Request a demo.</h1>
+          <p class="lede" style="margin-top:12px">Tell us a bit about your operation and we'll set up a walkthrough tailored to your equipment and trade, whether you're an operator or a service company exploring a partnership.</p>
+        </div>
+        <div class="contact-grid">
+          <div class="contact-info">
+            <div class="ci"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg></div><div><b>Email</b><span>hello@peaklogicsolutions.com</span></div></div>
+            <div class="ci"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3 19.5 19.5 0 01-6-6 19.8 19.8 0 01-3-8.6A2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.3 1.8.6 2.6a2 2 0 01-.5 2.1L8 9.5a16 16 0 006 6l1.1-1.1a2 2 0 012.1-.5c.8.3 1.7.5 2.6.6a2 2 0 011.7 2z"/></svg></div><div><b>Phone</b><span>(813) 555-0142</span></div></div>
+            <div class="ci"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s7-6 7-11a7 7 0 10-14 0c0 5 7 11 7 11z"/><circle cx="12" cy="10" r="2.5"/></svg></div><div><b>Headquarters</b><span>Tampa Bay, Florida</span></div></div>
+            <div class="ci"><div class="k"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div><div><b>Response time</b><span>Within one business day</span></div></div>
+            <div class="card" style="margin-top:22px;background:var(--purple-soft);border-color:#e6e1fb;padding:20px">
+              <p style="margin:0;font-size:14px;color:var(--purple-deep)"><b>Already a customer or partner?</b> Jump straight into your portal.</p>
+              <div style="margin-top:12px;display:flex;gap:8px;flex-wrap:wrap">
+                <button class="btn btn--ghost btn--sm" data-login="customer">Customer login</button>
+                <button class="btn btn--ghost btn--sm" data-login="partner">Partner login</button>
+              </div>
+            </div>
+          </div>
+          <div class="card" style="padding:28px">
+            <form id="demo-form">
+              <div class="form-grid">
+                <div class="field"><label>Full name <span class="req">*</span></label><input name="name" type="text" placeholder="Jordan Ellis" required></div>
+                <div class="field"><label>Work email <span class="req">*</span></label><input name="email" type="email" placeholder="jordan@company.com" required></div>
+                <div class="field"><label>Company</label><input name="company" type="text" placeholder="Company name"></div>
+                <div class="field"><label>Phone</label><input name="phone" type="tel" placeholder="(555) 555-5555"></div>
+                <div class="field"><label>I'm interested in</label><select name="interest"><option>A customer account</option><option>Becoming a partner</option><option>General inquiry</option></select></div>
+                <div class="field"><label>Industry</label><select name="industry"><option>General / not sure yet</option><option>Water Treatment &amp; Municipal Wastewater</option><option>Pumping Stations &amp; Water Movement</option><option>Multi-Tenant Residential Communities</option><option>Commercial &amp; Mixed-Use Property Management</option><option>Assisted Living &amp; Healthcare Facilities</option><option>Storage, Refrigeration &amp; Fulfillment Centers</option><option>Pools &amp; Water Quality Systems</option><option>Quick Service Restaurants (QSR)</option></select></div>
+                <div class="field full"><label>What would you like to monitor?</label><textarea name="message" placeholder="Tell us about your equipment, sites, or the problem you're trying to solve…"></textarea></div>
+              </div>
+              <div style="display:flex;align-items:center;gap:14px;margin-top:18px;flex-wrap:wrap">
+                <button type="submit" class="btn btn--primary">Request a demo <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+                <span class="faint" style="font-size:12px">We'll never share your information. Demo form — no data is sent.</span>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="wrap">
+      <div class="foot__grid">
+        <div class="foot__brand">
+          <div class="brand" style="margin-bottom:12px"><svg viewBox="0 0 24 18"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg><span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span></div>
+          <p style="color:#9fb0cf;font-size:14px;max-width:32ch;margin:0">Essential Field Services Intelligence, Asset &amp; Risk Management.</p>
+          <p style="color:#7c89a5;font-size:13px;max-width:32ch;margin:14px 0 0">Tampa Bay, Florida</p>
+        </div>
+        <div><h5>Platform</h5><a data-scroll="platform">Overview</a><a data-scroll="how">How it works</a><a data-go="ecosystem">Device Ecosystem</a><a data-login="all">Live demo</a></div>
+        <div><h5>Company</h5><a data-go="about">About</a><a data-go="pricing">Pricing</a><a data-scroll="partners">For service companies</a><a data-go="contact">Contact</a></div>
+        <div><h5>Access</h5><a data-login="signin">Log in</a><a data-go="contact">Request a demo</a><a id="staff-link" target="_top" style="cursor:pointer">Staff sign-in ↗</a></div>
+      </div>
+      <div class="foot__bottom"><span>© 2026 PeakLogic Solutions. All rights reserved.</span><span>peaklogicsolutions.com · Security-first · Fully traceable &amp; audited</span></div>
+    </div>
+  </footer>
+</div>
+
+<div id="portal-root"></div>
+<div id="modal-root"></div>
+
+<script>
+(function () {
+  "use strict";
+  const $ = (s, r) => (r || document).querySelector(s);
+  const esc = (s) => String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c]));
+  const SUPER_CONSOLE = "/demo.html";  // V2: staff/Control Center entry -> platform hub
+
+  // ---------- Inline icon set ----------
+  const I = {
+    monitor:'<path d="M2 4h20v12H2zM8 20h8M12 16v4"/>',
+    predict:'<path d="M3 17l5-6 4 3 5-7 4 4"/><path d="M3 21h18"/>',
+    dispatch:'<path d="M4 7h11l3 3v7H4z"/><path d="M15 7V4H4v3M8 21a2 2 0 100-4 2 2 0 000 4z"/>',
+    prove:'<path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>',
+    sense:'<circle cx="12" cy="12" r="2"/><path d="M4.9 4.9a10 10 0 000 14.2M19.1 4.9a10 10 0 010 14.2M8 8a5.6 5.6 0 000 8M16 8a5.6 5.6 0 010 8"/>',
+    normalize:'<path d="M3 12h4l3-8 4 16 3-8h4"/>',
+    detect:'<circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/><path d="M11 8v3l2 2"/>',
+    act:'<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>',
+    prove2:'<path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/>',
+    shield:'<path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/>',
+    umbrella:'<path d="M12 2a9 9 0 019 9H3a9 9 0 019-9zM12 11v8a2 2 0 01-4 0"/>',
+    doc:'<path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M9 13h6M9 17h4"/>',
+    layers:'<path d="M12 2l9 5-9 5-9-5 9-5zM3 12l9 5 9-5M3 17l9 5 9-5"/>',
+    pool:'<path d="M2 15c2 0 2 2 4 2s2-2 4-2 2 2 4 2 2-2 4-2 2 2 4 2M6 12V5a2 2 0 014 0M14 12V5a2 2 0 014 0"/>',
+    hvac:'<rect x="3" y="4" width="18" height="14" rx="2"/><path d="M7 8v6M12 8v6M17 8v6"/>',
+    energy:'<path d="M13 2L3 14h7l-1 8 10-12h-7z"/>',
+    water:'<path d="M12 3s6 6 6 11a6 6 0 01-12 0c0-5 6-11 6-11z"/>',
+    fridge:'<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M6 10h12M10 5v2M10 13v3"/>',
+    roof:'<path d="M3 12l9-7 9 7M6 10v9h12v-9"/>',
+    flow:'<path d="M2 12h6l2-4 4 8 2-4h6"/>',
+    lift:'<path d="M4 20h16M6 20V8l6-4 6 4v12M9 12h6"/>',
+    building:'<path d="M3 21h18M6 21V5l6-2 6 2v16M9 9h.01M9 13h.01M15 9h.01M15 13h.01"/>',
+    truck:'<path d="M1 5h13v10H1zM14 8h4l3 3v4h-7z"/><circle cx="5.5" cy="18" r="1.5"/><circle cx="17.5" cy="18" r="1.5"/>',
+    grid:'<rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/>',
+    users:'<circle cx="9" cy="8" r="3"/><path d="M3 20c0-3 3-5 6-5s6 2 6 5M17 6a3 3 0 010 6M21 20c0-2-1-3.5-3-4.2"/>',
+    chip:'<rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/>',
+    leak:'<path d="M12 2s7 7.5 7 12a7 7 0 01-14 0c0-4.5 7-12 7-12z"/><path d="M12 10.5v3.2M12 17h.01"/>',
+    // Centrifugal pump: volute + impeller vane, discharge elbow up, suction line out, on a base
+    pump:'<circle cx="10" cy="10.5" r="5"/><path d="M10 5.5V3h5M15 10.5h6M5 19h13M8 15.5v3.5M13 15.5v3.5"/><path d="M10 10.5l3.3-2.5"/>',
+    // Mixed-use commercial: a low block beside a taller tower
+    tower:'<path d="M3 21h18M6 21V10h6v11M12 21V4h6v17"/><path d="M8.5 13.5h1M8.5 17h1M14.5 7.5h1M14.5 11.5h1M14.5 15.5h1"/>',
+    // Fuel dispenser (gas-station QSR)
+    fuel:'<path d="M4 21V5a2 2 0 012-2h5a2 2 0 012 2v16M2.5 21H15"/><path d="M6 6.5h5v4H6z"/><path d="M13 10h2.5a1.5 1.5 0 011.5 1.5V17a1.5 1.5 0 003 0v-6.5L18 8"/>',
+  };
+  const svg = (p, w) => `<svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="${w||2}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${p}</svg>`;
+  function setIco(id, name, w) { const el = $("#" + id); if (el) el.innerHTML = svg(I[name], w); }
+
+  // ---------- Data ----------
+  const INDUSTRIES = [
+    ["Water Treatment &amp; Municipal Wastewater", "Lift stations and effluent systems where failures create environmental and compliance risk.", "water"],
+    ["Pumping Stations &amp; Water Movement", "Wells, booster pumps, and stormwater systems that prevent flooding and service disruption.", "pump"],
+    ["Multi-Tenant Residential Communities", "Shared HVAC, electrical, and leak detection systems supporting apartments, condos, and HOAs.", "building"],
+    ["Commercial &amp; Mixed-Use Property Management", "HVAC, electrical demand, and pump systems that keep offices, retail, and industrial spaces running.", "tower"],
+    ["Assisted Living &amp; Healthcare Facilities", "Critical HVAC, refrigeration, and water quality systems where uptime protects resident safety.", "shield"],
+    ["Storage, Refrigeration &amp; Fulfillment Centers", "Cold storage, environmental control, and backup power safeguarding high-value inventory.", "fridge"],
+    ["Pools &amp; Water Quality Systems", "Chemistry, circulation, and filtration systems that prevent health risks and equipment damage.", "pool"],
+    ["Quick Service Restaurants (QSR)", "Refrigeration, grease traps, and HVAC supporting food safety and continuous uptime.", "fuel"],
+  ];
+  const ECO_CATS = [
+    ["Water & wastewater infrastructure", "flow", "Lift-station level & pressure sensors, well and booster pump monitors, wet-well and stormwater controls — protecting water treatment, wastewater, and pumping infrastructure."],
+    ["HVAC & electrical", "energy", "Rooftop units, panel meters, and demand monitors protecting residential, commercial, and healthcare facilities from costly downtime."],
+    ["Refrigeration & cold chain", "fridge", "Walk-in coolers, product-temperature probes, and compressor amperage sensors for cold storage, fulfillment centers, and QSR kitchens."],
+    ["Leak detection & moisture", "leak", "Point and cable leak sensors protecting mechanical rooms, healthcare facilities, and multi-tenant buildings from water damage."],
+    ["Pool & water quality", "pool", "pH/ORP controllers, chlorinators, and circulation-pump sensors keeping pool chemistry safe and equipment protected."],
+    ["Edge & hub devices", "chip", "Gateway hubs and edge controllers connecting every sensor above to the cloud, plus connectors for select third-party OEM systems."],
+  ];
+
+  // ---------- Custom SVG infographics ----------
+  function heroArt() {
+    return `<svg class="hero-scene" viewBox="0 118 520 282" width="100%" role="img" aria-label="PeakLogic sensors across a water-treatment facility streaming telemetry to the control-room hub and a field technician's tablet">
+      <defs>
+        <linearGradient id="hsCyl" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#7dd3fc"/><stop offset="0.42" stop-color="#e0f2fe"/><stop offset="1" stop-color="#7dd3fc"/></linearGradient>
+        <linearGradient id="hsMetal" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#cbd5e1"/><stop offset="0.42" stop-color="#f8fafc"/><stop offset="1" stop-color="#cbd5e1"/></linearGradient>
+        <linearGradient id="hsTruckC" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a78bfa"/><stop offset="0.45" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></linearGradient>
+        <!-- Flow vs Pressure sensor gradients — same violet family as the legend chips,
+             given more depth so the two adjacent hues read as distinct at a glance -->
+        <radialGradient id="hsFlowG" cx="0.35" cy="0.32" r="0.75"><stop offset="0" stop-color="#c4b5fd"/><stop offset="0.55" stop-color="#8b5cf6"/><stop offset="1" stop-color="#6d28d9"/></radialGradient>
+        <radialGradient id="hsPressG" cx="0.35" cy="0.32" r="0.75"><stop offset="0" stop-color="#a78bfa"/><stop offset="0.55" stop-color="#6d28d9"/><stop offset="1" stop-color="#4c1d95"/></radialGradient>
+        <filter id="hsShadow" x="-30%" y="-30%" width="160%" height="160%"><feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#6d28d9" flood-opacity="0.12"/></filter>
+        <clipPath id="hsClipA"><rect x="376" y="216" width="48" height="90" rx="5"/></clipPath>
+        <clipPath id="hsClipB"><rect x="436" y="244" width="40" height="62" rx="5"/></clipPath>
+      </defs>
+
+      <rect x="0" y="310" width="520" height="90" fill="#f1f0fa"/>
+      <line x1="0" y1="310" x2="520" y2="310" stroke="#e2e1f0" stroke-width="2"/>
+
+      <!-- ═══ ELEVATED WATER TOWER ═══ -->
+      <g>
+        <!-- legs anchor inside the cone footprint so no background shows at the tank base -->
+        <g stroke="#cbd5e1" fill="none">
+          <path d="M55 174 L40 310 M89 174 L104 310" stroke-width="2.6"/>
+          <path d="M50 222 H94 M45 266 H99" stroke-width="2"/>
+          <path d="M50 222 L99 266 M94 222 L45 266" stroke-width="1.4" opacity="0.7"/>
+          <path d="M45 266 L102 308 M99 266 L42 308" stroke-width="1.4" opacity="0.7"/>
+        </g>
+        <!-- centre riser from cone tip to ground -->
+        <rect x="70" y="190" width="4" height="120" fill="#b6c2d4"/>
+        <!-- service ladder, straddling the riser so it reads as centered on the tower -->
+        <g stroke="#94a3b8" stroke-width="1.3">
+          <path d="M66 196 V310 M78 196 V310"/>
+          <path d="M66 204 H78 M66 216 H78 M66 228 H78 M66 240 H78 M66 252 H78 M66 264 H78 M66 276 H78 M66 288 H78 M66 300 H78"/>
+        </g>
+        <!-- cone, drum, dome — one continuous silhouette -->
+        <path d="M50 170 L72 193 L94 170 Z" fill="#bae6fd"/>
+        <path d="M50 170 V149 Q50 134 72 134 Q94 134 94 149 V170 Z" fill="url(#hsCyl)"/>
+        <line x1="50" y1="162" x2="94" y2="162" stroke="#7dd3fc" stroke-width="1.4" opacity="0.9"/>
+        <rect x="71" y="127" width="2" height="8" rx="1" fill="#7dd3fc"/>
+      </g>
+
+      <!-- ═══ CONTROL BUILDING with HUB TERMINAL ═══ -->
+      <g>
+        <rect x="125" y="222" width="110" height="88" fill="#eef0f7" stroke="#e2e1f0"/>
+        <rect x="121" y="215" width="118" height="8" rx="2" fill="#d8d6ea"/>
+        <rect x="125" y="230" width="110" height="5" fill="#ede9fe"/>
+        <!-- rooftop HVAC, energy-monitored -->
+        <rect x="138" y="197" width="30" height="18" rx="2" fill="#e2e1f0" stroke="#d1d2e4"/>
+        <g stroke="#b9b8cf" stroke-width="1.2"><path d="M142 202 H164 M142 206 H164 M142 210 H164"/></g>
+        <rect x="198" y="203" width="18" height="12" rx="2" fill="#e2e1f0" stroke="#d1d2e4"/>
+        <!-- hub terminal: control-room window + console every sensor streams to -->
+        <rect x="137" y="240" width="60" height="44" rx="3" fill="#dbeafe" stroke="#c3d4ef"/>
+        <rect x="143" y="246" width="48" height="32" rx="3" fill="#0f172a" stroke="#334155"/>
+        <rect x="146" y="249" width="42" height="26" rx="2" fill="#0b1220"/>
+        <circle cx="183" cy="253" r="1.8" fill="#22c55e"><animate attributeName="opacity" values="1;.25;1" dur="1.3s" repeatCount="indefinite"/></circle>
+        <rect class="hs-bar" x="151" y="259" width="4" height="12" rx="0.7" fill="#7c3aed"/>
+        <rect class="hs-bar" x="158" y="259" width="4" height="12" rx="0.7" fill="#38bdf8" style="animation-delay:.25s"/>
+        <rect class="hs-bar" x="165" y="259" width="4" height="12" rx="0.7" fill="#22c55e" style="animation-delay:.5s"/>
+        <rect class="hs-bar" x="172" y="259" width="4" height="12" rx="0.7" fill="#a78bfa" style="animation-delay:.75s"/>
+        <!-- side windows + roll-up door -->
+        <g fill="#dfe0ef"><rect x="205" y="242" width="14" height="10" rx="1"/><rect x="205" y="258" width="14" height="10" rx="1"/></g>
+        <rect x="205" y="282" width="24" height="28" rx="1" fill="#e2e1f0"/>
+        <g stroke="#d1d2e4" stroke-width="1"><path d="M205 289 H229 M205 296 H229 M205 303 H229"/></g>
+        <!-- ENERGY sensor on the HVAC unit -->
+        <circle class="hs-pulse" cx="153" cy="195" r="5.5" fill="#f59e0b" style="animation-delay:.3s"/><circle cx="153" cy="195" r="4" fill="#f59e0b" stroke="#fff" stroke-width="1.4"/>
+        <!-- LEAK sensor, right side of the building, centered in the gap between the second window and the roll-up door -->
+        <circle class="hs-pulse" cx="217" cy="275" r="5.5" fill="#0d9488" style="animation-delay:1.4s"/><circle cx="217" cy="275" r="4" fill="#0d9488" stroke="#fff" stroke-width="1.4"/>
+      </g>
+
+      <!-- ═══ CLARIFIER BASIN ═══ -->
+      <g>
+        <ellipse cx="304" cy="306" rx="52" ry="9" fill="#cbd5e1"/>
+        <rect x="252" y="276" width="104" height="30" fill="url(#hsMetal)"/>
+        <ellipse cx="304" cy="276" rx="52" ry="11" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <ellipse cx="304" cy="277" rx="44" ry="8.5" fill="#38bdf8" opacity="0.85"/>
+        <ellipse cx="304" cy="277" rx="27" ry="5" fill="#0ea5e9" opacity="0.5"/>
+        <rect x="250" y="266" width="108" height="5" rx="1.5" fill="#cbd5e1"/>
+        <g stroke="#cbd5e1" stroke-width="1.8"><path d="M252 258 H356"/><path d="M258 258 V266 M281 258 V266 M327 258 V266 M350 258 V266"/></g>
+        <rect x="297" y="250" width="14" height="17" rx="2" fill="#e2e8f0" stroke="#cbd5e1"/>
+        <line x1="252" y1="290" x2="356" y2="290" stroke="#cbd5e1" stroke-width="1.4" opacity="0.8"/>
+      </g>
+
+      <!-- ═══ PROCESS TANKS ═══ -->
+      <g>
+        <rect x="376" y="216" width="48" height="90" rx="5" fill="url(#hsCyl)" stroke="#7dd3fc"/>
+        <rect x="376" y="252" width="48" height="54" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipA)"/>
+        <ellipse cx="400" cy="216" rx="24" ry="7" fill="#e0f2fe" stroke="#7dd3fc"/>
+        <g stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"><path d="M376 244 H424 M376 272 H424"/></g>
+        <g stroke="#cbd5e1" stroke-width="1.8"><path d="M386 208 H414"/><path d="M388 208 V216 M400 208 V216 M412 208 V216"/></g>
+        <rect x="436" y="244" width="40" height="62" rx="5" fill="url(#hsCyl)" stroke="#7dd3fc"/>
+        <rect x="436" y="272" width="40" height="34" fill="#0ea5e9" opacity="0.6" clip-path="url(#hsClipB)"/>
+        <ellipse cx="456" cy="244" rx="20" ry="6" fill="#e0f2fe" stroke="#7dd3fc"/>
+        <line x1="436" y1="272" x2="476" y2="272" stroke="#7dd3fc" stroke-width="1.6" opacity="0.85"/>
+        <!-- Level tank's own ladder, centered on its front face -->
+        <g stroke="#94a3b8" stroke-width="1.3">
+          <path d="M398 222 V306 M403 222 V306"/>
+          <path d="M398 230 H403 M398 242 H403 M398 254 H403 M398 266 H403 M398 278 H403 M398 290 H403 M398 302 H403"/>
+        </g>
+        <!-- Temperature tank's own ladder, centered on its front face -->
+        <g stroke="#94a3b8" stroke-width="1.3">
+          <path d="M454 244 V306 M459 244 V306"/>
+          <path d="M454 252 H459 M454 264 H459 M454 276 H459 M454 288 H459 M454 300 H459"/>
+        </g>
+      </g>
+
+      <!-- ═══ PROCESS PIPING with inline instruments ═══ -->
+      <g stroke="#60a5fa" stroke-width="7" stroke-linecap="round" fill="none">
+        <path d="M235 298 H252"/><path d="M356 298 H376"/><path d="M424 298 H436"/>
+      </g>
+      <rect x="357" y="289" width="18" height="18" rx="4" fill="#fff" stroke="#c4b5fd" stroke-width="1.5"/>
+
+      <!-- ═══ TELEMETRY — every sensor, INCLUDING the alerting one, streams INTO
+           the hub console; the hub then pushes exactly ONE alert line OUT to the
+           technician's tablet. Nothing bypasses the hub in either direction. All
+           seven lines arrive at the same point, the top edge of the console
+           screen (167,249) — clear of the bar chart (y259-271) so nothing
+           overlaps the readout. ═══ -->
+      <g fill="none" stroke-width="1.6" stroke-linecap="round">
+        <path class="hs-flow" d="M400 210 C356 158 250 170 167 249" stroke="#c7d2fe"/>
+        <path class="hs-flow" d="M456 236 C420 160 270 158 167 249" stroke="#99f6e4" style="animation-delay:.5s"/>
+        <path class="hs-flow" d="M366 285 C330 250 230 240 167 249" stroke="url(#hsFlowG)" style="animation-delay:1s"/>
+        <path class="hs-flow" d="M243 291 C222 270 195 255 167 249" stroke="url(#hsPressG)" style="animation-delay:1.5s"/>
+        <path class="hs-flow" d="M153 200 C158 215 163 232 167 249" stroke="#fde68a" style="animation-delay:.8s"/>
+        <path class="hs-flow" d="M217 269 C206 261 190 254 167 249" stroke="#a7f3d0" style="animation-delay:1.9s"/>
+        <!-- the clarifier's critical reading reports IN to the hub exactly like every other sensor -->
+        <path class="hs-flow" d="M304 248 C270 228 210 224 167 249" stroke="#fca5a5" style="animation-delay:1.3s"/>
+      </g>
+      <!-- hub-to-tablet alert — the ONE line the hub itself sends out, leaving from
+           the same arrival point, routed clear of the console before dropping down
+           on the far side of the technician so it never crosses his silhouette -->
+      <path class="hs-flow" d="M167 249 C140 250 130 270 128 300 C127 312 127 324 128 334" fill="none" stroke="#f87171" stroke-width="2.2" stroke-linecap="round" style="animation-delay:.9s"/>
+
+      <!-- sensor markers (drawn over their telemetry lines) -->
+      <circle class="hs-pulse" cx="400" cy="212" r="6" fill="#0369a1"/><circle cx="400" cy="212" r="4.5" fill="#0369a1" stroke="#fff" stroke-width="1.5"/>
+      <circle class="hs-pulse" cx="456" cy="240" r="6" fill="#0891b2" style="animation-delay:.6s"/><circle cx="456" cy="240" r="4.5" fill="#0891b2" stroke="#fff" stroke-width="1.5"/>
+      <circle class="hs-pulse" cx="366" cy="298" r="5.5" fill="url(#hsFlowG)" style="animation-delay:1.7s"/><circle cx="366" cy="298" r="4" fill="url(#hsFlowG)" stroke="#fff" stroke-width="1.4"/>
+      <circle class="hs-pulse" cx="243" cy="298" r="5.5" fill="url(#hsPressG)" style="animation-delay:.9s"/><circle cx="243" cy="298" r="4" fill="url(#hsPressG)" stroke="#fff" stroke-width="1.4"/>
+      <!-- the critical sensor, back at its original position on the clarifier's centre column -->
+      <circle class="hs-pulse" cx="304" cy="248" r="6.5" fill="#ef4444" style="animation-delay:1.1s"/><circle cx="304" cy="248" r="5" fill="#ef4444" stroke="#fff" stroke-width="1.5"/>
+      <!-- hub arrival + departure point: every sensor lands here, the one alert leaves from here -->
+      <circle cx="167" cy="249" r="2.4" fill="#facc15"><animate attributeName="opacity" values=".4;1;.4" dur="1s" repeatCount="indefinite"/></circle>
+
+      <!-- ═══ SEPTIC / VACUUM TANKER — hose runs the tank's length, coiled at the rear ═══ -->
+      <g filter="url(#hsShadow)">
+        <rect x="262" y="360" width="180" height="7" rx="3" fill="#4c1d95"/>
+        <rect x="306" y="318" width="130" height="44" rx="22" fill="url(#hsTruckC)"/>
+        <ellipse cx="436" cy="340" rx="6.5" ry="22" fill="#6d28d9"/>
+        <circle cx="436" cy="340" r="4.5" fill="#7c3aed" stroke="#a78bfa" stroke-width="1.2"/>
+        <path d="M326 328 H420" stroke="#c4b5fd" stroke-width="3" stroke-linecap="round" opacity="0.55"/>
+        <g fill="#6d28d9"><rect x="340" y="311" width="16" height="9" rx="2.5"/><rect x="384" y="311" width="16" height="9" rx="2.5"/></g>
+        <rect x="366" y="318" width="3.5" height="44" fill="#6d28d9" opacity="0.7"/>
+        <!-- full-length suction hose with mounting sag + rear coil -->
+        <path d="M314 351 C334 359 404 359 421 350" fill="none" stroke="#4c1d95" stroke-width="4.5" stroke-linecap="round"/>
+        <g fill="none" stroke="#4c1d95" stroke-linecap="round">
+          <circle cx="427" cy="349" r="7.5" stroke-width="3.5"/>
+          <circle cx="427" cy="349" r="3.6" stroke-width="3"/>
+          <path d="M430 356 q5 6 3.5 11" stroke-width="4"/>
+        </g>
+        <!-- cab, single clean window -->
+        <path d="M256 360 V326 Q256 318 264 318 H306 V360 Z" fill="url(#hsTruckC)"/>
+        <rect x="262" y="325" width="28" height="18" rx="2.5" fill="#dbeafe"/>
+        <rect x="250" y="349" width="8" height="11" rx="2" fill="#4c1d95"/>
+        <rect x="252" y="337" width="4.5" height="6" rx="1.5" fill="#fbbf24"/>
+        <!-- wheels -->
+        <g><circle cx="284" cy="368" r="13" fill="#1e293b"/><circle cx="284" cy="368" r="5.5" fill="#94a3b8"/><circle cx="284" cy="368" r="2" fill="#475569"/></g>
+        <g><circle cx="388" cy="368" r="13" fill="#1e293b"/><circle cx="388" cy="368" r="5.5" fill="#94a3b8"/><circle cx="388" cy="368" r="2" fill="#475569"/></g>
+        <g><circle cx="420" cy="368" r="13" fill="#1e293b"/><circle cx="420" cy="368" r="5.5" fill="#94a3b8"/><circle cx="420" cy="368" r="2" fill="#475569"/></g>
+      </g>
+
+      <!-- ═══ FIELD TECHNICIAN — short neck (head sits close to the torso); legs
+           start well inside the torso's bottom edge so the torso rect (painted
+           after the legs) fully covers the seam, no gap or rounded-corner notch ═══ -->
+      <g filter="url(#hsShadow)">
+        <path d="M179 331 Q186 342 182 353" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+        <path d="M166 330 Q157 334 151 340" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round"/>
+        <rect x="163.5" y="340" width="7.5" height="44" rx="3.2" fill="#1e293b"/>
+        <rect x="173" y="340" width="7.5" height="44" rx="3.2" fill="#1e293b"/>
+        <rect x="168.5" y="317" width="7" height="5" fill="#1e293b"/>
+        <rect x="161" y="321" width="22" height="34" rx="8" fill="#1e293b"/>
+        <rect x="163.5" y="324" width="17" height="28" rx="3" fill="#fbbf24"/>
+        <path d="M169 324 L172 331 L175 324 Z" fill="#1e293b"/>
+        <rect x="163.5" y="335" width="17" height="3.5" fill="#1e293b"/>
+        <rect x="163.5" y="344" width="17" height="3.5" fill="#1e293b"/>
+        <circle cx="172" cy="311" r="7.5" fill="#1e293b"/>
+        <path d="M162.5 305.5 C162.5 294 181.5 294 181.5 305.5 Z" fill="#f59e0b"/>
+        <ellipse cx="172" cy="305.5" rx="11.5" ry="2.5" fill="#f59e0b"/>
+        <path d="M172 295.4 V304.6" stroke="#d97706" stroke-width="1.2" opacity="0.85"/>
+        <!-- tablet overlaps the reaching hand -->
+        <rect x="126" y="336" width="25" height="17" rx="2.5" fill="#1e293b"/>
+        <rect x="128.3" y="338.3" width="20.4" height="12.4" rx="1.5" fill="#0b1220"/>
+        <circle cx="144.5" cy="342" r="1.7" fill="#ef4444"><animate attributeName="opacity" values="1;.25;1" dur="1.1s" repeatCount="indefinite"/></circle>
+        <path d="M130 347 L134 344 L138 346 L142 342.5 L146 345" fill="none" stroke="#a78bfa" stroke-width="1.3" stroke-linecap="round" stroke-linejoin="round"/>
+      </g>
     </svg>
-  </div>
+    <div class="hs-legend">
+      <span><i style="background:#7c3aed"></i>Flow</span>
+      <span><i style="background:#6d28d9"></i>Pressure</span>
+      <span><i style="background:#0891b2"></i>Temperature</span>
+      <span><i style="background:#0369a1"></i>Level</span>
+      <span><i style="background:#f59e0b"></i>Energy</span>
+      <span><i style="background:#0d9488"></i>Leak</span>
+    </div>`;
+  }
+  function whyArt() {
+    return `<svg viewBox="0 0 460 150" width="100%" style="display:block;margin-top:22px" aria-label="Value flywheel">
+      <rect x="0" y="0" width="460" height="150" rx="16" fill="#fff" stroke="#e7e6f1"/>
+      <g font-family="system-ui" font-size="13" fill="#334155">
+        <g transform="translate(28,40)"><rect width="120" height="70" rx="10" fill="#f2effe"/><text x="16" y="30" font-weight="700" fill="#6d28d9">Monitor</text><text x="16" y="50" font-size="11.5" fill="#7c6aa8">every asset</text></g>
+        <g transform="translate(170,40)"><rect width="120" height="70" rx="10" fill="#e8fbef"/><text x="16" y="30" font-weight="700" fill="#15803d">Alert</text><text x="16" y="50" font-size="11.5" fill="#4d7c5b">out of range</text></g>
+        <g transform="translate(312,40)"><rect width="120" height="70" rx="10" fill="#fff7ed"/><text x="16" y="30" font-weight="700" fill="#b45309">Act</text><text x="16" y="50" font-size="11.5" fill="#9a6a3a">in your systems</text></g>
+      </g>
+      <g stroke="#c4b5fd" stroke-width="2" fill="none"><path d="M148 75 L170 75" marker-end="url(#ah)"/><path d="M290 75 L312 75" marker-end="url(#ah)"/></g>
+      <defs><marker id="ah" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0 0l6 3-6 3z" fill="#8b5cf6"/></marker></defs>
+    </svg>`;
+  }
+  function ecoArt(size) {
+    const R = size === "lg" ? 250 : 200, W = size === "lg" ? 560 : 420;
+    // Centre vertically and keep the 48px node boxes (24px half-height) inside
+    // the viewBox — r must leave room for that half-height plus a small margin,
+    // otherwise the top/bottom spokes render clipped.
+    const cx = W/2, cy = R/2, r = R/2 - 30;
+    const nodes = [["flow","#0369a1"],["energy","#f59e0b"],["fridge","#0d9488"],["leak","#dc2626"],["pool","#0891b2"],["chip","#7c3aed"]];
+    const spokes = nodes.map((n, i) => {
+      const a = (Math.PI * 2 * i / nodes.length) - Math.PI/2;
+      const x = cx + Math.cos(a)*r, y = cy + Math.sin(a)*r;
+      return `<line x1="${cx}" y1="${cy}" x2="${x.toFixed(0)}" y2="${y.toFixed(0)}" stroke="#e7e6f1" stroke-width="2"/>
+        <g transform="translate(${(x-24).toFixed(0)},${(y-24).toFixed(0)})"><rect width="48" height="48" rx="12" fill="#fff" stroke="#e7e6f1"/><g transform="translate(12,12)" color="${n[1]}" style="color:${n[1]}">${svg(I[n[0]],2)}</g></g>`;
+    }).join("");
+    return `<div class="card" style="padding:20px"><svg viewBox="0 0 ${W} ${R}" width="100%" aria-label="Device ecosystem hub">
+      ${spokes}
+      <!-- Hub: matches the site's own icon-chip convention (--purple-soft fill,
+           --line border — the exact tokens .card .ico and .ind .iico already use)
+           instead of inventing a new dark-circle motif found nowhere else on the site -->
+      <circle cx="${cx}" cy="${cy}" r="34" fill="#f2effe" stroke="#e7e6f1" stroke-width="1.5"/>
+      <g transform="translate(${cx-13},${cy-10})"><path d="M0,19.5 L8.7,0 L15.2,10.8 L20.6,2.2 L26,19.5 Z" fill="#7c3aed"/><path d="M15.2,10.8 L20.6,2.2 L26,19.5 Z" fill="#22c55e" opacity="0.9"/></g>
+    </svg></div>`;
+  }
 
-  <h1 class="wordmark"><span class="peak">Peak</span><span class="logic">Logic</span> Solutions</h1>
-  <p class="tagline">Industrial IoT Monitoring &amp; Control</p>
+  // ---------- Build marketing page ----------
+  setIco("i-monitor","monitor"); setIco("i-predict","predict"); setIco("i-dispatch","dispatch"); setIco("i-prove","prove");
+  setIco("f1","sense"); setIco("f2","normalize"); setIco("f3","detect"); setIco("f4","act"); setIco("f5","prove2");
+  setIco("w1","predict"); setIco("w2","umbrella"); setIco("w3","doc"); setIco("w4","layers");
+  $("#hero-art").innerHTML = heroArt();
+  $("#why-art").innerHTML = whyArt();
+  $("#eco-art-sm").innerHTML = ecoArt("sm");
+  $("#eco-art-lg").innerHTML = ecoArt("lg");
+  $("#about-art").innerHTML = ecoArt("sm");
+  { const _sl = $("#staff-link"); if (_sl) _sl.href = SUPER_CONSOLE; }
+  setBilling("monthly");
+  setAudience("commercial");
+  $("#industries-grid").innerHTML = INDUSTRIES.map(([n,s,ic]) =>
+    `<div class="ind"><div class="iico">${svg(I[ic],2)}</div><div><b>${n}</b><span>${s}</span></div></div>`).join("");
+  $("#eco-cats").innerHTML = ECO_CATS.map(([n,ic,d]) =>
+    `<div class="card"><div class="ico">${svg(I[ic],2)}</div><h3 class="h3">${n}</h3><p>${d}</p></div>`).join("");
 
-  <div class="coming-soon"><span class="dot"></span> Coming Soon</div>
+  // ---------- Navigation ----------
+  function show(view) {
+    document.querySelectorAll("#site > main").forEach(m => m.classList.toggle("hidden", m.id !== view + "-view"));
+    $("#portal-root").innerHTML = "";
+    $("#site").classList.remove("hidden");
+    window.scrollTo(0, 0);
+  }
+  function scrollTo(id) {
+    show("home");
+    setTimeout(() => { const el = document.getElementById(id); if (el) el.scrollIntoView({ behavior: "smooth", block: "start" }); }, 30);
+  }
+  function setBilling(mode) {
+    document.querySelectorAll(".bt[data-bill]").forEach(b => b.classList.toggle("on", b.getAttribute("data-bill") === mode));
+    document.querySelectorAll(".tier .amt").forEach(el => { el.textContent = "$" + el.getAttribute(mode === "annual" ? "data-a" : "data-m"); });
+    document.querySelectorAll(".tier .amt-suffix").forEach(el => { el.textContent = el.getAttribute("data-unit") + (mode === "annual" ? ", billed annually" : ""); });
+    const note = document.getElementById("bill-note");
+    if (note) note.textContent = mode === "annual"
+      ? "12-month contract — sensors & installation included. Billed annually, 2 months free vs. paying monthly."
+      : "Billed monthly · sensors & installation are a separate one-time charge. Switch to a 12-month contract to include hardware and save 20%.";
+  }
+  function setAudience(mode) {
+    document.querySelectorAll(".bt[data-aud]").forEach(b => b.classList.toggle("on", b.getAttribute("data-aud") === mode));
+    const c = document.getElementById("tiers-commercial"), r = document.getElementById("tiers-residential");
+    if (c) c.classList.toggle("hidden", mode !== "commercial");
+    if (r) r.classList.toggle("hidden", mode !== "residential");
+  }
 
-  <p class="blurb">
-    We're building the new home for PeakLogic Solutions. Real-time telemetry,
-    site &amp; asset monitoring, and control — all in one platform.
-  </p>
+  // ---------- Login ----------
+  // Demo routing. In production, a single "Log in" authenticates the user and
+  // sends them to their own workspace; employees use a separate internal entry.
+  const ROLES = {
+    customer: () => openPortal("customer"),
+    partner: () => openPortal("partner"),
+  };
+  function openSignin() {
+    $("#modal-root").innerHTML = `<div class="ov" data-close><div class="modal" role="dialog" style="max-width:440px">
+      <div class="modal__head" style="text-align:center">
+        <div style="display:flex;justify-content:center;margin-bottom:8px"><svg viewBox="0 0 24 18" width="32"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg></div>
+        <h3>Sign in to PeakLogic</h3><p>Access your monitoring workspace.</p></div>
+      <div class="modal__body">
+        <div class="field"><label>Email</label><input type="email" placeholder="you@company.com"></div>
+        <div class="field"><label>Password</label><input type="password" placeholder="••••••••"></div>
+        <button class="btn btn--primary" data-role="customer" style="width:100%;justify-content:center;margin-top:4px">Sign in</button>
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-top:2px">
+          <a data-go="contact" style="color:var(--purple);cursor:pointer">Forgot password?</a>
+          <a data-role="customer" style="color:var(--purple);cursor:pointer">Sign in with SSO</a></div>
+      </div>
+      <div class="signin-demo">
+        <div class="signin-demo__lbl">Demo — preview a workspace</div>
+        <div class="signin-demo__row">
+          <button class="btn btn--ghost btn--sm" data-role="customer">Customer</button>
+          <button class="btn btn--ghost btn--sm" data-role="partner">Partner (branded)</button>
+          <a class="btn btn--ghost btn--sm" href="${SUPER_CONSOLE}" target="_top" style="justify-content:center">Staff console ↗</a>
+        </div>
+      </div>
+      <div class="modal__foot">Employees sign in to the internal console through a separate, secured entrance.</div>
+    </div></div>`;
+    const inp = $("#modal-root input"); if (inp) inp.focus();
+  }
+  // Public entry points route here. "signin" opens the sign-in screen; the
+  // section preview buttons open a workspace directly.
+  function openLogin(which) {
+    window.location.href = "/demo.html"; return;  // V2: the live click-through demo lives in the platform hub, which launches the real portal apps
+    if (which === "customer") return openPortal("customer");
+    openSignin();
+  }
+  function closeModal() { $("#modal-root").innerHTML = ""; }
 
-  <div class="actions">
-    <a class="btn btn-primary" href="/demo.html">Explore the Platform Demo →</a>
-    <a class="btn btn-secondary" href="https://app.peaklogicsolutions.com">Log In</a>
-    <a class="btn btn-secondary" href="mailto:hello@peaklogicsolutions.com">Contact Us</a>
-  </div>
+  // ---------- Portals ----------
+  function portalHead(badge, brandColor, brandLabel, who, whoColor) {
+    return `<div class="phead"><div class="wrap phead__in">
+      <div class="brand" data-go="home">
+        <svg viewBox="0 0 24 18"><path d="M0,18 L8,0 L14,10 L19,2 L24,18 Z" fill="#7c3aed"/><path d="M14,10 L19,2 L24,18 Z" fill="#22c55e" opacity="0.85"/></svg>
+        <span class="brand__word"><span class="peak">Peak</span><span class="logic">Logic</span></span>
+      </div>
+      <span class="phead__badge" style="background:${brandColor}1a;color:${brandColor}">${badge}</span>
+      <div class="phead__sp"></div>
+      <div class="pwho"><span class="av" style="background:${whoColor}">${who.split(' ').map(w=>w[0]).slice(0,2).join('')}</span><div><div style="font-weight:650">${who}</div><div class="faint" style="font-size:11px">${brandLabel}</div></div></div>
+      <button class="btn btn--ghost btn--sm" data-go="home" style="margin-left:14px">Log out</button>
+    </div></div>`;
+  }
 
-  <footer>&copy; 2026 PeakLogic Solutions. All rights reserved.</footer>
-</main>
+  function openPortal(kind) {
+    closeModal();
+    $("#site").classList.add("hidden");
+    $("#portal-root").innerHTML = kind === "customer" ? customerPortal() : partnerPortal();
+    window.scrollTo(0, 0);
+  }
+
+  function customerPortal() {
+    const alerts = [
+      ["crit", "Kitchen grease trap — Downtown", "Level above threshold; a service ticket was created", "12m ago"],
+      ["warn", "Lift station — Riverside", "Wet-well level rising", "1h ago"],
+    ];
+    const tickets = [
+      ["TCK-3391", "Grease trap at capacity", "Your service partner", "info", "On-site scheduled"],
+      ["TCK-3372", "Lift station level rising", "Your service partner", "good", "Completed"],
+    ];
+    return `<div class="portal">${portalHead("Customer workspace", "#7c3aed", "Northgate Restaurant Group", "Northgate Restaurant Group", "#7c3aed")}
+      <div class="pmain"><div class="wrap">
+        <div class="ptitle">Welcome back, Northgate</div>
+        <p class="muted" style="margin:0">The live condition of your equipment across your locations. PeakLogic monitors it around the clock and creates a service ticket the moment something needs attention.</p>
+        <div class="pgrid">
+          <div class="pstat"><b>18</b><span>devices monitored</span></div>
+          <div class="pstat"><b style="color:#ef4444">1</b><span>critical alert</span></div>
+          <div class="pstat"><b style="color:#f59e0b">2</b><span>open service tickets</span></div>
+          <div class="pstat"><b style="color:#15803d">16</b><span>online now</span></div>
+        </div>
+        <div class="cols2">
+          <div class="panel2"><div class="panel2__h">Active alerts</div>
+            <table class="ptbl"><tbody>${alerts.map(([h,a,b,t]) => `<tr>
+              <td style="width:4px;padding:0"><span style="display:block;width:4px;min-height:44px;background:${h==='crit'?'#ef4444':'#f59e0b'}"></span></td>
+              <td><div style="font-weight:650">${a}</div><div class="faint" style="font-size:12px">${b}</div></td>
+              <td style="text-align:right"><span class="tag tag--${h}"><span class="d"></span>${h==='crit'?'Critical':'Warning'}</span><div class="faint" style="font-size:11px;margin-top:4px">${t}</div></td>
+            </tr>`).join("")}</tbody></table></div>
+          <div class="panel2"><div class="panel2__h">Your sites</div>
+            <table class="ptbl"><tbody>
+              <tr><td><b>Northgate — Downtown</b></td><td style="text-align:right"><span class="tag tag--crit"><span class="d"></span>Critical</span></td></tr>
+              <tr><td><b>Northgate — Riverside</b></td><td style="text-align:right"><span class="tag tag--warn"><span class="d"></span>Warning</span></td></tr>
+            </tbody></table></div>
+        </div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Service tickets <span class="faint" style="font-weight:500;font-size:12px">· sent to your service partner automatically</span></div>
+          <table class="ptbl"><thead><tr><th>Ticket</th><th>Issue</th><th>Serviced by</th><th>Status</th></tr></thead>
+          <tbody>${tickets.map(([id,s,p,c,st]) => `<tr><td class="faint" style="font-family:var(--mono)">${id}</td><td><b>${s}</b></td><td>${p}</td><td><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+      </div></div></div>`;
+  }
+
+  function partnerPortal() {
+    const brand = "#0d9488";
+    const accounts = [
+      ["Northgate Restaurant Group", "Restaurant group", "crit", "1 critical"],
+      ["Harborview Facilities", "Commercial property", "good", "Healthy"],
+    ];
+    const dispatch = [
+      ["Route 1", "Ana Reyes", "9 stops", "info", "In progress"],
+      ["Route 2", "Cole Bennett", "7 stops", "info", "In progress"],
+      ["Route 3", "Priya Shah", "6 stops", "good", "Scheduled"],
+    ];
+    const head = `<div class="phead"><div class="wrap phead__in">
+      <span style="width:34px;height:34px;border-radius:9px;background:${brand};display:grid;place-items:center;color:#fff;font-weight:800;font-size:13px">FS</span>
+      <span style="font-weight:800;font-size:18px;letter-spacing:-.02em">Fieldstone Services</span>
+      <span class="phead__badge" style="background:${brand}1a;color:${brand}">Your branded workspace</span>
+      <div class="phead__sp"></div>
+      <span class="faint" style="font-size:11.5px">Powered by <b style="color:var(--purple)">PeakLogic</b></span>
+      <button class="btn btn--ghost btn--sm" data-go="home" style="margin-left:14px">Log out</button>
+    </div></div>`;
+    return `<div class="portal">${head}
+      <div class="pmain"><div class="wrap">
+        <div class="ptitle" style="margin-bottom:2px">Good morning, Fieldstone</div>
+        <p class="muted" style="margin:0 0 4px">Your customers, your brand, your dispatch. PeakLogic runs underneath and feeds the work into the systems you already use.</p>
+        <div class="pgrid">
+          <div class="pstat"><b>2</b><span>customer accounts</span></div>
+          <div class="pstat"><b>8</b><span>technicians</span></div>
+          <div class="pstat"><b style="color:#f59e0b">3</b><span>open work orders</span></div>
+          <div class="pstat"><b style="color:#ef4444">1</b><span>critical alert</span></div>
+        </div>
+        <div class="cols2">
+          <div class="panel2"><div class="panel2__h">Your accounts</div>
+            <table class="ptbl"><thead><tr><th>Customer</th><th>Type</th><th>Status</th></tr></thead>
+            <tbody>${accounts.map(([n,t,h,l]) => `<tr><td><b>${n}</b></td><td class="muted">${t}</td><td><span class="tag tag--${h}"><span class="d"></span>${l}</span></td></tr>`).join("")}</tbody></table></div>
+          <div class="panel2"><div class="panel2__h">Today's dispatch</div>
+            <table class="ptbl"><tbody>${dispatch.map(([r,tech,s,c,st]) => `<tr><td><b style="font-family:var(--mono)">${r}</b><div class="faint" style="font-size:12px">${tech} · ${s}</div></td><td style="text-align:right"><span class="tag tag--${c}"><span class="d"></span>${st}</span></td></tr>`).join("")}</tbody></table></div>
+        </div>
+        <div class="panel2" style="margin-top:18px"><div class="panel2__h">Work orders from PeakLogic <span class="faint" style="font-weight:500;font-size:12px">· detected, sent to your system, and worked</span></div>
+          <div style="padding:18px 20px">
+            ${["Detected 168","Accepted 159","On-site 142","Completed 133"].map((s,i)=>{const w=[100,95,85,79][i];const c=['#0d9488','#2563eb','#16a34a','#16a34a'][i];return `<div style="display:flex;align-items:center;gap:10px;margin:5px 0"><div style="width:82px;font-size:12px;color:var(--muted)">${s.split(' ')[0]}</div><div style="flex:1;height:16px;background:#eef0f7;border-radius:5px;overflow:hidden"><div style="width:${w}%;height:100%;background:${c}"></div></div><div style="width:34px;text-align:right;font-family:var(--mono);font-size:12px;font-weight:650">${s.split(' ')[1]}</div></div>`;}).join("")}
+            <div class="faint" style="font-size:12px;margin-top:8px">Illustrative demo data.</div>
+          </div></div>
+        <div class="card" style="margin-top:18px;background:${brand}0d;border-color:${brand}33;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:space-between">
+          <div><h3 class="h3" style="margin-bottom:4px">Your brand. Your customers. Your revenue.</h3><p class="muted" style="font-size:14px;margin:0">PeakLogic is the intelligence layer underneath, and the work flows into the systems you already run.</p></div>
+          <span class="faint" style="font-size:12px">Powered by <b style="color:var(--purple)">PeakLogic</b></span>
+        </div>
+      </div></div></div>`;
+  }
+
+  // ---------- Global click routing ----------
+  document.addEventListener("click", (e) => {
+    const go = e.target.closest("[data-go]");
+    const scroll = e.target.closest("[data-scroll]");
+    const login = e.target.closest("[data-login]");
+    const role = e.target.closest("[data-role]");
+    const bill = e.target.closest("[data-bill]");
+    const aud = e.target.closest("[data-aud]");
+    const close = e.target.closest("[data-close]");
+    if (bill) { setBilling(bill.getAttribute("data-bill")); return; }
+    if (aud) { setAudience(aud.getAttribute("data-aud")); return; }
+    if (role) { const r = ROLES[role.getAttribute("data-role")]; if (r) r(); return; }
+    if (login) { openLogin(login.getAttribute("data-login")); return; }
+    if (go) { show(go.getAttribute("data-go")); return; }
+    if (scroll) { scrollTo(scroll.getAttribute("data-scroll")); return; }
+    if (close && e.target === close) { closeModal(); return; }
+  });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeModal(); });
+
+  // Demo request form — client-side only, nothing is submitted anywhere.
+  document.addEventListener("submit", (e) => {
+    if (e.target.id !== "demo-form") return;
+    e.preventDefault();
+    const name = (new FormData(e.target).get("name") || "").toString().trim();
+    const first = name.split(" ")[0] || "there";
+    const card = e.target.closest(".card");
+    card.innerHTML = `<div class="form-success">
+      <div class="ok"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3 class="h3" style="margin-bottom:8px">Thanks, ${esc(first)} — request received.</h3>
+      <p class="muted" style="max-width:42ch;margin:0 auto">A PeakLogic specialist will reach out within one business day to schedule your walkthrough.</p>
+      <div style="margin-top:22px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+        <button class="btn btn--primary" data-login="all">Explore the live demo</button>
+        <button class="btn btn--ghost" data-go="home">Back to home</button>
+      </div></div>`;
+  });
+})();
+</script>
 </body>
 </html>
