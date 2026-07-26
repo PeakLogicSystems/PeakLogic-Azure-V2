@@ -1,0 +1,17 @@
+{
+  "$schema-version": "0.0.1",
+  "description": "PeakLogic Hub agent — cross-platform edge acquisition, normalization, and store-and-forward as an Azure IoT Edge module.",
+  "image": {
+    "repository": "${CONTAINER_REGISTRY_SERVER}/peaklogic-hub-agent",
+    "tag": {
+      "version": "0.1.0",
+      "platforms": {
+        "amd64": "./Dockerfile",
+        "arm64v8": "./Dockerfile"
+      }
+    },
+    "buildOptions": [],
+    "contextPath": "../../.."
+  },
+  "language": "csharp"
+}

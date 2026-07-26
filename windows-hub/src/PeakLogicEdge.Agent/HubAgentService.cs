@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PeakLogicEdge.Core.Agent;
@@ -17,11 +18,29 @@ namespace PeakLogicEdge.Agent;
 public sealed class HubAgentService : BackgroundService
 {
     private readonly ILogger<HubAgentService> _log;
+    private readonly IConfiguration _config;
 
-    public HubAgentService(ILogger<HubAgentService> log) => _log = log;
+    public HubAgentService(ILogger<HubAgentService> log, IConfiguration config)
+    {
+        _log = log;
+        _config = config;
+    }
 
     protected override Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        var options = new HubAgentOptions
+        {
+            ThingNameByDeviceKey = new Dictionary<string, string> { ["demo-chlorinator"] = "plg-demo-0001" },
+        };
+
+        // Container durability: inside an IoT Edge module the per-OS default
+        // cache path is on the EPHEMERAL container filesystem — wiped on every
+        // restart, defeating the durable queue. The deployment manifest sets
+        // PEAKLOGIC_CACHE_PATH to a path on a MOUNTED VOLUME (edge/README.md); we
+        // honor that override here so the queue actually survives restarts.
+        var cachePath = _config["PEAKLOGIC_CACHE_PATH"];
+        if (!string.IsNullOrWhiteSpace(cachePath)) options = options with { CachePath = cachePath };
+
         var agent = new HubAgent(
             sourceFactory: writer => new IIngestionSource[]
             {
@@ -37,10 +56,7 @@ public sealed class HubAgentService : BackgroundService
                     log: _log,
                     interval: TimeSpan.FromSeconds(5)),
             },
-            options: new HubAgentOptions
-            {
-                ThingNameByDeviceKey = new Dictionary<string, string> { ["demo-chlorinator"] = "plg-demo-0001" },
-            },
+            options: options,
             log: _log);
 
         return agent.RunAsync(stoppingToken);

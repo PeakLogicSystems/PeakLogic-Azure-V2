@@ -3,7 +3,7 @@ namespace PeakLogicEdge.Core.Agent;
 // Configuration for the headless HubAgent. Nothing here is OS-specific — the
 // default cache path resolves per-OS (LocalApplicationData is %LOCALAPPDATA% on
 // Windows, ~/.local/share on Linux), and the rest is plain data.
-public sealed class HubAgentOptions
+public sealed record HubAgentOptions
 {
     /// Where the durable SQLite queue lives (survives process/host restart).
     public string CachePath { get; init; } = Path.Combine(
