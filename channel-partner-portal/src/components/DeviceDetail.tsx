@@ -3,8 +3,8 @@ import { Gauge, Power, ShieldAlert, X } from 'lucide-react';
 import type { Device } from '@/data/types';
 
 const STATUS_TEXT: Record<Device['status'], { label: string; cls: string }> = {
-  online: { label: 'Online', cls: 'text-emerald-600' },
-  fault: { label: 'Fault', cls: 'text-amber-600' },
+  online: { label: 'Online', cls: 'text-emerald-600 dark:text-emerald-400' },
+  fault: { label: 'Fault', cls: 'text-amber-600 dark:text-amber-400' },
   offline: { label: 'Offline', cls: 'text-slate-400' },
 };
 
@@ -20,14 +20,14 @@ export function DeviceDetail({ device, onClose, onCommand }: { device: Device; o
   const setpointLabel = device.type.includes('Chlorinator') ? 'Output' : device.type.includes('Heater') ? 'Setpoint' : 'Speed';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4" onClick={onClose}>
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl dark:bg-slate-900" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3 dark:border-slate-800">
           <div>
-            <p className="font-semibold text-slate-900">{device.name}</p>
-            <p className="font-mono text-xs text-slate-500">{device.id} · {device.type}</p>
+            <p className="font-semibold text-slate-900 dark:text-white">{device.name}</p>
+            <p className="font-mono text-xs text-slate-500 dark:text-slate-400">{device.id} · {device.type}</p>
           </div>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Close">
+          <button onClick={onClose} className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800" aria-label="Close">
             <X size={18} />
           </button>
         </div>
@@ -35,13 +35,13 @@ export function DeviceDetail({ device, onClose, onCommand }: { device: Device; o
         <div className="space-y-4 px-5 py-4">
           {/* live reading + status */}
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl border border-slate-200 p-3">
+            <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Status</p>
               <p className={`mt-0.5 text-sm font-semibold ${st.cls}`}>{st.label}</p>
             </div>
-            <div className="rounded-xl border border-slate-200 p-3">
+            <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
               <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Live reading</p>
-              <p className="mt-0.5 text-sm font-semibold text-slate-900" style={{ fontVariantNumeric: 'tabular-nums' }}>
+              <p className="mt-0.5 text-sm font-semibold text-slate-900 dark:text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>
                 {device.status === 'offline' ? '— no data' : device.reading ?? '—'}
               </p>
             </div>
@@ -49,10 +49,10 @@ export function DeviceDetail({ device, onClose, onCommand }: { device: Device; o
 
           {device.controllable ? (
             <>
-              <div className="flex items-center justify-between rounded-xl border border-slate-200 p-3">
+              <div className="flex items-center justify-between rounded-xl border border-slate-200 p-3 dark:border-slate-800">
                 <div className="flex items-center gap-2">
                   <Power size={18} className={running ? 'text-emerald-500' : 'text-slate-400'} />
-                  <span className="text-sm font-medium text-slate-700">{running ? 'Running' : 'Stopped'}</span>
+                  <span className="text-sm font-medium text-slate-700 dark:text-slate-200">{running ? 'Running' : 'Stopped'}</span>
                 </div>
                 <button
                   onClick={() => setRunning((r) => !r)}
@@ -62,10 +62,10 @@ export function DeviceDetail({ device, onClose, onCommand }: { device: Device; o
                 </button>
               </div>
 
-              <div className="rounded-xl border border-slate-200 p-3">
+              <div className="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
                 <div className="mb-1 flex items-center justify-between text-sm">
-                  <span className="font-medium text-slate-700">{setpointLabel}</span>
-                  <span className="font-semibold text-slate-900" style={{ fontVariantNumeric: 'tabular-nums' }}>{setpoint}%</span>
+                  <span className="font-medium text-slate-700 dark:text-slate-200">{setpointLabel}</span>
+                  <span className="font-semibold text-slate-900 dark:text-white" style={{ fontVariantNumeric: 'tabular-nums' }}>{setpoint}%</span>
                 </div>
                 <input type="range" min={0} max={100} value={setpoint} onChange={(e) => setSetpoint(Number(e.target.value))} className="w-full accent-partner-primary" />
               </div>
@@ -79,14 +79,14 @@ export function DeviceDetail({ device, onClose, onCommand }: { device: Device; o
               </div>
             </>
           ) : (
-            <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500">
+            <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-3 text-xs text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               <Gauge size={16} className="shrink-0" /> Read-only sensor — monitored, not controllable.
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3">
-          <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100">
+        <div className="flex justify-end gap-2 border-t border-slate-100 px-5 py-3 dark:border-slate-800">
+          <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800">
             {device.controllable ? 'Cancel' : 'Close'}
           </button>
           {device.controllable && (

@@ -22,6 +22,7 @@ export const ACE: Partner = {
     facilityNoun: 'facility',
   },
   technicians: ['M. Alvarez', 'J. Chen', 'R. Diaz', 'T. Okafor'],
+  user: { name: 'John Smith', role: 'Partner Administrator', email: 'john.smith@acesepticwaste.com' },
   sites: [
     {
       id: 'site-riverside',

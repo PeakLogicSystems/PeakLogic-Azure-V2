@@ -2,6 +2,7 @@ import type { Config } from 'tailwindcss';
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  darkMode: 'class', // user-toggled per-user (SettingsContext), persisted
   theme: {
     extend: {
       colors: {

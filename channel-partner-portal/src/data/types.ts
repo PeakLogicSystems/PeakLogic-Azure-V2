@@ -67,6 +67,7 @@ export interface Partner {
   vertical: Vertical;
   terms: VerticalTerms;
   technicians: string[]; // the partner's field crew (for ticket assignment)
+  user: { name: string; role: string; email: string }; // the signed-in portal user
   sites: Site[];
   tickets: Ticket[];
 }

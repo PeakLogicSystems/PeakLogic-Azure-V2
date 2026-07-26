@@ -33,13 +33,13 @@ export function PartnerSwitcher() {
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-50 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-xl">
+          <div className="absolute right-0 z-50 mt-1.5 w-72 rounded-xl border border-slate-200 bg-white p-1 text-slate-900 shadow-xl dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100">
             <p className="px-3 py-2 text-[11px] font-semibold uppercase tracking-wide text-slate-400">Demo · view as partner</p>
             {partners.map((p) => (
               <button
                 key={p.id}
                 onClick={() => pick(p.id)}
-                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-slate-50"
+                className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-slate-800"
               >
                 <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-[10px] font-black text-white" style={{ backgroundColor: p.secondaryColor }}>
                   {p.logoText.slice(0, 2).toUpperCase()}

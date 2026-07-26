@@ -24,6 +24,7 @@ export const WTRDR: Partner = {
     facilityNoun: 'pool & pump layout',
   },
   technicians: ['D. Ruiz', 'A. Patel', 'S. Kim', 'L. Nguyen'],
+  user: { name: 'Dana Brown', role: 'Partner Administrator', email: 'dana.brown@wtrdr.com' },
   sites: [
     {
       id: 'pool-sunsetridge',

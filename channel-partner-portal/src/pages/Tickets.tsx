@@ -22,8 +22,8 @@ export function Tickets() {
   return (
     <div className="space-y-4">
       <div>
-        <h1 className="text-xl font-bold text-slate-900">Tickets</h1>
-        <p className="text-sm text-slate-500">Manage work across every {partner.terms.siteSingular.toLowerCase()} you service — assign, schedule, and close.</p>
+        <h1 className="text-xl font-bold text-slate-900 dark:text-white">Tickets</h1>
+        <p className="text-sm text-slate-500 dark:text-slate-400">Manage work across every {partner.terms.siteSingular.toLowerCase()} you service — assign, schedule, and close.</p>
       </div>
 
       <div className="flex flex-wrap gap-1.5">
@@ -31,7 +31,7 @@ export function Tickets() {
           <button
             key={f.key}
             onClick={() => setFilter(f.key)}
-            className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${filter === f.key ? 'text-white' : 'bg-white text-slate-500 hover:text-slate-800'}`}
+            className={`rounded-full px-3 py-1 text-sm font-medium transition-colors ${filter === f.key ? 'text-white' : 'bg-white text-slate-500 hover:text-slate-800 dark:bg-slate-800 dark:text-slate-400 dark:hover:text-slate-100'}`}
             style={filter === f.key ? { backgroundColor: 'var(--partner-primary)' } : undefined}
           >
             {f.label}

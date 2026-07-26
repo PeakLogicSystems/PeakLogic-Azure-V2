@@ -20,7 +20,9 @@
   .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px; }
 
   header { display: flex; align-items: center; justify-content: space-between; padding: 20px 0; }
-  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand { display: flex; align-items: flex-end; gap: 7px; }
+  .word { line-height: 1; }
+  .pl-lock { display: inline-flex; align-items: flex-end; gap: 3px; }
   .brand .word { font-size: 18px; font-weight: 800; letter-spacing: -0.01em; }
   .brand .word .l { color: var(--purple); }
   .tag { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 5px 10px; }
@@ -68,7 +70,7 @@
   .callout { display: flex; gap: 10px; align-items: flex-start; background: rgba(56,189,248,.08); border: 1px solid rgba(56,189,248,.25); border-radius: 12px; padding: 14px 16px; margin: 20px 0; color: #cbd5e1; font-size: 13.5px; line-height: 1.55; }
   .callout b { color: #fff; }
 
-  footer { border-top: 1px solid var(--line); margin-top: 32px; padding: 22px 0 40px; color: var(--dim); font-size: 12px; display: flex; align-items: center; justify-content: center; gap: 7px; }
+  footer { border-top: 1px solid var(--line); margin-top: 32px; padding: 22px 0 40px; color: var(--dim); font-size: 12px; display: flex; align-items: flex-end; justify-content: center; gap: 6px; }
   footer .word { font-weight: 800; color: var(--muted); }
   footer .word .l { color: var(--purple); }
   .note { text-align: center; color: var(--dim); font-size: 12px; margin-top: 6px; }
@@ -78,7 +80,7 @@
 <div class="wrap">
   <header>
     <div class="brand">
-      <svg width="26" height="26" viewBox="0 0 32 32" fill="none"><path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED"/><path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85"/></svg>
+      <svg width="22" height="16" viewBox="4 10 24 18" fill="none"><path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED"/><path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85"/></svg>
       <span class="word">Peak<span class="l">Logic</span></span>
     </div>
     <span class="tag">Platform Demo</span>
@@ -151,8 +153,10 @@
 
   <footer>
     <span>Powered by</span>
-    <svg width="14" height="14" viewBox="0 0 32 32" fill="none"><path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED"/><path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85"/></svg>
-    <span class="word">Peak<span class="l">Logic</span></span>
+    <span class="pl-lock">
+      <svg width="13" height="10" viewBox="4 10 24 18" fill="none"><path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED"/><path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85"/></svg>
+      <span class="word">Peak<span class="l">Logic</span></span>
+    </span>
   </footer>
 </div>
 </body>

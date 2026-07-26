@@ -23,7 +23,7 @@ export function SiteDetail() {
 
   if (!site) {
     return (
-      <div className="py-16 text-center text-slate-500">
+      <div className="py-16 text-center text-slate-500 dark:text-slate-400">
         Not found. <Link to="/" className="text-partner-primary hover:underline">Back to home</Link>
       </div>
     );
@@ -41,23 +41,25 @@ export function SiteDetail() {
     setSelected(null);
   };
 
+  const secondaryBtn = 'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600';
+  const heading = 'text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400';
+
   return (
     <div className="space-y-6">
-      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800">
+      <Link to="/" className="inline-flex items-center gap-1.5 text-sm font-medium text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-slate-100">
         <ArrowLeft size={16} /> All {t.sitePlural.toLowerCase()}
       </Link>
 
       <div>
         <div className="flex items-center gap-3">
-          <h1 className="text-xl font-bold text-slate-900">{site.name}</h1>
+          <h1 className="text-xl font-bold text-slate-900 dark:text-white">{site.name}</h1>
           <HealthPill health={site.health} />
         </div>
-        <p className="text-sm text-slate-500">
+        <p className="text-sm text-slate-500 dark:text-slate-400">
           <span className="capitalize">{site.kind}</span> · {site.customer} · {site.location}
         </p>
       </div>
 
-      {/* actions */}
       <div className="flex flex-wrap gap-2">
         <button
           onClick={() => navigate(`/sites/${site.id}/facility`)}
@@ -66,40 +68,30 @@ export function SiteDetail() {
         >
           <Waves size={15} /> {site.hasFacility ? t.facilityOpen : t.facilityBuild}
         </button>
-        <a
-          href={PEAKVIEW_URL}
-          target="_blank"
-          rel="noreferrer"
-          aria-disabled={!site.peakview}
-          className={`inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300 ${!site.peakview ? 'pointer-events-none opacity-40' : ''}`}
-        >
+        <a href={PEAKVIEW_URL} target="_blank" rel="noreferrer" className={`${secondaryBtn} ${!site.peakview ? 'pointer-events-none opacity-40' : ''}`}>
           <MonitorPlay size={15} /> Open in PeakView360 <ExternalLink size={13} className="text-slate-400" />
         </a>
-        <button
-          onClick={() => flash('Zero-touch provisioning: register a device by serial/claim code, then it self-enrolls (preview).')}
-          className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 hover:border-slate-300"
-        >
+        <button onClick={() => flash('Zero-touch provisioning: register a device by serial/claim code, then it self-enrolls (preview).')} className={secondaryBtn}>
           <Plus size={15} /> Provision device
         </button>
       </div>
 
-      {/* devices — click any to drill in */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Devices</h2>
+          <h2 className={heading}>Devices</h2>
           <span className="text-xs text-slate-400">{devices.filter((d) => d.status === 'online').length}/{devices.length} online</span>
         </div>
-        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
+        <div className="overflow-hidden rounded-xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
           <table className="w-full text-sm">
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
               {devices.map((d) => (
-                <tr key={d.id} onClick={() => setSelected(d)} className="cursor-pointer hover:bg-slate-50">
+                <tr key={d.id} onClick={() => setSelected(d)} className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/50">
                   <td className="w-8 pl-4"><DeviceStatusDot status={d.status} /></td>
                   <td className="py-2.5">
-                    <p className="font-medium text-slate-800">{d.name}</p>
+                    <p className="font-medium text-slate-800 dark:text-slate-100">{d.name}</p>
                     <p className="font-mono text-[11px] text-slate-400">{d.id} · {d.type}</p>
                   </td>
-                  <td className="py-2.5 text-right text-slate-600" style={{ fontVariantNumeric: 'tabular-nums' }}>
+                  <td className="py-2.5 text-right text-slate-600 dark:text-slate-300" style={{ fontVariantNumeric: 'tabular-nums' }}>
                     {d.status === 'offline' ? <span className="text-slate-400">offline</span> : d.reading ?? '—'}
                   </td>
                   <td className="py-2.5 pl-3 pr-4 text-right">
@@ -116,11 +108,10 @@ export function SiteDetail() {
         </div>
       </section>
 
-      {/* work at this site — manageable */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">Work at this {t.siteSingular.toLowerCase()}</h2>
+        <h2 className={`mb-3 ${heading}`}>Work at this {t.siteSingular.toLowerCase()}</h2>
         {siteTickets.length === 0 ? (
-          <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500">
+          <p className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400">
             <CheckCircle2 size={16} className="text-emerald-500" /> No open work orders.
           </p>
         ) : (
@@ -135,7 +126,7 @@ export function SiteDetail() {
       {selected && <DeviceDetail device={selected} onClose={() => setSelected(null)} onCommand={issueCommand} />}
 
       {toast && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg">{toast}</div>
+        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-lg bg-slate-900 px-4 py-2.5 text-sm text-white shadow-lg dark:bg-slate-700">{toast}</div>
       )}
     </div>
   );

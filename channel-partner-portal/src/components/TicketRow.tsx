@@ -16,11 +16,11 @@ export function TicketRow({ ticket: t, onUpdate, technicians, showSite = true }:
   const done = t.status === 'completed';
 
   return (
-    <li className={`rounded-xl border border-slate-200 bg-white p-3.5 ${done ? 'opacity-70' : ''}`}>
+    <li className={`rounded-xl border border-slate-200 bg-white p-3.5 dark:border-slate-800 dark:bg-slate-900 ${done ? 'opacity-70' : ''}`}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-sm font-medium text-slate-800">{t.title}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500">
+          <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{t.title}</p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
             <span className="font-mono">{t.id}</span>
             {showSite && site && (
               <>
@@ -38,12 +38,12 @@ export function TicketRow({ ticket: t, onUpdate, technicians, showSite = true }:
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-2">
-        <label className="flex items-center gap-1.5 text-xs text-slate-500">
+        <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
           Status
           <select
             value={t.status}
             onChange={(e) => onUpdate(t.id, { status: e.target.value as TicketStatus })}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-partner-primary focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-partner-primary focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             {STATUS_OPTIONS.map((s) => (
               <option key={s} value={s}>{STATUS_LABEL[s]}</option>
@@ -51,12 +51,12 @@ export function TicketRow({ ticket: t, onUpdate, technicians, showSite = true }:
           </select>
         </label>
 
-        <label className="flex items-center gap-1.5 text-xs text-slate-500">
+        <label className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400">
           <User size={13} /> Tech
           <select
             value={t.technician ?? ''}
             onChange={(e) => onUpdate(t.id, { technician: e.target.value || undefined })}
-            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-partner-primary focus:outline-none"
+            className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-700 focus:border-partner-primary focus:outline-none dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
           >
             <option value="">Unassigned</option>
             {technicians.map((tech) => (

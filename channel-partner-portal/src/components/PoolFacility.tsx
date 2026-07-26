@@ -27,7 +27,7 @@ export function PoolFacility({ site }: { site: Site }) {
   const padY = 300;
 
   return (
-    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50">
+    <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-900">
       <svg viewBox="0 0 820 440" width="100%" role="img" aria-label="Pool and pump system layout">
         <defs>
           <linearGradient id="water" x1="0" y1="0" x2="0" y2="1">
