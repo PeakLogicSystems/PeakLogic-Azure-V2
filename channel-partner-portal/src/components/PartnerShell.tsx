@@ -58,9 +58,9 @@ export function PartnerShell({ children }: { children: ReactNode }) {
 
       {/* Bottom-pinned; real PeakLogic mark (cropped) + Peak/Logic wordmark, tight lockup. */}
       <footer className="mt-auto border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-        <div className="mx-auto flex max-w-6xl items-end justify-center gap-1.5 px-4 py-4 text-xs text-slate-400 dark:text-slate-500">
-          <span className="leading-none">Powered by</span>
-          <span className="inline-flex items-end gap-[3px]">
+        <div className="mx-auto flex max-w-6xl items-baseline justify-center gap-1.5 px-4 py-4 text-xs text-slate-400 dark:text-slate-500">
+          <span>Powered by</span>
+          <span className="inline-flex items-baseline gap-[3px]">
             <svg width="13" height="10" viewBox="4 10 24 18" fill="none" aria-hidden="true">
               <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
               <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />

@@ -6,7 +6,7 @@
 // leading-none so the wordmark bottom-aligns to the mark.
 export function BrandMark() {
   return (
-    <div className="flex items-end gap-2 select-none">
+    <div className="flex items-baseline gap-2 select-none">
       {/* The real PeakLogic mark (marketing/favicon.svg), cropped to content. */}
       <svg width="20" height="15" viewBox="4 10 24 18" fill="none" aria-hidden="true">
         <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
