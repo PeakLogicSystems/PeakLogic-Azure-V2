@@ -1,9 +1,14 @@
+import { lazy, Suspense } from 'react';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
-import { Construction } from 'lucide-react';
+import { Construction, Loader2 } from 'lucide-react';
 import { AppShell } from './components/AppShell';
 import { OperatorScreen } from './screens/OperatorScreen';
 import { PeakViewProvider } from './store';
 import { ThemeProvider } from './theme';
+
+// Code-split the Historian: it pulls in the charting library (recharts), which
+// the operator screen doesn't need. Loaded on demand when the operator opens it.
+const Historian = lazy(() => import('./screens/Historian').then((m) => ({ default: m.Historian })));
 
 export function App() {
   return (
@@ -15,7 +20,11 @@ export function App() {
               <Route path="/" element={<OperatorScreen />} />
               <Route
                 path="/historian"
-                element={<ComingSoon title="Historian" note="Multi-pen trends over telemetry with 24h/7d/30d ranges and CSV export (PV-3)." />}
+                element={
+                  <Suspense fallback={<ScreenLoading />}>
+                    <Historian />
+                  </Suspense>
+                }
               />
               <Route
                 path="/equipment"
@@ -30,6 +39,14 @@ export function App() {
         </BrowserRouter>
       </PeakViewProvider>
     </ThemeProvider>
+  );
+}
+
+function ScreenLoading() {
+  return (
+    <div className="flex h-full items-center justify-center text-slate-400">
+      <Loader2 className="animate-spin" size={22} />
+    </div>
   );
 }
 
