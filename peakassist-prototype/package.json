@@ -1,0 +1,23 @@
+{
+  "name": "peakassist-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "description": "PeakAssist intelligent-assistant Phase 1 prototype — offline RAG how-to assistant over the real SysAdmin/User guides + PEAKASSIST_CONTENT corpus. Zero Azure spend: local embeddings + local Phi-3.5-mini via @xenova/transformers. Validates the retrieval/groundedness contract from docs/architecture/peakassist-intelligent-assistant-architecture.md before any cloud spend.",
+  "type": "module",
+  "scripts": {
+    "build-index": "tsx src/build-index.ts",
+    "ask": "tsx src/cli.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "esbuild": "^0.24.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.2"
+  }
+}
