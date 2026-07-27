@@ -20,7 +20,7 @@
      technique as the original scene's .hs-pulse circles (a larger circle
      expands + fades behind a crisp static dot on top), ported from SVG to
      plain HTML/CSS since this sits over a raster image, not an SVG. */
-  .hero-img-wrap { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .hero-img-wrap { position: relative; }
   .hero-img-wrap img { display: block; width: 100%; height: auto; }
   .sensor-dot { position: absolute; width: 0; height: 0; }
   .sensor-dot i { position: absolute; top: 50%; left: 50%; border-radius: 50%; background: var(--c); }
@@ -31,7 +31,7 @@
 </style>
 </head>
 <body>
-  <p class="note"><b>Website Hero Animation 2</b> (live as of 2026-07-27) — the sensor-hardware isometric render supplied by the user, with 5 flashing sensor-point markers (the two tank probes, the gateway/hub unit, and the two device status LEDs) overlaid at their actual positions on the image. Replaced <a href="website-hero-animation-1.html">Website Hero Animation 1</a> in the live marketing site's hero section.</p>
+  <p class="note"><b>Website Hero Animation 2</b> (live as of 2026-07-27) — the sensor-hardware isometric render supplied by the user, with 5 flashing sensor-point markers (the two tank probes, the gateway/hub unit, and the two device status LEDs) overlaid at their actual positions on the image. Replaced <a href="website-hero-animation-1.html">Website Hero Animation 1</a> in the live marketing site's hero section. Updated 2026-07-27: the image's background and "AI-Generated" badge were removed (real alpha transparency, not a cropped box), and the card border/shadow was dropped so the render sits directly on the page.</p>
   <div class="frame">
     <div class="hero-img-wrap">
       <img src="../hero-sensors.png" alt="Isometric render of PeakLogic sensor hardware: two tank-mounted probes, a gateway hub, and a multi-sensor device, connected by data lines" width="1024" height="1024">

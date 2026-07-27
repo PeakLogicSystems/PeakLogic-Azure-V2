@@ -99,8 +99,11 @@
   /* Pills / chips */
   /* Hero image — sensor-hardware render + flashing sensor-point markers.
      (The former hand-drawn SVG scene is archived at
-     hero-animations/website-hero-animation-1.html, replaced 2026-07-27.) */
-  .hero-img-wrap { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+     hero-animations/website-hero-animation-1.html, replaced 2026-07-27.)
+     The PNG's background + "AI-Generated" badge were removed (transparent
+     alpha, not a cropped/masked box) so the render sits directly on the
+     page with no card/border framing it. */
+  .hero-img-wrap { position: relative; }
   .hero-img-wrap img { display: block; width: 100%; height: auto; }
   .sensor-dot { position: absolute; width: 0; height: 0; }
   .sensor-dot i { position: absolute; top: 50%; left: 50%; border-radius: 50%; background: var(--c); }
