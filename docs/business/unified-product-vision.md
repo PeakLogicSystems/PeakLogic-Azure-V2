@@ -1,9 +1,9 @@
 # Unified Product Vision — PeakLogic Industrial Operations Platform
 
-**Status:** Draft v0.1
+**Status:** Draft v0.2
 **Prepared by:** PeakLogic
 **Scope:** PeakLogic-first product strategy. Unlike the vendor-neutral [Platform Commercialization Roadmap](platform-commercialization-roadmap.md), this document takes a **decided position**: PeakLogic is the principal product and technical foundation, and the critical capabilities of Purple Standard's MooreView are merged into it, modernized, and delivered under one unified platform.
-**Last updated:** 2026-07-24
+**Last updated:** 2026-07-27
 
 > **Supersession note.** The commercialization roadmap deliberately deferred "whose architecture/brand carries forward." That question is now answered for planning purposes: **PeakLogic carries forward.** This document assumes PeakLogic's multi-tenant Azure cloud, its RLS data model, its Entra identity, and its existing edge runtime (PeakLogicEdge) as the foundation, and treats MooreView as a source of proven single-plant SCADA/HMI capability to absorb — not as a co-equal stack to reconcile. If merger terms change that assumption, this document is the thing to revise.
 
@@ -57,7 +57,7 @@ The face. The unified operator experience, absorbing all critical MooreView feat
 - **Facility-level visualization** — the plant/process view. MooreView's 3D isometric facility view is preserved as an *option* for engineered sites, but the default becomes a fast, responsive 2D process schematic that works on a phone in the field and a control-room monitor alike.
 - **Historian trending** — multi-pen trend explorer with range selection and export.
 
-PeakView360 is deliberately positioned so it can be **either** the primary HMI (for greenfield/small sites with no existing SCADA) **or** a supervisory visualization layer alongside existing SCADA (for brownfield plants that keep their control system). It never asks a plant to rip out a safety-rated control system.
+PeakView360 is deliberately positioned so it can be **either** the primary HMI (for greenfield/small sites with no existing SCADA) **or** a supervisory visualization layer alongside existing SCADA (for brownfield plants that keep their control system). It never asks a plant to rip out a safety-rated control system. This is the technical basis for the platform's formal two-mode positioning — see §7.3.
 
 ### 2.4 PeakLogic Hubs — the on-prem processing units
 
@@ -266,11 +266,24 @@ Naming conventions: the **Peak** prefix ties the family together. **PeakLogic** 
 > "PeakLogic is a supervisory intelligence and operations layer above your existing control system — it does not touch your safety-rated PLC logic. PeakLogic Hubs acquire from PLCs/RTUs over Modbus/OPC-UA/EtherNet-IP, do edge buffering and local alarm evaluation, and store-and-forward over outbound-only MQTT/TLS. PeakView360 renders live from the Hub on the LAN (offline-capable) and historical/cross-site from the cloud. The cloud runs fleet-wide anomaly detection and predictive maintenance and pushes insights back into the operator alarm and equipment views. Multi-tenancy is enforced at the database with row-level security; identity is Entra ID; every privileged action is immutably audited."
 
 **For an executive / investor:**
-> "SCADA today is single-site, on-prem, and blind above the plant floor. PeakLogic is the multi-tenant cloud layer that unifies many facilities, adds AI, and automates the compliance work that operators are legally required to do and currently do by hand. We consolidate a proven single-plant product (MooreView) into a modern multi-site SaaS — harvesting years of validated operator UX rather than guessing at it. Two of our three product pillars already exist in code. We monetize on outcomes — uptime, avoided failures, compliance delivered — not seats, which aligns our revenue with the value we create and expands naturally as customers add sites."
+> "SCADA today is single-site, on-prem, and blind above the plant floor. PeakLogic is the multi-tenant cloud layer that unifies many facilities, adds AI, and automates the compliance work that operators are legally required to do and currently do by hand. We consolidate a proven single-plant product (MooreView) into a modern multi-site SaaS — harvesting years of validated operator UX rather than guessing at it. Two of our three product pillars already exist in code. We monetize on outcomes — uptime, avoided failures, compliance delivered — not seats, which aligns our revenue with the value we create and expands naturally as customers add sites. And the go-to-market is two-sided from one platform: for the thousands of regional facilities with no SCADA at all, we *are* their control room, at a fraction of an integrator's build cost; for enterprises that already have one, we sell the intelligence and compliance layer above it — same product, same margin structure, no separate stack to build or maintain for either segment."
 
-### 7.3 Positioning line
+### 7.3 Positioning: two modes, one platform
 
-> **PeakLogic — the operations intelligence layer above your SCADA. Not a rip-and-replace. A brain, a face, and a set of hands for facilities that never had them.**
+> **PeakLogic is full SCADA/HMI for facilities that don't have one — at a fraction of a traditional integration build — and the intelligence and compliance layer that augments the SCADA/BMS enterprises already run. Same platform, one price-per-facility model, two modes.**
+
+This isn't two products or two sales motions bolted together — it's the same three-pillar platform meeting a customer where they are. Which mode applies is a fact about the customer's site, not a fork in the product:
+
+| | **Replace** (regional / greenfield) | **Augment** (enterprise / brownfield) |
+|---|---|---|
+| **Who it's for** | Small-to-mid facilities with no SCADA/HMI today — running on manual operator logs, a spreadsheet, or nothing at all | Facilities that already run an enterprise SCADA/BMS (Honeywell, Siemens, Schneider, AVEVA, Johnson Controls, etc.) |
+| **What PeakLogic is** | PeakView360 **is** the control-room display; the PeakLogic Hub **is** the acquisition layer. Full-stack, at a fraction of a traditional systems-integrator SCADA build — this is the Monitor-tier value proposition made explicit. | PeakLogic sits **above** the existing system — multi-site rollup, AI anomaly detection/PdM, automated compliance reporting, CMMS dispatch. Never touches PLC safety logic; never asks the plant to rip anything out. |
+| **Pricing tier (§8.1)** | Monitor / Intelligence / Compliance | Enterprise / Multi-site |
+| **Data flow** | Telemetry flows **in** from PLCs/RTUs via the Hub — there is no pre-existing system to feed data back out to | Data can also flow **out** to the customer's existing BMS/SCADA (a Hub-hosted OPC-UA or BACnet/IP egress server, exposing PeakLogic's normalized tags on the customer's own LAN) — **roadmapped, not yet built**; see §10 item 9 |
+
+**Why "not a rip-and-replace" still holds in both modes:** in Augment mode it's the literal reassurance — nothing PeakLogic does touches the customer's control system. In Replace mode there's nothing to rip out in the first place (the site never had a SCADA/HMI); the phrase is vacuously true rather than a defensive claim. Either way, PeakLogic never demands a customer discard an investment to adopt it.
+
+**Why this is one platform, not two:** the fork happens at the Hub, on a per-site basis, driven by whether the Hub's PLC/RTU drivers are the *only* acquisition path (Replace) or run *alongside* an existing SCADA historian/BMS feed (Augment). The cloud pillar, PeakView360, PeakAssist, CMMS, and compliance automation are identical in both modes — the customer's existing infrastructure (or lack of it) determines the edge topology, not a different product SKU.
 
 ---
 
@@ -305,7 +318,7 @@ Service providers (a primary target) manage many small customer sites; per-facil
 | Risk | Impact | Mitigation |
 |---|---|---|
 | **Scope explosion** — trying to absorb *all* of MooreView (CAD, PLC programming) | Dilutes MVP, delays pilot | Ruthless disposition table (§4.1): harvest the operator surface, defer/retire the rest. MV Draw and raw PLC tooling are explicitly out of MVP. |
-| **"You're replacing our SCADA / touching our safety system"** objection | Kills enterprise deals | Positioning is explicit and repeated: PeakLogic sits *above* control; PLC safety logic is never touched; PeakView360 is supervisory (or primary only for greenfield). |
+| **"You're replacing our SCADA / touching our safety system"** objection | Kills enterprise deals | Formalized as the Augment mode of the two-mode positioning (§7.3): PeakLogic sits *above* control; PLC safety logic is never touched; PeakView360 is supervisory. (Replace mode, §7.3, is the deliberate exception — greenfield sites with nothing to protect this objection against.) |
 | **Offline reliability under-delivered** | Operators lose trust the first outage | Hub-local rendering + bundled offline PeakAssist are MVP requirements, not Phase 2. Test with the internet physically unplugged during the pilot. |
 | **Industrial protocol integration is hard/slow** | Pilot slips | Start the pilot on one well-understood protocol (Modbus TCP or OPC-UA); expand coverage in Phase 2. Don't gate MVP on breadth. |
 | **Merger terms shift the foundation** | This whole PeakLogic-first plan is invalidated | This document is explicitly the artifact to revise if that happens (see supersession note). Keep the commercialization roadmap's vendor-neutral version as the fallback framing. |
@@ -325,6 +338,7 @@ Service providers (a primary target) manage many small customer sites; per-facil
 6. **Unify login.** Entra ID across cloud and PeakView360, with the Hub's offline-credential path proven by unplugging the internet.
 7. **Prove three things at the pilot, explicitly:** (a) the operator screen works with the internet unplugged; (b) an AI anomaly surfaces on the operator's alarm before a human noticed; (c) a compliance-relevant report is generated automatically from the period's data. Those three demos *are* the pilot's success criteria and the investor story.
 8. **Formalize this document** through the project's standard Draft → Approved review, and revise the affected memory/roadmap so the PeakLogic-first decision is the recorded direction.
+9. **Design the Augment-mode egress path.** No BACnet/IP, Modbus, or OPC-UA *server* exists anywhere today — the Hub only ever acts as a client, pulling from PLCs/RTUs. Making the two-mode positioning (§7.3) fully real for Enterprise-tier deals means a Hub-hosted OPC-UA or BACnet/IP server that exposes the platform's already-normalized tags outward on the customer's own LAN, reusing the Telemetry Normalization Fabric's canonical metric model. Sequence this against a named enterprise prospect's actual BMS/SCADA vendor, the same "design against a real need, not speculatively" discipline used for CMMS vendor adapters — not built ahead of a named need.
 
 ---
 
@@ -333,3 +347,4 @@ Service providers (a primary target) manage many small customer sites; per-facil
 | Version | Date | Author | Notes |
 |---|---|---|---|
 | Draft v0.1 | 2026-07-24 | PeakLogic | Initial unified product vision. PeakLogic-first strategy; grounded in a hands-on MooreView v2.3.7 evaluation and the current PeakLogic-Azure codebase. Supersedes the vendor-neutral framing of the Platform Commercialization Roadmap for planning purposes. |
+| Draft v0.2 | 2026-07-27 | PeakLogic | Formalized the two-mode positioning statement (§7.3), promoting what had been a risk-mitigation footnote ("PeakView360 is supervisory, or primary only for greenfield") into the platform's explicit go-to-market positioning: **Replace** mode (full SCADA/HMI for regional/greenfield facilities with none today, at a fraction of an integrator build) and **Augment** mode (intelligence/compliance layer above an enterprise's existing SCADA/BMS, never touching PLC safety logic). Tied both modes to the existing per-facility pricing tiers (§8.1) so the positioning and the pricing model are stated as one coherent structure rather than two separately-derived artifacts. Named the real capability gap Augment mode's credibility depends on — no BACnet/OPC-UA/Modbus *server* exists yet, only client-side ingestion — and added it as roadmap item §10.9, sequenced against a named enterprise prospect rather than built speculatively (same discipline as CMMS vendor adapters). Updated §7.2's investor framing and §9's competitive-objection mitigation to reference the formalized positioning. |
