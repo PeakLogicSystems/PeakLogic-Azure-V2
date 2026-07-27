@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Website Hero Animation 2 (live) — sensor-hardware photo + flashing points</title>
+<style>
+  :root { --line:#e7e6f1; --muted:#5b6478; --r:16px; --shadow:0 1px 2px rgba(16,21,42,.04), 0 10px 30px rgba(16,21,42,.06); }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 40px 20px; background: #f7f8fb; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  .note { max-width: 640px; margin: 0 auto 24px; text-align: center; color: var(--muted); font-size: 14px; }
+  .note b { color: #0f172a; }
+  .frame { max-width: 640px; margin: 0 auto; }
+
+  /* Website Hero Animation 2 — a static isometric sensor-hardware render
+     (marketing/hero-sensors.png) with small flashing "sensor point" markers
+     overlaid at the hardware's actual telemetry points. Replaces Animation 1
+     (the hand-drawn field-services SVG scene, archived alongside this file)
+     in the live marketing site's hero as of 2026-07-27. Same pulse-ring
+     technique as the original scene's .hs-pulse circles (a larger circle
+     expands + fades behind a crisp static dot on top), ported from SVG to
+     plain HTML/CSS since this sits over a raster image, not an SVG. */
+  .hero-img-wrap { position: relative; border-radius: var(--r); overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+  .hero-img-wrap img { display: block; width: 100%; height: auto; }
+  .sensor-dot { position: absolute; width: 0; height: 0; }
+  .sensor-dot i { position: absolute; top: 50%; left: 50%; border-radius: 50%; background: var(--c); }
+  .sensor-dot .pulse { width: 13px; height: 13px; margin: -6.5px 0 0 -6.5px; animation: sensor-ping 2.2s ease-out infinite; animation-delay: var(--d, 0s); }
+  .sensor-dot .core { width: 9px; height: 9px; margin: -4.5px 0 0 -4.5px; border: 1.5px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
+  @keyframes sensor-ping { 0% { transform: scale(1); opacity: .65; } 70%, 100% { transform: scale(3.1); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .sensor-dot .pulse { animation: none; opacity: 0; } }
+</style>
+</head>
+<body>
+  <p class="note"><b>Website Hero Animation 2</b> (live as of 2026-07-27) — the sensor-hardware isometric render supplied by the user, with 5 flashing sensor-point markers (the two tank probes, the gateway/hub unit, and the two device status LEDs) overlaid at their actual positions on the image. Replaced <a href="website-hero-animation-1.html">Website Hero Animation 1</a> in the live marketing site's hero section.</p>
+  <div class="frame">
+    <div class="hero-img-wrap">
+      <img src="../hero-sensors.png" alt="Isometric render of PeakLogic sensor hardware: two tank-mounted probes, a gateway hub, and a multi-sensor device, connected by data lines" width="1024" height="1024">
+      <span class="sensor-dot" style="left:36%; top:31%; --c:#f59e0b; --d:0s"><i class="pulse"></i><i class="core"></i></span>
+      <span class="sensor-dot" style="left:40%; top:48%; --c:#38bdf8; --d:.4s"><i class="pulse"></i><i class="core"></i></span>
+      <span class="sensor-dot" style="left:62%; top:37%; --c:#7c3aed; --d:.8s"><i class="pulse"></i><i class="core"></i></span>
+      <span class="sensor-dot" style="left:69%; top:40%; --c:#f59e0b; --d:1.2s"><i class="pulse"></i><i class="core"></i></span>
+      <span class="sensor-dot" style="left:44%; top:48%; --c:#38bdf8; --d:1.6s"><i class="pulse"></i><i class="core"></i></span>
+    </div>
+  </div>
+</body>
+</html>
