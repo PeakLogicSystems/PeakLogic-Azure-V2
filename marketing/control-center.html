@@ -577,7 +577,7 @@
       <div class="nav__label">Organizations</div>
       <button class="nav__item" data-action="nav:tenants">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 21h18M5 21V7l7-4 7 4v14M9 9h.01M9 13h.01M9 17h.01M15 9h.01M15 13h.01M15 17h.01"/></svg>
-        <span>Tenants</span><span class="nav__count" id="cnt-tenants"></span>
+        <span>Customer Tenants</span><span class="nav__count" id="cnt-tenants"></span>
       </button>
       <button class="nav__item" data-action="nav:partners">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -931,6 +931,21 @@
   const CHANNEL_TIER_LABEL = { stable: "Stable", beta: "Beta", preview: "Preview" };
   const CHANNEL_TIER_PILL = { stable: "good", beta: "info", preview: "accent" };
   const CHANNEL_TIER_ORDER = ["stable", "beta", "preview"];
+
+  // Every device/software/driver version is SELECTED from a library, never
+  // free-typed when assigning it to a channel — a typo'd version string would
+  // either silently fail to match anything (safe but confusing) or, worse,
+  // match nothing catalogued and get misread as "unmanaged." A brand-new
+  // build is typed exactly once, when it's registered into the library (Add
+  // library version); every channel assignment after that is a pick, not a
+  // retype. Seeded here as the union of whatever's already assigned across
+  // Stable/Beta/Preview, so no existing demo data goes missing from the list.
+  Object.keys(FIRMWARE_CATALOG).forEach((cat) => {
+    const entry = FIRMWARE_CATALOG[cat];
+    const all = new Set();
+    Object.keys(entry.channels).forEach((t) => (entry.channels[t] || []).forEach((v) => all.add(v)));
+    entry.library = [...all];
+  });
 
   // A twin firmware value is stored as "<channel>-<version>" (e.g. "stable-4.2.1").
   function parseFw(v) {
@@ -1463,7 +1478,7 @@
     }).join("");
 
     return `
-      <div class="page-head"><h1>Tenants</h1><p>Customer organizations. Open one to manage it in an audited act-as context — the same views the customer sees, scoped by row-level security.</p></div>
+      <div class="page-head"><h1>Customer Tenants</h1><p>Customer organizations. Open one to manage it in an audited act-as context — the same views the customer sees, scoped by row-level security.</p></div>
       <div class="toolbar">
         <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input type="text" id="q" placeholder="Search tenants…" value="${esc(S.query)}" autocomplete="off"></div>
@@ -1901,7 +1916,7 @@
         <p>The artifact &amp; release-channel library. Every device type has a <b>Firmware</b> library; <b>PeakLogic Hub</b> additionally has <b>Hardware</b> (the driver/interface layer — Modbus, OPC-UA, EtherNet/IP) and <b>Software</b> (the agent) libraries, plus config, security, and PeakAssist content. A <b>channel</b> — <b>Stable</b>, <b>Beta</b>, or <b>Preview</b> — is a named pointer into these libraries: assign a device type to a channel, and every device of that type converges to exactly the versions that channel names, in order, on its next sync. A <b>leaf device</b> (sensor/controller) only ever has firmware to converge; a <b>Hub</b> converges its whole stack as one bundle. See <a data-action="nav:hubs" role="button" tabindex="0" style="color:var(--accent-ink);text-decoration:underline;cursor:pointer">PeakLogic Hubs</a> for per-Hub compliance.</p></div>
 
       <div class="panel"><div class="panel__head"><span class="panel__title">Device types &amp; channels</span>
-        <span class="panel__note"><button class="btn btn--primary btn--sm" data-action="new-channel">New device channel</button></span></div>
+        <span class="panel__note"><button class="btn btn--ghost btn--sm" data-action="add-artifact-version">Add library version</button> <button class="btn btn--primary btn--sm" data-action="new-channel">New device channel</button></span></div>
         <table class="tbl">
         <thead><tr>
           <th>Device type ${explainCol("Every product category the platform manages an artifact catalog for, plus the PeakLogic Hub itself.")}</th>
@@ -2168,7 +2183,7 @@
           <div class="toggle-row"><div><div class="toggle-row__label">Clock format</div><div class="toggle-row__sub">12-hour or 24-hour display</div></div>
             <select class="field" style="width:auto;min-width:120px"><option>12-hour</option><option>24-hour</option></select></div>
           <div class="toggle-row"><div><div class="toggle-row__label">Default landing page</div><div class="toggle-row__sub">Where the console opens</div></div>
-            <select class="field" style="width:auto;min-width:170px"><option>Fleet Overview</option><option>Reports</option><option>Tenants</option></select></div>
+            <select class="field" style="width:auto;min-width:170px"><option>Fleet Overview</option><option>Reports</option><option>Customer Tenants</option></select></div>
         </div></div>`;
     }
     if (S.setTab === "notifications") {
@@ -2308,6 +2323,25 @@
       bundle: { firmware: "1.4.0-preview.1", bootloader: "1.0.3", hardware: "2.3.0-preview.1", software: "1.6.0-preview.2", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
     },
   };
+  // The Hub's own library, one array per component — same "select, never
+  // free-type" discipline as the leaf library above. Seeded from every
+  // version already assigned across the 3 tiers, plus the legitimate older
+  // builds the seeded per-Hub drift data (hubBundleFor) references, so a
+  // "Behind" Hub's actual reported version is still a real, findable library
+  // entry — never the deliberately-out-of-catalog "…-custom.rf1" override,
+  // which must NOT be selectable here (it exists only to demonstrate
+  // Unexpected drift; adding it to the library would make it look sanctioned).
+  const HUB_ARTIFACT_LIBRARY = (() => {
+    const lib = {};
+    Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel").forEach((k) => { lib[k] = []; });
+    Object.keys(HUB_RELEASE_CHANNELS).forEach((tier) => {
+      const bundle = HUB_RELEASE_CHANNELS[tier].bundle;
+      Object.keys(lib).forEach((k) => { if (bundle[k] != null && !lib[k].includes(bundle[k])) lib[k].push(bundle[k]); });
+    });
+    lib.hardware.push("2.0.4");
+    lib.software.push("1.4.1");
+    return lib;
+  })();
   const DRIFT_META = {
     insync: { label: "In sync", cls: "good" },
     behind: { label: "Behind", cls: "warn" },
@@ -2688,7 +2722,7 @@
 
   const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, channels: viewChannels, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings, peakview360: viewPeakView360, hubs: viewHubs, cmms: viewCmms, compliance: viewCompliance };
   const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", channels: "nav:channels", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance" };
-  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", channels: "System Channels", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Customer Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", channels: "System Channels", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
 
   function render() {
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
@@ -2698,7 +2732,7 @@
     let crumb = `<b>${TITLE[S.view] || "Fleet Overview"}</b>`;
     if (S.view === "tenant-detail" && S.actingAs) {
       const t = tenantById(S.actingAs);
-      crumb = `<span class="sep">Tenants</span><span class="sep">/</span><b>${esc(t.name)}</b>`;
+      crumb = `<span class="sep">Customer Tenants</span><span class="sep">/</span><b>${esc(t.name)}</b>`;
     } else if (S.view === "partner-detail" && S.partner) {
       const p = partnerById(S.partner);
       crumb = `<span class="sep">Channel Partners</span><span class="sep">/</span><b>${esc(p.name)}</b>`;
@@ -3224,17 +3258,28 @@
       `<option value="${cat}"${cat === selected ? " selected" : ""}>${esc(FIRMWARE_CATALOG[cat].product)}</option>`).join("");
     return opts + `<option value="hub"${selected === "hub" ? " selected" : ""}>PeakLogic Hub</option>`;
   }
+  // Every field here is a <select> sourced from a library array — never a
+  // free-text input — so a channel can only ever point at a version that was
+  // actually registered (Add library version), matching how a real fleet
+  // shouldn't be able to converge devices onto a typo.
+  function selectFromLibrary(id, label, options, current) {
+    if (!options.length) {
+      return `<div class="field"><label for="${id}">${label}</label><select id="${id}" disabled><option value="">No versions in library yet</option></select>
+        <p class="hint">Use <b>Add library version</b> below to register the first build before assigning it to a channel.</p></div>`;
+    }
+    const opts = options.map((v) => `<option value="${esc(v)}"${v === current ? " selected" : ""}>${esc(v)}</option>`).join("");
+    return `<div class="field"><label for="${id}">${label}</label><select id="${id}">${opts}</select></div>`;
+  }
   function manageChannelFieldsHtml(cat, tier) {
     if (cat === "hub") {
       const bundle = HUB_RELEASE_CHANNELS[tier] ? HUB_RELEASE_CHANNELS[tier].bundle : {};
-      return Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel").map((k) =>
-        `<div class="field"><label for="mc-${k}">${HUB_COMPONENT_LABELS[k]}</label><input id="mc-${k}" type="text" value="${esc(bundle[k] || "")}" placeholder="e.g. 1.2.0"></div>`
-      ).join("");
+      return Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel")
+        .map((k) => selectFromLibrary(`mc-${k}`, HUB_COMPONENT_LABELS[k], HUB_ARTIFACT_LIBRARY[k] || [], bundle[k])).join("");
     }
     const entry = FIRMWARE_CATALOG[cat];
     const current = entry && entry.channels[tier] && entry.channels[tier][0] || "";
-    return `<div class="field"><label for="mc-firmware">Firmware version</label><input id="mc-firmware" type="text" value="${esc(current)}" placeholder="e.g. 4.2.1"></div>
-      <p class="hint">${esc((entry && entry.product) || cat)} only ships firmware — no separate hardware/software artifact.</p>`;
+    return selectFromLibrary("mc-firmware", "Firmware version", (entry && entry.library) || [], current)
+      + `<p class="hint">${esc((entry && entry.product) || cat)} only ships firmware — no separate hardware/software artifact.</p>`;
   }
   function openManageChannel(prefillCat, prefillTier) {
     const cat = prefillCat || Object.keys(FIRMWARE_CATALOG)[0];
@@ -3285,6 +3330,62 @@
       toast(`${CHANNEL_TIER_LABEL[tier]} channel for ${entry.product} → ${v}`);
     }
     closeOverlay(); setCounts(); render();
+  }
+
+  // ---------- Add library version (System Channels) ----------
+  // The ONE place a version string is actually typed — registering a brand
+  // new build. Deliberately separate from "New device channel" (which only
+  // ever SELECTS from what's here): typing happens once per real build,
+  // assignment happens as many times as needed afterward, with no way to
+  // typo a channel onto a version that doesn't exist.
+  function artifactOptionsFor(cat) {
+    if (cat === "hub") {
+      return Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel")
+        .map((k) => `<option value="${k}">${HUB_COMPONENT_LABELS[k]}</option>`).join("");
+    }
+    return `<option value="firmware">Firmware</option>`;
+  }
+  function openAddArtifactVersion() {
+    const firstCat = Object.keys(FIRMWARE_CATALOG)[0];
+    $("#overlay-root").innerHTML = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Add library version">
+        <div class="modal__head"><h2>Add library version</h2>
+          <p>Register a new build into a device type's library. This does <b>not</b> change what any channel currently points to — pick it from <b>New device channel</b> once it's here.</p></div>
+        <div class="modal__body">
+          ${fieldRow(`
+            <div class="field"><label for="av-type">Device type</label><select id="av-type">${channelDeviceTypeOptions(firstCat)}</select></div>
+            <div class="field"><label for="av-artifact">Artifact</label><select id="av-artifact">${artifactOptionsFor(firstCat)}</select></div>`)}
+          <div class="field"><label for="av-version">Version</label><input id="av-version" type="text" placeholder="e.g. 4.4.0 or 1.5.1-beta.1"></div>
+          <div class="field"><label>Attach build file <span class="faint">(optional)</span></label>
+            <input type="file" class="hint">
+            <div class="hint" style="margin-top:2px">Illustrative — the version string above is what's actually registered and made selectable.</div>
+          </div>
+        </div>
+        <div class="modal__foot"><button class="btn btn--ghost" data-action="close-overlay">Cancel</button><button class="btn btn--primary" data-action="submit-artifact-version">Add to library</button></div>
+      </div>`;
+    const typeSel = $("#av-type");
+    if (typeSel) typeSel.addEventListener("change", () => {
+      const artSel = $("#av-artifact"); if (artSel) artSel.innerHTML = artifactOptionsFor(typeSel.value);
+    });
+    const v = $("#av-version"); if (v) v.focus();
+  }
+  function submitAddArtifactVersion() {
+    const cat = $("#av-type").value;
+    const artifact = $("#av-artifact").value;
+    const v = ($("#av-version").value || "").trim();
+    if (!v) { toast("Enter a version"); return; }
+    if (cat === "hub") {
+      if (!HUB_ARTIFACT_LIBRARY[artifact].includes(v)) HUB_ARTIFACT_LIBRARY[artifact].push(v);
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "policy.update", target: "PeakLogic Hub", note: `library: added ${HUB_COMPONENT_LABELS[artifact]} v${v}` });
+      toast(`${HUB_COMPONENT_LABELS[artifact]} v${v} added to the PeakLogic Hub library`);
+    } else {
+      const entry = FIRMWARE_CATALOG[cat];
+      if (!entry.library.includes(v)) entry.library.push(v);
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "policy.update", target: entry.product, note: `library: added firmware v${v}` });
+      toast(`Firmware v${v} added to the ${entry.product} library`);
+    }
+    closeOverlay(); render();
   }
 
   const ROLE_INFO = {
@@ -3341,10 +3442,12 @@
     else if (action === "new-partner") openCreatePartner();
     else if (action === "new-user") openCreateUser();
     else if (action === "new-channel") openManageChannel(arg, arg2);
+    else if (action === "add-artifact-version") openAddArtifactVersion();
     else if (action === "submit-tenant") submitCreateTenant();
     else if (action === "submit-partner") submitCreatePartner();
     else if (action === "submit-user") submitCreateUser();
     else if (action === "submit-channel") submitManageChannel();
+    else if (action === "submit-artifact-version") submitAddArtifactVersion();
     else if (action === "toast") toast(parts.slice(1).join(":"));
     else if (action === "manage-tenant") enterActAs(arg);
     else if (action === "manage-partner") enterActAsPartner(arg);
