@@ -593,9 +593,9 @@
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="6" width="12" height="12" rx="1.5"/><path d="M9 1v3M15 1v3M9 20v3M15 20v3M1 9h3M1 15h3M20 9h3M20 15h3"/></svg>
         <span>Devices</span><span class="nav__count" id="cnt-devices"></span>
       </button>
-      <button class="nav__item" data-action="nav:firmware">
+      <button class="nav__item" data-action="nav:channels">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v10"/><path d="M8 9l4 4 4-4"/><path d="M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>
-        <span>Firmware</span><span class="nav__count" id="cnt-firmware"></span>
+        <span>System Channels</span><span class="nav__count" id="cnt-channels"></span>
       </button>
 
       <div class="nav__label">Operations</div>
@@ -912,17 +912,25 @@
   // (FW-4). Versions are newest-first within each channel; index 0 is "current".
   // NOTE: deliberately version/compatibility metadata only — whether PeakLogic also
   // hosts and distributes the images themselves is left open by PRD §5.16.
+  // Three tiers per type, oldest→proven→newest: stable (production default) ·
+  // beta (pre-release, broad testing) · preview (earliest/experimental — ahead
+  // of beta, the first place a brand-new build appears). "Add files" to a
+  // library (System Channels page) appends a new version here; a channel then
+  // points at one of these versions, never a free-typed string (FW-4).
   const FIRMWARE_CATALOG = {
-    pool_system:  { product: "Pool chemistry controller", channels: { stable: ["4.2.1", "4.1.6", "4.0.9"], beta: ["4.3.0"] } },
-    hvac:         { product: "HVAC / RTU monitor",        channels: { stable: ["4.2.1", "4.2.0", "4.1.4"], beta: ["4.3.0"] } },
-    refrigeration:{ product: "Refrigeration probe",       channels: { stable: ["4.2.1", "4.1.9"],          beta: ["4.3.0"] } },
-    energy_meter: { product: "Panel / demand meter",      channels: { stable: ["3.8.4", "3.8.1"],          beta: ["3.9.0"] } },
-    leak_sensor:  { product: "Leak / moisture sensor",    channels: { stable: ["2.6.2", "2.6.0", "2.5.7"], beta: [] } },
-    flow_meter:   { product: "Flow meter",                channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
-    lift_station: { product: "Lift-station controller",   channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"] } },
-    roof_moisture:{ product: "Roof-moisture grid",        channels: { stable: ["2.6.2"],                   beta: [] } },
-    wastewater:   { product: "Wastewater process controller", channels: { stable: ["4.2.1", "4.1.6"],       beta: ["4.3.0"] } }
+    pool_system:  { product: "Pool chemistry controller", channels: { stable: ["4.2.1", "4.1.6", "4.0.9"], beta: ["4.3.0"], preview: ["4.4.0-preview.1"] } },
+    hvac:         { product: "HVAC / RTU monitor",        channels: { stable: ["4.2.1", "4.2.0", "4.1.4"], beta: ["4.3.0"], preview: ["4.4.0-preview.1"] } },
+    refrigeration:{ product: "Refrigeration probe",       channels: { stable: ["4.2.1", "4.1.9"],          beta: ["4.3.0"], preview: [] } },
+    energy_meter: { product: "Panel / demand meter",      channels: { stable: ["3.8.4", "3.8.1"],          beta: ["3.9.0"], preview: [] } },
+    leak_sensor:  { product: "Leak / moisture sensor",    channels: { stable: ["2.6.2", "2.6.0", "2.5.7"], beta: [],        preview: [] } },
+    flow_meter:   { product: "Flow meter",                channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"], preview: [] } },
+    lift_station: { product: "Lift-station controller",   channels: { stable: ["4.2.1", "4.1.6"],          beta: ["4.3.0"], preview: [] } },
+    roof_moisture:{ product: "Roof-moisture grid",        channels: { stable: ["2.6.2"],                   beta: [],        preview: [] } },
+    wastewater:   { product: "Wastewater process controller", channels: { stable: ["4.2.1", "4.1.6"],       beta: ["4.3.0"], preview: ["4.4.0-preview.1"] } }
   };
+  const CHANNEL_TIER_LABEL = { stable: "Stable", beta: "Beta", preview: "Preview" };
+  const CHANNEL_TIER_PILL = { stable: "good", beta: "info", preview: "accent" };
+  const CHANNEL_TIER_ORDER = ["stable", "beta", "preview"];
 
   // A twin firmware value is stored as "<channel>-<version>" (e.g. "stable-4.2.1").
   function parseFw(v) {
@@ -980,17 +988,16 @@
     });
   }
 
-  // <option> markup for a category's catalogued firmware, newest stable preselected.
-  function fwOptsMarkup(cat) {
-    const opts = fwOptionsFor(cat);
-    if (!opts.length) return `<option value="">No catalogued firmware</option>`;
-    return opts.map((v, i) => {
-      const st = fwStatus(cat, v);
-      const tag = st.code === "current" ? " · current" : "";
-      return `<option value="${v}"${i === 0 ? " selected" : ""}>${v}${tag}</option>`;
-    }).join("");
+  // A device is assigned to a CHANNEL (Stable/Beta/Preview), not a free-picked
+  // historical version — one option per tier that actually has a catalogued
+  // build, showing the current version that tier resolves to right now.
+  function channelTierOptsMarkup(cat) {
+    const entry = FIRMWARE_CATALOG[cat];
+    if (!entry) return `<option value="">No catalogued firmware</option>`;
+    const opts = CHANNEL_TIER_ORDER.filter((t) => entry.channels[t] && entry.channels[t].length)
+      .map((t, i) => `<option value="${t}-${entry.channels[t][0]}"${i === 0 ? " selected" : ""}>${CHANNEL_TIER_LABEL[t]} · ${entry.channels[t][0]}</option>`);
+    return opts.length ? opts.join("") : `<option value="">No catalogued firmware</option>`;
   }
-
   const AUDIT = [
     { ts: "2026-07-18 14:22:08", actor: "Marcus Lindqvist", oid: "a7f3-91d2-4c8e", action: "act-as.enter", target: "Riverview Ag & Irrigation", note: "Investigating irrigation flow-meter silence" },
     { ts: "2026-07-18 14:19:51", actor: "Raj Patel", oid: "c9d4-1a2b-6f70", action: "ticket.escalate", target: "Riverview Ag & Irrigation", note: "TCK-3391 → priority: urgent · dispatched to Boyette Pump & Well" },
@@ -1804,8 +1811,37 @@
       <div class="legend">${legend}</div>`;
   }
 
-  // FW-3: fleet-wide firmware drift + the catalog (FW-1) it is classified against.
-  function viewFirmware() {
+  // Channels: the artifact & release-channel library (Platform Control Center
+  // architecture §2 items 1-2 — the Artifact Repository + Release Channels as
+  // the core abstraction), covering EVERY managed device type: the 9 leaf
+  // product types (firmware-only — a sensor/controller runs one image) and the
+  // PeakLogic Hub (a full software stack — firmware/bootloader/drivers/app/
+  // config/security/PeakAssist, one named channel per bundle). Fleet-wide
+  // firmware drift + the catalog (FW-1/FW-3) live here as the leaf-device detail
+  // section; the Hub bundle comparison is this page's other half.
+  function channelPill(tier, text) {
+    return `<span class="pill pill--${CHANNEL_TIER_PILL[tier] || "neutral"}"><span class="dot"></span>${esc(text)}</span>`;
+  }
+  function channelLibraryRows() {
+    const editBtn = (cat, tier) => `<button class="btn btn--ghost btn--sm" data-action="new-channel:${cat}:${tier}">Edit</button>`;
+    const leafRows = Object.keys(FIRMWARE_CATALOG).map((cat) => {
+      const e = FIRMWARE_CATALOG[cat];
+      const chans = CHANNEL_TIER_ORDER.map((ch) => {
+        const list = e.channels[ch] || [];
+        if (!list.length) return channelPill("neutral", `${CHANNEL_TIER_LABEL[ch]} · none`);
+        return channelPill(ch, `${CHANNEL_TIER_LABEL[ch]} · ${list[0]}${list.length > 1 ? ` (+${list.length - 1})` : ""}`);
+      }).join(" ");
+      return `<tr><td><b>${esc(e.product)}</b><div class="row-sub mono">${cat}</div></td><td class="muted">Firmware only</td><td>${chans}</td><td>${editBtn(cat, "stable")}</td></tr>`;
+    }).join("");
+    const hubChans = CHANNEL_TIER_ORDER.map((key) => {
+      const ch = HUB_RELEASE_CHANNELS[key];
+      return channelPill(key, `${ch.label} · software ${ch.bundle.software}`);
+    }).join(" ");
+    const hubRow = `<tr><td><b>PeakLogic Hub</b><div class="row-sub mono">edge · full stack</div></td><td class="muted">Firmware + hardware (drivers) + software (agent) + config + security + PeakAssist</td><td>${hubChans}</td><td>${editBtn("hub", "stable")}</td></tr>`;
+    return leafRows + hubRow;
+  }
+
+  function viewChannels() {
     const fleet = fwFleet();
     const q = S.query.toLowerCase();
     const rank = { unmanaged: 0, outdated: 1, current: 2 };
@@ -1844,24 +1880,45 @@
 
     const catalogRows = Object.keys(FIRMWARE_CATALOG).map(cat => {
       const e = FIRMWARE_CATALOG[cat];
-      const chans = Object.keys(e.channels).map(ch => {
-        const list = e.channels[ch];
-        if (!list.length) return `<span class="pill pill--neutral"><span class="dot"></span>${ch} · none</span>`;
-        return `<span class="pill pill--${ch === "stable" ? "good" : "info"}"><span class="dot"></span>${ch} · ${list[0]}${list.length > 1 ? ` (+${list.length - 1})` : ""}</span>`;
+      const chans = CHANNEL_TIER_ORDER.map(ch => {
+        const list = e.channels[ch] || [];
+        if (!list.length) return channelPill("neutral", `${CHANNEL_TIER_LABEL[ch]} · none`);
+        return channelPill(ch, `${CHANNEL_TIER_LABEL[ch]} · ${list[0]}${list.length > 1 ? ` (+${list.length - 1})` : ""}`);
       }).join(" ");
       return `<tr><td><b>${esc(e.product)}</b><div class="row-sub mono">${cat}</div></td>
         <td>${chans}</td>
         <td class="mono muted">${Object.keys(e.channels).reduce((a, ch) => a + e.channels[ch].length, 0)} version(s)</td></tr>`;
     }).join("");
 
-    return `
-      <div class="page-head"><h1>Firmware</h1>
-        <p>The Device &amp; Firmware Version Catalog, and every device measured against it. Versions are validated per product type — anything the catalog doesn't list is surfaced as unmanaged rather than silently accepted. This page covers <b>leaf devices</b> (sensors/controllers — firmware only). A <b>PeakLogic Hub</b> runs a full software stack, versioned as a <b>Release Channel</b> bundle (firmware, drivers, agent, config, security, PeakAssist) — see <a data-action="nav:hubs" role="button" tabindex="0" style="color:var(--accent-ink);text-decoration:underline;cursor:pointer">PeakLogic Hubs</a> and click any Hub for its component-level breakdown.</p></div>
+    const fmtVersion = (v) => (v == null ? `<span class="muted">— not shipped</span>` : `<span class="mono">${esc(v)}</span>`);
+    const hubComponentRows = Object.keys(HUB_COMPONENT_LABELS).map((key) => {
+      const cells = CHANNEL_TIER_ORDER.map((t) => `<td>${fmtVersion(HUB_RELEASE_CHANNELS[t].bundle[key])}</td>`).join("");
+      return `<tr><td>${HUB_COMPONENT_LABELS[key]}</td>${cells}</tr>`;
+    }).join("");
 
-      <div class="stats" style="grid-template-columns:repeat(3,1fr)">${stats}</div>
+    return `
+      <div class="page-head"><h1>System Channels</h1>
+        <p>The artifact &amp; release-channel library. Every device type has a <b>Firmware</b> library; <b>PeakLogic Hub</b> additionally has <b>Hardware</b> (the driver/interface layer — Modbus, OPC-UA, EtherNet/IP) and <b>Software</b> (the agent) libraries, plus config, security, and PeakAssist content. A <b>channel</b> — <b>Stable</b>, <b>Beta</b>, or <b>Preview</b> — is a named pointer into these libraries: assign a device type to a channel, and every device of that type converges to exactly the versions that channel names, in order, on its next sync. A <b>leaf device</b> (sensor/controller) only ever has firmware to converge; a <b>Hub</b> converges its whole stack as one bundle. See <a data-action="nav:hubs" role="button" tabindex="0" style="color:var(--accent-ink);text-decoration:underline;cursor:pointer">PeakLogic Hubs</a> for per-Hub compliance.</p></div>
+
+      <div class="panel"><div class="panel__head"><span class="panel__title">Device types &amp; channels</span>
+        <span class="panel__note"><button class="btn btn--primary btn--sm" data-action="new-channel">New device channel</button></span></div>
+        <table class="tbl">
+        <thead><tr>
+          <th>Device type ${explainCol("Every product category the platform manages an artifact catalog for, plus the PeakLogic Hub itself.")}</th>
+          <th>Artifacts managed ${explainCol("What this type actually ships. A sensor/controller only ever runs firmware; a Hub runs a full stack, versioned as one bundle.")}</th>
+          <th>Channels ${explainCol("The named release channel(s) available for this type, and the current version each points to. Stable = production default; Beta = pre-release; Preview = earliest/experimental.")}</th>
+          <th></th>
+        </tr></thead>
+        <tbody>${channelLibraryRows()}</tbody></table></div>
+
+      <div class="callout" style="margin-top:18px">${INFO_ICON}
+        <div><b>Why drift happens even though devices are channel-managed:</b> assigning a channel declares <i>intent</i>, not an instant fact — convergence still has to travel the network, in order, and can be legitimately incomplete: the channel was <b>just updated</b> and the push hasn't landed yet (Behind); a device was <b>offline mid-rollout</b> so a component never arrived (Missing); or someone changed a component <b>outside the platform</b> — a field tech's manual override (Unexpected, needs a reviewed Override to count as expected, not a silent pass). A device that stays online and untouched converges to 100% in sync and stays there — drift is exactly the exceptions surfacing, not a sign the channel model is broken.</div></div>
 
       <div class="callout">${INFO_ICON}
-        <div>Drift is computed from the <b>same catalog</b> the device twin validates against — there is no second classification path. The catalog is version and compatibility metadata; whether PeakLogic also hosts and distributes the images themselves is deliberately still open (PRD §5.16).</div></div>
+        <div>Drift below is computed from the <b>same catalog</b> the device twin validates against — there is no second classification path. The catalog is version and compatibility metadata; whether PeakLogic also hosts and distributes the images themselves is deliberately still open (PRD §5.16).</div></div>
+
+      <div class="page-head" style="margin-top:26px"><h2 style="font-size:16px;margin:0">Leaf devices — firmware</h2></div>
+      <div class="stats" style="grid-template-columns:repeat(3,1fr)">${stats}</div>
 
       <div class="toolbar">
         <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
@@ -1887,7 +1944,14 @@
         <span class="panel__note">supported versions per product type · newest first</span></div>
         <table class="tbl">
         <thead><tr><th>Product type</th><th>Channels</th><th>Supported</th></tr></thead>
-        <tbody>${catalogRows}</tbody></table></div>`;
+        <tbody>${catalogRows}</tbody></table></div>
+
+      <div class="page-head" style="margin-top:26px"><h2 style="font-size:16px;margin:0">PeakLogic Hub — Release Channel bundles</h2></div>
+      <div class="panel"><div class="panel__head"><span class="panel__title">Stable vs. Beta vs. Preview, component by component</span>
+        <span class="panel__note">the exact bundle a Hub on this channel reconciles to</span></div>
+        <table class="tbl">
+        <thead><tr><th>Component</th><th>Stable</th><th>Beta</th><th>Preview</th></tr></thead>
+        <tbody>${hubComponentRows}</tbody></table></div>`;
   }
 
   function viewStaff() {
@@ -2204,14 +2268,18 @@
 
   // ---------- Hub Release Channels & Desired-State Bundle ----------
   // (Platform Control Center architecture §2 item 2 / §3.1.) A Release Channel is
-  // a named, versioned DESIRED-STATE BUNDLE — the same 7 component categories the
+  // a named, versioned DESIRED-STATE BUNDLE — the same component categories the
   // REAL, already-built device-side reconciler works from
   // (PeakLogicEdge.Core.Reconciliation.DesiredStateReconciler, windows-hub/):
-  // firmware, bootloader, drivers, app (the agent), config, security, and help
-  // (PeakAssist). This is a materially different, broader model than the
+  // firmware, bootloader, hardware (driver/interface layer — Modbus/OPC-UA/
+  // EtherNet-IP), software (the agent app), config, security, and help
+  // (PeakAssist). Named to match the three libraries this console manages
+  // (Firmware / Hardware / Software) — "hardware" here means the DRIVER layer
+  // that talks to physical interfaces, not a physical part; "software" is the
+  // agent application. This is a materially different, broader model than the
   // per-leaf-device Firmware Catalog above — that catalog is correct for a SENSOR
   // (it only ever runs firmware); a HUB is a small computer running an actual
-  // software stack, so it needs the full bundle. AI-model is a real 8th slot in
+  // software stack, so it needs the full bundle. AI-model is a real slot in
   // the architecture's artifact-repository list but has no populated version here
   // — AI Analytics Tier 1 runs cloud-side only today (ai-analytics-layer-design.md),
   // nothing has ever shipped an on-Hub model — shown honestly as "not shipped",
@@ -2219,8 +2287,8 @@
   const HUB_COMPONENT_LABELS = {
     firmware: "Firmware (Hub OS image)",
     bootloader: "Bootloader",
-    drivers: "Drivers (Modbus · OPC-UA · EtherNet/IP)",
-    app: "App (PeakLogicEdge agent)",
+    hardware: "Hardware (drivers — Modbus · OPC-UA · EtherNet/IP)",
+    software: "Software (PeakLogicEdge agent)",
     config: "Config template",
     security: "Security policy / cert bundle",
     aiModel: "AI model (on-Hub)",
@@ -2229,11 +2297,15 @@
   const HUB_RELEASE_CHANNELS = {
     stable: {
       label: "Stable",
-      bundle: { firmware: "1.2.0", bootloader: "1.0.3", drivers: "2.1.0", app: "1.4.2", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
+      bundle: { firmware: "1.2.0", bootloader: "1.0.3", hardware: "2.1.0", software: "1.4.2", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
     },
     beta: {
       label: "Beta",
-      bundle: { firmware: "1.3.0-beta.2", bootloader: "1.0.3", drivers: "2.2.0-beta.1", app: "1.5.0-beta.3", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
+      bundle: { firmware: "1.3.0-beta.2", bootloader: "1.0.3", hardware: "2.2.0-beta.1", software: "1.5.0-beta.3", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
+    },
+    preview: {
+      label: "Preview",
+      bundle: { firmware: "1.4.0-preview.1", bootloader: "1.0.3", hardware: "2.3.0-preview.1", software: "1.6.0-preview.2", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
     },
   };
   const DRIFT_META = {
@@ -2262,6 +2334,23 @@
   // Per-component drift classification — the same categories the real device-side
   // reconciler computes (InSync/Behind/Ahead/Missing/Unexpected); "na" is this
   // demo's own addition for a component the platform has never shipped (AI-model).
+  //
+  // WHY DRIFT HAPPENS AT ALL under channel management (a real, common question):
+  // assigning a device to a channel declares INTENT, not an instantaneous fact —
+  // convergence still has to happen over the network, in order, and can be
+  // legitimately incomplete or interrupted:
+  //   - Behind:      the channel was just updated (or the device just joined it)
+  //                  and the push hasn't completed yet — a normal, transient state.
+  //   - Missing:     a component was never successfully pushed (e.g. the device
+  //                  was offline mid-rollout) — the reconciler will retry.
+  //   - Unexpected:  someone changed a component OUTSIDE the platform (a field
+  //                  tech manually reflashed a driver) — the channel didn't do
+  //                  this; a human bypassed it. Needs a reviewed Override to be
+  //                  "expected," never silently accepted as compliant.
+  //   - Ahead:       rare — a component newer than the channel declares (e.g. a
+  //                  hotfix applied before the channel caught up).
+  // A device that's ALWAYS online and never manually touched should converge to
+  // 100% in-sync and stay there — drift is what surfaces the exceptions.
   function componentDrift(desired, reported) {
     if (desired == null) return "na";
     if (reported == null) return "missing";
@@ -2277,7 +2366,7 @@
   // (the common case — a healthy fleet converges), with deterministic seeded
   // drift so the compliance view has real variety to show: one component behind
   // (an update in flight), one missing (security policy never pushed to a
-  // freshly-provisioned Hub), and one unexpected (a field tech's manual driver
+  // freshly-provisioned Hub), and one unexpected (a field tech's manual hardware
   // override — the real "expected drift needs an Override row" case, §6).
   function hubBundleFor(hubId, channelKey) {
     let h = 0; for (let i = 0; i < hubId.length; i++) h = (h * 31 + hubId.charCodeAt(i)) >>> 0;
@@ -2285,10 +2374,10 @@
     const reported = { ...desired };
     const keys = Object.keys(desired).filter((k) => desired[k] != null);
     const roll = h % 9;
-    if (roll === 1) reported.app = "1.4.1"; // agent update in flight — one minor behind
-    else if (roll === 2) reported.drivers = "2.0.4"; // driver bundle behind
+    if (roll === 1) reported.software = "1.4.1"; // agent update in flight — one minor behind
+    else if (roll === 2) reported.hardware = "2.0.4"; // driver bundle behind
     else if (roll === 3) reported.security = null; // never pushed — Missing
-    else if (roll === 4) reported.drivers = "2.1.0-custom.rf1"; // field-tech override — Unexpected
+    else if (roll === 4) reported.hardware = "2.1.0-custom.rf1"; // field-tech override — Unexpected
     else if (roll === 5) reported.peakassist = "2026.06.2"; // content a cycle behind
     return { desired, reported, keys };
   }
@@ -2315,13 +2404,13 @@
         : cats.includes("refrigeration") ? "OPC-UA · EtherNet/IP" : "Modbus TCP";
       let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
       const id = `hub-${t.id}-${si + 1}`;
-      const channelKey = h % 6 === 0 ? "beta" : "stable";
+      const channelKey = h % 9 === 0 ? "preview" : h % 6 === 0 ? "beta" : "stable";
       const bundle = hubBundleFor(id, channelKey);
       const compliance = hubCompliance(bundle);
       const tags = status === "provisioning" ? 0 : s.assets.reduce((a, x) => a + x.devices.length, 0) * 6 + 6;
       hubs.push({ id, orgId: t.id, org: t.name, site: s.name, status, protocols, tags,
         channelKey, channel: HUB_RELEASE_CHANNELS[channelKey].label, bundle, compliance,
-        agent: bundle.reported.app, content: bundle.reported.peakassist,
+        agent: bundle.reported.software, content: bundle.reported.peakassist,
         seen: status === "online" ? "just now" : status === "offline" ? "17 min ago" : "—" });
     }));
     return hubs;
@@ -2342,7 +2431,7 @@
       <td class="mono strong">${esc(h.id)}</td>
       <td><div class="row-main"><span class="strong">${esc(h.site)}</span><span class="row-sub">${esc(h.org)}</span></div></td>
       <td>${pvPill(h.status)}</td>
-      <td><span class="pill pill--${h.channelKey === "beta" ? "info" : "neutral"}"><span class="dot"></span>${esc(h.channel)}</span></td>
+      <td>${channelPill(h.channelKey, h.channel)}</td>
       <td class="mono muted">${esc(h.protocols)}</td>
       <td class="mono muted">v${h.agent}</td>
       <td>${h.content === "2026.07.1" ? `<span class="pill pill--good"><span class="dot"></span>v${h.content}</span>` : `<span class="pill pill--warn"><span class="dot"></span>v${h.content}</span>`}</td>
@@ -2354,7 +2443,7 @@
       <div class="stats">${stats}</div>
       <div class="panel" style="margin-top:22px">
         <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${hubs.length} Hubs · one per located site · fan-out per org</span></div>
-        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Channel</th><th>Protocols</th><th>Agent</th><th>PeakAssist</th><th>Compliance</th><th>Last seen</th></tr></thead>
+        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Channel</th><th>Protocols</th><th>Agent</th><th>PeakAssist content ${explainCol("The offline help-content bundle version synced to this Hub — not the interactive assistant itself. See the Help (PeakAssist) button, top right, for that.")}</th><th>Compliance</th><th>Last seen</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
       <div class="callout" style="margin-top:20px">${INFO_ICON}
         <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. An offline Hub's site keeps operating on Hub-local PeakView360 while cloud sync pauses; a Hub a content version behind pulls the newer PeakAssist bundle on its next sync. Component drift shown here is exactly what the on-device <b>desired-state reconciler</b> computes — expected drift (an active override) vs unexpected drift, never a plain mismatch.</div></div>`;
@@ -2482,7 +2571,7 @@
       trouble: ["No live data? Check the site's Hub is online (PeakLogic Hubs).", "A value looks frozen? The sensor may be silent — a silence alarm will confirm."] },
     hubs: { title: "PeakLogic Hubs",
       guide: "The edge units at each site. A Hub reads your PLCs/RTUs, evaluates alarms locally, serves PeakView360 and this help offline, and forwards data to the cloud outbound-only.",
-      steps: ["Green = online and syncing; amber = provisioning; red = offline.", "Check <b>PeakAssist</b> column — a Hub behind the current content version pulls the newer bundle on its next sync.", "An offline Hub still runs its site locally; only cloud sync pauses."],
+      steps: ["Green = online and syncing; amber = provisioning; red = offline.", "Check <b>PeakAssist content</b> column — a Hub behind the current content version pulls the newer bundle on its next sync. This is the offline <i>help content</i> synced to the Hub, distinct from the interactive assistant you're using right now.", "An offline Hub still runs its site locally; only cloud sync pauses."],
       trouble: ["Hub offline? The site still operates; investigate site connectivity, not the plant.", "Provisioning stuck? Confirm the protocol endpoints in the Hub's config."] },
     cmms: { title: "CMMS — work orders & PM",
       guide: "Maintenance work. Alarms auto-create work orders; PM schedules generate them on a cadence. Each work order moves dispatched → accepted → on-site → completed.",
@@ -2498,6 +2587,59 @@
       trouble: ["A number looks off? Every figure is a live fan-out — refresh re-computes it."] },
   };
   const HELP_DEFAULT = { title: "PeakAssist", guide: "Contextual help for wherever you are in PeakLogic. Open it from any screen — it works offline on a site's Hub too.", steps: ["Use the left nav to move between areas.", "Open Help on any screen for guidance specific to it."], trouble: [] };
+
+  // ---------- Ask PeakAssist (mocked RAG assistant) ----------
+  // This is the console's mock of the intelligent-assistant capability designed
+  // in docs/architecture/peakassist-intelligent-assistant-architecture.md and
+  // actually built + run (peakassist-prototype/, 2026-07-27, zero Azure spend).
+  // A static HTML file can't run real embeddings/a local model the way that
+  // prototype does, so this is a small keyword-matched mock over the SAME real
+  // corpus content already used elsewhere in this console (HELP/HELP_ALARM) —
+  // not invented Q&A. It mirrors what the real prototype actually proved:
+  // a pre-generation retrieval-score gate (below-threshold questions are
+  // refused, never answered with nothing behind them) and a citation on every
+  // grounded answer. Clearly labeled "Preview" — never presented as a live model.
+  // NOTE: entries resolve their answer LAZILY (a function, not a pre-computed
+  // string) — HELP_ALARM is declared further down this file, and this array is
+  // itself constructed before that point; resolving at ask-time (long after the
+  // whole script has finished loading) avoids depending on declaration order.
+  const PEAKASSIST_QA = [
+    { keywords: ["acknowledge", "ack"], answer: () => "Find the alarm in the panel, read its insight line (threshold, or an AI anomaly score), then click <b>Acknowledged</b> to mark it seen. If it needs a visit, create a work order from the same alarm row.", source: "PeakView360 — Alarm panel" },
+    { keywords: ["threshold"], answer: () => helpAlarmText("threshold"), source: "PeakAssist — Alarm explanations" },
+    { keywords: ["anomaly", "ai"], answer: () => helpAlarmText("anomaly"), source: "PeakAssist — Alarm explanations" },
+    { keywords: ["silent", "silence", "offline device"], answer: () => helpAlarmText("device_silent"), source: "PeakAssist — Alarm explanations" },
+    { keywords: ["dmr", "compliance", "discharge", "report"], answer: () => "Open Compliance, review each parameter against its permit limit, address any exceedance or coverage gap, then click <b>Generate DMR draft</b>. You remain the filer of record — PeakLogic compiles the draft, it never files on your behalf.", source: "Compliance — DMR" },
+    { keywords: ["work order", "pm", "maintenance", "cmms"], answer: () => "Alarms auto-create work orders; PM schedules generate them on a cadence. Run <b>Generate due PM work orders</b> for this cycle's scheduled work. Each order moves dispatched → accepted → on-site → completed.", source: "CMMS — work orders & PM" },
+    { keywords: ["hub", "offline", "edge"], answer: () => "A PeakLogic Hub reads PLCs/RTUs, evaluates alarms locally, and serves PeakView360 + this help offline. Green is online, amber is provisioning, red is offline — an offline Hub's site keeps running locally; only cloud sync pauses.", source: "PeakLogic Hubs" },
+    { keywords: ["channel", "firmware", "driver", "release"], answer: () => "A Release Channel is a named, versioned bundle. A leaf device only ships firmware; a Hub ships firmware, drivers, the agent, config, security, and PeakAssist content together as one channel. See Channels for the full library.", source: "Channels" },
+    { keywords: ["act-as", "act as", "impersonat"], answer: () => "Staff never hold tenant credentials. \"Manage\" enters an audited act-as session (a persistent banner, attributed to your oid) — every enter/exit and command writes to the Audit Log.", source: "Fleet Overview" },
+  ];
+  function helpAlarmText(type) {
+    const a = HELP_ALARM[type];
+    return a ? `<b>${esc(a.name)}.</b> ${esc(a.body)}` : "";
+  }
+  const PEAKASSIST_REFUSAL = "I don't have that documented.";
+  const PEAKASSIST_MIN_SCORE = 1; // at least one real keyword hit — mirrors the real prototype's retrieval-score floor
+  function askPeakAssist(question) {
+    const q = question.toLowerCase();
+    let best = null, bestScore = 0;
+    for (const entry of PEAKASSIST_QA) {
+      const score = entry.keywords.filter((k) => q.includes(k)).length;
+      if (score > bestScore) { bestScore = score; best = entry; }
+    }
+    if (!best || bestScore < PEAKASSIST_MIN_SCORE) {
+      return { grounded: false, answer: PEAKASSIST_REFUSAL, source: null };
+    }
+    return { grounded: true, answer: best.answer(), source: best.source };
+  }
+  function renderPeakAssistAnswer(question) {
+    const el = $("#pa-answer"); if (!el) return;
+    if (!question.trim()) { el.innerHTML = ""; return; }
+    const r = askPeakAssist(question);
+    el.innerHTML = r.grounded
+      ? `<div class="callout" style="margin-top:12px">${INFO_ICON}<div><span class="pill pill--good" style="margin-bottom:8px"><span class="dot"></span>Grounded · cited</span><br>${r.answer}<div class="faint" style="margin-top:8px;font-size:11.5px">Source: ${esc(r.source)}</div></div></div>`
+      : `<div class="callout" style="margin-top:12px;border-left:3px solid var(--text-faint)">${INFO_ICON}<div><span class="pill pill--neutral" style="margin-bottom:8px"><span class="dot"></span>Not found</span><br>${esc(r.answer)} <span class="faint">(no retrieved passage cleared the grounding floor — refused rather than guessed)</span></div></div>`;
+  }
 
   function openHelpDrawer(alarmType) {
     const key = S.view;
@@ -2516,6 +2658,17 @@
         </div>
         <div class="drawer__body">
           <span class="pill pill--good" style="margin-bottom:16px"><span class="dot"></span>Available offline on this site's Hub · content v2026.07.1</span>
+
+          <div class="panel" style="padding:14px;margin-bottom:18px">
+            <div class="panel__title" style="margin-bottom:4px">Ask PeakAssist <span class="pill pill--neutral" style="margin-left:6px;vertical-align:middle;font-size:10px">Preview</span></div>
+            <p class="faint" style="font-size:12px;margin:0 0 10px">Type a question in plain English. This preview keyword-matches the same real content the platform ships — it's a mock of the intelligent-assistant design (RAG + a small model), not a live model call. See <code>peakassist-prototype/</code> for the real, working version of this.</p>
+            <div style="display:flex;gap:8px;align-items:flex-start">
+              <div class="field" style="flex:1"><input type="text" id="pa-q" placeholder="e.g. How do I acknowledge an alarm?" autocomplete="off"></div>
+              <button class="btn btn--primary btn--sm" data-action="ask-peakassist">Ask</button>
+            </div>
+            <div id="pa-answer"></div>
+          </div>
+
           ${alarmBlock}
           <p style="line-height:1.6;margin:6px 0 18px">${esc(h.guide)}</p>
           <div class="panel__title" style="margin:0 0 10px">How to</div>
@@ -2524,6 +2677,8 @@
           <p class="hint" style="margin-top:22px">One click from any screen. Contextual to where you are. Same content in the cloud and offline on a Hub — PeakAssist is a first-class part of the product, not an afterthought.</p>
         </div>
       </aside>`;
+    const paInput = $("#pa-q");
+    if (paInput) paInput.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); renderPeakAssistAnswer(paInput.value); } });
   }
   const HELP_ALARM = {
     anomaly: { name: "AI anomaly", body: "A reading deviated from this asset's own learned baseline (not a fixed threshold). Capped at warning — check the asset, but it isn't a confirmed fault on its own." },
@@ -2531,9 +2686,9 @@
     device_silent: { name: "Device silent", body: "A device stopped reporting when it was expected to. It may be offline, disconnected, or failed — distinct from a bad reading." },
   };
 
-  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, firmware: viewFirmware, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings, peakview360: viewPeakView360, hubs: viewHubs, cmms: viewCmms, compliance: viewCompliance };
-  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", firmware: "nav:firmware", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance" };
-  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", firmware: "Firmware", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, channels: viewChannels, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings, peakview360: viewPeakView360, hubs: viewHubs, cmms: viewCmms, compliance: viewCompliance };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", channels: "nav:channels", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance" };
+  const TITLE = { fleet: "Fleet Overview", tenants: "Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", channels: "System Channels", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
 
   function render() {
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
@@ -2576,11 +2731,14 @@
     $("#cnt-partners").textContent = PARTNERS.length;
     $("#cnt-sites").textContent = TENANTS.reduce((a, t) => a + t.sites.length, 0);
     $("#cnt-devices").textContent = allDevices().length;
-    // Firmware nav badge shows what needs attention (unmanaged + behind), not the
-    // whole fleet — a count of "everything" wouldn't tell an operator anything.
-    const drift = fwFleet().filter(d => d.st.code !== "current").length;
-    const fwEl = $("#cnt-firmware");
-    if (fwEl) fwEl.textContent = drift;
+    // Channels nav badge shows what needs attention across BOTH artifact scopes
+    // this page now covers — leaf-device firmware drift (unmanaged + behind) and
+    // Hub release-channel non-compliance — not the whole fleet, which wouldn't
+    // tell an operator anything.
+    const deviceDrift = fwFleet().filter(d => d.st.code !== "current").length;
+    const hubDrift = fleetHubs().filter(h => !h.compliance.compliant).length;
+    const chEl = $("#cnt-channels");
+    if (chEl) chEl.textContent = deviceDrift + hubDrift;
   }
 
   function enterActAs(id) {
@@ -2650,7 +2808,7 @@
         <div class="drawer__body">
           <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
             ${pvPill(h.status)}
-            <span class="pill pill--${h.channelKey === "beta" ? "info" : "neutral"}"><span class="dot"></span>${esc(h.channel)} channel</span>
+            ${channelPill(h.channelKey, h.channel + " channel")}
             <span class="faint" style="font-size:12px">${esc(h.protocols)} · ${h.tags || 0} tags acquired</span>
           </div>
 
@@ -2819,12 +2977,12 @@
           </div>
           <div class="field--row">
             <div class="field"><label for="rf-qty">Quantity</label><input id="rf-qty" type="number" min="1" max="50" value="3"></div>
-            <div class="field"><label for="rf-fw">Firmware channel</label>
-              <select id="rf-fw">${fwOptsMarkup(firstCat)}</select></div>
+            <div class="field"><label for="rf-fw">Channel</label>
+              <select id="rf-fw">${channelTierOptsMarkup(firstCat)}</select></div>
           </div>
           <div class="field"><label for="rf-enroll">Enrollment</label>
             <select id="rf-enroll"><option value="group">DPS enrollment group (batch / zero-touch)</option><option value="individual">Individual enrollment (one-off)</option></select></div>
-          <p class="hint">Intent rows are created in state <code>registered</code> with <code>tenant_id</code> set and desired-config staged. Group enrollment lets any device with a leaf cert signed by the family CA self-provision — the real fleet-scale ZTP path. Firmware options come from the <b>Device &amp; Firmware Version Catalog</b> for the selected product type — never free-typed.</p>
+          <p class="hint">Intent rows are created in state <code>registered</code> with <code>tenant_id</code> set and desired-config staged. Group enrollment lets any device with a leaf cert signed by the family CA self-provision — the real fleet-scale ZTP path. The device converges to whatever version its assigned <b>channel</b> (System Channels) currently points to — never a free-typed firmware string.</p>
         </div>
         <div class="modal__foot">
           <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
@@ -2832,12 +2990,12 @@
         </div>
       </div>`;
     $("#overlay-root").innerHTML = html;
-    // FW-4: re-scope the firmware picker whenever the product type changes, so a
-    // device can only ever be assigned a version catalogued for its own category.
+    // FW-4: re-scope the channel picker whenever the product type changes, so a
+    // device can only ever be assigned a channel catalogued for its own category.
     const catSel = $("#rf-cat");
     if (catSel) catSel.addEventListener("change", () => {
       const fwSel = $("#rf-fw");
-      if (fwSel) fwSel.innerHTML = fwOptsMarkup(catSel.value);
+      if (fwSel) fwSel.innerHTML = channelTierOptsMarkup(catSel.value);
     });
     const n = $("#rf-name"); if (n) n.focus();
   }
@@ -3052,6 +3210,83 @@
     toast(`Channel partner “${name}” created`);
   }
 
+  // ---------- Manage a device-type's channel (System Channels) ----------
+  // One modal covers both real actions the page needs: creating a NEW named
+  // channel for a device type (pick a type + tier that has none yet) and
+  // "adding a file" to the Firmware/Hardware/Software library for an existing
+  // one (the version fields below ARE the library entries — saving writes
+  // straight into the same FIRMWARE_CATALOG / HUB_RELEASE_CHANNELS structures
+  // the drift computation already reads, so there is no second, disconnected
+  // copy of this data). A leaf device type only ever has a Firmware field (it
+  // only ever runs firmware); PeakLogic Hub gets the full component set.
+  function channelDeviceTypeOptions(selected) {
+    const opts = Object.keys(FIRMWARE_CATALOG).map((cat) =>
+      `<option value="${cat}"${cat === selected ? " selected" : ""}>${esc(FIRMWARE_CATALOG[cat].product)}</option>`).join("");
+    return opts + `<option value="hub"${selected === "hub" ? " selected" : ""}>PeakLogic Hub</option>`;
+  }
+  function manageChannelFieldsHtml(cat, tier) {
+    if (cat === "hub") {
+      const bundle = HUB_RELEASE_CHANNELS[tier] ? HUB_RELEASE_CHANNELS[tier].bundle : {};
+      return Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel").map((k) =>
+        `<div class="field"><label for="mc-${k}">${HUB_COMPONENT_LABELS[k]}</label><input id="mc-${k}" type="text" value="${esc(bundle[k] || "")}" placeholder="e.g. 1.2.0"></div>`
+      ).join("");
+    }
+    const entry = FIRMWARE_CATALOG[cat];
+    const current = entry && entry.channels[tier] && entry.channels[tier][0] || "";
+    return `<div class="field"><label for="mc-firmware">Firmware version</label><input id="mc-firmware" type="text" value="${esc(current)}" placeholder="e.g. 4.2.1"></div>
+      <p class="hint">${esc((entry && entry.product) || cat)} only ships firmware — no separate hardware/software artifact.</p>`;
+  }
+  function openManageChannel(prefillCat, prefillTier) {
+    const cat = prefillCat || Object.keys(FIRMWARE_CATALOG)[0];
+    const tier = prefillTier || "stable";
+    $("#overlay-root").innerHTML = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Manage device channel">
+        <div class="modal__head"><h2>${prefillCat ? "Edit" : "New"} device channel</h2>
+          <p>Assign a device type to a named channel, and set the artifact version(s) that channel pushes. Devices in this channel converge to exactly these versions, in order, on their next sync.</p></div>
+        <div class="modal__body">
+          ${fieldRow(`
+            <div class="field"><label for="mc-type">Device type</label><select id="mc-type">${channelDeviceTypeOptions(cat)}</select></div>
+            <div class="field"><label for="mc-tier">Channel</label><select id="mc-tier">${CHANNEL_TIER_ORDER.map((t) => `<option value="${t}"${t === tier ? " selected" : ""}>${CHANNEL_TIER_LABEL[t]}</option>`).join("")}</select></div>`)}
+          <div class="field"><label>Attach build artifact <span class="faint">(optional)</span></label>
+            <input type="file" class="hint">
+            <div class="hint" style="margin-top:2px">Illustrative — the version field(s) below are what's actually saved and reconciled against.</div>
+          </div>
+          <div id="mc-fields" style="display:flex;flex-direction:column;gap:15px">${manageChannelFieldsHtml(cat, tier)}</div>
+        </div>
+        <div class="modal__foot"><button class="btn btn--ghost" data-action="close-overlay">Cancel</button><button class="btn btn--primary" data-action="submit-channel">Save channel</button></div>
+      </div>`;
+  }
+  function rescopeManageChannelFields() {
+    const cat = $("#mc-type").value, tier = $("#mc-tier").value;
+    const el = $("#mc-fields"); if (el) el.innerHTML = manageChannelFieldsHtml(cat, tier);
+  }
+  function submitManageChannel() {
+    const cat = $("#mc-type").value, tier = $("#mc-tier").value;
+    if (cat === "hub") {
+      const bundle = { ...HUB_RELEASE_CHANNELS[tier].bundle };
+      Object.keys(HUB_COMPONENT_LABELS).filter((k) => k !== "aiModel").forEach((k) => {
+        const el = $(`#mc-${k}`); if (el && el.value.trim()) bundle[k] = el.value.trim();
+      });
+      HUB_RELEASE_CHANNELS[tier].bundle = bundle;
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "policy.update", target: "PeakLogic Hub", note: `${CHANNEL_TIER_LABEL[tier]} channel bundle updated` });
+      toast(`${CHANNEL_TIER_LABEL[tier]} channel updated for PeakLogic Hub — Hubs on this channel converge on next sync`);
+    } else {
+      const v = ($("#mc-firmware").value || "").trim();
+      if (!v) { toast("Enter a firmware version"); return; }
+      const entry = FIRMWARE_CATALOG[cat];
+      if (!entry.channels[tier]) entry.channels[tier] = [];
+      // Newest-first convention (index 0 = current) — a saved version becomes
+      // the new current for this channel, matching how the catalog is read
+      // everywhere else (fwStatus/fwOptionsFor).
+      entry.channels[tier] = entry.channels[tier].filter((x) => x !== v);
+      entry.channels[tier].unshift(v);
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "policy.update", target: entry.product, note: `${CHANNEL_TIER_LABEL[tier]} channel → ${v}` });
+      toast(`${CHANNEL_TIER_LABEL[tier]} channel for ${entry.product} → ${v}`);
+    }
+    closeOverlay(); setCounts(); render();
+  }
+
   const ROLE_INFO = {
     superadmin: "Full platform access + all organizations. Just-in-time via PIM.",
     account_manager: "Manage only the tenants/partners in their book of business.",
@@ -3105,9 +3340,11 @@
     else if (action === "new-tenant") openCreateTenant();
     else if (action === "new-partner") openCreatePartner();
     else if (action === "new-user") openCreateUser();
+    else if (action === "new-channel") openManageChannel(arg, arg2);
     else if (action === "submit-tenant") submitCreateTenant();
     else if (action === "submit-partner") submitCreatePartner();
     else if (action === "submit-user") submitCreateUser();
+    else if (action === "submit-channel") submitManageChannel();
     else if (action === "toast") toast(parts.slice(1).join(":"));
     else if (action === "manage-tenant") enterActAs(arg);
     else if (action === "manage-partner") enterActAsPartner(arg);
@@ -3131,6 +3368,7 @@
     else if (action === "build-report") toast("Custom report queued — you'll be notified when it's ready");
     else if (action === "close-overlay") closeOverlay();
     else if (action === "help") openHelpDrawer();
+    else if (action === "ask-peakassist") { const inp = $("#pa-q"); if (inp) renderPeakAssistAnswer(inp.value); }
     else if (action === "help-alarm") openHelpDrawer(arg);
     else if (action === "toggle-theme") toggleTheme();
     else if (action === "signout") { closeOverlay(); if (window.__pccSignOut) window.__pccSignOut(); }
@@ -3139,6 +3377,7 @@
   document.addEventListener("input", (e) => {
     if (e.target.id === "q") { S.query = e.target.value; render(); }
     else if (e.target.id === "cu-role") { const d = $("#cu-role-desc"); if (d) d.textContent = ROLE_INFO[e.target.value] || ""; }
+    else if (e.target.id === "mc-type" || e.target.id === "mc-tier") { rescopeManageChannelFields(); }
     else if (e.target.id === "cp-logo" || e.target.id === "cp-brand") {
       const mark = $("#cp-mark"); if (mark) { mark.textContent = ($("#cp-logo").value || "?").toUpperCase(); mark.style.background = $("#cp-brand").value; }
     }
