@@ -1856,7 +1856,7 @@
 
     return `
       <div class="page-head"><h1>Firmware</h1>
-        <p>The Device &amp; Firmware Version Catalog, and every device measured against it. Versions are validated per product type — anything the catalog doesn't list is surfaced as unmanaged rather than silently accepted.</p></div>
+        <p>The Device &amp; Firmware Version Catalog, and every device measured against it. Versions are validated per product type — anything the catalog doesn't list is surfaced as unmanaged rather than silently accepted. This page covers <b>leaf devices</b> (sensors/controllers — firmware only). A <b>PeakLogic Hub</b> runs a full software stack, versioned as a <b>Release Channel</b> bundle (firmware, drivers, agent, config, security, PeakAssist) — see <a data-action="nav:hubs" role="button" tabindex="0" style="color:var(--accent-ink);text-decoration:underline;cursor:pointer">PeakLogic Hubs</a> and click any Hub for its component-level breakdown.</p></div>
 
       <div class="stats" style="grid-template-columns:repeat(3,1fr)">${stats}</div>
 
@@ -2202,6 +2202,102 @@
         <div><b>Above SCADA, never replacing it.</b> PeakView360 visualizes and supervises — it does not run the plant's safety-rated PLC control logic. The AI insight on <b>Aeration Blower 2</b> (an <i>anomaly</i>, capped at warning) surfaces beside the live value that triggered it; a one-click work order dispatches it to <b>${esc(p.name)}</b>'s CMMS. Live data is served <b>Hub-local</b> for offline resilience.</div></div>`;
   }
 
+  // ---------- Hub Release Channels & Desired-State Bundle ----------
+  // (Platform Control Center architecture §2 item 2 / §3.1.) A Release Channel is
+  // a named, versioned DESIRED-STATE BUNDLE — the same 7 component categories the
+  // REAL, already-built device-side reconciler works from
+  // (PeakLogicEdge.Core.Reconciliation.DesiredStateReconciler, windows-hub/):
+  // firmware, bootloader, drivers, app (the agent), config, security, and help
+  // (PeakAssist). This is a materially different, broader model than the
+  // per-leaf-device Firmware Catalog above — that catalog is correct for a SENSOR
+  // (it only ever runs firmware); a HUB is a small computer running an actual
+  // software stack, so it needs the full bundle. AI-model is a real 8th slot in
+  // the architecture's artifact-repository list but has no populated version here
+  // — AI Analytics Tier 1 runs cloud-side only today (ai-analytics-layer-design.md),
+  // nothing has ever shipped an on-Hub model — shown honestly as "not shipped",
+  // never a fabricated version number.
+  const HUB_COMPONENT_LABELS = {
+    firmware: "Firmware (Hub OS image)",
+    bootloader: "Bootloader",
+    drivers: "Drivers (Modbus · OPC-UA · EtherNet/IP)",
+    app: "App (PeakLogicEdge agent)",
+    config: "Config template",
+    security: "Security policy / cert bundle",
+    aiModel: "AI model (on-Hub)",
+    peakassist: "PeakAssist content",
+  };
+  const HUB_RELEASE_CHANNELS = {
+    stable: {
+      label: "Stable",
+      bundle: { firmware: "1.2.0", bootloader: "1.0.3", drivers: "2.1.0", app: "1.4.2", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
+    },
+    beta: {
+      label: "Beta",
+      bundle: { firmware: "1.3.0-beta.2", bootloader: "1.0.3", drivers: "2.2.0-beta.1", app: "1.5.0-beta.3", config: "v7", security: "2026.07.1", aiModel: null, peakassist: "2026.07.1" },
+    },
+  };
+  const DRIFT_META = {
+    insync: { label: "In sync", cls: "good" },
+    behind: { label: "Behind", cls: "warn" },
+    ahead: { label: "Ahead", cls: "info" },
+    missing: { label: "Missing", cls: "crit" },
+    unexpected: { label: "Unexpected", cls: "warn" },
+    na: { label: "Not shipped", cls: "neutral" },
+  };
+  // Dotted-version compare (mirrors the real Core.Versioning.DottedVersion —
+  // plain string comparison gets "1.4.10" < "1.4.2" wrong; this doesn't).
+  function compareDottedVersions(a, b) {
+    const [aBase, aPre] = String(a).split("-");
+    const [bBase, bPre] = String(b).split("-");
+    const as = aBase.split(".").map(Number), bs = bBase.split(".").map(Number);
+    for (let i = 0; i < Math.max(as.length, bs.length); i++) {
+      const av = as[i] || 0, bv = bs[i] || 0;
+      if (av !== bv) return av - bv;
+    }
+    if (aPre && !bPre) return -1;
+    if (!aPre && bPre) return 1;
+    if (aPre && bPre) return aPre < bPre ? -1 : aPre > bPre ? 1 : 0;
+    return 0;
+  }
+  // Per-component drift classification — the same categories the real device-side
+  // reconciler computes (InSync/Behind/Ahead/Missing/Unexpected); "na" is this
+  // demo's own addition for a component the platform has never shipped (AI-model).
+  function componentDrift(desired, reported) {
+    if (desired == null) return "na";
+    if (reported == null) return "missing";
+    // A build tag outside the catalogued channel (e.g. a field tech's manual
+    // driver override) isn't "behind" or "ahead" on any numeric axis — it's
+    // simply not a version the channel ever declared. Same "unmanaged" idea
+    // as the per-device Firmware Catalog's own unmanaged classification.
+    if (reported !== desired && /custom/i.test(reported)) return "unexpected";
+    const cmp = compareDottedVersions(reported, desired);
+    return cmp === 0 ? "insync" : cmp < 0 ? "behind" : "ahead";
+  }
+  // Illustrative per-Hub reported bundle: mostly matches its assigned channel
+  // (the common case — a healthy fleet converges), with deterministic seeded
+  // drift so the compliance view has real variety to show: one component behind
+  // (an update in flight), one missing (security policy never pushed to a
+  // freshly-provisioned Hub), and one unexpected (a field tech's manual driver
+  // override — the real "expected drift needs an Override row" case, §6).
+  function hubBundleFor(hubId, channelKey) {
+    let h = 0; for (let i = 0; i < hubId.length; i++) h = (h * 31 + hubId.charCodeAt(i)) >>> 0;
+    const desired = HUB_RELEASE_CHANNELS[channelKey].bundle;
+    const reported = { ...desired };
+    const keys = Object.keys(desired).filter((k) => desired[k] != null);
+    const roll = h % 9;
+    if (roll === 1) reported.app = "1.4.1"; // agent update in flight — one minor behind
+    else if (roll === 2) reported.drivers = "2.0.4"; // driver bundle behind
+    else if (roll === 3) reported.security = null; // never pushed — Missing
+    else if (roll === 4) reported.drivers = "2.1.0-custom.rf1"; // field-tech override — Unexpected
+    else if (roll === 5) reported.peakassist = "2026.06.2"; // content a cycle behind
+    return { desired, reported, keys };
+  }
+  function hubCompliance(bundle) {
+    const drifts = bundle.keys.map((k) => componentDrift(bundle.desired[k], bundle.reported[k]));
+    const bad = drifts.filter((d) => d !== "insync").length;
+    return { total: bundle.keys.length, driftCount: bad, compliant: bad === 0 };
+  }
+
   // ---------- PeakLogic Hubs (on-prem edge fleet) ----------
   // Derived from the REAL estate: one Hub per physically-located site. Status is
   // derived from the site's device states (a silent device -> the Hub can't reach
@@ -2218,10 +2314,14 @@
         : (cats.includes("wastewater") || cats.includes("energy_meter")) ? "Modbus TCP · OPC-UA"
         : cats.includes("refrigeration") ? "OPC-UA · EtherNet/IP" : "Modbus TCP";
       let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
-      const content = h % 5 === 0 ? "2026.06.2" : "2026.07.1";
+      const id = `hub-${t.id}-${si + 1}`;
+      const channelKey = h % 6 === 0 ? "beta" : "stable";
+      const bundle = hubBundleFor(id, channelKey);
+      const compliance = hubCompliance(bundle);
       const tags = status === "provisioning" ? 0 : s.assets.reduce((a, x) => a + x.devices.length, 0) * 6 + 6;
-      hubs.push({ id: `hub-${t.id}-${si + 1}`, orgId: t.id, org: t.name, site: s.name, status, protocols, content,
-        agent: content === "2026.06.2" ? "1.4.1" : "1.4.2", tags,
+      hubs.push({ id, orgId: t.id, org: t.name, site: s.name, status, protocols, tags,
+        channelKey, channel: HUB_RELEASE_CHANNELS[channelKey].label, bundle, compliance,
+        agent: bundle.reported.app, content: bundle.reported.peakassist,
         seen: status === "online" ? "just now" : status === "offline" ? "17 min ago" : "—" });
     }));
     return hubs;
@@ -2230,30 +2330,34 @@
     const hubs = fleetHubs();
     const online = hubs.filter(h => h.status === "online").length;
     const stale = hubs.filter(h => h.content !== "2026.07.1").length;
+    const fullyCompliant = hubs.filter(h => h.compliance.compliant).length;
     const stats = [
       { label: "Hubs online", value: `${online} / ${hubs.length}`, sub: `${hubs.length - online} offline or provisioning`, accent: online === hubs.length ? "var(--good)" : "var(--warn)" },
       { label: "Tags acquired", value: hubs.reduce((a, h) => a + h.tags, 0), sub: "PLC/RTU points across the fleet", accent: "var(--accent)" },
       { label: "PeakAssist content", value: `${hubs.length - stale} current`, sub: `${stale} Hub(s) behind v2026.07.1`, accent: stale ? "var(--warn)" : "var(--good)" },
+      { label: "Desired-state compliance", value: `${fullyCompliant} / ${hubs.length}`, sub: `${hubs.length - fullyCompliant} Hub(s) with component drift`,
+        accent: fullyCompliant === hubs.length ? "var(--good)" : "var(--warn)" },
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
-    const rows = hubs.map(h => `<tr class="clickable" data-action="manage-tenant:${h.orgId}">
+    const rows = hubs.map(h => `<tr class="clickable" data-action="hub:${h.id}">
       <td class="mono strong">${esc(h.id)}</td>
       <td><div class="row-main"><span class="strong">${esc(h.site)}</span><span class="row-sub">${esc(h.org)}</span></div></td>
       <td>${pvPill(h.status)}</td>
+      <td><span class="pill pill--${h.channelKey === "beta" ? "info" : "neutral"}"><span class="dot"></span>${esc(h.channel)}</span></td>
       <td class="mono muted">${esc(h.protocols)}</td>
-      <td class="num muted">${h.tags || "—"}</td>
       <td class="mono muted">v${h.agent}</td>
       <td>${h.content === "2026.07.1" ? `<span class="pill pill--good"><span class="dot"></span>v${h.content}</span>` : `<span class="pill pill--warn"><span class="dot"></span>v${h.content}</span>`}</td>
+      <td>${h.compliance.compliant ? `<span class="pill pill--good"><span class="dot"></span>${h.compliance.total}/${h.compliance.total} in sync</span>` : `<span class="pill pill--warn"><span class="dot"></span>${h.compliance.driftCount} drifted</span>`}</td>
       <td class="mono muted">${h.seen}</td></tr>`).join("");
     return `
       <div class="page-head"><h1>PeakLogic Hubs</h1>
-        <p>The on-prem edge fleet — each Hub acquires from PLCs/RTUs, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN (offline-capable), and store-and-forwards to the cloud over an outbound-only connection. Click a Hub to open its customer.</p></div>
+        <p>The on-prem edge fleet — each Hub acquires from PLCs/RTUs, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN (offline-capable), and store-and-forwards to the cloud over an outbound-only connection. Each Hub is assigned a <b>Release Channel</b> — a named bundle of firmware, drivers, the agent, config, security, and PeakAssist content — the same desired-state model the on-device reconciler enforces. Click a Hub for its full component breakdown.</p></div>
       <div class="stats">${stats}</div>
       <div class="panel" style="margin-top:22px">
         <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${hubs.length} Hubs · one per located site · fan-out per org</span></div>
-        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Protocols</th><th>Tags</th><th>Agent</th><th>PeakAssist</th><th>Last seen</th></tr></thead>
+        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Channel</th><th>Protocols</th><th>Agent</th><th>PeakAssist</th><th>Compliance</th><th>Last seen</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
       <div class="callout" style="margin-top:20px">${INFO_ICON}
-        <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. An offline Hub's site keeps operating on Hub-local PeakView360 while cloud sync pauses; a Hub a content version behind pulls the newer PeakAssist bundle on its next sync.</div></div>`;
+        <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. An offline Hub's site keeps operating on Hub-local PeakView360 while cloud sync pauses; a Hub a content version behind pulls the newer PeakAssist bundle on its next sync. Component drift shown here is exactly what the on-device <b>desired-state reconciler</b> computes — expected drift (an active override) vs unexpected drift, never a plain mismatch.</div></div>`;
   }
 
   // ---------- CMMS (work orders + PM schedules) ----------
@@ -2503,6 +2607,75 @@
   // ---------- Overlay: device drawer + register modal ----------
   function closeOverlay() { $("#overlay-root").innerHTML = ""; }
 
+  // Hub detail drawer — the desired-state bundle, component by component,
+  // exactly the categories the real on-device reconciler computes drift over
+  // (firmware/bootloader/drivers/app/config/security/AI-model/help). This is
+  // the "correctly represented software/driver/firmware" view the per-leaf-
+  // device Firmware Catalog can't provide on its own — a Hub is a small
+  // computer running a stack, not a single-firmware sensor.
+  function openHubDrawer(id) {
+    const hubs = fleetHubs();
+    const h = hubs.find((x) => x.id === id); if (!h) return;
+    renderHubDrawer(h);
+  }
+
+  function renderHubDrawer(h) {
+    const b = h.bundle;
+    const rows = Object.keys(HUB_COMPONENT_LABELS).map((key) => {
+      const desired = b.desired[key];
+      const reported = b.reported[key];
+      const drift = componentDrift(desired, reported);
+      const meta = DRIFT_META[drift];
+      const desiredText = desired == null ? "— (not shipped)" : desired;
+      const reportedText = reported == null ? (desired == null ? "— (not shipped)" : "— missing") : reported;
+      return `<tr>
+        <td>${HUB_COMPONENT_LABELS[key]}</td>
+        <td class="mono muted">${esc(desiredText)}</td>
+        <td class="mono muted">${esc(reportedText)}</td>
+        <td><span class="pill pill--${meta.cls}"><span class="dot"></span>${meta.label}</span></td>
+      </tr>`;
+    }).join("");
+
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <aside class="drawer" role="dialog" aria-label="Hub detail">
+        <div class="drawer__head">
+          <div>
+            <div class="drawer__title">${esc(h.site)}</div>
+            <div class="drawer__id">${h.id} · ${esc(h.org)}</div>
+          </div>
+          <button class="iconbtn" data-action="close-overlay" aria-label="Close" style="margin-left:auto">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+        </div>
+        <div class="drawer__body">
+          <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+            ${pvPill(h.status)}
+            <span class="pill pill--${h.channelKey === "beta" ? "info" : "neutral"}"><span class="dot"></span>${esc(h.channel)} channel</span>
+            <span class="faint" style="font-size:12px">${esc(h.protocols)} · ${h.tags || 0} tags acquired</span>
+          </div>
+
+          <div>
+            <div class="dsec__label">Desired-state bundle <span class="arrow">Release Channel → Hub</span>
+              <span class="sync sync--${h.compliance.compliant ? "good" : "warn"}" style="margin-left:auto;background:var(--${h.compliance.compliant ? "good-soft" : "warn-soft"});color:var(--${h.compliance.compliant ? "good-ink" : "warn-ink"})">
+                <span class="dot" style="background:var(--${h.compliance.compliant ? "good" : "warn"})"></span>${h.compliance.compliant ? "Compliant" : `${h.compliance.driftCount} component(s) drifted`}</span>
+            </div>
+            <table class="twin"><thead><tr><th>Component</th><th>Desired</th><th>Reported</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>
+            <p class="hint" style="margin:10px 0 0">Software, drivers, and firmware are versioned <b>together</b> as one named Release Channel — the same bundle model <code>PeakLogicEdge.Core.Reconciliation.DesiredStateReconciler</code> already reconciles on-device. "Behind" converges automatically on next sync; "Unexpected" needs a reviewed Override (Platform Control Center §6) before it's compliant, not a silent pass.</p>
+          </div>
+
+          <div>
+            <div class="dsec__label">Direct methods <span class="arrow">imperative · audited</span></div>
+            <div class="methods">
+              ${h.compliance.compliant ? "" : `<button class="btn btn--primary" data-action="method:hub-resync:${h.id}">Push channel now</button>`}
+              <button class="btn btn--ghost" data-action="method:hub-ping:${h.id}">Ping Hub</button>
+              <button class="btn btn--ghost" data-action="manage-tenant:${h.orgId}">Enter as ${esc(h.org)}</button>
+            </div>
+          </div>
+        </div>
+      </aside>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
   function openDeviceDrawer(id) {
     const idx = deviceIndex();
     const ctx = idx[id]; if (!ctx) return;
@@ -2584,7 +2757,27 @@
     $("#overlay-root").innerHTML = html;
   }
 
+  // A resync forces every component to its channel's desired version (the
+  // real reconciler's convergence outcome) and re-renders the open drawer;
+  // this demo doesn't persist the change into fleetHubs()'s next recompute
+  // (it re-derives seeded drift deterministically), so it's an illustrative
+  // one-shot rather than a durable state change — same honesty posture as
+  // every other seeded-data view in this console.
+  function runHubMethod(method, id) {
+    const h = fleetHubs().find((x) => x.id === id); if (!h) return;
+    if (method === "hub-resync") {
+      const synced = { ...h, bundle: { desired: h.bundle.desired, reported: { ...h.bundle.desired }, keys: h.bundle.keys }, compliance: { total: h.bundle.keys.length, driftCount: 0, compliant: true } };
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.command", target: h.org, note: `push channel "${h.channel}" → ${h.id}` });
+      toast(`Channel "${h.channel}" pushed to ${h.id} — converging to desired state`);
+      renderHubDrawer(synced);
+    } else if (method === "hub-ping") {
+      AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: "device.command", target: h.org, note: `ping → ${h.id}` });
+      toast(`Ping ack from ${h.id} · 38 ms`);
+    }
+  }
+
   function runMethod(method, id) {
+    if (method === "hub-resync" || method === "hub-ping") return runHubMethod(method, id);
     const idx = deviceIndex();
     const ctx = idx[id]; if (!ctx) return;
     const d = ctx.d;
@@ -2923,6 +3116,7 @@
     else if (action === "partner-tab") { S.ptab = arg; render(); }
     else if (action === "save-branding") saveBranding(arg, arg2);
     else if (action === "device") openDeviceDrawer(arg);
+    else if (action === "hub") openHubDrawer(arg);
     else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
     else if (action === "site-open") openNewSite(arg);
