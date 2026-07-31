@@ -228,7 +228,7 @@
   }
   .banner__exit:hover { background: var(--surface-2); }
 
-  .view { padding: 26px 28px 60px; max-width: 1240px; animation: fade .28s ease; }
+  .view { padding: 26px 28px 60px; animation: fade .28s ease; }
   @keyframes fade { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
   @media (prefers-reduced-motion: reduce) { .view, .banner__pulse { animation: none; } }
 
@@ -2231,54 +2231,22 @@
   }
 
   // ---------- PeakView360 (HMI/SCADA operator screen) ----------
+  // Embeds the REAL PeakView360 app (peakview360/, served standalone on :5175) in
+  // an iframe — this is exactly what a customer sees via customer-portal's "Open
+  // live view," not a separate mockup. Keeps one source of truth for the app's
+  // look/behavior instead of a console-side reimplementation that can drift.
+  const PEAKVIEW360_URL = "http://localhost:5175/";
   function viewPeakView360() {
-    // Data-driven from the REAL estate: Bayfront Municipal District's wastewater
-    // plant, serviced by ACE Septic & Waste. Same site the fleet map, devices,
-    // firmware, CMMS, and compliance views all reference — nothing invented here.
-    const t = tenantById("bayfront");
-    const site = t.sites.find(s => s.name.indexOf("Riverside Water Reclamation") === 0);
-    const p = partnerFor(t);
-    const flat = site.assets.flatMap(a => a.devices.map(d => ({ d, a })));
-
-    const tiles = flat.map(({ d }) => `<div class="stat"><div class="stat__accent" style="background:var(--${d.health})"></div>
-      <div class="stat__label">${esc(d.name)}</div>
-      <div class="stat__value" style="font-size:25px">${esc(d.metric)}</div>
-      <div class="stat__sub">${pvPill(d.health === 'good' ? 'ok' : d.health)}</div></div>`).join("");
-
-    const alarms = flat.filter(x => x.d.health !== "good").sort((a, b) => HRANK[b.d.health] - HRANK[a.d.health]).map(({ d, a }) => {
-      const isCrit = d.health === "crit";
-      return `<tr>
-      <td class="sev-cell"><span class="sev-stripe" style="background:var(--${d.health})"></span></td>
-      <td><div class="row-main"><span class="strong">${esc(d.name)}</span><span class="row-sub">${esc(a.name)} · ${esc(d.metric)}</span></div></td>
-      <td class="muted" style="font-size:12px">${isCrit ? "Anomaly 0.82 · above learned baseline" : "Threshold — below setpoint"}</td>
-      <td style="text-align:right"><button class="btn btn--ghost btn--sm" data-action="toast:Alarm acknowledged — ${esc(d.name)}">Acknowledged</button>
-        <button class="btn btn--ghost btn--sm" data-action="help-alarm:${isCrit ? "anomaly" : "threshold"}" title="What does this alarm mean?">?</button></td></tr>`;
-    }).join("");
-
-    const doDev = flat.find(x => x.d.name.indexOf("Dissolved Oxygen") === 0).d;
-    const flowDev = flat.find(x => x.d.name.indexOf("Influent Flow") === 0).d;
-    const trend = penChart([
-      { label: "Dissolved O₂ (mg/L)", color: "#7c3aed", data: doDev.spark },
-      { label: "Influent Flow (MGD)", color: "#22c55e", data: flowDev.spark },
-    ]);
-
     return `
-      <div class="page-head"><h1>PeakView360 — ${esc(site.name)}</h1>
-        <p>Live operator screen · customer <b>${esc(t.name)}</b> · serviced by <b>${esc(p.name)}</b>. Rendered from the on-site <b>PeakLogic Hub</b> over the LAN — keeps working if the internet drops — with history and cross-site views from the cloud. This is exactly what the plant's own operators see when they sign in, scoped to just their site.</p></div>
-      <div class="stats">${tiles}</div>
-      <div class="grid2" style="margin-top:22px">
-        <div class="panel">
-          <div class="panel__head"><span class="panel__title">Active alarms</span><span class="panel__note">docked · acknowledge in place</span></div>
-          <table class="tbl"><thead><tr><th class="sev-cell"></th><th>Asset · condition</th><th>Insight</th><th></th></tr></thead>
-            <tbody>${alarms}</tbody></table>
-        </div>
-        <div class="panel">
-          <div class="panel__head"><span class="panel__title">Historian</span><span class="panel__note">last 8h · multi-pen</span></div>
-          ${trend}
-        </div>
+      <div class="page-head"><h1>PeakView360</h1>
+        <p>The real operator app, embedded live — the same screen a customer's on-site team sees when they sign in, scoped to their own site. Rendered from the on-site <b>PeakLogic Hub</b> over the LAN in production, so it keeps working if the internet drops.</p></div>
+      <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow, 0 1px 2px rgba(0,0,0,.06))">
+        <iframe src="${PEAKVIEW360_URL}" title="PeakView360" style="display:block;width:100%;height:calc(100vh - 230px);min-height:520px;border:0;background:#fff"></iframe>
       </div>
-      <div class="callout" style="margin-top:22px">${INFO_ICON}
-        <div><b>Above SCADA, never replacing it.</b> PeakView360 visualizes and supervises — it does not run the plant's safety-rated PLC control logic. The AI insight on <b>Aeration Blower 2</b> (an <i>anomaly</i>, capped at warning) surfaces beside the live value that triggered it; a one-click work order dispatches it to <b>${esc(p.name)}</b>'s CMMS. Live data is served <b>Hub-local</b> for offline resilience.</div></div>`;
+      <div class="callout" style="margin-top:10px;font-size:12.5px">${INFO_ICON}
+        <div>Blank or not loading? PeakView360 runs as its own app on <code>${PEAKVIEW360_URL}</code> — make sure its dev server is running (<code>cd peakview360 &amp;&amp; npm run dev</code>), then reload this page.</div></div>
+      <div class="callout" style="margin-top:16px">${INFO_ICON}
+        <div><b>Complementary to your SCADA, or a lower-cost alternative where a full SCADA deployment doesn't make sense.</b> PeakView360 visualizes and supervises — it never runs the plant's safety-rated PLC control logic. AI insight surfaces as a recommendation beside the live value that triggered it, not an automated action; a one-click work order dispatches it to the servicing partner's CMMS for a technician to act on.</div></div>`;
   }
 
   // ---------- Hub Release Channels & Desired-State Bundle ----------
@@ -2600,9 +2568,9 @@
   // ---------- PeakAssist (one-click contextual help drawer) ----------
   const HELP = {
     peakview360: { title: "PeakView360 operator screen",
-      guide: "Your live plant view. Tiles show current process values from the on-site Hub; the alarm panel lists what needs attention; the historian overlays trends. It keeps working even if the internet drops — the Hub serves it locally.",
-      steps: ["Read a tile: green is nominal, amber is off-setpoint, red is critical.", "Acknowledge an alarm with the <b>Acknowledged</b> button; press <b>?</b> on an alarm for what it means and what to check.", "Overlay two metrics in the historian to spot a developing trend.", "Create a work order from an alarm to dispatch a technician."],
-      trouble: ["No live data? Check the site's Hub is online (PeakLogic Hubs).", "A value looks frozen? The sensor may be silent — a silence alarm will confirm."] },
+      guide: "The real operator app, embedded live — the same screen a customer's on-site team sees when they sign in, scoped to their own site.",
+      steps: ["Tiles show current process values; the alarm panel lists what needs attention; the historian overlays trends.", "Acknowledge an alarm from inside the embedded app itself — it's the live app, not a preview.", "In production this renders from the on-site Hub over the LAN, so it keeps working if the internet drops."],
+      trouble: ["Blank panel? The PeakView360 dev server (<code>peakview360/</code>, port 5175) isn't running — start it with <code>npm run dev</code>, then reload.", "No live data? Check the site's Hub is online (PeakLogic Hubs)."] },
     hubs: { title: "PeakLogic Hubs",
       guide: "The edge units at each site. A Hub reads your PLCs/RTUs, evaluates alarms locally, serves PeakView360 and this help offline, and forwards data to the cloud outbound-only.",
       steps: ["Green = online and syncing; amber = provisioning; red = offline.", "Check <b>PeakAssist content</b> column — a Hub behind the current content version pulls the newer bundle on its next sync. This is the offline <i>help content</i> synced to the Hub, distinct from the interactive assistant you're using right now.", "An offline Hub still runs its site locally; only cloud sync pauses."],
