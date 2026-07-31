@@ -39,10 +39,9 @@ param budgetLimitUsd int = 5
 @description('Shared secret the cost-killswitch webhook must present, e.g. `az deployment group create ... --parameters killswitchSecret=$(openssl rand -hex 32)`. See budget.bicep\'s header comment for why this exists instead of Azure\'s built-in Function-key mechanism.')
 param killswitchSecret string
 
-// ── api.bicep pass-throughs — all genuinely blank until their upstream
-// dependency exists (Entra app-registration automation, iot.bicep). See
-// api.bicep's own param comments for why these are safe to leave empty
-// rather than defaulted to something fabricated.
+// ── api.bicep pass-throughs — genuinely blank until Entra app-registration
+// automation exists. See api.bicep's own param comments for why these are
+// safe to leave empty rather than defaulted to something fabricated.
 param entraCustomersIssuer string = ''
 param entraCustomersJwksUri string = ''
 param entraCustomersAudience string = ''
@@ -56,7 +55,6 @@ param entraCustomersTenantIdExtProp string = ''
 param entraPartnersChannelPartnerIdExtProp string = ''
 param entraSelfServicePasswordUrl string = ''
 param entraSelfServiceSecurityInfoUrl string = ''
-param iotHubEventHubConnection string = ''
 param corsAllowedOrigin string = ''
 
 // ── Naming convention: stage-suffixed everywhere a resource needs a unique
@@ -121,6 +119,17 @@ module budget 'modules/budget.bicep' = {
   }
 }
 
+module iot 'modules/iot.bicep' = {
+  name: 'iot-${stage}'
+  params: {
+    namePrefix: namePrefix
+    uniqueSuffix: uniqueSuffix
+    location: location
+    stage: stage
+    keyVaultName: data.outputs.keyVaultName
+  }
+}
+
 module api 'modules/api.bicep' = {
   name: 'api-${stage}'
   params: {
@@ -145,37 +154,46 @@ module api 'modules/api.bicep' = {
     entraPartnersChannelPartnerIdExtProp: entraPartnersChannelPartnerIdExtProp
     entraSelfServicePasswordUrl: entraSelfServicePasswordUrl
     entraSelfServiceSecurityInfoUrl: entraSelfServiceSecurityInfoUrl
-    iotHubEventHubConnection: iotHubEventHubConnection
+    iotHubDeployed: true
+    iotHubEventHubName: iot.outputs.eventHubName
     corsAllowedOrigin: corsAllowedOrigin
   }
 }
 
 // ── Not yet written — tracked honestly, not silently omitted ──
 // Per Infrastructure as Code §3's planned module structure and §8's open
-// items: iot.bicep (IoT Hub + DPS, Device & Command Security Architecture
-// §2) and frontend.bicep (static hosting/CDN, Deployment Architecture §5)
-// remain real, sequenced follow-up work — api.bicep (Azure Functions
-// compute) is now written (2026-07-31), closing that specific gap. Adding
-// each remaining module here as it's written is a one-line change;
-// deliberately not stubbed out with empty placeholder modules, which would
-// misrepresent partial work as scaffolded. monitoring.bicep's ingest-rate-
-// zero/Function-error-rate alerts are STILL NOT wired up, even though
-// api.bicep (their prerequisite) now exists — doing it in this same pass
-// would create a circular module dependency (monitoring would need api's
-// functionAppId output; api already needs monitoring's
-// appInsightsConnectionString output). Real, sequenced follow-up: a small
-// new module (or resources added directly here in main.bicep) that takes
-// BOTH monitoring.outputs.actionGroupId and api.outputs.functionAppId as
-// inputs, deployed after both, same shape as budget.bicep already does for
-// postgresServerId + oncallActionGroupId. DLQ depth still has no Azure
-// Monitor metric to scope to regardless (monitoring.bicep's own disclosed-
-// gap list, item 2). CI/CD pipeline port and the first real deploy remain
-// gated on a real Azure subscription existing.
+// items: frontend.bicep (static hosting/CDN, Deployment Architecture §5) is
+// the one remaining unwritten module — api.bicep (Azure Functions compute,
+// 2026-07-31) and iot.bicep (IoT Hub + DPS, 2026-07-31) both now exist,
+// closing those gaps. Adding frontend.bicep here as it's written is a
+// one-line change; deliberately not stubbed out with an empty placeholder
+// module, which would misrepresent partial work as scaffolded.
+// monitoring.bicep's ingest-rate-zero/Function-error-rate alerts (needs
+// api.bicep) and its IoT Hub/Event Hub metrics (needs iot.bicep,
+// monitoring.bicep's own disclosed-gap item 3) are STILL NOT wired up, even
+// though both prerequisites now exist — doing either in monitoring.bicep
+// itself would create a circular module dependency (monitoring would need
+// api's/iot's resource-id outputs; both already need monitoring's
+// appInsightsConnectionString/actionGroupId outputs). Real, sequenced
+// follow-up: a small new module (or resources added directly here in
+// main.bicep) taking monitoring.outputs.actionGroupId plus api's/iot's
+// resource-id outputs as inputs, deployed after all of them — same shape
+// budget.bicep already uses for postgresServerId + oncallActionGroupId.
+// DLQ depth still has no Azure Monitor metric to scope to regardless
+// (monitoring.bicep's own disclosed-gap item 2). CI/CD pipeline port,
+// Entra app-registration automation, APIM/Front Door, and the first real
+// deploy remain gated on a real Azure subscription existing (or, for Entra,
+// on that automation being built at all).
 
 output vnetId string = network.outputs.vnetId
 output postgresServerFqdn string = data.outputs.postgresServerFqdn
 output keyVaultUri string = data.outputs.keyVaultUri
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
+output iotHubName string = iot.outputs.iotHubName
+output iotHubHostName string = iot.outputs.iotHubHostName
+output dpsName string = iot.outputs.dpsName
+output dpsIdScope string = iot.outputs.dpsIdScope
+output dpsGlobalEndpoint string = iot.outputs.dpsGlobalEndpoint
 output costKillswitchFunctionAppName string = budget.outputs.functionAppName
 output apiFunctionAppName string = api.outputs.functionAppName
 output apiFunctionAppDefaultHostName string = api.outputs.functionAppDefaultHostName

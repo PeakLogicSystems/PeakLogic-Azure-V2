@@ -2,8 +2,10 @@
 // (backend/api/main.ts's HTTP catch-all, backend/ingest/main.ts's Event Hub
 // trigger, backend/jobs/*.main.ts's Timer triggers) — Enterprise Audit
 // (2026-07-19) §6 P0 item 1's "Functions hosting" gap, and the piece every
-// other not-yet-written module (iot.bicep, frontend.bicep) and every
-// disclosed follow-up in monitoring.bicep/budget.bicep has been waiting on.
+// other not-yet-written module (frontend.bicep) and every disclosed
+// follow-up in monitoring.bicep/budget.bicep has been waiting on. iot.bicep
+// (IoT Hub + DPS) is written too, same day — see the iotHubDeployed/
+// iotHubEventHubName params below for how this module wires to it.
 //
 // PLAN CHOICE: Flex Consumption (SKU FC1), not classic Consumption (Y1) or
 // Premium (EP1) — a real, deliberated decision, not a default:
@@ -118,15 +120,18 @@ param entraPartnersChannelPartnerIdExtProp string = ''
 param entraSelfServicePasswordUrl string = ''
 param entraSelfServiceSecurityInfoUrl string = ''
 
-// ── Real, disclosed gap: iot.bicep (IoT Hub + DPS, audit §6 P0 item 1's
-// other remaining sub-item) has not been built — backend/ingest/main.ts's
-// Event Hub trigger has nothing to connect to yet. Left blank rather than
-// fabricated; the ingest function simply won't fire (not crash, not poll a
-// fake endpoint) until IOT_HUB_EVENTHUB_CONNECTION is populated once
-// iot.bicep exists and exposes IoT Hub's built-in Event-Hub-compatible
-// endpoint.
-param iotHubEventHubConnection string = ''
-param iotHubEventHubName string = 'messages/events'
+// iot.bicep (2026-07-31) now provisions the real IoT Hub + writes its
+// ingest connection string to Key Vault as `iot-hub-ingest-connection` —
+// see this param's own reasoning. `iotHubDeployed` gates whether the
+// Key-Vault-reference app setting below is even emitted: referencing a
+// secret that doesn't exist yet (a deploy of api.bicep BEFORE iot.bicep)
+// would leave the app setting permanently unresolvable rather than simply
+// blank, a worse failure mode than not setting it at all.
+@description('Set true once iot.bicep has been deployed to this stage and populated the iot-hub-ingest-connection secret — main.bicep passes this through once both modules exist together. Defaults false so api.bicep alone (before iot.bicep exists) doesn\'t reference a Key Vault secret that isn\'t there.')
+param iotHubDeployed bool = false
+
+@description('iot.bicep\'s eventHubEndpoints.events.path output — the real built-in Event Hub entity path (conventionally the IoT Hub\'s own name), NOT the code\'s generic "messages/events" fallback default, which was never reconciled against a real Azure IoT Hub. Blank until iot.bicep exists; backend/ingest/main.ts\'s own `?? \'messages/events\'` fallback applies in the meantime (harmlessly wrong, since there\'s no real Event Hub connection to pair it with yet either).')
+param iotHubEventHubName string = ''
 
 @description('backend/shared/response.ts already defaults to \'*\' when unset — left blank here (not hardcoded to a guessed domain) until frontend.bicep/a real Azure-hosted frontend domain exists to scope it to.')
 param corsAllowedOrigin string = ''
@@ -225,8 +230,15 @@ resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'ENTRA_PARTNERS_CHANNELPARTNERID_EXT_PROP', value: entraPartnersChannelPartnerIdExtProp }
         { name: 'ENTRA_SELF_SERVICE_PASSWORD_URL', value: entraSelfServicePasswordUrl }
         { name: 'ENTRA_SELF_SERVICE_SECURITY_INFO_URL', value: entraSelfServiceSecurityInfoUrl }
-        // IoT Hub — see the disclosed-gap comment on the params above.
-        { name: 'IOT_HUB_EVENTHUB_CONNECTION', value: iotHubEventHubConnection }
+        // IoT Hub — see the iotHubDeployed/iotHubEventHubName param
+        // comments above. The connection itself is a Key-Vault-reference
+        // app setting, not a plain value: the platform resolves it at
+        // runtime using this Function App's own managed identity (already
+        // granted Key Vault Secrets User below for the DB credential),
+        // exactly like an App Service secret reference is meant to work —
+        // backend/ingest/main.ts needs no code change, it already just
+        // reads IOT_HUB_EVENTHUB_CONNECTION from its environment.
+        { name: 'IOT_HUB_EVENTHUB_CONNECTION', value: iotHubDeployed ? '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/iot-hub-ingest-connection/)' : '' }
         { name: 'IOT_HUB_EVENTHUB_NAME', value: iotHubEventHubName }
       ]
     }
@@ -327,11 +339,12 @@ resource keyVaultSecretsRole 'Microsoft.Authorization/roleAssignments@2022-04-01
 // 1. Virtual network integration on Flex Consumption is unverified against
 //    a live deployment — see the header comment. Highest-priority item to
 //    check first once a real subscription/first deploy exists.
-// 2. Entra values and the IoT Hub Event Hub connection are genuinely blank
-//    — Entra app-registration automation and iot.bicep are separate,
-//    not-yet-built P0 items (audit §6 P0 item 1). The app's own code
-//    already fails loudly (not silently) in their absence — see the params'
-//    own comments.
+// 2. Entra values are genuinely blank — Entra app-registration automation
+//    is a separate, not-yet-built P0 item (audit §6 P0 item 1). The app's
+//    own code already fails loudly (not silently) in their absence — see
+//    the params' own comments. IoT Hub connectivity (iot.bicep, 2026-07-31)
+//    now exists — see iotHubDeployed/iotHubEventHubName above for how this
+//    module wires to it.
 // 3. No deployment pipeline wired yet — this module provisions the
 //    Function App resource; actually publishing backend/'s built code into
 //    the deployment container (func azure functionapp publish / a CI/CD

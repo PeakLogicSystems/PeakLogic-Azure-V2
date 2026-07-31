@@ -211,9 +211,14 @@ resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 //    Neither is built here — flagged as real follow-up work, not faked.
 // 3. IoT Hub / Event Hub metrics (message ingress rate, throttled
 //    requests) would be a genuine, more direct proxy for "ingest stopped"
-//    than the Postgres connection-failure alert above — deferred until
-//    iot.bicep (also not yet written, same P0 item 1) provides a resource
-//    ID to scope an alert to.
+//    than the Postgres connection-failure alert above. iot.bicep now exists
+//    (2026-07-31) and provides a resource ID (iotHub.id) to scope an alert
+//    to — same circular-module-dependency consideration as item 1 applies
+//    here too (this module would need iot.bicep's output; iot.bicep has no
+//    reason to depend on this module today, but adding the alert here
+//    directly would still require importing that ID as a new param and
+//    updating main.bicep's wiring). Real, sequenced follow-up, same shape
+//    as item 1's proposed small separate module.
 
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
