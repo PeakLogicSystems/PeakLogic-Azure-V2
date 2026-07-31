@@ -55,6 +55,18 @@ param entraCustomersTenantIdExtProp string = ''
 param entraPartnersChannelPartnerIdExtProp string = ''
 param entraSelfServicePasswordUrl string = ''
 param entraSelfServiceSecurityInfoUrl string = ''
+param entraCustomersTenantId string = ''
+param entraPartnersTenantId string = ''
+param entraCustomersApiSpObjectId string = ''
+param entraStaffApiSpObjectId string = ''
+param entraCustomersApproleAdmin string = ''
+param entraCustomersApproleOperator string = ''
+param entraStaffApproleSuperadmin string = ''
+param entraStaffApproleAccountManager string = ''
+param entraCustomersDeployed bool = false
+param entraPartnersDeployed bool = false
+param entraCustomersMgmtClientId string = ''
+param entraPartnersMgmtClientId string = ''
 param corsAllowedOrigin string = ''
 
 // ── Naming convention: stage-suffixed everywhere a resource needs a unique
@@ -154,6 +166,18 @@ module api 'modules/api.bicep' = {
     entraPartnersChannelPartnerIdExtProp: entraPartnersChannelPartnerIdExtProp
     entraSelfServicePasswordUrl: entraSelfServicePasswordUrl
     entraSelfServiceSecurityInfoUrl: entraSelfServiceSecurityInfoUrl
+    entraCustomersTenantId: entraCustomersTenantId
+    entraPartnersTenantId: entraPartnersTenantId
+    entraCustomersApiSpObjectId: entraCustomersApiSpObjectId
+    entraStaffApiSpObjectId: entraStaffApiSpObjectId
+    entraCustomersApproleAdmin: entraCustomersApproleAdmin
+    entraCustomersApproleOperator: entraCustomersApproleOperator
+    entraStaffApproleSuperadmin: entraStaffApproleSuperadmin
+    entraStaffApproleAccountManager: entraStaffApproleAccountManager
+    entraCustomersDeployed: entraCustomersDeployed
+    entraPartnersDeployed: entraPartnersDeployed
+    entraCustomersMgmtClientId: entraCustomersMgmtClientId
+    entraPartnersMgmtClientId: entraPartnersMgmtClientId
     iotHubDeployed: true
     iotHubEventHubName: iot.outputs.eventHubName
     corsAllowedOrigin: corsAllowedOrigin
@@ -211,3 +235,8 @@ output dpsGlobalEndpoint string = iot.outputs.dpsGlobalEndpoint
 output costKillswitchFunctionAppName string = budget.outputs.functionAppName
 output apiFunctionAppName string = api.outputs.functionAppName
 output apiFunctionAppDefaultHostName string = api.outputs.functionAppDefaultHostName
+// Consumed by entra/staff.bicep's apiFunctionAppPrincipalId param — a
+// genuine manual hand-off between this deployment and that one (different
+// deployment scope, potentially a different tenant) — see that param's own
+// comment for why no Bicep mechanism spans both automatically.
+output apiFunctionAppPrincipalId string = api.outputs.functionAppPrincipalId

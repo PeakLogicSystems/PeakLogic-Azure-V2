@@ -120,6 +120,44 @@ param entraPartnersChannelPartnerIdExtProp string = ''
 param entraSelfServicePasswordUrl string = ''
 param entraSelfServiceSecurityInfoUrl string = ''
 
+// entra/customers.bicep, entra/partners.bicep, entra/staff.bicep
+// (2026-07-31) now mint the App Registrations, App Roles, and service
+// principals these values name — see entra/README.md for the full mapping
+// from those files' outputs to these params. Two genuinely different
+// treatments below, matching how each value is actually produced:
+// (a) tenant ids / App Role ids / service-principal object ids are plain
+//     directory identifiers, not credentials — passed through directly,
+//     same as keyVaultUri or functionAppDefaultHostName elsewhere in this
+//     file; (b) the two management-app CLIENT SECRETS are real,
+//     long-lived credentials that entra/customers.bicep and
+//     entra/partners.bicep's own header explicitly could NOT generate
+//     (Microsoft Graph Bicep's verified passwordCredentials limitation) —
+//     `az ad app credential reset` produces them manually, post-deploy, and
+//     entra/README.md's own instruction is to store the result in Key
+//     Vault under a fixed name, exactly like iotHubDeployed/
+//     iot-hub-ingest-connection's precedent, gated the same way so this
+//     module never references a secret that isn't there yet.
+@description('backend/shared/identity.ts\'s credentialFor() needs the External ID tenant\'s own directory id, separate from the issuer/audience/jwksUri values above — entra/customers.bicep\'s deployment context (`az account show --query tenantId` while signed into that tenant), not a Bicep output of that file itself.')
+param entraCustomersTenantId string = ''
+param entraPartnersTenantId string = ''
+
+@description('entra/customers.bicep\'s apiServicePrincipalObjectId output / entra/staff.bicep\'s apiServicePrincipalObjectId output — backend/shared/identity.ts\'s apiServicePrincipalObjectId(), the resourceId an appRoleAssignments POST needs.')
+param entraCustomersApiSpObjectId string = ''
+param entraStaffApiSpObjectId string = ''
+
+@description('entra/customers.bicep\'s adminRoleId/operatorRoleId outputs and entra/staff.bicep\'s superadminRoleId/accountManagerRoleId outputs — backend/shared/identity.ts\'s appRoleIdFor(). Partners has no equivalent pair: Security Architecture §2.4 resolves ordinary ChannelPartnerUser role from the DB, not an App Role (entra/partners.bicep\'s own header explains the one narrow exception, channel_partner_manager, which identity.ts never needs to look up this way since it\'s a discriminator, not an assignable "role" input).')
+param entraCustomersApproleAdmin string = ''
+param entraCustomersApproleOperator string = ''
+param entraStaffApproleSuperadmin string = ''
+param entraStaffApproleAccountManager string = ''
+
+@description('Set true once entra/customers.bicep has run AND the `az ad app credential reset` manual step (entra/README.md) has stored its result in Key Vault as `entra-customers-mgmt-secret` — same gating shape as iotHubDeployed, same reason: referencing a Key Vault secret that doesn\'t exist yet is a worse failure mode than leaving the app setting blank.')
+param entraCustomersDeployed bool = false
+param entraPartnersDeployed bool = false
+
+param entraCustomersMgmtClientId string = ''
+param entraPartnersMgmtClientId string = ''
+
 // iot.bicep (2026-07-31) now provisions the real IoT Hub + writes its
 // ingest connection string to Key Vault as `iot-hub-ingest-connection` —
 // see this param's own reasoning. `iotHubDeployed` gates whether the
@@ -230,6 +268,23 @@ resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'ENTRA_PARTNERS_CHANNELPARTNERID_EXT_PROP', value: entraPartnersChannelPartnerIdExtProp }
         { name: 'ENTRA_SELF_SERVICE_PASSWORD_URL', value: entraSelfServicePasswordUrl }
         { name: 'ENTRA_SELF_SERVICE_SECURITY_INFO_URL', value: entraSelfServiceSecurityInfoUrl }
+        // entra/*.bicep outputs — see those params' own comments above.
+        { name: 'ENTRA_CUSTOMERS_TENANT_ID', value: entraCustomersTenantId }
+        { name: 'ENTRA_PARTNERS_TENANT_ID', value: entraPartnersTenantId }
+        { name: 'ENTRA_CUSTOMERS_API_SP_OBJECT_ID', value: entraCustomersApiSpObjectId }
+        { name: 'ENTRA_STAFF_API_SP_OBJECT_ID', value: entraStaffApiSpObjectId }
+        { name: 'ENTRA_CUSTOMERS_APPROLE_ADMIN', value: entraCustomersApproleAdmin }
+        { name: 'ENTRA_CUSTOMERS_APPROLE_OPERATOR', value: entraCustomersApproleOperator }
+        { name: 'ENTRA_STAFF_APPROLE_SUPERADMIN', value: entraStaffApproleSuperadmin }
+        { name: 'ENTRA_STAFF_APPROLE_ACCOUNT_MANAGER', value: entraStaffApproleAccountManager }
+        { name: 'ENTRA_CUSTOMERS_MGMT_CLIENT_ID', value: entraCustomersMgmtClientId }
+        { name: 'ENTRA_PARTNERS_MGMT_CLIENT_ID', value: entraPartnersMgmtClientId }
+        // Client secrets — Key-Vault-reference app settings, same pattern
+        // and same reasoning as IOT_HUB_EVENTHUB_CONNECTION above, gated by
+        // their own *Deployed flags since customers/partners are deployed
+        // (and their secrets generated) independently of each other.
+        { name: 'ENTRA_CUSTOMERS_MGMT_CLIENT_SECRET', value: entraCustomersDeployed ? '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/entra-customers-mgmt-secret/)' : '' }
+        { name: 'ENTRA_PARTNERS_MGMT_CLIENT_SECRET', value: entraPartnersDeployed ? '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/entra-partners-mgmt-secret/)' : '' }
         // IoT Hub — see the iotHubDeployed/iotHubEventHubName param
         // comments above. The connection itself is a Key-Vault-reference
         // app setting, not a plain value: the platform resolves it at
@@ -339,12 +394,20 @@ resource keyVaultSecretsRole 'Microsoft.Authorization/roleAssignments@2022-04-01
 // 1. Virtual network integration on Flex Consumption is unverified against
 //    a live deployment — see the header comment. Highest-priority item to
 //    check first once a real subscription/first deploy exists.
-// 2. Entra values are genuinely blank — Entra app-registration automation
-//    is a separate, not-yet-built P0 item (audit §6 P0 item 1). The app's
-//    own code already fails loudly (not silently) in their absence — see
-//    the params' own comments. IoT Hub connectivity (iot.bicep, 2026-07-31)
-//    now exists — see iotHubDeployed/iotHubEventHubName above for how this
-//    module wires to it.
+// 2. Entra values are genuinely blank by default, but all now have a real
+//    param to receive them from — entra/customers.bicep, entra/
+//    partners.bicep, entra/staff.bicep (2026-07-31) mint every value this
+//    module wires (see entra/README.md for the exact output-to-param
+//    mapping). The app's own code still fails loudly, not silently, if any
+//    stays unset — see the params' own comments. Still genuinely
+//    unresolved regardless of whether those three files have run: the
+//    tenantId/channelPartnerId custom-attribute claims-mapping mechanism
+//    (Security Architecture §2.4/§8 — "not verified call-by-call"), and
+//    MFA/Conditional Access policy configuration (§2.2/§2.5) — neither is
+//    an app-registration/service-principal resource these files touch.
+//    IoT Hub connectivity (iot.bicep, 2026-07-31) also now exists — see
+//    iotHubDeployed/iotHubEventHubName above for how this module wires to
+//    it.
 // 3. No deployment pipeline wired yet — this module provisions the
 //    Function App resource; actually publishing backend/'s built code into
 //    the deployment container (func azure functionapp publish / a CI/CD
