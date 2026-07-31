@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Factory, Gauge, LayoutGrid, LineChart, Moon, Radio, Sun, TriangleAlert } from 'lucide-react';
+import { Factory, Gauge, LineChart, Moon, Radio, Sun, TriangleAlert } from 'lucide-react';
 import { PREVIEW } from '../api';
 import { useTheme } from '../theme';
 import { usePeakViewData } from '../store';
@@ -8,10 +8,9 @@ import { AlarmPanel } from './AlarmPanel';
 import { BrandMark } from './BrandMark';
 
 const NAV = [
-  { to: '/', label: 'Operator', icon: LayoutGrid, end: true },
+  { to: '/', label: 'Facility View', icon: Factory, end: true },
   { to: '/historian', label: 'Historian', icon: LineChart, end: false },
   { to: '/equipment', label: 'Equipment', icon: Gauge, end: false },
-  { to: '/facility', label: 'Facility View', icon: Factory, end: false },
 ];
 
 export function AppShell({ children }: { children: ReactNode }) {

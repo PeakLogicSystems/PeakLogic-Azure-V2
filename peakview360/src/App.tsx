@@ -4,7 +4,6 @@ import { Loader2 } from 'lucide-react';
 import { AppShell } from './components/AppShell';
 import { Equipment } from './screens/Equipment';
 import { FacilityView } from './screens/FacilityView';
-import { OperatorScreen } from './screens/OperatorScreen';
 import { PeakViewProvider } from './store';
 import { ThemeProvider } from './theme';
 
@@ -19,7 +18,7 @@ export function App() {
         <BrowserRouter>
           <AppShell>
             <Routes>
-              <Route path="/" element={<OperatorScreen />} />
+              <Route path="/" element={<FacilityView />} />
               <Route
                 path="/historian"
                 element={
@@ -29,7 +28,6 @@ export function App() {
                 }
               />
               <Route path="/equipment" element={<Equipment />} />
-              <Route path="/facility" element={<FacilityView />} />
             </Routes>
           </AppShell>
         </BrowserRouter>
