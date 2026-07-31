@@ -360,6 +360,14 @@ resource keyVaultSecretsRole 'Microsoft.Authorization/roleAssignments@2022-04-01
 //    shape for now; revisit if/when a stage-specific need actually appears
 //    (e.g. higher maximumInstanceCount or always-ready instances for prod
 //    once real traffic justifies it — not preemptively).
+// 6. apim.bicep (2026-07-31) now fronts this Function App for rate
+//    limiting, but this Function App's own default hostname is NOT locked
+//    down to "APIM traffic only" — Consumption-tier APIM has no static
+//    outbound IP to restrict by (see apim.bicep's header). A caller who
+//    finds this hostname directly bypasses APIM's rate limit entirely.
+//    Real, disclosed follow-up, same item apim.bicep names: an
+//    authentication-based restriction (a shared-secret header APIM injects,
+//    validated here) — a backend code change, not done in this pass.
 
 output functionAppName string = apiFunctionApp.name
 output functionAppId string = apiFunctionApp.id

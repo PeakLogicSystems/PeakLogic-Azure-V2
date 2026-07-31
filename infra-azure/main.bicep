@@ -160,33 +160,47 @@ module api 'modules/api.bicep' = {
   }
 }
 
+module apim 'modules/apim.bicep' = {
+  name: 'apim-${stage}'
+  params: {
+    namePrefix: namePrefix
+    uniqueSuffix: uniqueSuffix
+    location: location
+    stage: stage
+    publisherEmail: alertEmail
+    functionAppDefaultHostName: api.outputs.functionAppDefaultHostName
+  }
+}
+
 // ── Not yet written — tracked honestly, not silently omitted ──
 // Per Infrastructure as Code §3's planned module structure and §8's open
 // items: frontend.bicep (static hosting/CDN, Deployment Architecture §5) is
-// the one remaining unwritten module — api.bicep (Azure Functions compute,
-// 2026-07-31) and iot.bicep (IoT Hub + DPS, 2026-07-31) both now exist,
-// closing those gaps. Adding frontend.bicep here as it's written is a
-// one-line change; deliberately not stubbed out with an empty placeholder
-// module, which would misrepresent partial work as scaffolded.
-// monitoring.bicep's ingest-rate-zero/Function-error-rate alerts (needs
-// api.bicep) and its IoT Hub/Event Hub metrics (needs iot.bicep,
-// monitoring.bicep's own disclosed-gap item 3) are STILL NOT wired up, even
-// though both prerequisites now exist — doing either in monitoring.bicep
-// itself would create a circular module dependency (monitoring would need
-// api's/iot's resource-id outputs; both already need monitoring's
-// appInsightsConnectionString/actionGroupId outputs). Real, sequenced
-// follow-up: a small new module (or resources added directly here in
-// main.bicep) taking monitoring.outputs.actionGroupId plus api's/iot's
-// resource-id outputs as inputs, deployed after all of them — same shape
-// budget.bicep already uses for postgresServerId + oncallActionGroupId.
-// DLQ depth still has no Azure Monitor metric to scope to regardless
-// (monitoring.bicep's own disclosed-gap item 2). CI/CD pipeline port,
-// Entra app-registration automation, APIM/Front Door, and the first real
+// the one remaining unwritten module — api.bicep, iot.bicep (both
+// 2026-07-31), and apim.bicep (2026-07-31, rate limiting only — WAF/Front
+// Door deliberately deferred, see apim.bicep's own header for the
+// reasoning) all now exist, closing those gaps. Adding frontend.bicep here
+// as it's written is a one-line change; deliberately not stubbed out with
+// an empty placeholder module, which would misrepresent partial work as
+// scaffolded. monitoring.bicep's ingest-rate-zero/Function-error-rate
+// alerts (needs api.bicep) and its IoT Hub/Event Hub metrics (needs
+// iot.bicep, monitoring.bicep's own disclosed-gap item 3) are STILL NOT
+// wired up, even though both prerequisites now exist — doing either in
+// monitoring.bicep itself would create a circular module dependency
+// (monitoring would need api's/iot's resource-id outputs; both already
+// need monitoring's appInsightsConnectionString/actionGroupId outputs).
+// Real, sequenced follow-up: a small new module (or resources added
+// directly here in main.bicep) taking monitoring.outputs.actionGroupId
+// plus api's/iot's resource-id outputs as inputs, deployed after all of
+// them — same shape budget.bicep already uses for postgresServerId +
+// oncallActionGroupId. DLQ depth still has no Azure Monitor metric to
+// scope to regardless (monitoring.bicep's own disclosed-gap item 2). CI/CD
+// pipeline port, Entra app-registration automation, and the first real
 // deploy remain gated on a real Azure subscription existing (or, for Entra,
 // on that automation being built at all).
 
 output vnetId string = network.outputs.vnetId
 output postgresServerFqdn string = data.outputs.postgresServerFqdn
+output apimGatewayUrl string = apim.outputs.apimGatewayUrl
 output keyVaultUri string = data.outputs.keyVaultUri
 output appInsightsConnectionString string = monitoring.outputs.appInsightsConnectionString
 output iotHubName string = iot.outputs.iotHubName
