@@ -10,6 +10,14 @@
 // an AWS ALB/NAT placement would — the platform handles the HTTP-triggered
 // function's public endpoint itself, outside this VNet entirely:
 //
+// CORRECTED 2026-07-31 (api.bicep): snet-compute's delegation was
+// `Microsoft.Web/serverFarms` — the delegation for Premium/App-Service-plan
+// VNet integration. api.bicep uses the Flex Consumption plan instead (see
+// its own header comment for why), which requires a DIFFERENT delegation —
+// `Microsoft.App/environments`, verified via Microsoft Learn. Fixed here
+// rather than left wrong, since nothing had deployed against the old
+// delegation yet (no Azure subscription exists — Infrastructure as Code §8).
+//
 //   snet-compute — VNet-integrated Azure Functions egress (outbound to
 //                  Postgres, Key Vault, IoT Hub). Analogous in *purpose* to
 //                  network-stack.ts's PRIVATE_WITH_EGRESS tier.
@@ -61,7 +69,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
             {
               name: 'functions-delegation'
               properties: {
-                serviceName: 'Microsoft.Web/serverFarms'
+                serviceName: 'Microsoft.App/environments'
               }
             }
           ]

@@ -193,9 +193,15 @@ resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 // 1. "Ingest rate zero" and "Function error rate" (the audit's own primary
 //    ask) need a Function App resource to attach a metrics alert to
 //    (requests count / failure count, Microsoft.Web/sites metric
-//    namespace) — api.bicep does not exist yet (audit §6 P0 item 1). Add
-//    those alert rules alongside api.bicep, scoped to its Function App
-//    resource id, the same pattern used here for postgresServerId.
+//    namespace). api.bicep now exists (2026-07-31) — but adding those
+//    alerts HERE would create a circular module dependency (this module
+//    would need api.bicep's functionAppId output; api.bicep already
+//    consumes THIS module's appInsightsConnectionString output). Build them
+//    as a small separate module/resource block instead, taking both this
+//    module's actionGroupId output and api.bicep's functionAppId output as
+//    inputs, deployed after both — same shape main.bicep's budget module
+//    already uses (postgresServerId + oncallActionGroupId from two
+//    different upstream modules).
 // 2. "DLQ depth" (poison_messages row count, backend/shared/poison-
 //    messages.ts) has no Azure Monitor metric at all — it's a row count in
 //    Postgres, not a platform metric. Real options once api.bicep exists:
