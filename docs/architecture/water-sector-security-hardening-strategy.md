@@ -3,7 +3,7 @@
 **Product (unified platform):** PeakLogicSystems (cloud) · PeakView360 (HMI/SCADA) · PeakLogic Hubs (edge) · PeakAssist (help)
 **Company:** PeakLogic
 **Project codename:** Project Vantage
-**Status:** Draft v0.1 — new artifact, triggered by an external incident, not a scheduled sequence item
+**Status:** Draft v0.2 — all 6 Tier 0 items shipped in real, tested code the same day (2026-08-01); still Draft because none of it has run against a real Azure subscription (no Azure CLI/subscription access anywhere in this environment), and Tier 1/2 remain unstarted by design (see §5)
 **Depends on:** [Security Architecture](security-architecture.md), [Device & Command Security Architecture](device-command-security-architecture.md), [Threat Model](threat-model.md), [Technical Debt Register](technical-debt-register.md), [CI/CD Pipeline](cicd-pipeline.md), [Enterprise Audit 2026-07-19](enterprise-audit-2026-07-19.md)
 **Last updated:** 2026-08-01
 
@@ -165,5 +165,11 @@ Concrete follow-on work (not started here, flagged for a deliberate go/no-go wit
 ---
 
 ## 9. Review Log
+
+**v0.2 (2026-08-01), all six Tier 0 items shipped same day.** Commits `e6fdb69` (0.1 audit logging, 0.3 device-identity revocation), `41ab200` (0.6 SCA scanning), `3b8c92d` (0.4 ingest-rate-zero/error-rate alerts), `583eb6f` (0.5 APIM bypass fix), `1730e2b` (0.2 session revocation). 259 backend tests passing (up from 249 at v0.1), all new code typechecked and tested, no local Bicep validation possible (no Azure CLI in this environment — same standing limitation as the rest of `infra-azure/`).
+
+**Real findings surfaced while doing the work, not just planned in advance** — this is the same "review passes catch things a straight implementation pass misses" pattern this project has seen repeatedly elsewhere (Multi-Tenant Architecture's three RLS audit passes, the Security Architecture orphaned-group finding): TD-45 (a wrong comment claiming RLS revokes a removed tenant user's access — it doesn't; `withTenant()` has no per-request user-existence check, unlike `withChannelPartner()`), TD-46 (a nested `BEGIN`/`COMMIT` bug in `partner-routes.ts` that clears RLS session variables early), TD-44 and TD-47 (two real dependency vulnerabilities, one newly introduced by this session's own `azure-iothub` addition, one pre-existing and upstream-unfixable). All four disclosed in the Technical Debt Register rather than silently fixed or ignored.
+
+**How to apply:** Tier 1 (role-granularity resolution, cert-rotation ownership, full command-channel audit trail) stays gated behind actuation actually being scheduled — not started, per §5's own framing. Tier 2 (repurposing the desired-state reconciler as a tamper-detection signal, fleet-behavioral anomaly detection, PSRule, compliance-evidence export) is real, scoped, buildable work with no Azure subscription needed — a reasonable next session's focus if security work continues, alongside the market-positioning follow-on named in §6.
 
 **v0.1 (2026-08-01), initial version.** Triggered by the 2026-07-26/27 water-sector cyberattacks. Real-world incident facts sourced from 8 independent outlets/agencies (§2). Codebase findings verified by a dedicated Explore-agent pass against actual files, with one agent-reported finding (audit-log call-site count) caught as wrong and corrected via direct `grep` before being written here — the count is 4 call sites / ~11% coverage, not zero. Tier 0 items 0.1–0.6 started same day.
