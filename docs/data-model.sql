@@ -834,7 +834,18 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
           WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
-            AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
+            -- ST_Covers, not ST_Contains — REAL BUG found and fixed 2026-08-01
+            -- (Water-Sector Security Hardening Strategy §5, the same session
+            -- that finally got a real Postgres/PostGIS integration test run
+            -- for the first time): PostGIS has no ST_Contains(geography,
+            -- geography) overload at all — it only exists for `geometry`.
+            -- This function would have thrown "function st_contains(geography,
+            -- geography) does not exist" on its very first real invocation,
+            -- meaning a technician's territory-scoped site access has never
+            -- actually worked, ever. ST_Covers is PostGIS's own recommended
+            -- geography-native replacement (simpler boundary semantics, no
+            -- geometry cast needed) — verified live, not guessed.
+            AND ST_Covers(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
         )
       )
   );

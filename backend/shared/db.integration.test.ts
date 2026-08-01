@@ -233,7 +233,12 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
               OR EXISTS (
                 SELECT 1 FROM channel_partner_users cpu JOIN territories terr ON terr.id = cpu.territory_id
                 WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
-                  AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
+                  -- ST_Covers, not ST_Contains — REAL BUG found 2026-08-01,
+                  -- the first time this fixture ever ran against real
+                  -- PostGIS: no ST_Contains(geography, geography) overload
+                  -- exists. Mirrors the identical fix in docs/data-model.sql/
+                  -- the real migrations.
+                  AND ST_Covers(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
               )
             )
         );
@@ -541,11 +546,15 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
   it('after app.current_tenant_id is set (the handler.ts pattern, post-lookup), the same session correctly reads only that tenant\'s rows', async () => {
     await ownerClient.query('BEGIN');
     try {
-      await ownerClient.query('SET LOCAL app.current_tenant_id = $1', [tenantA]);
+      // set_config(), not SET LOCAL — this test's own copy of the exact bug
+      // fixed in shared/db.ts today (SET LOCAL doesn't accept bind
+      // parameters at all); this test file's job is to catch exactly this
+      // class of mistake, so its own fixture can't be exempt from the fix.
+      await ownerClient.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantA]);
       const own = await ownerClient.query('SELECT * FROM rls_test_devices WHERE id = $1', [deviceA]).then(r => r.rows);
       expect(own).toHaveLength(1);
 
-      await ownerClient.query('SET LOCAL app.current_tenant_id = $1', [tenantB]);
+      await ownerClient.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantB]);
       const other = await ownerClient.query('SELECT * FROM rls_test_devices WHERE id = $1', [deviceA]).then(r => r.rows);
       expect(other).toHaveLength(0);
     } finally {
@@ -574,13 +583,26 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
     await setup.connect();
 
     await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // REAL BUG found and fixed 2026-08-01, the first time this fixture ever
+    // ran: this table used to be named `claim_test_tenants`, but withTenant()
+    // (the real, imported production function this whole block calls) has
+    // `tenants` and its `status` column hardcoded — it can never look up a
+    // differently-named table. Every test below that calls withTenant()
+    // failed with "relation \"tenants\" does not exist" until this was
+    // renamed to match, with the `status` column withTenant() actually
+    // queries. Named literally `tenants` deliberately (not e.g.
+    // `claim_test_tenants` renamed) — sibling describe blocks in this same
+    // file already establish that convention, and each block's own afterAll
+    // drops its tables before the next block's beforeAll runs, so reusing
+    // the name sequentially is safe.
     await setup.query(`
-      CREATE TABLE claim_test_tenants (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid()
+      CREATE TABLE tenants (
+        id     UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','trial'))
       );
       CREATE TABLE claim_test_devices (
         id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        tenant_id UUID REFERENCES claim_test_tenants(id),
+        tenant_id UUID REFERENCES tenants(id),
         serial    TEXT NOT NULL UNIQUE
       );
       ALTER TABLE claim_test_devices ENABLE ROW LEVEL SECURITY;
@@ -598,8 +620,8 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
         WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
     `);
 
-    const { rows: [a] } = await setup.query('INSERT INTO claim_test_tenants DEFAULT VALUES RETURNING id');
-    const { rows: [b] } = await setup.query('INSERT INTO claim_test_tenants DEFAULT VALUES RETURNING id');
+    const { rows: [a] } = await setup.query('INSERT INTO tenants DEFAULT VALUES RETURNING id');
+    const { rows: [b] } = await setup.query('INSERT INTO tenants DEFAULT VALUES RETURNING id');
     tenantA = a.id;
     tenantB = b.id;
 
@@ -613,7 +635,7 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
   });
 
   afterAll(async () => {
-    await setup.query('DROP TABLE IF EXISTS claim_test_devices, claim_test_tenants CASCADE');
+    await setup.query('DROP TABLE IF EXISTS claim_test_devices, tenants CASCADE');
     await setup.end();
   });
 

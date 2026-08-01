@@ -201,7 +201,13 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
           WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
-            AND ST_Contains(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
+            -- ST_Covers, not ST_Contains — REAL BUG found and fixed
+            -- 2026-08-01 (Water-Sector Security Hardening Strategy §5):
+            -- PostGIS has no ST_Contains(geography, geography) overload,
+            -- only `geometry`. Never actually run before today (no
+            -- migration has ever been applied to a real database) — see
+            -- docs/data-model.sql's mirrored copy for the full writeup.
+            AND ST_Covers(terr.boundary, ST_SetSRID(ST_MakePoint(s.lng, s.lat), 4326)::geography)
         )
       )
   );

@@ -99,6 +99,14 @@ describeIfDb('policy resolver — DB-backed resolution under RLS (real Postgres)
       await owner.end();
     }
     if (setup) {
+      // DROP OWNED BY before DROP ROLE — same real bug found and fixed
+      // 2026-08-01 in shared/db.integration.test.ts's identical rls_test_
+      // owner pattern: dropping the owned table above does NOT revoke the
+      // GRANT CREATE ON SCHEMA public or the GRANT ... ON policies TO
+      // policy_rls_owner (line 80 above) — Postgres tracks both as real
+      // dependencies, so a bare DROP ROLE fails with "role ... cannot be
+      // dropped because some objects depend on it."
+      await setup.query('DROP OWNED BY policy_rls_owner');
       await setup.query('DROP ROLE IF EXISTS policy_rls_owner');
       await setup.end();
     }
