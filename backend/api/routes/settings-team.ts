@@ -2,7 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
-import { createEntraUser } from '../../shared/identity';
+import { createEntraUser, revokeUserSessions } from '../../shared/identity';
 import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { User } from '../../shared/types';
@@ -109,8 +109,10 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
 // equivalent per-request check for tenant users at all: withTenant() only
 // takes a bare tenantId, not the caller's identity, so it has no way to.
 //
-// The new force-logout endpoint (shared/session-revocation.ts, wired at
-// POST /v1/admin/tenants/{tenantId}/users/{userId}/revoke-sessions, Graph's
+// The new force-logout endpoint (revokeSessions() below, wired at POST
+// /v1/settings/team/{userId}/revoke-sessions — a tenant admin's own
+// self-service action, not staff-only, since a real incident needs this
+// available immediately — shared/identity.ts's revokeUserSessions(), Graph's
 // revokeSignInSessions) is real defense-in-depth but is honestly NOT a full
 // fix: this backend validates JWTs offline (signature + issuer + audience +
 // expiry only, no Continuous Access Evaluation), so revokeSignInSessions
@@ -134,5 +136,33 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       action: 'team_member.remove', targetEntity: 'user', targetId: user.id,
     });
     return ok(user);
+  });
+}
+
+// POST /v1/settings/team/{userId}/revoke-sessions — Water-Sector Security
+// Hardening Strategy §5 Tier 0.2. A tenant admin's own immediate,
+// self-service incident-response action (not staff-only — see this file's
+// remove()-side correction above for the full reasoning and its honest
+// limitation). Looks up the target user's cognito_sub first — Graph's
+// revokeSignInSessions needs the Entra directory object id, not this
+// backend's own users.id.
+export async function revokeSessions(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
+  requireRole(auth, 'admin');
+  const { userId } = event.pathParameters!;
+
+  return withTenant(auth.tenantId, async (client) => {
+    const { rows: [user] } = await client.query<User>(
+      `SELECT ${USER_COLUMNS} FROM users WHERE id = $1`,
+      [userId],
+    );
+    if (!user) return notFound(`User ${userId} not found`);
+
+    await revokeUserSessions('customers', user.cognito_sub);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'team_member.revoke_sessions', targetEntity: 'user', targetId: user.id,
+    });
+    return ok({ revoked: true });
   });
 }

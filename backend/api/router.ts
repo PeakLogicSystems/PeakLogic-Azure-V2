@@ -76,6 +76,7 @@ const ROUTES: Record<string, RouteHandler<AuthContext>> = {
   'POST /v1/settings/team':              settingsTeam.create,
   'PUT /v1/settings/team/{userId}':      settingsTeam.update,
   'DELETE /v1/settings/team/{userId}':   settingsTeam.remove,
+  'POST /v1/settings/team/{userId}/revoke-sessions': settingsTeam.revokeSessions,
 };
 
 const compiled = compileRoutes(ROUTES);

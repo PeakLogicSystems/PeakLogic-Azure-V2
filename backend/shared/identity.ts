@@ -177,6 +177,36 @@ export async function createEntraUser(
 }
 
 /**
+ * Water-Sector Security Hardening Strategy §5 Tier 0.2 — Microsoft Graph's
+ * `revokeSignInSessions`, the direct mirror of the 2026-07-26/27 water-
+ * sector attacks' operator-lockout technique: PeakLogic needs the ability
+ * to lock a compromised or departing user out immediately, the same way
+ * those attackers locked real operators out of their own systems.
+ *
+ * HONEST LIMITATION, disclosed at every call site that references this, not
+ * just here: this invalidates the user's refresh tokens (and browser
+ * session cookies), stopping them from obtaining a NEW access token — it
+ * does NOT retroactively invalidate an access token already issued and
+ * still inside its expiry window, since this backend validates JWTs
+ * offline (signature + issuer + audience + expiry only, shared/auth.ts) with
+ * no Continuous Access Evaluation configured. Real, valuable defense-in-
+ * depth; not a complete, instant cutoff (see TD-45 for what would be).
+ *
+ * Graph returns `{ value: boolean }` on success (per Microsoft's
+ * documented shape), not a 204 — `graph()`'s own "204 means undefined"
+ * branch doesn't apply here, so the response body is read normally.
+ */
+export async function revokeUserSessions(kind: EntraTenantKind, userId: string): Promise<void> {
+  const result = await graph<{ value: boolean }>(kind, 'POST', `/users/${userId}/revokeSignInSessions`);
+  if (!result?.value) {
+    throw Object.assign(
+      new Error(`Graph revokeSignInSessions for user ${userId} in the '${kind}' tenant reported failure`),
+      { statusCode: 502 },
+    );
+  }
+}
+
+/**
  * Entra manages password change and MFA enrollment through its OWN
  * self-service flows (SSPR / the My-Sign-Ins security-info page), NOT via a
  * backend API call the way Cognito's ChangePassword/GetUser did with the
