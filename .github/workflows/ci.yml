@@ -139,8 +139,9 @@ jobs:
   # ubuntu-latest — no setup action required.
   #
   # PSRule for Azure (cdk-nag's best-practices-check analogue, cicd-pipeline.md
-  # §2.2) is NOT wired up yet — flagged as a real, disclosed gap, not silently
-  # dropped. Add a `microsoft/ps-rule` step here when that's prioritized.
+  # §2.2) is wired up separately, in the infra-psrule job below (Water-Sector
+  # Security Hardening Strategy §5 Tier 2 item 3, 2026-08-01) — this job stays
+  # compile-time-only.
   infra-validate:
     runs-on: ubuntu-latest
     steps:
@@ -155,6 +156,32 @@ jobs:
       - run: az bicep build --file infra-azure/entra/customers.bicep --stdout > /dev/null
       - run: az bicep build --file infra-azure/entra/partners.bicep --stdout > /dev/null
       - run: az bicep build --file infra-azure/entra/staff.bicep --stdout > /dev/null
+
+  # Water-Sector Security Hardening Strategy §5 Tier 2 item 3 — the
+  # cdk-nag-equivalent best-practices check against Microsoft's own Azure
+  # security/well-architected rules, closing the gap `infra-validate` above
+  # (compile-time-only) was always disclosed as not covering. Expands each
+  # *.psrule.bicepparam-driven deployment — see ps-rule.yaml's own header for
+  # why raw .bicep files aren't scanned directly (several have required
+  # parameters PSRule can't supply on its own).
+  #
+  # GENUINELY UNTESTED END-TO-END, same standing caveat as every other piece
+  # of infra-azure/: no Azure CLI/PSRule module available in the environment
+  # this was written in. The first real run of this job (the next push/PR)
+  # is also the first real verification that the *.psrule.bicepparam
+  # expansion approach actually works, and is very likely to surface real
+  # findings needing triage — the same shape as cdk-nag's own first run on
+  # the AWS side (21 findings, 6 fixed + 13 suppressed with a written reason,
+  # 0 left open) — not something to pre-emptively suppress without having
+  # seen real output first.
+  infra-psrule:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run PSRule for Azure
+        uses: microsoft/ps-rule@v2.9.0
+        with:
+          modules: 'PSRule.Rules.Azure'
 
   # Water-Sector Security Hardening Strategy §5 Tier 0.6 — SCA (software
   # composition analysis). `--omit=dev --audit-level=high`, deliberately not

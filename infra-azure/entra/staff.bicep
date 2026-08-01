@@ -44,6 +44,12 @@
 // Sources: same as customers.bicep's header, plus
 //   https://graphpermissions.merill.net/permission/User.ReadWrite.All (re-cited: this file's own appRoleAssignedTo target)
 
+// Water-Sector Security Hardening Strategy §5 Tier 2 item 3 (2026-08-01) —
+// same real targetScope/deploy-command mismatch found and fixed in
+// customers.bicep, fixed here too — see that file's header for the full
+// reasoning and the confirmed Bicep error it would have produced.
+targetScope = 'subscription'
+
 extension microsoftGraphV1
 
 @description('Admin Console frontend origin(s) — see customers.bicep\'s spaRedirectUris param.')

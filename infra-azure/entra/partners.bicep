@@ -25,6 +25,12 @@
 //
 // Sources: same as customers.bicep's header.
 
+// Water-Sector Security Hardening Strategy §5 Tier 2 item 3 (2026-08-01) —
+// same real targetScope/deploy-command mismatch found and fixed in
+// customers.bicep, fixed here too — see that file's header for the full
+// reasoning and the confirmed Bicep error it would have produced.
+targetScope = 'subscription'
+
 extension microsoftGraphV1
 
 @description('Partner portal frontend origin(s), e.g. ["https://partners.peaklogicsolutions.com"] — see customers.bicep\'s spaRedirectUris param for why an empty array is safe.')

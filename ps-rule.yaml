@@ -1,0 +1,34 @@
+# PSRule for Azure configuration — Water-Sector Security Hardening Strategy
+# §5 Tier 2 item 3, the cdk-nag-equivalent best-practices check `ci.yml`'s
+# own `infra-validate` job has disclosed as missing since the CI/CD wiring
+# work (2026-08-01): `az bicep build` there is compile-time-only (type/schema
+# validation), never a check against Microsoft's own Azure security/
+# well-architected baseline the way `cdk-nag` did on the AWS side.
+#
+# Scoped to *.bicepparam files only, not raw .bicep — PSRule's own documented
+# limitation (verified via azure.github.io/PSRule.Rules.Azure/using-bicep/):
+# a Bicep file with required parameters and no supplied values cannot be
+# expanded for analysis at all. Several of ours (every infra-azure/modules/
+# *.bicep file, called only as a module with real values from main.bicep)
+# have exactly that shape. The officially recommended fix (the same project's
+# own GitHub-Actions quickstart) is a companion *.psrule.bicepparam file per
+# real deployable entry point, analysis-only, never used for a real deploy —
+# see infra-azure/main.psrule.bicepparam's header for the full reasoning.
+# main.bicep pulls in every modules/*.bicep file itself, so expanding it via
+# its own .psrule.bicepparam analyzes all 7 modules in one pass, the same way
+# `az bicep build --file main.bicep` already does for compile validation.
+
+requires:
+  PSRule.Rules.Azure: '>=1.34.0'
+
+include:
+  module:
+    - PSRule.Rules.Azure
+
+configuration:
+  AZURE_BICEP_FILE_EXPANSION: true
+
+input:
+  pathIgnore:
+    - '**'
+    - '!**/*.bicepparam'

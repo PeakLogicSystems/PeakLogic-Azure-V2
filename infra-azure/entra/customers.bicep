@@ -101,6 +101,19 @@
 //   - https://learn.microsoft.com/en-us/graph/templates/bicep/limitations (passwordCredentials NOT supported — verified, not assumed)
 //   - https://graphpermissions.merill.net/permission/User.ReadWrite.All (Application permission id 741f803b-c850-494e-b5df-cde7c675a1ca)
 
+// Water-Sector Security Hardening Strategy §5 Tier 2 item 3 (2026-08-01) —
+// found and fixed while writing .bicepparam files so PSRule for Azure could
+// expand this template for CI analysis: this file's own header comment
+// documents `az deployment sub create` as the deploy command, but Bicep's
+// targetScope defaults to 'resourceGroup' when not declared — a real,
+// confirmed mismatch (Bicep raises exactly this as a hard error: "The
+// target scope 'resourceGroup' does not match the deployment scope
+// 'subscription'", github.com/Azure/bicep#11137), not a style nit. Would
+// have failed the very first real run of the documented deploy command.
+// Safe to add: neither this file nor its siblings ever call
+// resourceGroup() (verified by grep before adding this).
+targetScope = 'subscription'
+
 extension microsoftGraphV1
 
 @description('Frontend origin(s) the customer SPA is served from, e.g. ["https://app.peaklogicsolutions.com"] — required for the SPA app registration\'s redirect URIs. Left empty-array-safe (no redirect URIs registered) until a real Azure-hosted frontend domain exists (frontend.bicep, not yet written) — an app registration with zero redirect URIs is valid, it just can\'t complete a real sign-in yet.')
