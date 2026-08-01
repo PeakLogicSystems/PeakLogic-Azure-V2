@@ -83,8 +83,23 @@ export async function getPool(): Promise<Pool> {
   // via a plain connection string, gated on a variable no real Azure
   // Functions deployment ever sets (KEY_VAULT_URI is what production uses;
   // TEST_DATABASE_URL only exists in a test runner's environment).
-  if (process.env.TEST_DATABASE_URL) {
-    pool = new Pool({ connectionString: process.env.TEST_DATABASE_URL, max: 2, ssl: false });
+  //
+  // TD-50, fixed 2026-08-01 — TEST_APP_DATABASE_URL, not TEST_DATABASE_URL,
+  // is what this pool actually connects as when set: TEST_DATABASE_URL is
+  // the Postgres Docker image's own initdb superuser (used by every
+  // integration test file's own `setup`/`ownerClient` for schema DDL), and
+  // real Postgres superusers bypass Row-Level Security UNCONDITIONALLY —
+  // meaning every withTenant()/withChannelPartner() query run through it
+  // could never actually prove RLS blocks anything, regardless of how
+  // correct the policies themselves are. TEST_APP_DATABASE_URL points at a
+  // dedicated non-superuser role (vitest.integration.setup.ts creates it
+  // once, globally, before any test file runs) so this pool is subject to
+  // RLS exactly the way a real (non-superuser) production app role is.
+  // Falls back to TEST_DATABASE_URL if unset, so this doesn't silently
+  // break any test/tooling that hasn't been updated to set the new var.
+  const testConnectionString = process.env.TEST_APP_DATABASE_URL ?? process.env.TEST_DATABASE_URL;
+  if (testConnectionString) {
+    pool = new Pool({ connectionString: testConnectionString, max: 2, ssl: false });
     pool.on('error', (err) => {
       console.error('PG pool error', err);
       pool = null;

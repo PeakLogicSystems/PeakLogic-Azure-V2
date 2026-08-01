@@ -18,5 +18,11 @@ export default defineConfig({
     // serially than risk two tests' transactions interleaving in ways that
     // mask a real isolation bug as a flaky test.
     fileParallelism: false,
+    // TD-50 — creates the non-superuser peaklogic_test_app role (once, before
+    // any test file) that getPool() connects as via TEST_APP_DATABASE_URL,
+    // so RLS is actually enforced against these tests instead of silently
+    // bypassed by TEST_DATABASE_URL's own superuser connection. See
+    // vitest.integration.setup.ts's header comment for the full reasoning.
+    globalSetup: ['./vitest.integration.setup.ts'],
   },
 });

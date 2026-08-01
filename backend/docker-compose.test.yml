@@ -4,7 +4,14 @@ services:
   # db.integration.test.ts for why). Matches the major version this project
   # actually runs (infra/lib/data-stack.ts's PostgresEngineVersion.VER_16).
   # NOT used by production or by `npm test` (unit tests only, no DB needed) —
-  # only `npm run test:integration` with TEST_DATABASE_URL pointed at this.
+  # only `npm run test:integration`, with BOTH of the following set (TD-50,
+  # fixed 2026-08-01 — see shared/db.ts's getPool() and
+  # vitest.integration.setup.ts for why two separate URLs/roles are needed,
+  # not one):
+  #   TEST_DATABASE_URL=postgresql://test:test@localhost:5433/peaklogic_test
+  #   TEST_APP_DATABASE_URL=postgresql://peaklogic_test_app:test@localhost:5433/peaklogic_test
+  # The second role is created automatically by vitest's global setup — no
+  # manual step needed beyond setting the env var.
   postgres-test:
     # postgis/postgis, not plain postgres — real bug found 2026-08-01 by the
     # first-ever CI run against a real Postgres (ci.yml's own service

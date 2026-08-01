@@ -104,6 +104,15 @@ jobs:
         working-directory: backend
         env:
           TEST_DATABASE_URL: postgresql://test:test@localhost:5432/peaklogic_test
+          # TD-50, fixed 2026-08-01 — the role `test` above is the Postgres
+          # image's own initdb superuser, which bypasses RLS unconditionally
+          # and can't actually verify anything this test suite claims about
+          # RLS enforcement. vitest.integration.setup.ts creates this
+          # dedicated non-superuser role once (globally, before any test
+          # file runs); shared/db.ts's getPool() connects as it instead of
+          # the superuser, while every test file's own `setup`/`ownerClient`
+          # keeps using TEST_DATABASE_URL (the superuser) for schema DDL.
+          TEST_APP_DATABASE_URL: postgresql://peaklogic_test_app:test@localhost:5432/peaklogic_test
 
   frontend-build:
     runs-on: ubuntu-latest
