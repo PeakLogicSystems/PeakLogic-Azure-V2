@@ -131,7 +131,14 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
 
     // Tenant now known — every remaining query in this transaction is
     // properly tenant-scoped, same as any human-facing API request.
-    await client.query('SET LOCAL app.current_tenant_id = $1', [device.tenant_id]);
+    // set_config(), not SET LOCAL — CRITICAL, found and fixed 2026-08-01
+    // (Water-Sector Security Hardening Strategy §5): SET LOCAL does not
+    // accept bind parameters at all (a real PostgreSQL/node-postgres
+    // limitation, not a version quirk) — see shared/db.ts's
+    // withChannelPartner() for the full incident writeup. set_config() is a
+    // normal function call and supports parameters; its third argument
+    // (true = "is_local") is the exact SET LOCAL equivalent.
+    await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [device.tenant_id]);
 
     const time = ts ? new Date(ts) : new Date();
 

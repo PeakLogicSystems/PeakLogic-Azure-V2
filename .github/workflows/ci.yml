@@ -68,7 +68,15 @@ jobs:
     # a single ephemeral Postgres per job.
     services:
       postgres:
-        image: postgres:16
+        # Real bug found by the first-ever run of this job against a real
+        # Postgres (2026-08-01, once GitHub Actions was actually enabled on
+        # this repo, TD-49): plain `postgres:16` has no PostGIS, but
+        # db.integration.test.ts's channel-partner/territory tests need it
+        # (CREATE EXTENSION "postgis", GEOGRAPHY columns, ST_Contains). The
+        # official postgis/postgis image is a superset of the plain postgres
+        # image (same POSTGRES_USER/PASSWORD/DB env vars, same entrypoint) —
+        # not a different product to learn.
+        image: postgis/postgis:16-postgis-3
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test

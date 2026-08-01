@@ -176,7 +176,27 @@ export async function withChannelPartner<T>(
   const client = await p.connect();
   try {
     await client.query('BEGIN');
-    await client.query('SET LOCAL app.current_channel_partner_id = $1', [auth.channelPartnerId]);
+    // CRITICAL, found and fixed 2026-08-01 (Water-Sector Security Hardening
+    // Strategy §5 — the first-ever real Postgres integration-test run,
+    // possible only once CI's Postgres service container actually executed
+    // for the first time, TD-49): `SET LOCAL key = $1` with a bind parameter
+    // is not valid PostgreSQL syntax — SET is a utility command the parser
+    // handles specially and does not accept query parameters, only literal
+    // values (verified live: this is a well-documented node-postgres/
+    // PostgreSQL limitation, not a version quirk). This means EVERY
+    // tenant/channel-partner/staff-scoped database call in this entire
+    // platform has always thrown "syntax error at or near $1" the instant it
+    // touched a real Postgres server — invisible until today because every
+    // prior test mocked the pg client (which never validates SQL at all)
+    // and no integration test had ever actually run (TD-18's disclosed gap,
+    // now realized in the worst possible place: the core tenant-isolation
+    // mechanism). Fixed here and at every other SET LOCAL-with-a-parameter
+    // call site in this file (and ingest/handler.ts's one instance) by
+    // switching to `SELECT set_config(name, value, is_local)` — a normal
+    // function call, not the special SET syntax, which DOES support bind
+    // parameters; `is_local = true` is the exact SET LOCAL equivalent
+    // (reverts at the end of the transaction).
+    await client.query("SELECT set_config('app.current_channel_partner_id', $1, true)", [auth.channelPartnerId]);
 
     const { rows: [partner] } = await client.query<{ status: string }>(
       'SELECT status FROM channel_partners WHERE id = $1',
@@ -197,8 +217,9 @@ export async function withChannelPartner<T>(
       throw Object.assign(new Error('Channel partner user not found'), { statusCode: 403 });
     }
 
-    await client.query('SET LOCAL app.current_channel_partner_user_id = $1', [cpu.id]);
-    await client.query('SET LOCAL app.current_channel_partner_role = $1', [cpu.role]);
+    // set_config(), not SET LOCAL — see this function's opening comment.
+    await client.query("SELECT set_config('app.current_channel_partner_user_id', $1, true)", [cpu.id]);
+    await client.query("SELECT set_config('app.current_channel_partner_role', $1, true)", [cpu.role]);
 
     const result = await fn(client, { channelPartnerUserId: cpu.id, role: cpu.role });
     await client.query('COMMIT');
@@ -253,11 +274,15 @@ export async function withTenant<T>(
   const client = await p.connect();
   try {
     await client.query('BEGIN');
-    // SET LOCAL scopes the variable to this transaction only — safe under
-    // Azure Functions' warm-instance connection reuse, verified via
-    // Multi-Tenant Architecture §2.1a, the same reason it was safe under
-    // Lambda's warm-container reuse.
-    await client.query('SET LOCAL app.current_tenant_id = $1', [tenantId]);
+    // set_config('app.current_tenant_id', value, true), not SET LOCAL — see
+    // withChannelPartner()'s opening comment for why (CRITICAL, fixed
+    // 2026-08-01: SET LOCAL doesn't accept bind parameters at all). The
+    // is_local=true third argument is the exact SET LOCAL equivalent —
+    // scopes the variable to this transaction only, still safe under Azure
+    // Functions' warm-instance connection reuse (Multi-Tenant Architecture
+    // §2.1a), the same reason it was safe under Lambda's warm-container
+    // reuse.
+    await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantId]);
 
     const { rows: [tenant] } = await client.query<{ status: string }>(
       'SELECT status FROM tenants WHERE id = $1',
@@ -303,8 +328,10 @@ export interface StaffSession {
  * cognito_sub, not id.
  */
 async function resolveStaffSession(client: PoolClient, auth: StaffAuthContext): Promise<StaffSession> {
-  await client.query('SET LOCAL app.current_staff_cognito_sub = $1', [auth.sub]);
-  await client.query('SET LOCAL app.current_staff_role = $1', [auth.role]);
+  // set_config(), not SET LOCAL — see withChannelPartner()'s opening comment
+  // (CRITICAL, fixed 2026-08-01: SET LOCAL doesn't accept bind parameters).
+  await client.query("SELECT set_config('app.current_staff_cognito_sub', $1, true)", [auth.sub]);
+  await client.query("SELECT set_config('app.current_staff_role', $1, true)", [auth.role]);
 
   const { rows: [staffUser] } = await client.query<{ id: string; status: string }>(
     'SELECT id, status FROM peaklogic_staff_users WHERE cognito_sub = $1',
@@ -317,7 +344,7 @@ async function resolveStaffSession(client: PoolClient, auth: StaffAuthContext): 
     throw Object.assign(new Error('Staff account is disabled'), { statusCode: 403 });
   }
 
-  await client.query('SET LOCAL app.current_staff_user_id = $1', [staffUser.id]);
+  await client.query("SELECT set_config('app.current_staff_user_id', $1, true)", [staffUser.id]);
   return { staffUserId: staffUser.id, role: auth.role };
 }
 
@@ -376,7 +403,10 @@ export async function withStaffActingOnTenant<T>(
       }
     }
 
-    await client.query('SET LOCAL app.current_tenant_id = $1', [targetTenantId]);
+    // set_config(), not SET LOCAL — see withChannelPartner()'s opening
+    // comment (CRITICAL, fixed 2026-08-01: SET LOCAL doesn't accept bind
+    // parameters).
+    await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [targetTenantId]);
 
     const { rows: [tenant] } = await client.query<{ status: string }>(
       'SELECT status FROM tenants WHERE id = $1',

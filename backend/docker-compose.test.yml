@@ -6,7 +6,13 @@ services:
   # NOT used by production or by `npm test` (unit tests only, no DB needed) —
   # only `npm run test:integration` with TEST_DATABASE_URL pointed at this.
   postgres-test:
-    image: postgres:16
+    # postgis/postgis, not plain postgres — real bug found 2026-08-01 by the
+    # first-ever CI run against a real Postgres (ci.yml's own service
+    # container hit the identical gap, fixed the same day): db.integration.
+    # test.ts's channel-partner/territory tests need PostGIS (CREATE
+    # EXTENSION "postgis", GEOGRAPHY columns, ST_Contains), which plain
+    # postgres:16 doesn't have. Same image family, same env vars/entrypoint.
+    image: postgis/postgis:16-postgis-3
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test

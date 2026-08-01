@@ -27,6 +27,15 @@ include:
 
 configuration:
   AZURE_BICEP_FILE_EXPANSION: true
+  # Real finding from the first-ever CI run (2026-08-01, once GitHub Actions
+  # was actually enabled on this repo, TD-49): main.psrule.bicepparam hit
+  # PSRule's default 5-second-per-file expansion timeout — too short for
+  # main.bicep, which pulls in all 7 modules/*.bicep files in one expansion.
+  # 60s is a disclosed, untuned placeholder (same honesty as every other
+  # engineering-estimate constant in this codebase) — the valid range is
+  # 1-120 (PSRule's own documented limit); revisit if a real run still times
+  # out at 60s.
+  AZURE_BICEP_FILE_EXPANSION_TIMEOUT: 60
 
 input:
   pathIgnore:

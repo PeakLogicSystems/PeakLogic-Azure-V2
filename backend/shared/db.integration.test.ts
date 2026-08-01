@@ -476,6 +476,16 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
   afterAll(async () => {
     await ownerClient.query('DROP TABLE IF EXISTS rls_test_devices, rls_test_tenants CASCADE');
     await ownerClient.end();
+    // Real bug found by the first-ever CI run against a real Postgres
+    // (2026-08-01, TD-49 unblocked this): dropping the owned tables above
+    // does NOT revoke the `GRANT CREATE ON SCHEMA public` from setup() —
+    // Postgres tracks that grant as a real dependency, so a bare `DROP ROLE`
+    // failed with "role ... cannot be dropped because some objects depend
+    // on it ... privileges for schema public". `DROP OWNED BY` revokes
+    // every privilege the role holds (and drops anything it still owns) in
+    // one step, robust to future grants added here without a matching
+    // manual REVOKE ever being remembered.
+    await setup.query('DROP OWNED BY rls_test_owner');
     await setup.query('DROP ROLE IF EXISTS rls_test_owner');
     await setup.end();
   });

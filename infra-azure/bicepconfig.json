@@ -1,0 +1,29 @@
+// Water-Sector Security Hardening Strategy §5 Tier 2 item 3 follow-up
+// (2026-08-01) — real bug found by the first-ever CI run (once GitHub
+// Actions was actually enabled on this repo, TD-49): `az bicep build` and
+// PSRule both failed on entra/{customers,partners,staff}.bicep with "Error
+// BCP204: Extension \"microsoftGraphV1\" is not recognized". Root cause: no
+// bicepconfig.json existed ANYWHERE in this tree, so the compiler had
+// nothing telling it what the `extension microsoftGraphV1` statement in
+// those three files actually refers to — meaning those files may never
+// have compiled successfully since they were written on 2026-07-31, since
+// nothing ever actually ran `az bicep build` against them for real until
+// CI started working today.
+//
+// No `experimentalFeaturesEnabled.extensibility` flag needed — verified via
+// Azure/bicep's own release notes that the experimental flag was REMOVED
+// (the feature went GA) in Bicep v0.36.1, and the runner here uses 0.45.15,
+// well past that. Matches the official Microsoft Graph Bicep quickstart
+// template's own bicepconfig.json exactly
+// (github.com/microsoftgraph/msgraph-bicep-types), not an assumption.
+//
+// Placed at infra-azure/bicepconfig.json, not repo root or inside entra/ —
+// Bicep discovers the nearest config by walking up from the target file's
+// directory, and this location covers both infra-azure/entra/*.bicep
+// (which need it) and infra-azure/main.bicep + modules/*.bicep (which don't
+// use the extension but are unaffected by it being available).
+{
+  "extensions": {
+    "microsoftGraphV1": "br:mcr.microsoft.com/bicep/extensions/microsoftgraph/v1.0:1.0.0"
+  }
+}
