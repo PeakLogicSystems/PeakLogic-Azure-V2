@@ -4,6 +4,7 @@ import { evaluateRuleSet, sanitizeMetrics, RULES_BY_CATEGORY, type Rule, type Fi
 import { resolvePolicyRules } from './policy-resolver';
 import { updateBaseline } from './baseline';
 import { scoreAnomaly, formatAnomalyMessage } from './anomaly';
+import { CONNECTION_INTERVAL_METRIC, computeConnectionIntervalSeconds, formatConnectionAnomalyMessage } from './connection-anomaly';
 import { createAlertAndMaybeTicket } from '../shared/alerts';
 import type { AssetSpecs, Device, IoTIngestEvent, MetricBaseline } from '../shared/types';
 
@@ -134,11 +135,86 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
 
     const time = ts ? new Date(ts) : new Date();
 
-    // 2. Update device heartbeat
+    // 2. Update device heartbeat. device.last_seen_at (from the step-1 SELECT,
+    // captured BEFORE this UPDATE overwrites it) is this event's "previous"
+    // reading time — exactly the input the connection-interval anomaly check
+    // below needs, at zero extra queries.
+    const previousLastSeenAt = device.last_seen_at;
     await client.query(
       `UPDATE devices SET last_seen_at = $1, status = 'online', updated_at = now() WHERE id = $2`,
       [time, device.id],
     );
+
+    // Read once, used by both the connection-interval check below and the
+    // per-metric loop in step 3 — same AI_ANALYTICS_ENABLED gate throughout.
+    const aiEnabled = aiAnalyticsEnabled();
+
+    // 2b. Water-Sector Security Hardening Strategy §5 Tier 2 item 2 —
+    // connection-behavior anomaly: is the GAP since this device's last
+    // reading itself unusual, independent of what the reading contains?
+    // Reuses updateBaseline()/scoreAnomaly() unchanged against a reserved
+    // pseudo-metric (CONNECTION_INTERVAL_METRIC) in the same metric_baselines
+    // table — same cold-start withholding, same 3-sigma default, same
+    // AI_ANALYTICS_ENABLED gate on SCORING (maintenance always runs, exactly
+    // mirroring the per-metric baseline discipline in step 3 below). Runs
+    // once per event (a connection-cadence property of the device), not once
+    // per metric in the payload.
+    const intervalSeconds = computeConnectionIntervalSeconds(previousLastSeenAt, time);
+    if (intervalSeconds !== null) {
+      const { rows: [existingIntervalBaseline] } = await client.query<MetricBaseline>(
+        `SELECT * FROM metric_baselines WHERE device_id = $1 AND metric = $2`,
+        [device.id, CONNECTION_INTERVAL_METRIC],
+      );
+
+      if (aiEnabled && existingIntervalBaseline) {
+        const result = scoreAnomaly(existingIntervalBaseline, intervalSeconds);
+        if (result) {
+          const { rows: [alert] } = await createAlertAndMaybeTicket(client, device, {
+            type: 'connection_anomaly',
+            severity: result.severity,
+            metric: result.metric,
+            message: formatConnectionAnomalyMessage(result),
+            context: { metric: result.metric, expected: result.expected, observed: result.observed, deviation_sigma: result.deviationSigma },
+            time,
+          });
+          await client.query(
+            `INSERT INTO ai_findings (tenant_id, device_id, model_id, kind, score, explanation, alert_id)
+             VALUES ($1, $2, NULL, 'anomaly', $3, $4, $5)`,
+            [
+              device.tenant_id,
+              device.id,
+              result.deviationSigma,
+              // signal: 'connection_interval' distinguishes this from a
+              // value-based Tier 1 finding without needing a schema change —
+              // ai_findings.kind's CHECK constraint only allows
+              // ('anomaly','prediction','prescription'), and this genuinely
+              // is an anomaly, just scored on a different data dimension.
+              JSON.stringify({ signal: 'connection_interval', metric: result.metric, expected: result.expected, observed: result.observed, deviation_sigma: result.deviationSigma }),
+              alert?.id ?? null,
+            ],
+          );
+        }
+      }
+
+      const updatedIntervalBaseline = updateBaseline(
+        { tenant_id: device.tenant_id!, device_id: device.id, metric: CONNECTION_INTERVAL_METRIC },
+        existingIntervalBaseline ?? null,
+        intervalSeconds,
+        time,
+      );
+      await client.query(
+        `INSERT INTO metric_baselines (tenant_id, device_id, metric, trailing_mean, trailing_stddev, window_start, window_end, sample_count)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+         ON CONFLICT (device_id, metric) DO UPDATE SET
+           trailing_mean = EXCLUDED.trailing_mean,
+           trailing_stddev = EXCLUDED.trailing_stddev,
+           window_end = EXCLUDED.window_end,
+           sample_count = EXCLUDED.sample_count`,
+        [updatedIntervalBaseline.tenant_id, updatedIntervalBaseline.device_id, updatedIntervalBaseline.metric,
+         updatedIntervalBaseline.trailing_mean, updatedIntervalBaseline.trailing_stddev,
+         updatedIntervalBaseline.window_start, updatedIntervalBaseline.window_end, updatedIntervalBaseline.sample_count],
+      );
+    }
 
     // 3. Bulk-insert telemetry rows (idempotent — migration 1784055300000,
     // Enterprise Audit finding 2.4b) AND maintain metric_baselines + (if
@@ -160,7 +236,6 @@ export async function processIngestEvent(event: IoTIngestEvent): Promise<void> {
     // PRE-update baseline (fetched before this reading is folded in) — the
     // question is "how unusual is this reading relative to what came
     // before," not relative to a baseline this same reading already shifted.
-    const aiEnabled = aiAnalyticsEnabled();
     for (const [metric, value] of Object.entries(metrics)) {
       const insertResult = await client.query(
         `INSERT INTO telemetry (time, device_id, tenant_id, metric, value)
