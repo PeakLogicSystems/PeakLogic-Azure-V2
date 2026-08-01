@@ -39,6 +39,10 @@ param budgetLimitUsd int = 5
 @description('Shared secret the cost-killswitch webhook must present, e.g. `az deployment group create ... --parameters killswitchSecret=$(openssl rand -hex 32)`. See budget.bicep\'s header comment for why this exists instead of Azure\'s built-in Function-key mechanism.')
 param killswitchSecret string
 
+@secure()
+@description('Water-Sector Security Hardening Strategy §5 Tier 0.5 — shared secret APIM injects into every request it forwards (apim.bicep) and the backend validates (backend/shared/apim-guard.ts), closing apim.bicep\'s own disclosed "no static outbound IP to lock the Function App to APIM-only traffic" gap. Defaults to empty string DELIBERATELY, unlike dbAdminPassword/killswitchSecret above: this is a defense-in-depth addition on top of the already-mandatory Entra JWT auth every route requires, not a sole gate — an empty value on both sides means "not enforced yet," not "misconfigured," matching this codebase\'s established off-by-default feature-flag posture (AI_ANALYTICS_ENABLED, POLICY_ENGINE_ENABLED). Set a real value, e.g. `--parameters apimSharedSecret=$(openssl rand -hex 32)`, once ready to enforce it for a given stage.')
+param apimSharedSecret string = ''
+
 // ── api.bicep pass-throughs — genuinely blank until Entra app-registration
 // automation exists. See api.bicep's own param comments for why these are
 // safe to leave empty rather than defaulted to something fabricated.
@@ -181,6 +185,7 @@ module api 'modules/api.bicep' = {
     iotHubDeployed: true
     iotHubEventHubName: iot.outputs.eventHubName
     corsAllowedOrigin: corsAllowedOrigin
+    apimSharedSecret: apimSharedSecret
   }
 }
 
@@ -193,6 +198,7 @@ module apim 'modules/apim.bicep' = {
     stage: stage
     publisherEmail: alertEmail
     functionAppDefaultHostName: api.outputs.functionAppDefaultHostName
+    apimSharedSecret: apimSharedSecret
   }
 }
 

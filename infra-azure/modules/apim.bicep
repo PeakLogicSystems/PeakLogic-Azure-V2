@@ -70,6 +70,10 @@ param functionAppDefaultHostName string
 @description('Requests per minute allowed per calling IP address before APIM returns 429. A starting, disclosed placeholder — not derived from real traffic data, since none exists yet (same category as api.bicep\'s maximumInstanceCount and iot.bicep\'s iotHubCapacity). Revisit once real usage patterns exist.')
 param rateLimitCallsPerMinute int = 300
 
+@secure()
+@description('Water-Sector Security Hardening Strategy §5 Tier 0.5 — closes gap #1 below (the direct-bypass limitation). Injected into every forwarded request as X-PeakLogic-Apim-Secret; api.bicep passes the same value to the Function App as APIM_SHARED_SECRET for backend/shared/apim-guard.ts to validate. Defaults to empty string — see main.bicep\'s apimSharedSecret param description for why an empty value on both sides means "not enforced yet," not "misconfigured."')
+param apimSharedSecret string = ''
+
 resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
   name: '${namePrefix}-apim-${uniqueSuffix}'
   location: location
@@ -151,6 +155,9 @@ resource ratePolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-pr
 <policies>
   <inbound>
     <rate-limit-by-key calls="${rateLimitCallsPerMinute}" renewal-period="60" counter-key="@(context.Request.IpAddress)" />
+    <set-header name="X-PeakLogic-Apim-Secret" exists-action="override">
+      <value>${apimSharedSecret}</value>
+    </set-header>
     <base />
   </inbound>
   <backend>
@@ -168,10 +175,13 @@ resource ratePolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-pr
 }
 
 // ── Real, disclosed gaps, not silently omitted ──
-// 1. The Function App direct-bypass limitation — see the header comment.
-//    The documented fix (a shared-secret header APIM injects and the
-//    backend validates) needs a backend code change, out of this infra-only
-//    module's scope.
+// 1. RESOLVED 2026-08-01 (Water-Sector Security Hardening Strategy §5 Tier
+//    0.5): the Function App direct-bypass limitation — see the header
+//    comment. The documented fix (a shared-secret header APIM injects, the
+//    backend validates) is now built: the `set-header` policy above plus
+//    backend/shared/apim-guard.ts + api/handler.ts. Not enforced until
+//    apimSharedSecret is actually deployed with a real value for a given
+//    stage — see that param's own description.
 // 2. No Front Door / WAF — a deliberate scope decision (see header), not an
 //    oversight. If a future security review or real threat activity
 //    changes that conclusion, Front Door Premium (the only tier with a

@@ -174,6 +174,10 @@ param iotHubEventHubName string = ''
 @description('backend/shared/response.ts already defaults to \'*\' when unset — left blank here (not hardcoded to a guessed domain) until frontend.bicep/a real Azure-hosted frontend domain exists to scope it to.')
 param corsAllowedOrigin string = ''
 
+@secure()
+@description('Water-Sector Security Hardening Strategy §5 Tier 0.5 — passed straight through from main.bicep\'s own apimSharedSecret param (see its description for why this defaults to empty/not-enforced). backend/api/handler.ts reads it as APIM_SHARED_SECRET and validates it against the X-PeakLogic-Apim-Secret header apim.bicep\'s policy injects.')
+param apimSharedSecret string = ''
+
 // Storage account backing both AzureWebJobsStorage (Functions host
 // bookkeeping — queues/tables/blobs) and the Flex Consumption deployment
 // package container. Identity-based access only (no shared key), matching
@@ -248,6 +252,7 @@ resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
         { name: 'APPLICATIONINSIGHTS_CONNECTION_STRING', value: appInsightsConnectionString }
         { name: 'KEY_VAULT_URI', value: keyVaultUri }
         { name: 'CORS_ALLOWED_ORIGIN', value: corsAllowedOrigin }
+        { name: 'APIM_SHARED_SECRET', value: apimSharedSecret }
         // Feature flags — both real, both documented (CLAUDE.md) to default
         // OFF; set explicitly here rather than relying on the code's own
         // undefined-is-falsy fallback, so a stage's flag state is visible in
