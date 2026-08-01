@@ -9,7 +9,11 @@ name: CI
 # document explain what each one actually covers. `infra-validate` is
 # compile-time-only (no Bicep-native assertion-test framework is wired up
 # yet — the old AWS-CDK `infra-tests` job's aws-cdk-lib/assertions checks
-# have no direct Azure/Bicep analogue in this repo today).
+# have no direct Azure/Bicep analogue in this repo today). `dependency-audit`
+# jobs added 2026-08-01 (Water-Sector Security Hardening Strategy §5 Tier
+# 0.6) — the direct lesson of the 2026-07-26/27 water-sector attacks'
+# exploited vulnerability (CVE-2021-22681) surviving unpatched for 5 years:
+# a known-CVE dependency has to actually be watched for, not assumed absent.
 
 on:
   pull_request:
@@ -151,3 +155,50 @@ jobs:
       - run: az bicep build --file infra-azure/entra/customers.bicep --stdout > /dev/null
       - run: az bicep build --file infra-azure/entra/partners.bicep --stdout > /dev/null
       - run: az bicep build --file infra-azure/entra/staff.bicep --stdout > /dev/null
+
+  # Water-Sector Security Hardening Strategy §5 Tier 0.6 — SCA (software
+  # composition analysis). `--omit=dev --audit-level=high`, deliberately not
+  # the npm default (any severity, dev+prod, fails): this repo already has
+  # disclosed, accepted dev-tooling-only findings (TD-11 esbuild/Vite
+  # dev-server CORS, plus transitive vite/vitest/postcss issues that are
+  # real but never reach a deployed backend) that would otherwise make this
+  # job permanently red for reasons already triaged as low-risk — noise that
+  # trains everyone to ignore red X's, the opposite of this job's purpose.
+  # `--omit=dev` scopes to what's actually deployed; `--audit-level=high`
+  # still catches a genuinely new high/critical PRODUCTION finding — the
+  # class of thing that actually matters (a 2021 CVE sitting unpatched until
+  # 2026 is exactly this scenario). `npm audit` reads package-lock.json
+  # directly; no `npm ci` needed first.
+  #
+  # KNOWN, EXPECTED RED: `scripts-dependency-audit` will fail until upstream
+  # fixes it — TD-47 (node-pg-migrate → glob command-injection advisory, no
+  # patched version exists yet to install). Disclosed, not a broken job.
+  backend-dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: backend
+
+  frontend-dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: frontend
+
+  scripts-dependency-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm audit --omit=dev --audit-level=high
+        working-directory: scripts
