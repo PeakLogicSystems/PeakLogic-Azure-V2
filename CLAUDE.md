@@ -279,6 +279,16 @@ The Azure equivalent of the AWS kill switch above — built because **Azure Cost
 - **Genuine improvement over the AWS side, not just parity**: this budget is resource-group-scoped (one per stage), so multiple stages in one subscription don't share a single account-wide budget the way AWS Budgets do.
 - Not deployed/validated against a real subscription — same disclosed limitation as every other `infra-azure/` file.
 
+## CI/CD (`.github/workflows/`, wired for Azure 2026-08-01, see `docs/architecture/cicd-pipeline.md`)
+
+Four workflows, all Azure-native: `ci.yml` (every PR/push into `dev`/`main` — typecheck/build/test jobs per package, plus `infra-validate`: `az bicep build` against `infra-azure/main.bicep` + the 3 `entra/*.bicep` files, compile-time validation only, no credentials needed); `deploy-{dev,staging,prod}.yml` (Entra Workload Identity Federation via `azure/login@v2` — no stored client secrets — then a two-step deploy: `az deployment group create` provisions/updates the Azure *resources*, `Azure/functions-action@v1` separately zip-deploys `backend/`'s built code to the Function App). `dev` deploys automatically on push; `staging`/`prod` are `workflow_dispatch`-only (this repo's free GitHub tier doesn't support required-reviewer environment protection, confirmed via a live `422` — the human who triggers the run is the approval gate).
+
+**Cannot run yet — the workflows are real, the Azure account behind them isn't.** Before any of these fire successfully, someone with real Azure access needs to: create a subscription; create the `peaklogic-{dev,staging,prod}-rg` resource groups (`az group create` — deliberately out-of-band, not done by the workflow itself, per `main.bicep`'s own design); create one Entra App Registration per stage (`PeakLogic-{stage}-CiCd`) with a federated identity credential trusting this repo (cicd-pipeline.md §4.1); and set these in repo Settings → Secrets and variables → Actions:
+- **Variables:** `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_DEV_CLIENT_ID` / `AZURE_STAGING_CLIENT_ID` / `AZURE_PROD_CLIENT_ID`, `ALERT_EMAIL`
+- **Secrets** (one pair per stage): `{DEV,STAGING,PROD}_DB_ADMIN_PASSWORD`, `{DEV,STAGING,PROD}_KILLSWITCH_SECRET`
+
+`infra/` (AWS CDK) is no longer validated or deployed by any workflow — retained only as historical reference per this file's fork notice.
+
 ## Branching & Commits
 
 - `main` — production-ready only; tagged at every release

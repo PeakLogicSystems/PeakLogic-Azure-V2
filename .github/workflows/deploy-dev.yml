@@ -2,6 +2,21 @@ name: Deploy — dev
 
 # CI/CD Pipeline §3. Push to dev = continuous deployment, no approval gate —
 # matches `dev` = active development in CLAUDE.md's branching model.
+#
+# Rewritten for Azure (CI/CD Pipeline v0.2 §4) — this used to authenticate
+# to AWS via OIDC and run `cdk deploy`. The live infra is now infra-azure/
+# (Bicep); AWS's infra/ is retained only as historical reference.
+#
+# Two real, separate deploy steps, not one: (1) the Bicep template
+# provisions/updates the Azure *resources* (Function App shell, DB, IoT Hub,
+# etc.) but never touches application code; (2) the Function App's actual
+# backend/ code is a separate zip deploy, closing the gap api.bicep's own
+# header comment names as "no deployment pipeline wired yet ... its own P0
+# remaining item."
+#
+# GENUINELY UNTESTED END-TO-END: no Azure subscription exists yet (CI/CD
+# Pipeline §7 item 2) — this cannot run for real until the repo variables/
+# secrets below are configured and the dev resource group exists.
 
 on:
   push:
@@ -12,7 +27,7 @@ concurrency:
   cancel-in-progress: false # never cancel a deploy mid-flight
 
 permissions:
-  id-token: write # required for OIDC — no AWS access keys stored anywhere
+  id-token: write # required for OIDC — no Azure client secrets stored anywhere
   contents: read
 
 jobs:
@@ -21,29 +36,58 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # CI/CD Pipeline §4 — Entra Workload Identity Federation, not a stored
+      # client secret. Requires a per-stage Entra App Registration
+      # (`PeakLogic-dev-CiCd`) with a federated credential trusting this
+      # repo/branch (§4.1) — none exist yet (§7 item 2), same "genuine hard
+      # stop, needs real Azure access" gate CDK bootstrap had for AWS.
+      # client-id/tenant-id/subscription-id are repo *variables*, not
+      # secrets — none of them are credentials by themselves, only azure/
+      # login's OIDC token exchange is.
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_DEV_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      # Provisions/updates the Azure resources themselves. Deployed AT
+      # RESOURCE GROUP SCOPE (main.bicep's own header comment) — the
+      # `peaklogic-dev-rg` resource group is created once, out of band via
+      # `az group create`, before this workflow's first run; not recreated
+      # here on every deploy by design.
+      - run: |
+          az deployment group create \
+            --resource-group peaklogic-dev-rg \
+            --template-file infra-azure/main.bicep \
+            --parameters stage=dev \
+            --parameters alertEmail="${{ vars.ALERT_EMAIL }}" \
+            --parameters dbAdminPassword="${{ secrets.DEV_DB_ADMIN_PASSWORD }}" \
+            --parameters killswitchSecret="${{ secrets.DEV_KILLSWITCH_SECRET }}"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: infra/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
-      - run: npm ci
-        working-directory: infra
       - run: npm ci
         working-directory: backend
+      # Compiles to dist/**/*.main.js — the exact glob backend/package.json's
+      # own "main" field already points at (fixed alongside api.bicep,
+      # 2026-07-31, so the already-built job handlers actually ship).
+      - run: npm run build
+        working-directory: backend
+      # Ship only production deps in the zip — build-only tooling
+      # (typescript/vitest/esbuild) has no reason to be in the deployed
+      # Function App package.
+      - run: npm prune --omit=dev
+        working-directory: backend
 
-      # CI/CD Pipeline §4 — OIDC federation, not stored access keys. Role ARN
-      # is a repo *variable*, not a secret (it's not sensitive — it only says
-      # which role exists, not a credential), but AWS_ACCOUNT_ID and this role
-      # must both be configured in repo Settings → Secrets and variables →
-      # Actions before this workflow can run (CI/CD Pipeline §7 item 2 — the
-      # role itself doesn't exist until infra/lib/cicd-stack.ts's dev stack is
-      # deployed at least once, which itself needs `cdk bootstrap` to have run
-      # first — this workflow cannot bootstrap its own prerequisites).
-      - uses: aws-actions/configure-aws-credentials@v4
+      # Azure Functions v4 programmatic model (@azure/functions) — zip-deploy
+      # backend/ straight to the Function App api.bicep provisions
+      # (`peaklogic-dev-api`, i.e. `${namePrefix}-api`). Real, standard
+      # GitHub Action for this, not a hand-rolled az CLI zip-deploy.
+      - uses: Azure/functions-action@v1
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/peaklogic-dev-github-actions-deploy
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      - run: npm run deploy:dev
-        working-directory: infra
+          app-name: peaklogic-dev-api
+          package: backend

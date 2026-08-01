@@ -2,23 +2,34 @@ name: Deploy — prod
 
 # CI/CD Pipeline §3/§7. Manual dispatch only — NOT triggered by push to main.
 #
-# Originally designed with an automatic push-to-main trigger gated by the
-# `prod` GitHub Environment's required-reviewers protection rule. Tested
-# directly against this repo (PUT .../environments/prod with a reviewers
-# array) and got a real 422: "Please ensure the billing plan supports the
-# required reviewers protection rule" — this repo's tier doesn't support it,
-# the same free-tier limitation as branch protection (CI/CD Pipeline §2.3),
-# just for a different feature. An automatic trigger with no working
-# approval gate behind it would deploy to prod on every merge to main with
-# no human in the loop at all — worse than not automating this step.
+# Originally designed (AWS version) with an automatic push-to-main trigger
+# gated by the `prod` GitHub Environment's required-reviewers protection
+# rule. Tested directly against this repo (PUT .../environments/prod with a
+# reviewers array) and got a real 422: this repo's billing tier doesn't
+# support that feature (CI/CD Pipeline §2.3) — carries over unchanged on the
+# Azure fork (§7 item 1: re-verified against PeakLogic-Azure, identical
+# 403/tier root cause).
 #
-# Fix: manual trigger only, same pattern as deploy-staging.yml. The human
-# who deliberately runs this workflow (a real action, not a rubber-stamped
-# auto-trigger) *is* the approval gate, standing in for the missing paid
-# GitHub feature. `environment: prod` is kept below even without protection
-# rules — it still scopes secrets/variables to this environment and gives a
-# real deployment audit trail (Settings → Environments → prod) that a bare
-# workflow run wouldn't.
+# Fix, unchanged by the Azure switch: manual trigger only, same pattern as
+# deploy-staging.yml. The human who deliberately runs this workflow *is* the
+# approval gate, standing in for the missing paid GitHub feature.
+# `environment: prod` is kept even without protection rules — it still
+# scopes secrets/variables to this environment and gives a real deployment
+# audit trail (Settings → Environments → prod).
+#
+# Rewritten for Azure (CI/CD Pipeline v0.2 §4) — see deploy-dev.yml's header
+# comment for the AWS→Azure OIDC/deploy-split rationale. One thing that did
+# NOT carry over: the AWS version ran a bare `cdk deploy` here instead of
+# `npm run deploy:prod` specifically to skip CDK's own interactive IAM/
+# security-group-broadening confirmation prompt, which would otherwise hang
+# forever in a CI job with no TTY. `az deployment group create` has no
+# equivalent default interactive prompt (CI/CD Pipeline §4.3, reasoned from
+# Azure CLI's documented non-interactive behavior — not yet empirically
+# verified against a real deploy) — no analogous workaround needed here.
+#
+# GENUINELY UNTESTED END-TO-END — same standing gate as deploy-dev.yml
+# (CI/CD Pipeline §7 item 2): no Azure subscription, no Entra App
+# Registration/federated credential, no repo secrets/variables configured.
 
 on:
   workflow_dispatch:
@@ -45,32 +56,35 @@ jobs:
         with:
           ref: ${{ inputs.ref || 'main' }}
 
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_PROD_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - run: |
+          az deployment group create \
+            --resource-group peaklogic-prod-rg \
+            --template-file infra-azure/main.bicep \
+            --parameters stage=prod \
+            --parameters alertEmail="${{ vars.ALERT_EMAIL }}" \
+            --parameters dbAdminPassword="${{ secrets.PROD_DB_ADMIN_PASSWORD }}" \
+            --parameters killswitchSecret="${{ secrets.PROD_KILLSWITCH_SECRET }}"
+
       - uses: actions/setup-node@v4
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: infra/package-lock.json
+          cache-dependency-path: backend/package-lock.json
 
-      - run: npm ci
-        working-directory: infra
       - run: npm ci
         working-directory: backend
+      - run: npm run build
+        working-directory: backend
+      - run: npm prune --omit=dev
+        working-directory: backend
 
-      - uses: aws-actions/configure-aws-credentials@v4
+      - uses: Azure/functions-action@v1
         with:
-          role-to-assume: arn:aws:iam::${{ vars.AWS_ACCOUNT_ID }}:role/peaklogic-prod-github-actions-deploy
-          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
-
-      # Deliberately NOT `npm run deploy:prod` — that script omits
-      # --require-approval never so a human at a terminal still gets CDK's
-      # own IAM/security-group-broadening confirmation prompt as an extra
-      # safety net (Deployment Architecture §4.1's reasoning, made before
-      # this pipeline existed). In an unattended CI job there is no TTY to
-      # answer that prompt — it would hang until the job timeout, not fail
-      # safely. The human-approval gate for this workflow is triggering it
-      # in the first place (see the top-of-file note) — bypassing CDK's own
-      # prompt here isn't removing a safety check, it's replacing one
-      # nothing could answer with the deliberate act of running this
-      # workflow at all.
-      - run: npx cdk deploy --all -c stage=prod --require-approval never
-        working-directory: infra
+          app-name: peaklogic-prod-api
+          package: backend
