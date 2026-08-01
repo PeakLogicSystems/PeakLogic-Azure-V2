@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { createEntraUser } from '../../shared/identity';
+import { writeAuditLog } from '../../shared/audit';
 import type { PartnerAuthContext } from '../../shared/auth';
 
 // API Specification §4.5 — Domain Model §4 decision 8: provisioning is
@@ -84,6 +85,12 @@ export async function create(event: PeakRequest, auth: PartnerAuthContext): Prom
        RETURNING id, channel_partner_id, cognito_sub, email, display_name, role, territory_id`,
       [auth.channelPartnerId, oid, body.email.trim(), body.display_name ?? null, body.role, body.territory_id ?? null],
     );
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'partner_user.create', targetEntity: 'channel_partner_user', targetId: user.id,
+      newValue: { email: user.email, role: user.role },
+    });
     return created(user);
   });
 }
@@ -103,18 +110,28 @@ export async function update(event: PeakRequest, auth: PartnerAuthContext): Prom
        RETURNING id, channel_partner_id, cognito_sub, email, display_name, role, territory_id`,
       [userId, body.display_name ?? null, body.territory_id ?? null],
     );
-    return user ? ok(user) : notFound(`Channel partner user ${userId} not found`);
+    if (!user) return notFound(`Channel partner user ${userId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'partner_user.update', targetEntity: 'channel_partner_user', targetId: user.id, newValue: body,
+    });
+    return ok(user);
   });
 }
 
-// Deliberately does not disable the Entra account (no Graph disable call) --
-// removing the DB row alone already revokes all meaningful access, since
-// withChannelPartner()'s channel_partner_users lookup (Security Architecture
-// §2.4) would fail closed with "Channel partner user not found" the moment
-// this row is gone, regardless of whether the Entra account can still
-// technically authenticate. Left as a known, disclosed simplification --
-// full offboarding (Entra deactivation too) is real, proportionate follow-up
-// work, not required for the access-control guarantee itself.
+// CORRECTED 2026-08-01 (Water-Sector Security Hardening Strategy §5 Tier
+// 0.2) — this comment previously claimed removing the DB row alone "already
+// revokes all meaningful access." That's incomplete: getPartnerAuth()
+// resolves channelPartnerId from the Entra JWT's claims directly (Security
+// Architecture §2.4); it's only the SEPARATE channel_partner_users lookup
+// inside withChannelPartner() that fails closed once this row is gone — so
+// access genuinely IS cut off for any call going through that lookup, but a
+// still-valid, unexpired JWT is not itself revoked at the identity-provider
+// level. Left as-is for the request path, which is what actually matters
+// here (unlike settings-team.ts's remove(), which has no equivalent DB-side
+// gate at all — see that file's parallel correction). Full Entra-side
+// deactivation remains real, proportionate follow-up work.
 export async function remove(event: PeakRequest, auth: PartnerAuthContext): Promise<PeakResponse> {
   const { userId } = event.pathParameters!;
 
@@ -125,6 +142,12 @@ export async function remove(event: PeakRequest, auth: PartnerAuthContext): Prom
       'DELETE FROM channel_partner_users WHERE id = $1 RETURNING id',
       [userId],
     );
-    return user ? ok(user) : notFound(`Channel partner user ${userId} not found`);
+    if (!user) return notFound(`Channel partner user ${userId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'partner_user.remove', targetEntity: 'channel_partner_user', targetId: user.id,
+    });
+    return ok(user);
   });
 }

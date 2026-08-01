@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { StaffAuthContext } from '../../shared/auth';
 import type { AccountAssignment } from '../../shared/types';
 
@@ -44,6 +45,23 @@ export async function create(event: PeakRequest, auth: StaffAuthContext): Promis
        RETURNING *`,
       [body.staff_user_id, body.tenant_id ?? null, body.channel_partner_id ?? null, session.staffUserId],
     );
+
+    // Audit scope follows the assignment's own tenant_id/channel_partner_id
+    // (exactly one is set — enforced above) — mirrors the constraint
+    // audit_log_entries itself enforces (migration 1783728000000).
+    if (assignment.tenant_id) {
+      await writeAuditLog(client, {
+        scope: 'tenant', tenantId: assignment.tenant_id, actorId: null, actorStaffUserId: session.staffUserId,
+        action: 'account_assignment.create', targetEntity: 'account_assignment', targetId: assignment.id,
+        newValue: { staffUserId: assignment.staff_user_id },
+      });
+    } else if (assignment.channel_partner_id) {
+      await writeAuditLog(client, {
+        scope: 'channel_partner', channelPartnerId: assignment.channel_partner_id, actorChannelPartnerUserId: null, actorStaffUserId: session.staffUserId,
+        action: 'account_assignment.create', targetEntity: 'account_assignment', targetId: assignment.id,
+        newValue: { staffUserId: assignment.staff_user_id },
+      });
+    }
     return created(assignment);
   });
 }
@@ -52,11 +70,24 @@ export async function remove(event: PeakRequest, auth: StaffAuthContext): Promis
   requireStaffRole(auth, 'superadmin');
   const { assignmentId } = event.pathParameters!;
 
-  return withStaffSession(auth, async (client) => {
+  return withStaffSession(auth, async (client, session) => {
     const { rows: [assignment] } = await client.query<AccountAssignment>(
-      'DELETE FROM account_assignments WHERE id = $1 RETURNING id',
+      'DELETE FROM account_assignments WHERE id = $1 RETURNING id, tenant_id, channel_partner_id',
       [assignmentId],
     );
-    return assignment ? ok(assignment) : notFound(`Assignment ${assignmentId} not found`);
+    if (!assignment) return notFound(`Assignment ${assignmentId} not found`);
+
+    if (assignment.tenant_id) {
+      await writeAuditLog(client, {
+        scope: 'tenant', tenantId: assignment.tenant_id, actorId: null, actorStaffUserId: session.staffUserId,
+        action: 'account_assignment.remove', targetEntity: 'account_assignment', targetId: assignment.id,
+      });
+    } else if (assignment.channel_partner_id) {
+      await writeAuditLog(client, {
+        scope: 'channel_partner', channelPartnerId: assignment.channel_partner_id, actorChannelPartnerUserId: null, actorStaffUserId: session.staffUserId,
+        action: 'account_assignment.remove', targetEntity: 'account_assignment', targetId: assignment.id,
+      });
+    }
+    return ok(assignment);
   });
 }

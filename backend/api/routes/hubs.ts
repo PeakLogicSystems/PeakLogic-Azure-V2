@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import { registerHub, recordHeartbeat } from '../../shared/hubs-handler';
 import { syncForHub } from '../../shared/peakassist-sync-handler';
@@ -38,6 +39,13 @@ export async function register(event: PeakRequest, auth: AuthContext): Promise<P
   try {
     return await withTenant(auth.tenantId, async (client) => {
       const { id } = await registerHub(client, auth.tenantId, body);
+
+      await writeAuditLog(client, {
+        scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+        action: 'hub.register', targetEntity: 'hub', targetId: id,
+        newValue: { name: body.name, siteId: body.siteId },
+      });
+
       return created({ id });
     });
   } catch (err) {

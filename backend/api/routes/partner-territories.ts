@@ -1,6 +1,7 @@
 import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
+import { writeAuditLog } from '../../shared/audit';
 import type { PartnerAuthContext } from '../../shared/auth';
 
 // API Specification §4.5 — boundary is accepted/returned as GeoJSON, not
@@ -62,6 +63,11 @@ export async function create(event: PeakRequest, auth: PartnerAuthContext): Prom
        RETURNING id, channel_partner_id, name, ST_AsGeoJSON(boundary)::json AS boundary`,
       [auth.channelPartnerId, body.name.trim(), JSON.stringify(body.boundary)],
     );
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'territory.create', targetEntity: 'territory', targetId: territory.id, newValue: { name: territory.name },
+    });
     return created(territory);
   });
 }
@@ -83,7 +89,13 @@ export async function update(event: PeakRequest, auth: PartnerAuthContext): Prom
        RETURNING id, channel_partner_id, name, ST_AsGeoJSON(boundary)::json AS boundary`,
       [territoryId, body.name?.trim() ?? null, body.boundary ? JSON.stringify(body.boundary) : null],
     );
-    return territory ? ok(territory) : notFound(`Territory ${territoryId} not found`);
+    if (!territory) return notFound(`Territory ${territoryId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'territory.update', targetEntity: 'territory', targetId: territory.id, newValue: body,
+    });
+    return ok(territory);
   });
 }
 
@@ -97,6 +109,12 @@ export async function remove(event: PeakRequest, auth: PartnerAuthContext): Prom
       'DELETE FROM territories WHERE id = $1 RETURNING id',
       [territoryId],
     );
-    return territory ? ok(territory) : notFound(`Territory ${territoryId} not found`);
+    if (!territory) return notFound(`Territory ${territoryId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'territory.delete', targetEntity: 'territory', targetId: territory.id,
+    });
+    return ok(territory);
   });
 }

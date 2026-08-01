@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { StaffAuthContext } from '../../shared/auth';
 
 interface ChannelPartner {
@@ -49,11 +50,16 @@ export async function create(event: PeakRequest, auth: StaffAuthContext): Promis
 
   if (!body.name?.trim()) return badRequest('name is required');
 
-  return withStaffSession(auth, async (client) => {
+  return withStaffSession(auth, async (client, session) => {
     const { rows: [partner] } = await client.query<ChannelPartner>(
       `INSERT INTO channel_partners (name, contact_info) VALUES ($1, $2) RETURNING *`,
       [body.name.trim(), JSON.stringify(body.contact_info ?? {})],
     );
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: partner.id, actorChannelPartnerUserId: null, actorStaffUserId: session.staffUserId,
+      action: 'channel_partner.create', targetEntity: 'channel_partner', targetId: partner.id, newValue: { name: partner.name },
+    });
     return created(partner);
   });
 }

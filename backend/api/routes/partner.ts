@@ -1,6 +1,7 @@
 import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, notFound, parseBody } from '../../shared/response';
+import { writeAuditLog } from '../../shared/audit';
 import type { PartnerAuthContext } from '../../shared/auth';
 
 interface ChannelPartner {
@@ -44,6 +45,12 @@ export async function updateBranding(event: PeakRequest, auth: PartnerAuthContex
        RETURNING id, name, status, branding`,
       [auth.channelPartnerId, JSON.stringify(body)],
     );
-    return partner ? ok(partner) : notFound('Channel partner not found');
+    if (!partner) return notFound('Channel partner not found');
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'partner.update_branding', targetEntity: 'channel_partner', targetId: partner.id, newValue: body,
+    });
+    return ok(partner);
   });
 }

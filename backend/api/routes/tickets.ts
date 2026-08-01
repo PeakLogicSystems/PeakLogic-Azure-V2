@@ -3,6 +3,7 @@ import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
 import { postWebhook } from '../../shared/webhook';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { ServiceTicket } from '../../shared/types';
 import { advanceWorkOrderStage } from '../../shared/cmms/work-order-lifecycle-handler';
@@ -89,6 +90,12 @@ export async function create(event: PeakRequest, auth: AuthContext): Promise<Pea
       );
     }
 
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'ticket.create', targetEntity: 'ticket', targetId: ticket.id,
+      newValue: { title: ticket.title, priority: ticket.priority, assetId: ticket.asset_id },
+    });
+
     return created(ticket);
   });
 }
@@ -112,7 +119,13 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING *`,
       [ticketId, body.status, body.assignedTo, body.externalRef],
     );
-    return ticket ? ok(ticket) : notFound(`Ticket ${ticketId} not found`);
+    if (!ticket) return notFound(`Ticket ${ticketId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'ticket.update', targetEntity: 'ticket', targetId: ticket.id, newValue: body,
+    });
+    return ok(ticket);
   });
 }
 
@@ -125,7 +138,13 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       `UPDATE service_tickets SET status = 'cancelled', updated_at = now() WHERE id = $1 RETURNING *`,
       [ticketId],
     );
-    return t ? ok(t) : notFound(`Ticket ${ticketId} not found`);
+    if (!t) return notFound(`Ticket ${ticketId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'ticket.cancel', targetEntity: 'ticket', targetId: t.id,
+    });
+    return ok(t);
   });
 }
 
@@ -153,7 +172,15 @@ export async function advance(event: PeakRequest, auth: AuthContext): Promise<Pe
       notes: body.notes,
     });
     // { advanced, visitCreated } — advanced:false is a valid idempotent no-op
-    // (already at/past the stage) or an unknown ticket (RLS-scoped miss).
+    // (already at/past the stage) or an unknown ticket (RLS-scoped miss). Only
+    // audit-log a real transition, not a no-op re-request of the same stage.
+    if (result.advanced) {
+      await writeAuditLog(client, {
+        scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+        action: 'ticket.advance', targetEntity: 'ticket', targetId: ticketId,
+        newValue: { stage: body.stage, outcome: body.outcome },
+      });
+    }
     return ok(result);
   });
 }

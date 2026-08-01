@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { Site } from '../../shared/types';
 
@@ -55,6 +56,11 @@ export async function create(event: PeakRequest, auth: AuthContext): Promise<Pea
         body.metadata ?? {},
       ],
     );
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'site.create', targetEntity: 'site', targetId: site.id, newValue: { name: site.name, type: site.type },
+    });
     return created(site);
   });
 }
@@ -79,7 +85,13 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING *`,
       [siteId, body.name, body.type, body.address, body.lat, body.lng, body.timezone, body.metadata],
     );
-    return site ? ok(site) : notFound(`Site ${siteId} not found`);
+    if (!site) return notFound(`Site ${siteId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'site.update', targetEntity: 'site', targetId: site.id, newValue: body,
+    });
+    return ok(site);
   });
 }
 
@@ -92,6 +104,12 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       'DELETE FROM sites WHERE id = $1',
       [siteId],
     );
-    return rowCount ? ok({ deleted: true }) : notFound(`Site ${siteId} not found`);
+    if (!rowCount) return notFound(`Site ${siteId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'site.delete', targetEntity: 'site', targetId: siteId,
+    });
+    return ok({ deleted: true });
   });
 }

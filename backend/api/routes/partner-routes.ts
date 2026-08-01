@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import type { PoolClient } from 'pg';
 import { withChannelPartner, requirePartnerRole } from '../../shared/db';
 import { ok, created, notFound, badRequest, conflict, parseBody } from '../../shared/response';
+import { writeAuditLog } from '../../shared/audit';
 import type { PartnerAuthContext } from '../../shared/auth';
 
 interface RouteAssignment {
@@ -163,6 +164,12 @@ export async function create(event: PeakRequest, auth: PartnerAuthContext): Prom
         );
       }
 
+      await writeAuditLog(client, {
+        scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+        action: 'route.create', targetEntity: 'route_assignment', targetId: route.id,
+        newValue: { technicianUserId: route.technician_user_id, routeDate: route.route_date, source: route.source },
+      });
+
       await client.query('COMMIT');
       const stops = await getStopsWithReadings(client, route.id);
       return created({ ...route, stops });
@@ -202,6 +209,11 @@ export async function update(event: PeakRequest, auth: PartnerAuthContext): Prom
           [routeId, stop.site_id, stop.sequence_number],
         );
       }
+      await writeAuditLog(client, {
+        scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+        action: 'route.update_stops', targetEntity: 'route_assignment', targetId: routeId!,
+        newValue: { stopCount: body.stops.length },
+      });
       await client.query('COMMIT');
     } catch (err) {
       await client.query('ROLLBACK');
@@ -229,6 +241,12 @@ export async function confirm(event: PeakRequest, auth: PartnerAuthContext): Pro
        RETURNING *`,
       [routeId, session.channelPartnerUserId],
     );
-    return route ? ok(route) : notFound(`Route ${routeId} not found, or already confirmed`);
+    if (!route) return notFound(`Route ${routeId} not found, or already confirmed`);
+
+    await writeAuditLog(client, {
+      scope: 'channel_partner', channelPartnerId: auth.channelPartnerId, actorChannelPartnerUserId: session.channelPartnerUserId,
+      action: 'route.confirm', targetEntity: 'route_assignment', targetId: route.id,
+    });
+    return ok(route);
   });
 }

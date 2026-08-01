@@ -3,6 +3,7 @@ import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
 import { createEntraUser } from '../../shared/identity';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { User } from '../../shared/types';
 
@@ -59,6 +60,12 @@ export async function create(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING ${USER_COLUMNS}`,
       [auth.tenantId, oid, body.email.trim(), body.display_name ?? null, body.role],
     );
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'team_member.create', targetEntity: 'user', targetId: user.id,
+      newValue: { email: user.email, role: user.role },
+    });
     return created(user);
   });
 }
@@ -80,21 +87,52 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING ${USER_COLUMNS}`,
       [userId, body.display_name ?? null, body.role ?? null, body.status ?? null],
     );
-    return user ? ok(user) : notFound(`User ${userId} not found`);
+    if (!user) return notFound(`User ${userId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'team_member.update', targetEntity: 'user', targetId: user.id, newValue: body,
+    });
+    return ok(user);
   });
 }
 
-// Deliberately does not disable the Entra account (no Graph disable call) —
-// same disclosed simplification as partner-users.ts's remove(): the DB row's
-// tenant_isolation RLS scoping is what actually governs data access, not
-// Entra account state, so removing the row alone already revokes meaningful
-// access.
+// CORRECTED 2026-08-01 (Water-Sector Security Hardening Strategy §5 Tier
+// 0.2, TD-45) — this comment previously claimed removing the DB row alone
+// "already revokes meaningful access" because RLS governs data access.
+// That's wrong: getAuth() (shared/auth.ts) derives tenantId/role PURELY from
+// the Entra JWT's claims, with NO database lookup of this users row at all —
+// RLS only checks `tenant_id` on the data itself, never whether the calling
+// user's own row still exists. Unlike partner-users.ts's remove()
+// (withChannelPartner() DOES re-look-up the calling channel-partner-user row
+// on every request — see that file's parallel correction), there is NO
+// equivalent per-request check for tenant users at all: withTenant() only
+// takes a bare tenantId, not the caller's identity, so it has no way to.
+//
+// The new force-logout endpoint (shared/session-revocation.ts, wired at
+// POST /v1/admin/tenants/{tenantId}/users/{userId}/revoke-sessions, Graph's
+// revokeSignInSessions) is real defense-in-depth but is honestly NOT a full
+// fix: this backend validates JWTs offline (signature + issuer + audience +
+// expiry only, no Continuous Access Evaluation), so revokeSignInSessions
+// stops a removed/compromised user from obtaining a NEW access token but
+// does not retroactively invalidate one already issued and still inside its
+// expiry window. The complete fix — a per-request users-row existence/
+// status check inside withTenant(), mirroring withChannelPartner()'s
+// existing pattern exactly — needs a signature change touching every
+// withTenant() call site (~30+) and is tracked as TD-45, not rushed into
+// this pass.
 export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { userId } = event.pathParameters!;
 
   return withTenant(auth.tenantId, async (client) => {
     const { rows: [user] } = await client.query<User>('DELETE FROM users WHERE id = $1 RETURNING id', [userId]);
-    return user ? ok(user) : notFound(`User ${userId} not found`);
+    if (!user) return notFound(`User ${userId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'team_member.remove', targetEntity: 'user', targetId: user.id,
+    });
+    return ok(user);
   });
 }

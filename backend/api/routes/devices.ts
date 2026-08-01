@@ -2,6 +2,8 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, badRequest, conflict, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
+import { disableDeviceIdentity } from '../../shared/device-identity';
 import type { AuthContext } from '../../shared/auth';
 import type { Device } from '../../shared/types';
 
@@ -108,6 +110,12 @@ export async function claim(event: PeakRequest, auth: AuthContext): Promise<Peak
       [existing.id, auth.tenantId, body.assetId ?? null],
     );
 
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'device.claim', targetEntity: 'device', targetId: device.id,
+      newValue: { serial: device.serial, assetId: device.asset_id },
+    });
+
     return created(device);
   });
 }
@@ -129,10 +137,25 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING *`,
       [deviceId, body.assetId, body.firmwareVersion],
     );
-    return device ? ok(device) : notFound(`Device ${deviceId} not found`);
+    if (!device) return notFound(`Device ${deviceId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'device.update', targetEntity: 'device', targetId: device.id, newValue: body,
+    });
+    return ok(device);
   });
 }
 
+// Water-Sector Security Hardening Strategy §3/§5 Tier 0.3 — this used to
+// only flip a DB status flag, the exact "credential outlives intended
+// access" gap the 2026-07-26/27 water-sector attacks' operator-lockout
+// technique exploited in reverse (a decommissioned/stolen device should
+// stop being trusted immediately, not just stop appearing in the app).
+// disableDeviceIdentity() is best-effort and never throws — an IoT
+// Hub-side failure must not block the DB-side decommission, the same
+// established pattern as recordPoisonMessage(). See shared/device-identity.ts
+// for why this genuinely no-ops safely until DPS enrollment (unbuilt) exists.
 export async function remove(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
   requireRole(auth, 'admin');
   const { deviceId } = event.pathParameters!;
@@ -142,6 +165,14 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       `UPDATE devices SET status = 'decommissioned', updated_at = now() WHERE id = $1 RETURNING *`,
       [deviceId],
     );
-    return device ? ok(device) : notFound(`Device ${deviceId} not found`);
+    if (!device) return notFound(`Device ${deviceId} not found`);
+
+    await disableDeviceIdentity(device.serial);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'device.decommission', targetEntity: 'device', targetId: device.id,
+    });
+    return ok(device);
   });
 }

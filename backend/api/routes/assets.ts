@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, created, notFound, parseBody } from '../../shared/response';
 import { requireRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { Asset, AssetSpecs } from '../../shared/types';
 
@@ -61,6 +62,11 @@ export async function create(event: PeakRequest, auth: AuthContext): Promise<Pea
         body.specs ? JSON.stringify(body.specs) : null,
       ],
     );
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'asset.create', targetEntity: 'asset', targetId: asset.id, newValue: { name: asset.name, category: asset.category },
+    });
     return created(asset);
   });
 }
@@ -85,7 +91,13 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
       [assetId, body.name, body.category, body.make, body.model, body.serial_number,
        body.specs ? JSON.stringify(body.specs) : null],
     );
-    return asset ? ok(asset) : notFound(`Asset ${assetId} not found`);
+    if (!asset) return notFound(`Asset ${assetId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'asset.update', targetEntity: 'asset', targetId: asset.id, newValue: body,
+    });
+    return ok(asset);
   });
 }
 
@@ -95,6 +107,12 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
 
   return withTenant(auth.tenantId, async (client) => {
     const { rowCount } = await client.query('DELETE FROM assets WHERE id = $1', [assetId]);
-    return rowCount ? ok({ deleted: true }) : notFound(`Asset ${assetId} not found`);
+    if (!rowCount) return notFound(`Asset ${assetId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'asset.delete', targetEntity: 'asset', targetId: assetId,
+    });
+    return ok({ deleted: true });
   });
 }

@@ -2,6 +2,7 @@ import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withStaffSession } from '../../shared/db';
 import { ok, created, notFound, badRequest, parseBody } from '../../shared/response';
 import { requireStaffRole } from '../../shared/auth';
+import { writeAuditLog } from '../../shared/audit';
 import type { StaffAuthContext } from '../../shared/auth';
 import type { Tenant } from '../../shared/types';
 
@@ -46,13 +47,19 @@ export async function create(event: PeakRequest, auth: StaffAuthContext): Promis
   if (!body.name?.trim()) return badRequest('name is required');
   if (!body.slug?.trim()) return badRequest('slug is required');
 
-  return withStaffSession(auth, async (client) => {
+  return withStaffSession(auth, async (client, session) => {
     const { rows: [tenant] } = await client.query<Tenant>(
       `INSERT INTO tenants (name, slug, plan, channel_partner_id)
        VALUES ($1, $2, COALESCE($3, 'trial'), $4)
        RETURNING *`,
       [body.name.trim(), body.slug.trim(), body.plan ?? null, body.channel_partner_id ?? null],
     );
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: tenant.id, actorId: null, actorStaffUserId: session.staffUserId,
+      action: 'tenant.create', targetEntity: 'tenant', targetId: tenant.id,
+      newValue: { name: tenant.name, slug: tenant.slug, plan: tenant.plan },
+    });
     return created(tenant);
   });
 }

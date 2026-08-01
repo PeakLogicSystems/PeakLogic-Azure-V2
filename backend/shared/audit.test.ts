@@ -61,9 +61,25 @@ describe('writeAuditLog', () => {
     });
 
     const [sql, params] = client.query.mock.calls[0];
-    expect(sql).toContain('channel_partner_id, actor_channel_partner_user_id');
+    expect(sql).toContain('channel_partner_id, actor_channel_partner_user_id, actor_staff_user_id');
     expect(sql).not.toContain('tenant_id, actor_id');
-    expect(params).toEqual(['partner-1', 'cpu-1', 'route.confirm', 'route_assignment', 'route-1', null, null]);
+    expect(params).toEqual(['partner-1', 'cpu-1', null, 'route.confirm', 'route_assignment', 'route-1', null, null]);
+  });
+
+  it('populates actor_staff_user_id on a channel-partner-scoped row for a staff-initiated write (e.g. admin-partners.ts create)', async () => {
+    const client = fakeClient();
+    await writeAuditLog(client, {
+      scope: 'channel_partner',
+      channelPartnerId: 'partner-1',
+      actorChannelPartnerUserId: null,
+      actorStaffUserId: 'staff-1',
+      action: 'channel_partner.create',
+      targetEntity: 'channel_partner',
+      targetId: 'partner-1',
+    });
+
+    const [, params] = client.query.mock.calls[0];
+    expect(params).toEqual(['partner-1', null, 'staff-1', 'channel_partner.create', 'channel_partner', 'partner-1', null, null]);
   });
 
   it('serializes prior_value/new_value as JSON when present', async () => {

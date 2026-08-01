@@ -91,6 +91,20 @@ resource iotHub 'Microsoft.Devices/IotHubs@2023-06-30' = {
         keyName: 'ingestConnect'
         rights: 'ServiceConnect'
       }
+      {
+        // Water-Sector Security Hardening Strategy §5 Tier 0.3 — a second
+        // narrowly-scoped policy for the ADMIN-PLANE device-identity-
+        // revocation path (backend/shared/device-identity.ts's
+        // disableDeviceIdentity()), deliberately separate from ingestConnect
+        // (ServiceConnect only, no registry rights) and from DPS's own link
+        // below (which reuses the all-powerful default iothubowner per
+        // Microsoft's verified sample). RegistryReadWrite is the narrowest
+        // named right that can disable a device identity — verified via
+        // Microsoft Learn's IoT Hub permissions reference; there is no
+        // narrower "disable only" right documented.
+        keyName: 'registryReadWrite'
+        rights: 'RegistryReadWrite'
+      }
     ]
   }
 }
@@ -112,6 +126,20 @@ resource ingestConnectionSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' =
   name: 'iot-hub-ingest-connection'
   properties: {
     value: ingestConnectionString
+  }
+}
+
+// Registry connection string for the admin-plane revocation path — same
+// filter()-by-keyName construction and same "written to Key Vault, never a
+// plain output" discipline as ingestConnectionString above.
+var registryKey = filter(iotHub.listKeys().value, k => k.keyName == 'registryReadWrite')[0]
+var registryConnectionString = 'HostName=${iotHub.properties.hostName};SharedAccessKeyName=registryReadWrite;SharedAccessKey=${registryKey.primaryKey}'
+
+resource registryConnectionSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
+  parent: existingKeyVault
+  name: 'iot-hub-registry-connection'
+  properties: {
+    value: registryConnectionString
   }
 }
 

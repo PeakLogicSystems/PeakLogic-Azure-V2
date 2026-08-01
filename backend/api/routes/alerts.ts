@@ -1,6 +1,7 @@
 import type { PeakRequest, PeakResponse } from '../../shared/http';
 import { withTenant } from '../../shared/db';
 import { ok, notFound, badRequest, parseBody } from '../../shared/response';
+import { writeAuditLog } from '../../shared/audit';
 import type { AuthContext } from '../../shared/auth';
 import type { Alert } from '../../shared/types';
 
@@ -61,6 +62,12 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
        RETURNING *`,
       [alertId, body.status],
     );
-    return alert ? ok(alert) : notFound(`Alert ${alertId} not found`);
+    if (!alert) return notFound(`Alert ${alertId} not found`);
+
+    await writeAuditLog(client, {
+      scope: 'tenant', tenantId: auth.tenantId, actorId: auth.sub,
+      action: 'alert.update', targetEntity: 'alert', targetId: alert.id, newValue: { status: body.status },
+    });
+    return ok(alert);
   });
 }

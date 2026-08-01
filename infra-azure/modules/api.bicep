@@ -295,6 +295,13 @@ resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
         // reads IOT_HUB_EVENTHUB_CONNECTION from its environment.
         { name: 'IOT_HUB_EVENTHUB_CONNECTION', value: iotHubDeployed ? '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/iot-hub-ingest-connection/)' : '' }
         { name: 'IOT_HUB_EVENTHUB_NAME', value: iotHubEventHubName }
+        // Water-Sector Security Hardening Strategy §5 Tier 0.3 — the
+        // admin-plane registry connection (RegistryReadWrite, distinct from
+        // the ServiceConnect-only ingest connection above) backend/shared/
+        // device-identity.ts's disableDeviceIdentity() uses to revoke a
+        // device identity on decommission. Same iotHubDeployed gate — this
+        // Key Vault secret doesn't exist until iot.bicep has deployed.
+        { name: 'IOT_HUB_REGISTRY_CONNECTION', value: iotHubDeployed ? '@Microsoft.KeyVault(SecretUri=${keyVaultUri}secrets/iot-hub-registry-connection/)' : '' }
       ]
     }
     functionAppConfig: {

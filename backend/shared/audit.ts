@@ -40,6 +40,15 @@ export interface ChannelPartnerAuditEntry extends AuditEntryBase {
   scope: 'channel_partner';
   channelPartnerId: string;
   actorChannelPartnerUserId: string | null;
+  // Set when PeakLogic staff acted on a channel partner (e.g. staff creating
+  // a new partner via admin-partners.ts) — mirrors TenantAuditEntry's
+  // actorStaffUserId. The DB's audit_log_entries_actor_check constraint
+  // (migration 1783728000000) only forbids actor_id + actor_channel_partner_
+  // user_id together; actor_staff_user_id is unrestricted by scope, so this
+  // was a TypeScript-layer gap, not a schema one — added 2026-08-01 while
+  // extending audit coverage (Water-Sector Security Hardening Strategy §5
+  // Tier 0.1), not a new migration.
+  actorStaffUserId?: string | null;
 }
 
 export type AuditEntry = TenantAuditEntry | ChannelPartnerAuditEntry;
@@ -58,9 +67,9 @@ export async function writeAuditLog(client: PoolClient, entry: AuditEntry): Prom
   } else {
     await client.query(
       `INSERT INTO audit_log_entries
-         (channel_partner_id, actor_channel_partner_user_id, action, target_entity, target_id, prior_value, new_value)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-      [entry.channelPartnerId, entry.actorChannelPartnerUserId, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+         (channel_partner_id, actor_channel_partner_user_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [entry.channelPartnerId, entry.actorChannelPartnerUserId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
     );
   }
 }
