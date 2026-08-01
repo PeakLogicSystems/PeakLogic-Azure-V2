@@ -1,111 +1,144 @@
-# PeakLogic — Unified Industrial Operations Platform
+# PeakLogic — Intelligence & Control Layer for Essential Services
 
-Multi-tenant **SCADA/HMI + CMMS + AI-intelligence** platform for distributed, multi-site, compliance-heavy industrial operations. It sits **above** existing SCADA/control systems — never replacing safety-rated PLC logic — to unify data across facilities, add AI, and automate compliance and technician workflows. Targets distributed operators, service providers, and multi-site customers; built to scale to enterprise.
+**Lightweight, web-based SCADA and predictive-intelligence platform** for the operators and service providers who run distributed systems, facilities, and device fleets — the sites where a traditional SCADA deployment has never made financial sense.
+
+For distributed or cost-sensitive sites with no control system today, PeakLogic **is** the control and monitoring layer, at a fraction of a traditional SCADA build. For larger operations that already run one, PeakLogic is **complementary**: it fills the gap between raw field devices and heavyweight enterprise SCADA, and **feeds its data upward** into the systems those operators already use. It never touches safety-rated PLC control logic.
 
 **Three components, one product:**
-- **PeakLogicSystems** — the core cloud intelligence layer (multi-tenant SaaS: multi-site monitoring, AI anomaly detection, predictive maintenance, compliance automation, enterprise reporting).
-- **PeakView360** — the modernized HMI/SCADA operator experience (real-time screens, alarm management, equipment dashboards, facility visualization, historian).
+- **PeakLogicSystems** — the cloud intelligence layer (multi-tenant SaaS: multi-site monitoring, anomaly detection, predictive maintenance, compliance automation, reporting).
+- **PeakView360** — the operator experience (real-time screens, alarm management, equipment dashboards, facility visualization, historian).
 - **PeakLogic Hubs** — the on-prem edge units (PLC/RTU acquisition, edge processing, offline reliability, secure outbound-only cloud sync).
-- **PeakAssist** — the first-class, offline-capable, contextual help system spanning all layers.
+- **PeakAssist** — the offline-capable, contextual help system spanning all layers.
 
-Company is **PeakLogic**; internal project codename **Project Vantage**. This repo (`PeakLogic-Azure-V2`) is the merger / unified-platform development line — see [`docs/business/unified-product-vision.md`](docs/business/unified-product-vision.md) for the strategy and [`docs/architecture/unified-platform-integration-plan.md`](docs/architecture/unified-platform-integration-plan.md) for the artifact + code reconciliation sweep in progress. See `CLAUDE.md` for the architecture-first development process.
-
-> Note: the AWS-specific architecture, stack, and phase sections below predate the Azure fork and the unified-platform reframe; they are reconciled later in the sweep (see the integration plan). Naming has been brought current.
+Company is **PeakLogic**; internal project codename **Project Vantage**. See [`docs/business/unified-product-vision.md`](docs/business/unified-product-vision.md) for strategy and `CLAUDE.md` for the architecture-first development process.
 
 ## Positioning
 
-PeakLogic is **not** a fire alarm / life-safety system (that's a heavily regulated, UL-certified space we deliberately stay adjacent to, not inside). Instead, we cover the risk surface next to it: equipment health, facility conditions (leaks, temperature, humidity), and energy usage — the everyday failures that cause costly losses (water damage, spoiled inventory, equipment downtime) but aren't covered by fire/alarm code.
+PeakLogic occupies a real gap in the market: **too small for traditional SCADA, too critical to leave unmonitored.** Enterprise SCADA and BMS platforms are expensive, slow to deploy, and built for large single campuses — not for an operator running twenty distributed sites, or a service contractor responsible for equipment across hundreds of customer locations.
 
-## Verticals
+The value is **predictive maintenance and risk mitigation**: catching critical device failure before it becomes an expensive repair, a replacement, a compliance violation, or downtime that costs far more than the equipment itself.
 
-Initial anchor verticals, with the platform designed to extend to any small/mid-tier commercial site:
-- Pumping stations
-- Quick service restaurants (QSR) & food service
-- Pool service monitoring
-- Nursing homes / senior living (leak & equipment risk)
-- Cold storage / refrigeration (walk-in coolers, freezers — see below)
-- Retail & light industrial facilities
+PeakLogic is **not** a fire alarm / life-safety system — that is a heavily regulated, UL-certified space we deliberately stay adjacent to. We cover the risk surface next to it: equipment health, facility conditions (leaks, temperature, humidity), and energy usage.
+
+## Who it's for
+
+**Facility operators** — where equipment failure means downtime, safety risk, or a compliance issue:
+- **Water treatment & municipal wastewater** (primary beachhead)
+- **Campus facilities** — assisted living, healthcare, senior living
+- **Quick service restaurants (QSR)** — restaurants, gas stations, convenience
+
+**Essential service providers** — the platform doubles as a predictive-analytics and intelligence layer these businesses use to optimize their own operations and reduce cost and risk for their customers:
+- Septic companies
+- Pool service providers
+- Electrical contractors
+- HVAC contractors
+
+Common equipment across both: pumps, lift stations, commercial HVAC, refrigeration, electrical/energy panels, flow meters, and leak/level sensing — normalized into one live view regardless of vendor.
 
 ## What it does
 
-Low-cost IoT devices detect abnormal equipment and facility conditions early, reduce risk exposure (e.g. an undetected leak or a failed cooler compressor causing a shutdown-level loss), and proactively trigger service tickets to partners. Two examples that anchor the value proposition:
+Devices and gateways stream readings over secure, outbound-only connections. Each vendor's data is mapped to one common model, so nothing gets ripped and replaced. Configurable per-asset thresholds flag readings that drift out of range; critical alerts become service tickets automatically and flow into the CMMS and tools the operator already runs. Two examples that anchor the value proposition:
 
 - **Leak detection**: a triggered sensor raises a critical alert immediately, aimed at catching (and eventually auto-shutting-off) a leak before it becomes water damage significant enough to shut down a facility.
-- **Cold storage / food safety**: devices measure the **actual temperature of stored food/drink** (a probe in the product) rather than ambient air temperature. This does two things at once — lets the unit run warmer and more efficiently when the product itself is still safely cold (energy savings), while still catching a real FDA cold-holding violation (41°F / 4.4°C) before product has to be discarded.
+- **Cold storage / food safety**: devices measure the **actual temperature of stored product** (a probe in the food/drink) rather than ambient air. This lets the unit run warmer and more efficiently while the product is still safely cold (energy savings), while still catching a real FDA cold-holding violation (41°F / 4.4°C) before product must be discarded.
 
-Remote command/control of devices (e.g. actually shutting off a valve) is on the roadmap — see `CLAUDE.md` → "Future: Command & Control Architecture" for the network design constraints that shape it.
+Remote command/control of devices (e.g. actually shutting off a valve) is on the roadmap — see `CLAUDE.md` → "Future: Command & Control Architecture" for the network constraints that shape it.
 
 ---
 
-## Architecture (MVP)
+## Architecture
+
+Azure-native. See [`docs/architecture/target-reference-architecture.md`](docs/architecture/target-reference-architecture.md) for the full picture.
 
 ```
-IoT Devices → AWS IoT Core → Lambda (ingest) → RDS Postgres
-                                                      ↓
-                                          API Gateway + Lambda (REST)
-                                                      ↓
-                                          Cognito (SSO + RBAC)
-                                                      ↓
-                                          React SPA (S3 + CloudFront)
+Devices / PeakLogic Hubs
+   │  outbound-only MQTT/TLS, per-device X.509 (DPS-enrolled)
+   ▼
+Azure IoT Hub ──► Event Hub-compatible endpoint
+                        │
+                        ▼
+              Azure Functions (ingest)  ──►  Azure Database for
+                                             PostgreSQL Flexible Server
+                                             (row-level security per tenant)
+                        ▲
+   Browser ─► API Management ─► Azure Functions (REST API)
+   (React SPA)  (rate limiting)        │
+                                       ▼
+                          Microsoft Entra External ID
+                          (customers · partners · staff — 3 isolated tenants)
 ```
 
-**Stack:** AWS IoT Core · Lambda · API Gateway · RDS Postgres · Cognito · S3 · CloudFront · SES
+**Stack:** Azure IoT Hub + DPS · Azure Functions (Flex Consumption) · API Management · PostgreSQL Flexible Server · Microsoft Entra External ID · Key Vault · Application Insights / Log Analytics · Bicep IaC
 
 ---
 
 ## Project Structure
 
 ```
-peaklogic/
-├── infra/          # AWS CDK (TypeScript) — all cloud resources
-├── backend/        # Lambda functions + shared layers
-│   ├── api/        # REST API handlers
-│   ├── ingest/     # IoT telemetry ingestion
-│   └── shared/     # DB client, auth middleware, types
-├── frontend/       # React + Vite SPA
-└── docs/           # Architecture decisions, data model, runbooks
+PeakLogic-Azure-V2/
+├── infra-azure/              # Bicep IaC — all Azure resources (active)
+│   ├── modules/              # network, data, api, iot, apim, monitoring, budget, ingest-alerts
+│   └── entra/                # Entra app registrations (3 tenants, deployed separately)
+├── backend/                  # Azure Functions — API + ingest + scheduled jobs
+│   ├── api/                  # REST handlers + routers
+│   ├── ingest/               # Telemetry ingestion, rules, anomaly detection
+│   ├── jobs/                 # Scheduled sweeps (silence detection, PM generation)
+│   └── shared/               # DB/RLS, auth, alerts, CMMS, PeakAssist
+├── frontend/                 # React + Vite SPA — tenant app
+├── peakview360/              # React + Vite SPA — operator HMI/SCADA experience
+├── channel-partner-portal/   # Partner white-label portal
+├── customer-portal/          # Customer-facing portal
+├── windows-hub/              # PeakLogic Edge — .NET agent for on-prem Hubs (Windows + Linux)
+├── marketing/                # Public marketing site (static)
+├── ops/                      # Operational tooling (cost kill switch)
+├── scripts/                  # Admin tooling, DB migrations
+├── docs/                     # Architecture artifacts, business strategy, data model
+├── sysadmin-guides/          # Operator-facing system administration guide
+├── user-guides/              # End-user guide
+└── infra/                    # ⚠️ DEPRECATED — pre-pivot AWS CDK, retained for reference only
 ```
 
 ---
 
 ## Getting Started
 
-> Setup instructions will be added as each layer is built.
-
 ### Prerequisites
 - Node.js 20+
-- AWS CLI configured
-- AWS CDK CLI: `npm install -g aws-cdk`
+- Azure CLI (`az`) with the Bicep extension
+- .NET 8 SDK (only for `windows-hub/`, the PeakLogic Edge agent)
 - GitHub CLI: `gh auth login`
 
----
+### Common commands
 
-## Phases
+```bash
+# Backend
+cd backend && npm ci
+npm run typecheck && npm test
 
-| Phase | Status | Description |
-|-------|--------|-------------|
-| 1 | 🔄 In progress | Repo setup, architecture, data model |
-| 2 | ⏳ Planned | AWS infra (CDK): IoT Core, RDS, Cognito, API GW |
-| 3 | ⏳ Planned | Device onboarding + telemetry ingestion |
-| 4 | ⏳ Planned | Backend REST API |
-| 5 | ⏳ Planned | React frontend: auth, dashboard, alerts |
-| 6 | ⏳ Planned | Alert rules + service ticket generation |
+# Frontend / PeakView360
+cd frontend && npm ci && npm run dev
+cd peakview360 && npm ci && npm run dev
+
+# Infrastructure (validate — deploying needs a real Azure subscription)
+az bicep build --file infra-azure/main.bicep --stdout > /dev/null
+```
+
+See `CLAUDE.md` for the full command reference, deployment process, and release discipline.
 
 ---
 
 ## Branching Strategy
 
-- `main` — production-ready code only
-- `dev` — integration branch
+- `main` — production-ready, tagged releases only
+- `dev` — active development (default working branch)
 - `feature/<name>` — feature branches, PR into `dev`
-- `fix/<name>` — bug fixes
 
 ## Commit Convention
 
 ```
 feat: add device onboarding wizard
 fix: correct tenant RLS policy on telemetry table
-infra: add Cognito User Pool CDK construct
+infra: add IoT Hub + DPS Bicep module
 docs: update data model schema
 chore: update dependencies
 ```

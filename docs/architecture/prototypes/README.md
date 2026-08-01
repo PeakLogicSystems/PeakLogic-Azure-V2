@@ -22,7 +22,7 @@ Open it in any browser (it's a single HTML file — inline CSS/JS, no server, no
 
 The demo now also makes the **unified-platform reframe** operable — an *Operations* nav group plus a one-click **PeakAssist** help affordance (top bar), backing PRD/SRS §5.18–§5.22:
 
-- **PeakView360** — a live HMI/SCADA operator screen for a wastewater plant (the beachhead): process-value tiles with severity accents, a **docked alarm panel** (with AI-insight context and per-alarm "?" deep-links into help), and a **multi-pen historian** trend. States the "above SCADA / Hub-local offline" framing on the page.
+- **PeakView360** — a live HMI/SCADA operator screen for a wastewater plant (the beachhead): process-value tiles with severity accents, a **docked alarm panel** (with AI-insight context and per-alarm "?" deep-links into help), and a **multi-pen historian** trend. States the "alongside existing control / Hub-local offline" framing on the page.
 - **PeakLogic Hubs** — the on-prem edge fleet: status, protocols, tags acquired, agent + PeakAssist content version, last-seen; shows an offline Hub and a content-version-behind Hub.
 - **CMMS · Work Orders** — the work-order queue (alarm-driven + PM) across the `dispatched → accepted → on_site → completed` funnel, plus PM schedules with next-due.
 - **Compliance** — an automated NPDES/**DMR** parameter summary with a real exceedance and a coverage gap (shown, never interpolated) and the operator-is-filer-of-record framing.

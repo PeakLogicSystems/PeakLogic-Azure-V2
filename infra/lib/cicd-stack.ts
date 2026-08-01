@@ -1,3 +1,7 @@
+// ⚠️ DEPRECATED — pre-pivot AWS CDK. NOT deployed, NOT referenced by CI or the
+// backend. PeakLogic runs on Azure; live infrastructure is Bicep in infra-azure/.
+// Retained as read-only historical reference only — see infra/README.md.
+
 import * as cdk from 'aws-cdk-lib';
 import * as iam from 'aws-cdk-lib/aws-iam';
 import { Construct } from 'constructs';

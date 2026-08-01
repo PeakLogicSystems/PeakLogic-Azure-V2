@@ -58,7 +58,7 @@ Full persona development is its own artifact (#6). For PRD purposes, the roles t
 
 ## 4. MVP Scope: In / Out
 
-> **v2.0 unified-platform scope note.** The unified-platform capabilities in **§5.18–§5.23** (PeakView360, PeakLogic Hubs, built-in CMMS, compliance automation, PeakAssist) are **in scope for the unified-platform pilot MVP** defined in the [unified product vision](../business/unified-product-vision.md) §5.5 and sequenced by the [MVP Roadmap](mvp-roadmap.md). Hard boundaries: PeakLogic is **above SCADA** and never assumes safety-rated PLC control logic; MooreView's MV Draw CAD tool and raw PLC-tag programming are **explicitly out of MVP** (§5.23). The pilot targets one wastewater reference site end-to-end. The pre-existing device-adapter cloud-SaaS scope below is unchanged and is the foundation these build on.
+> **v2.0 unified-platform scope note.** The unified-platform capabilities in **§5.18–§5.23** (PeakView360, PeakLogic Hubs, built-in CMMS, compliance automation, PeakAssist) are **in scope for the unified-platform pilot MVP** defined in the [unified product vision](../business/unified-product-vision.md) §5.5 and sequenced by the [MVP Roadmap](mvp-roadmap.md). Hard boundaries: PeakLogic operates **alongside** any existing control system — filling the gap between field devices and enterprise SCADA, and feeding data upward into it — and never assumes safety-rated PLC control logic; MooreView's MV Draw CAD tool and raw PLC-tag programming are **explicitly out of MVP** (§5.23). The pilot targets one wastewater reference site end-to-end. The pre-existing device-adapter cloud-SaaS scope below is unchanged and is the foundation these build on.
 
 ### In scope for MVP
 

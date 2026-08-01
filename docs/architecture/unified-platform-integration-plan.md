@@ -43,7 +43,7 @@ This mirrors the role [`azure-restructuring-plan.md`](azure-restructuring-plan.m
 Beyond naming, the pivot introduces these genuinely new concepts the old artifacts don't cover — each needs a real home in the spine before it cascades:
 
 1. **Three-pillar product** (PeakLogicSystems / PeakView360 / PeakLogic Hubs) as one product, replacing the old single-tier framing.
-2. **"Above SCADA, never replacing it"** positioning — the platform never touches safety-rated PLC control logic (a hard guardrail to repeat in every relevant doc).
+2. **"Alongside your control system, never replacing it"** positioning — PeakLogic fills the gap between field devices and enterprise SCADA, feeds data upward into it, and never touches safety-rated PLC control logic (a hard guardrail to repeat in every relevant doc).
 3. **PeakView360 as a first-class HMI/SCADA layer** — real-time operator screens, alarm management, equipment dashboards, facility visualization, multi-pen historian; dual-source rendering (Hub-local/offline + cloud/multi-site).
 4. **PeakLogic Hubs as a first-class on-prem pillar** — PLC/RTU acquisition (Modbus/OPC-UA/EtherNet-IP), edge processing, offline reliability, store-and-forward, offline PeakView360 + PeakAssist serving.
 5. **Built-in CMMS** — work orders, PM schedules, alarm-driven work orders (absorbed/modernized from MooreView, extending the existing CMMS connector work).

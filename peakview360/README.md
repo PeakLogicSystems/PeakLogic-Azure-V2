@@ -46,4 +46,6 @@ Built vs. designed (of the five surfaces, §3.2):
 
 PeakView360 **visualizes and supervises — it never issues safety-rated control.**
 Setpoints and interlocks stay in the plant's certified control system. PeakLogic
-sits above SCADA.
+operates alongside it, filling the gap between the field devices and any
+enterprise SCADA and feeding normalized data upward into it — never replacing
+the control layer.

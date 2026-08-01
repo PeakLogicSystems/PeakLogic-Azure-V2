@@ -1,3 +1,7 @@
+// ⚠️ DEPRECATED — pre-pivot AWS CDK. NOT deployed, NOT referenced by CI or the
+// backend. PeakLogic runs on Azure; live infrastructure is Bicep in infra-azure/.
+// Retained as read-only historical reference only — see infra/README.md.
+
 // Single source of truth for front-end origins allowed to talk to this platform.
 // Auth stack (Cognito callback/logout URLs) and API stack (CORS) must both use
 // this list — Security Architecture §3.2 found them out of sync (API Gateway
