@@ -1,5 +1,7 @@
 import type { PoolClient } from 'pg';
 import { buildHubRegistration, applyHeartbeat, type HubRegistrationInput, type HubHeartbeatReport } from './hubs';
+import { checkHubAgentIntegrity } from './hub-integrity';
+import { createHubAlert } from './alerts';
 
 // Accept a PoolClient or a plain pg Client — same convention as cmms/dispatch.ts.
 type Queryable = Pick<PoolClient, 'query'>;
@@ -31,9 +33,16 @@ export async function registerHub(
  * agent/PeakAssist-content versions *only if the report carried them* — a
  * COALESCE keeps the existing value when a version is omitted, so a bare
  * heartbeat never nulls known versions. RLS-scoped by the caller's context.
+ *
+ * Water-Sector Security Hardening Strategy §5 Tier 2 item 1 — after
+ * recording, checks the reported agentVersion against the known-published
+ * set (shared/hub-integrity.ts) and raises a real alert when it's
+ * "unexpected" (a version PeakLogic never published — the same DriftStatus.
+ * Unexpected concept the on-device desired-state reconciler already uses).
  */
 export async function recordHeartbeat(
   client: Queryable,
+  tenantId: string,
   hubId: string,
   report: HubHeartbeatReport,
 ): Promise<{ updated: boolean }> {
@@ -48,5 +57,20 @@ export async function recordHeartbeat(
       WHERE id = $5`,
     [u.status, u.lastSeenAt, u.agentVersion, u.peakassistContentVersion, hubId],
   );
-  return { updated: (rowCount ?? 0) > 0 };
+  const updated = (rowCount ?? 0) > 0;
+
+  if (updated && report.agentVersion) {
+    const integrity = checkHubAgentIntegrity(report.agentVersion);
+    if (integrity.status === 'unexpected') {
+      await createHubAlert(client, tenantId, hubId, {
+        type: 'hub_agent_unexpected_version',
+        severity: 'warning', // no production track record for this check yet — same posture as anomaly/device-silence alerts
+        message: `Hub reported agent version "${integrity.reportedVersion}", which PeakLogic has never published — possible tampering or a corrupted/unofficial install.`,
+        context: { reportedVersion: integrity.reportedVersion },
+        time: report.at,
+      });
+    }
+  }
+
+  return { updated };
 }

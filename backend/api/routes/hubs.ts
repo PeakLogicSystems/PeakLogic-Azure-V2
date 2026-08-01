@@ -64,7 +64,7 @@ export async function heartbeat(event: PeakRequest, auth: AuthContext): Promise<
   const { hubId } = event.pathParameters!;
   const body = parseBody<HubHeartbeatBody>(event.body, event.isBase64Encoded);
   return withTenant(auth.tenantId, async (client) => {
-    const { updated } = await recordHeartbeat(client, hubId, {
+    const { updated } = await recordHeartbeat(client, auth.tenantId, hubId, {
       at: new Date(),
       agentVersion: body.agentVersion,
       peakassistContentVersion: body.peakassistContentVersion,
