@@ -189,7 +189,13 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
         id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
         name               TEXT NOT NULL,
         slug               TEXT NOT NULL UNIQUE,
-        channel_partner_id UUID REFERENCES channel_partners(id)
+        channel_partner_id UUID REFERENCES channel_partners(id),
+        -- REAL BUG found 2026-08-01, the first time this fixture ever ran:
+        -- withTenant() (the real, imported production function several
+        -- tests below call directly) unconditionally does a
+        -- SELECT status FROM tenants query — this table never had that
+        -- column, so every such call failed with "column status does not exist".
+        status             TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active','suspended','trial'))
       );
       CREATE TABLE sites (
         id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
