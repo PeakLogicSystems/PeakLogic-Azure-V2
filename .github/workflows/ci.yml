@@ -75,8 +75,11 @@ jobs:
         # (CREATE EXTENSION "postgis", GEOGRAPHY columns, ST_Contains). The
         # official postgis/postgis image is a superset of the plain postgres
         # image (same POSTGRES_USER/PASSWORD/DB env vars, same entrypoint) —
-        # not a different product to learn.
-        image: postgis/postgis:16-postgis-3
+        # not a different product to learn. Tag verified directly against
+        # Docker Hub's own API before using it (2026-08-01) — an earlier
+        # guess (16-postgis-3) doesn't actually exist ("manifest unknown"),
+        # confirmed by a real failed CI pull, not caught by reading docs alone.
+        image: postgis/postgis:16-3.4
         env:
           POSTGRES_USER: test
           POSTGRES_PASSWORD: test

@@ -12,7 +12,10 @@ services:
     # test.ts's channel-partner/territory tests need PostGIS (CREATE
     # EXTENSION "postgis", GEOGRAPHY columns, ST_Contains), which plain
     # postgres:16 doesn't have. Same image family, same env vars/entrypoint.
-    image: postgis/postgis:16-postgis-3
+    # Tag verified directly against Docker Hub's API (2026-08-01) — an
+    # earlier guess (16-postgis-3) doesn't actually exist, caught by a real
+    # failed CI pull ("manifest unknown"), matching ci.yml's own fix.
+    image: postgis/postgis:16-3.4
     environment:
       POSTGRES_USER: test
       POSTGRES_PASSWORD: test
