@@ -190,18 +190,14 @@ resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 }
 
 // ── Real, disclosed gaps, not silently omitted ──
-// 1. "Ingest rate zero" and "Function error rate" (the audit's own primary
-//    ask) need a Function App resource to attach a metrics alert to
-//    (requests count / failure count, Microsoft.Web/sites metric
-//    namespace). api.bicep now exists (2026-07-31) — but adding those
-//    alerts HERE would create a circular module dependency (this module
-//    would need api.bicep's functionAppId output; api.bicep already
-//    consumes THIS module's appInsightsConnectionString output). Build them
-//    as a small separate module/resource block instead, taking both this
-//    module's actionGroupId output and api.bicep's functionAppId output as
-//    inputs, deployed after both — same shape main.bicep's budget module
-//    already uses (postgresServerId + oncallActionGroupId from two
-//    different upstream modules).
+// 1. RESOLVED 2026-08-01 (Water-Sector Security Hardening Strategy §5 Tier
+//    0.4): "ingest rate zero" and "Function error rate" (the audit's own
+//    primary ask) are now real alerts in the new `ingest-alerts.bicep`
+//    module — deployed separately, not here, for exactly the circular-
+//    module-dependency reason this item used to describe (this module
+//    would need api.bicep's/iot.bicep's resource-id outputs; both already
+//    consume this module's own outputs). See that module's header for the
+//    verified metric names and main.bicep's wiring.
 // 2. "DLQ depth" (poison_messages row count, backend/shared/poison-
 //    messages.ts) has no Azure Monitor metric at all — it's a row count in
 //    Postgres, not a platform metric. Real options once api.bicep exists:
@@ -209,16 +205,7 @@ resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 //    custom metric via the Application Insights SDK, or (b) a Log
 //    Analytics query alert if Postgres query logs are ever streamed there.
 //    Neither is built here — flagged as real follow-up work, not faked.
-// 3. IoT Hub / Event Hub metrics (message ingress rate, throttled
-//    requests) would be a genuine, more direct proxy for "ingest stopped"
-//    than the Postgres connection-failure alert above. iot.bicep now exists
-//    (2026-07-31) and provides a resource ID (iotHub.id) to scope an alert
-//    to — same circular-module-dependency consideration as item 1 applies
-//    here too (this module would need iot.bicep's output; iot.bicep has no
-//    reason to depend on this module today, but adding the alert here
-//    directly would still require importing that ID as a new param and
-//    updating main.bicep's wiring). Real, sequenced follow-up, same shape
-//    as item 1's proposed small separate module.
+//    Restated in ingest-alerts.bicep's own disclosed-gap list too.
 
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output appInsightsConnectionString string = appInsights.properties.ConnectionString

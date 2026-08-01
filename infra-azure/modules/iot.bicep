@@ -202,6 +202,7 @@ resource dps 'Microsoft.Devices/provisioningServices@2022-02-05' = {
 //    every official sample checked only demonstrates reading index 0
 //    (iothubowner), not a custom policy looked up by name.
 
+output iotHubId string = iotHub.id // consumed by ingest-alerts.bicep's ingest-rate-zero metric alert
 output iotHubName string = iotHub.name
 output iotHubHostName string = iotHub.properties.hostName
 output eventHubName string = iotHub.properties.eventHubEndpoints.events.path
