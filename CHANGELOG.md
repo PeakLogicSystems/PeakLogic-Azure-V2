@@ -9,21 +9,59 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-### Fixed
-- **Clock format and time zone (Settings, v1.2.0) had no effect anywhere except the Settings page itself** — they were local component state, not shared app state, so a change never reached the Dashboard chart, Device Detail chart, or anywhere else. Moved into a new `PreferencesContext` (same shape as the already-working `ThemeContext`) and wired `frontend/src/lib/datetime.ts`'s formatting helpers into every place a time is actually rendered. Added a live clock to the Dashboard header as the clearest at-a-glance proof the setting is applied.
-- **Light/dark mode appeared broken in the local dev preview** — root cause was a stale `npm run dev` process still serving the OS-level `@media (prefers-color-scheme: dark)` compiled CSS from before `tailwind.config.ts`'s `darkMode: 'class'` was added, compounded by a Windows quirk where killing the process didn't free port 5173, so a second server silently started on 5174 while testing kept hitting the stale one. The code itself was always correct — confirmed via a direct `npx tailwindcss` CLI build and a full `npm run build`, both correctly class-scoped. No code change needed, only a clean server restart.
+_Nothing yet._
+
+---
+
+## [2.0.0] — 2026-08-01
+
+Major release. Two structural changes since v1.2.0 — the platform moved from AWS to **Microsoft Azure**, and the product was reframed from a single IoT SaaS into the **unified three-pillar platform** (PeakLogicSystems · PeakView360 · PeakLogic Hubs, with PeakAssist spanning all three). 196 commits.
+
+> **Note on the previous `[Unreleased]` section:** it described AWS-era work (CDK, RDS, CloudFront, Secrets Manager, AWS Budget Actions) completed before the Azure pivot. That work is real and remains in git history, but the infrastructure it describes is superseded by this release and is no longer deployed. It has been folded in here rather than shipped as its own version.
 
 ### Added
-- **Full international time zone selector** (SET-3) — a searchable combobox (`TimezoneSelect`) backed by `Intl.supportedValuesOf('timeZone')`, the complete ~400-zone IANA database with UTC offset labels, replacing the original 6-city US-only dropdown.
-- **Real domain: `peaklogicsolutions.com`** (purchased via Cloudflare; DNS stays at Cloudflare, not migrated to Route53). New `infra/lib/domain-stack.ts` (one shared ACM certificate per stage, DNS-validated) and `infra/lib/marketing-stack.ts` (public marketing site — a "Coming Soon" splash page today, `marketing/index.html`, no build step). The app (`frontend-stack.ts`) now serves at `app.{domain}` instead of a raw CloudFront default domain. Replaced the `app.peaklogic.io` placeholder `allowed-origins.ts` had referenced since before this project had any real domain — closed TD-10 (CloudFront TLS 1.0) in the same change, now `staging`/`prod`-appropriate `TLS_V1_2_2021` on both distributions.
-- **Cost kill switch** (`infra/lib/budget-stack.ts`, user-requested) — an AWS Budgets-based automated cost guard, no custom Lambda. A monthly cost budget (`-c budgetLimitUsd=`, default $5) emails at 50%/80% of the limit, then automatically stops the stage's RDS instance at 100% via AWS's native Budget Actions feature (its own documented `AWSBudgetsActions_RolePolicyForResourceAdministrationWithSSM` managed policy, not a hand-rolled equivalent). Requires `-c budgetAlertEmail=` at deploy time — fails synth loudly if omitted, same "no silent default" discipline as `-c stage=`. Disclosed limitations, not hidden: AWS Budgets track account-wide spend, not per-stage (fine under this project's current single-stage-at-a-time reality); billing data has reporting lag, so this is a strong fast response, not an instant circuit breaker; a Budget-Action-stopped RDS instance is still subject to AWS's own platform rule that it auto-restarts after 7 days, so this buys a pause, not a permanent shutdown.
+
+- **Azure infrastructure** (`infra-azure/`, Bicep) — network, data (PostgreSQL Flexible Server + Key Vault), api (Functions on Flex Consumption), iot (IoT Hub + DPS), apim (API Management with rate limiting), monitoring (Log Analytics, App Insights, metric alerts), ingest-alerts, and budget with a custom cost kill switch. Plus `infra-azure/entra/` — app registrations for three separate Entra tenants.
+- **PeakView360** — the operator HMI/SCADA experience: real-time operator screen, docked alarm panel, multi-pen historian, equipment dashboard with predictive-maintenance health, and an interactive Facility View. All five surfaces built; currently running on preview data.
+- **PeakLogic Hubs** — the on-prem edge tier. Cloud side (registration, heartbeat, silence sweep, PeakAssist bundle sync) and the .NET `PeakLogicEdge` agent, which cross-compiles to Windows and Linux and packages as an Azure IoT Edge module.
+- **PeakAssist** — contextual, offline-capable help: authored content corpus, deterministic resolver, cloud seed, Hub bundle sync with content-based checksums, plus a working offline RAG prototype.
+- **CMMS work-order lifecycle** — timestamp-driven dispatch funnel (dispatched → accepted → on-site → completed), conversion KPI, and the `service_visits` writer that closes the detect → dispatch → outcome → learn loop.
+- **Compliance reporting** — draft DMR generation with explicit coverage-gap honesty (never interpolates a missing reading) and a permanent operator-is-filer-of-record disclaimer.
+- **AI analytics (Tier 1)** — EWMA baselines and z-score anomaly detection, feature-flagged off by default, capped at `warning` so it can never auto-dispatch.
+- **Device-silence detection** and **connection-behaviour anomaly detection** — the absence of an expected reading, and an unusual reporting cadence, are both now detectable.
+- **Telemetry normalization fabric** — one canonical metric space across heterogeneous vendors.
+- **CI/CD** — four Azure-native workflows using Entra Workload Identity Federation (no stored secrets), plus dependency/SCA scanning and PSRule for Azure infra policy checks.
 
 ### Changed
-- **Corrected a wrong cost-saving claim in the SysAdmin Guide**: an earlier note claimed setting `natGateways: 0` and moving Lambda to public subnets reduces the NAT bill while staying functional — this is false, Lambda ENIs never receive a public IP even in a public subnet, and the change would have broken every database connection (`db.ts`'s Secrets Manager call for the RDS credential). Verified against AWS's own documentation before correcting.
+
+- **Cloud provider: AWS → Azure.** Identity moved from Cognito to Microsoft Entra External ID across three isolated tenants (customers / partners / staff); compute from Lambda to Azure Functions; database from RDS to PostgreSQL Flexible Server; device plane from AWS IoT Core to Azure IoT Hub + DPS; secrets from Secrets Manager to Key Vault; IaC from CDK to Bicep. The pre-pivot `infra/` tree is retained, deprecated, and deployed by nothing.
+- **Product positioning corrected.** PeakLogic is a lightweight, web-based SCADA and intelligence layer for distributed sites where a traditional SCADA deployment was never economically justifiable. Where a site has no control system, PeakLogic is that layer; where one exists, PeakLogic fills the gap between the field devices and the enterprise system and feeds normalized data upward into it. Prior "sits above SCADA" framing removed throughout.
+- **Verticals corrected** to water treatment / municipal wastewater, campus facilities (assisted living and healthcare), and QSR — plus the essential-service-provider audience (septic, pool, electrical, HVAC contractors), which the documentation had omitted entirely.
+- **SysAdmin Guide → v2.0.0** and **User Guide → v2.0**, both realigned; see their own revision histories.
+
+### Fixed
+
+- **CRITICAL — tenant isolation had never actually worked.** Every session-scoped RLS primitive (`withTenant()`, `withChannelPartner()`, `withStaffSession()`, `withStaffActingOnTenant()`, and the ingest handler) used `SET LOCAL app.x = $1` — which is **not valid PostgreSQL**, because `SET` does not accept bind parameters. The core isolation mechanism this platform's security model depends on had therefore never executed successfully against a real database, on either cloud. Invisible because unit tests mock the pg client and no integration test had ever run. Fixed by switching every call to `SELECT set_config(name, value, true)`; verified against a real Postgres in CI.
+- **`channel_partner_can_read_site()` used `ST_Contains(geography, geography)`** — an overload PostGIS does not have. The function would have thrown on first real invocation, meaning technician territory-scoped site access had never worked. Fixed with `ST_Covers`.
+- **GitHub Actions had never run a single workflow** on this repository since its creation, so nothing had ever been CI-verified. Root cause was a first-push confirmation gate; once enabled, the first run immediately surfaced the two bugs above plus a missing `bicepconfig.json`, a missing PostGIS extension in the test database, and several test-fixture defects — all fixed.
+- **Ingest hardening** — poison-message capture (Azure Functions has no native dead-letter for Event Hub triggers) and idempotency against at-least-once redelivery.
 
 ### Security
-- **`dev` stage RDS credential deliberately bypasses Secrets Manager** (TD-43, Technical Debt Register) — a plaintext password via CDK context (`-c devDbPassword=...`) instead of an auto-generated, access-controlled, rotated secret, paired with `natGateways: 0` for `dev`. A real, user-approved home-lab cost trade-off to reach $0/month for a minimal-device dev deployment — `staging`/`prod` are completely unaffected, both still use `fromGeneratedSecret()`. **Hard gate, tracked in `CLAUDE.md` and the Technical Debt Register: must be reverted before any real customer data touches this deployment, and must never be promoted to `staging`/`prod`.**
-- **Known: esbuild/Vite dev-server CORS vulnerability** (GHSA-67mh-4wv8-2f99, moderate severity). Affects `vite <=6.4.1` via `esbuild <=0.24.2`. **Production is not affected** — the vulnerability only allows a malicious website to query the local Vite dev server while `npm run dev` is running. Fix requires upgrading Vite v5 → v8 and vitest v2 → v4+ together (breaking change); deferred past v1.1.0 to keep that release proportionate to what's actually shipping (tracked as TD-11, Technical Debt Register).
+
+- **Audit logging extended from ~11% to ~95% of mutating routes.**
+- **Device/Hub identity revocation on decommission** — previously only a database status flag was flipped; the IoT Hub identity is now disabled too.
+- **Session revocation (force-logout)** via Microsoft Graph, available to tenant admins directly.
+- **Ingest-rate-zero and Function error-rate alerts** — "monitoring silently stopped" is this platform's worst failure mode and was previously undetectable.
+- **APIM rate-limit bypass closed** with a shared-secret header the backend validates.
+- **Dependency/SCA scanning** added to CI.
+- **RLS now genuinely enforced in integration tests** — they previously connected as a Postgres superuser, which bypasses row-level security unconditionally and made every isolation assertion meaningless.
+- Known open items are tracked in `docs/architecture/technical-debt-register.md`, notably **TD-51** (RLS policy recursion) and **TD-52** (unset session variable cast behaviour), both surfaced once RLS was genuinely exercised.
+
+### Known limitations
+
+- **Nothing has been deployed to a real Azure subscription.** Every Bicep module, deployment procedure, and operational runbook is derived from source and Microsoft documentation, not from operating a live system. Both guides mark unverified procedures explicitly.
+- Frontend surfaces run on preview/mock data; no PeakLogic Hub is installed at a customer site.
+- MFA and Conditional Access are not configured.
 
 ---
 
