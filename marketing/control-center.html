@@ -383,6 +383,33 @@
   .report-card__desc { font-size: 12.5px; color: var(--text-muted); line-height: 1.5; flex: 1; }
   .report-card__foot { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
 
+  /* ---------- Agents console ---------- */
+  .agt-div { margin-top: 24px; }
+  .agt-div__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 11px; }
+  .agt-div__name { font-size: 12px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .agt-div__rule { flex: 1; height: 1px; background: var(--border); }
+  .agt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 13px; }
+  .agt { border: 1px solid var(--border); border-radius: 11px; background: var(--surface-2); padding: 14px 15px; display: flex; flex-direction: column; gap: 9px; }
+  .agt--off { opacity: .55; }
+  .agt__top { display: flex; align-items: flex-start; gap: 9px; }
+  .agt__role { font-size: 13.5px; font-weight: 700; letter-spacing: -.01em; }
+  .agt__id { font-family: var(--mono); font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .agt__i { margin-left: auto; flex: none; }
+  .agt__does { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .agt__foot { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 4px; flex-wrap: wrap; }
+  .agt__cadence { font-size: 11.5px; color: var(--text-faint); margin-right: auto; }
+  .agt__seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+  .agt__seg button { border: none; background: none; font-family: inherit; font-size: 11px; font-weight: 650; padding: 4px 9px; color: var(--muted); cursor: pointer; }
+  .agt__seg button:hover { background: var(--surface-3); color: var(--text); }
+  .agt__seg button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent-ink); }
+  .agt-drawer dl { display: grid; grid-template-columns: auto 1fr; gap: 7px 14px; margin: 0; font-size: 12.5px; }
+  .agt-drawer dt { color: var(--muted); white-space: nowrap; }
+  .agt-drawer dd { margin: 0; }
+  .agt-sec { display: flex; flex-direction: column; gap: 6px; }
+  .agt-sec__h { font-size: 11px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
+  .agt-sec p { margin: 0; font-size: 13px; line-height: 1.55; }
+  .agt-run { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
+
   /* ---------- Overlay / drawer / modal / toast ---------- */
   /* The overlay root is a sibling of .app, so it does NOT inherit .app's
      color/font — without this, drawer/modal text fell back to the browser
@@ -620,6 +647,12 @@
       <button class="nav__item" data-action="nav:reports">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18M8 17V9M13 17V5M18 17v-6"/></svg>
         <span>Reports</span>
+      </button>
+
+      <div class="nav__label">Agent Team</div>
+      <button class="nav__item" data-action="nav:agents">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="8" width="14" height="11" rx="2.5"/><path d="M12 8V4.5M9.5 4.5h5"/><circle cx="9.3" cy="13" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.7" cy="13" r="1.15" fill="currentColor" stroke="none"/><path d="M2.5 12v3M21.5 12v3"/></svg>
+        <span>Agents</span><span class="nav__count" id="cnt-agents"></span>
       </button>
 
       <div class="nav__label">Administration</div>
@@ -1379,6 +1412,485 @@
     t.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M20 6 9 17l-5-5"/></svg><span>${esc(msg)}</span>`;
     $("#toasts").appendChild(t);
     setTimeout(() => { t.style.transition = "opacity .3s"; t.style.opacity = "0"; setTimeout(() => t.remove(), 300); }, 2600);
+  }
+
+  // ---------- Agent team ----------
+  // The 16 background agents, as an editable registry rather than hardcoded
+  // markup — adding or retiring an agent is a row here, which is what makes the
+  // console's add/remove affordance honest rather than decorative.
+  //
+  // `build` is deliberately NOT the same field as `state`. `state` is what the
+  // operator wants (active / on call / off); `build` is what actually exists in
+  // this repository today. Showing both prevents the console from implying a
+  // designed-but-unwritten agent is out there working.
+  const AGENTS = [
+    {
+      "id": "SENTRY-CQ",
+      "role": "Code Quality Inspector",
+      "div": "Engineering",
+      "build": "live",
+      "state": "active",
+      "cadence": "On every push / PR",
+      "does": "Reads every code change before it can merge and refuses the ones that would break the build or weaken the platform. Runs the TypeScript compiler, the unit and integration test suites, an npm audit, and PSRule’s Azure best-practice checks against the Bicep templates.",
+      "watches": "Every push and pull request into dev and main.",
+      "publishes": [
+        "health.status"
+      ],
+      "subs": [],
+      "run": "Runs itself on every push. To reproduce locally:\ncd backend && npm run typecheck && npm test\ncd infra-azure && az bicep build --file main.bicep",
+      "cost": "GitHub Actions on a public repo — free, unmetered. Zero Azure spend.",
+      "safety": "Blocks merges. Never edits code or force-pushes.",
+      "note": "Already wired: ci.yml runs 12 jobs per push."
+    },
+    {
+      "id": "FORGE-CD",
+      "role": "Release Engineer",
+      "div": "Engineering",
+      "build": "live",
+      "state": "active",
+      "cadence": "On merge to dev; manual for staging/prod",
+      "does": "Builds and ships the platform. Deploys automatically to dev on merge, and holds staging and production behind a human who has to press the button. Also enforces the release checklist — CHANGELOG entry, version bump, and both guides updated in lockstep.",
+      "watches": "Merges into dev and main; workflow_dispatch for the protected stages.",
+      "publishes": [
+        "health.status",
+        "incident.response"
+      ],
+      "subs": [
+        "health.status"
+      ],
+      "run": "Automatic on merge to dev. For a protected stage:\ngh workflow run deploy-staging.yml --ref main",
+      "cost": "GitHub Actions free tier. Deploy spend is the infrastructure itself, not the agent.",
+      "safety": "Cannot deploy to staging or production without a human trigger. No auto-rollback — it reports and waits.",
+      "note": "Blocked on a real Azure subscription existing."
+    },
+    {
+      "id": "LEDGER-SC",
+      "role": "Supply Chain Auditor",
+      "div": "Engineering",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Daily 04:00",
+      "does": "Tracks every third-party package the platform depends on, keeps a signed inventory of them, and tells you when one of them turns out to be vulnerable — including packages that were fine when you installed them.",
+      "watches": "All five package manifests plus the .NET hub agent.",
+      "publishes": [
+        "security.alert",
+        "health.status"
+      ],
+      "subs": [],
+      "run": "npm run agent -- LEDGER-SC --once\n# today, partially: npm audit --omit=dev --audit-level=high",
+      "cost": "Public advisory feeds are free. Zero Azure spend.",
+      "safety": "Never upgrades a package on its own — it opens a PR for a human to review.",
+      "note": "npm audit runs in CI today. SBOM generation and the advisory watch are not built."
+    },
+    {
+      "id": "SCRIBE-DOC",
+      "role": "Documentation Registrar",
+      "div": "Engineering",
+      "build": "design",
+      "state": "oncall",
+      "cadence": "On merge; weekly sweep",
+      "does": "Catches documentation drifting away from the product. Cross-checks the SysAdmin and User guides against the screens that actually exist, flags any capability described as available that is still gated, and hunts for terminology the project has retired.",
+      "watches": "Both guides, README, CLAUDE.md, and the architecture set — against the real portal source.",
+      "publishes": [
+        "health.status"
+      ],
+      "subs": [
+        "incident.response"
+      ],
+      "run": "npm run agent -- SCRIBE-DOC --once --report",
+      "cost": "Static analysis in CI. Zero Azure spend.",
+      "safety": "Reports drift; never rewrites a guide unattended.",
+      "note": "Proposed. Exists because the User Guide once described an application that was not the product for months."
+    },
+    {
+      "id": "PULSE-OPS",
+      "role": "Systems Health Monitor",
+      "div": "Operations",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Every 5 min",
+      "does": "Watches whether the platform is actually running — API error rates, database CPU and connections, function failures, and whether telemetry is still arriving. It is the agent that notices the lights going out.",
+      "watches": "App Insights, Log Analytics, Postgres metrics, ingest throughput, hub and device heartbeats.",
+      "publishes": [
+        "performance.anomaly",
+        "health.status"
+      ],
+      "subs": [],
+      "run": "npm run agent -- PULSE-OPS --once",
+      "cost": "Reads existing Azure Monitor metrics — already paid for by the resources. Adds no new service.",
+      "safety": "Read-only. Never restarts anything.",
+      "note": "monitoring.bicep and ingest-alerts.bicep define the alerts; nothing is deployed yet."
+    },
+    {
+      "id": "KEEPER-DR",
+      "role": "Continuity & Recovery Warden",
+      "div": "Operations",
+      "build": "design",
+      "state": "oncall",
+      "cadence": "Daily verify; monthly restore drill",
+      "does": "Makes sure the backups exist and, more importantly, that they actually restore. Runs a real restore into a scratch database on a schedule and measures how long it took and how much data was lost.",
+      "watches": "Postgres automated backups, retention windows, geo-redundancy, restore timings.",
+      "publishes": [
+        "health.status",
+        "incident.response"
+      ],
+      "subs": [],
+      "run": "npm run agent -- KEEPER-DR --verify\nnpm run agent -- KEEPER-DR --restore-drill --target scratch",
+      "cost": "A restore drill briefly creates a scratch server — the one agent with real spend. Capped, torn down automatically, and off by default.",
+      "safety": "Restores only into an isolated scratch server. Never touches a live database.",
+      "note": "Proposed. TD-21: recovery objectives have never been drilled. An untested backup is not a backup."
+    },
+    {
+      "id": "ABACUS-FIN",
+      "role": "Cost Guardian",
+      "div": "Operations",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Every 6 h",
+      "does": "Watches the Azure bill and makes sure nothing — including the other agents — quietly starts costing money. Tracks spend against budget, flags any newly created billable resource, and confirms the cost kill switch is still armed.",
+      "watches": "Cost Management, budget consumption, resource inventory deltas, the kill-switch action group.",
+      "publishes": [
+        "security.alert",
+        "health.status"
+      ],
+      "subs": [
+        "health.status"
+      ],
+      "run": "npm run agent -- ABACUS-FIN --once",
+      "cost": "Cost Management queries are free. Zero Azure spend.",
+      "safety": "Alerts only. The 100% auto-stop is the existing kill-switch function, not this agent.",
+      "note": "budget.bicep and ops/cost-killswitch exist. Undeployed. This agent is what makes the never-increase-charges rule enforceable rather than aspirational."
+    },
+    {
+      "id": "MASON-CFG",
+      "role": "Configuration Steward",
+      "div": "Operations",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Hourly",
+      "does": "Compares what is actually deployed against what the code says should be deployed, and reports the difference. Covers both cloud resources and the software running on every PeakLogic Hub in the field.",
+      "watches": "Deployed Azure resources vs Bicep; hub-reported firmware, drivers, config and agent versions vs desired state.",
+      "publishes": [
+        "security.alert",
+        "health.status"
+      ],
+      "subs": [],
+      "run": "npm run agent -- MASON-CFG --once\naz deployment group what-if -g peaklogic-dev-rg -f infra-azure/main.bicep",
+      "cost": "ARM read operations are free. Zero Azure spend.",
+      "safety": "Reports drift. Never reconciles the cloud automatically — unexplained drift may be an intrusion, not a mistake.",
+      "note": "The hub-side reconciler and hub-integrity version check exist. The cloud-side comparison is not built."
+    },
+    {
+      "id": "ASSAY-DQ",
+      "role": "Data Integrity Analyst",
+      "div": "Data & Equipment",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Every 15 min",
+      "does": "Decides whether the data can be trusted before anything is concluded from it. Rejects physically impossible readings, finds gaps and duplicates, catches a sensor that has frozen on one value, and flags drift that means an instrument needs recalibration.",
+      "watches": "Telemetry ingest, poison messages, coverage gaps, stuck sensors, calibration due dates.",
+      "publishes": [
+        "data.integrity.issue",
+        "maintenance.recommendation"
+      ],
+      "subs": [],
+      "run": "npm run agent -- ASSAY-DQ --once --window 24h",
+      "cost": "Runs inside the existing ingest path and the shared function plan. Zero new spend.",
+      "safety": "Never edits or interpolates a stored reading. A gap is reported as a gap.",
+      "note": "Range sanitising, dedup, poison-message capture and normalisation all exist. Stuck-sensor and calibration-drift detection do not."
+    },
+    {
+      "id": "AUGUR-PDM",
+      "role": "Predictive Maintenance Analyst",
+      "div": "Data & Equipment",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Hourly scoring; daily schedule sweep",
+      "does": "Learns what normal looks like for each individual piece of equipment and warns you when it starts drifting toward failure — a pump drawing more current, a compressor running longer to hold temperature. Also generates preventive work orders when they come due.",
+      "watches": "Per-device statistical baselines, runtime and duty-cycle trends, PM schedules.",
+      "publishes": [
+        "maintenance.recommendation",
+        "performance.anomaly"
+      ],
+      "subs": [
+        "data.integrity.issue"
+      ],
+      "run": "npm run agent -- AUGUR-PDM --once\nnpm run agent -- AUGUR-PDM --explain <deviceId>",
+      "cost": "Statistics computed in-process on the existing plan. No ML service, no GPU. Zero new spend.",
+      "safety": "Capped at warning severity — cannot auto-dispatch a technician. It has no measured accuracy yet, so it may not spend your money.",
+      "note": "Baselines and anomaly scoring are built and tested; PM work-order generation is built. Failure-mode prediction is design-only."
+    },
+    {
+      "id": "QUILL-RPT",
+      "role": "Reporting Officer",
+      "div": "Data & Equipment",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Weekly Mon 06:00 · configurable",
+      "does": "Writes the report you actually read. Collects every other agent’s findings for the period, resolves them into one narrative, and delivers it by email and to the dashboard. This is the only agent that composes the scheduled health report.",
+      "watches": "All seven topics on the bus, for the reporting period.",
+      "publishes": [
+        "reporting.summary"
+      ],
+      "subs": [
+        "health.status",
+        "security.alert",
+        "performance.anomaly",
+        "data.integrity.issue",
+        "maintenance.recommendation",
+        "incident.response"
+      ],
+      "run": "npm run agent -- QUILL-RPT --period 7d --deliver\nnpm run agent -- QUILL-RPT --period 24h --dry-run   # preview a daily cadence",
+      "cost": "One function execution per report. Effectively zero.",
+      "safety": "Reports only. Changes the schedule via config, never its own scope.",
+      "note": "Compliance report generation is built. Cross-agent aggregation is not. Cadence is a cron value — weekly to daily is a config change, not a redesign."
+    },
+    {
+      "id": "NOTARY-CMP",
+      "role": "Compliance Evidence Officer",
+      "div": "Data & Equipment",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Daily 05:00",
+      "does": "Keeps you ready for an audit or an inspection without a scramble. Tracks regulatory deadlines, verifies the audit trail is complete and unbroken, and continuously collects the evidence a SOC 2 assessor will ask for.",
+      "watches": "DMR and permit deadlines, audit-log continuity, retention windows, control evidence.",
+      "publishes": [
+        "reporting.summary",
+        "security.alert"
+      ],
+      "subs": [
+        "data.integrity.issue",
+        "security.alert"
+      ],
+      "run": "npm run agent -- NOTARY-CMP --once\nnpm run agent -- NOTARY-CMP --evidence-pack --framework soc2",
+      "cost": "Database reads plus blob storage for the evidence pack. Pennies per month.",
+      "safety": "Never files anything with a regulator. The operator remains the filer of record.",
+      "note": "The audit log and DMR draft generation exist. Deadline tracking and evidence packs do not."
+    },
+    {
+      "id": "AEGIS-SEC",
+      "role": "Threat Detection Officer",
+      "div": "Security",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Every 15 min",
+      "does": "Watches for someone trying to get in, or something already inside behaving oddly. Failed logins and credential stuffing, API abuse, devices connecting on a rhythm they never had before, and traffic bypassing the gateway.",
+      "watches": "Auth logs, APIM traffic, device connection cadence, hub agent versions, admin actions.",
+      "publishes": [
+        "security.alert"
+      ],
+      "subs": [
+        "performance.anomaly",
+        "data.integrity.issue"
+      ],
+      "run": "npm run agent -- AEGIS-SEC --once\nnpm run agent -- AEGIS-SEC --replay <incidentId>",
+      "cost": "Log Analytics queries within the existing workspace. Zero new spend.",
+      "safety": "Detects and can isolate a single compromised device identity. Cannot patch, cannot change firewall rules, cannot touch equipment.",
+      "note": "Connection-behaviour anomaly detection, the APIM guard, device-identity revocation and hub integrity checks are built. Auth-log correlation is not."
+    },
+    {
+      "id": "WARDEN-TEN",
+      "role": "Tenant Isolation Prover",
+      "div": "Security",
+      "build": "design",
+      "state": "active",
+      "cadence": "Every push + hourly in production",
+      "does": "Continuously proves that one customer cannot see another customer’s data. Enumerates every table, checks row-level security is enabled and forced on each one, and runs live cross-tenant probes that must come back empty.",
+      "watches": "Every tenant-scoped table, every RLS policy, every database role, every query path.",
+      "publishes": [
+        "security.alert"
+      ],
+      "subs": [],
+      "run": "npm run agent -- WARDEN-TEN --once --fail-on-any\nnpm run agent -- WARDEN-TEN --prove-table telemetry",
+      "cost": "Runs against the CI database and a read replica. Zero new spend.",
+      "safety": "Read-only probes. Any finding is critical by definition — there is no warning tier for a tenant boundary.",
+      "note": "The single most important gap. TD-8: isolation is not provably complete. The SET LOCAL defect meant isolation never actually executed for the project’s entire history and nothing noticed — this agent is the thing that would have noticed."
+    },
+    {
+      "id": "CIPHER-IAM",
+      "role": "Identity & Secrets Custodian",
+      "div": "Security",
+      "build": "design",
+      "state": "active",
+      "cadence": "Daily 03:00",
+      "does": "Keeps track of every credential, certificate and key before one of them expires and takes the fleet offline. Also reviews who has access to what, and flags accounts that should have been closed.",
+      "watches": "Device certificates, Key Vault secrets, service principals, staff accounts, role assignments.",
+      "publishes": [
+        "security.alert",
+        "health.status"
+      ],
+      "subs": [],
+      "run": "npm run agent -- CIPHER-IAM --once\nnpm run agent -- CIPHER-IAM --expiring 90d",
+      "cost": "Key Vault and Entra read operations. Effectively zero.",
+      "safety": "Never rotates a credential unattended — a botched rotation is an outage. It warns early enough for a planned one.",
+      "note": "Proposed. TD-9: certificate rotation has no owner. Device certs expiring silently would take the entire fleet dark at once."
+    },
+    {
+      "id": "MARSHAL-IR",
+      "role": "Incident Commander",
+      "div": "Security",
+      "build": "partial",
+      "state": "active",
+      "cadence": "Event-driven, continuous",
+      "does": "The only agent that contacts you. Every other agent reports to it; it decides what is genuinely critical, groups related findings into one incident rather than fifteen alerts, and sends you a single message with an action plan. It also owns escalation if nobody acknowledges.",
+      "watches": "Every topic on the bus. Owns the critical-vs-warning decision and all outbound notification.",
+      "publishes": [
+        "incident.response"
+      ],
+      "subs": [
+        "security.alert",
+        "performance.anomaly",
+        "data.integrity.issue",
+        "health.status",
+        "maintenance.recommendation"
+      ],
+      "run": "npm run agent -- MARSHAL-IR --once\nnpm run agent -- MARSHAL-IR --test-escalation   # sends a drill, clearly marked",
+      "cost": "Notification send costs only — SMS is fractions of a cent. Email and Teams are free.",
+      "safety": "Notifies and recommends. Never restarts a service, never changes equipment state, never applies a patch. Every recommendation needs a human to act on it.",
+      "note": "The alert pipeline and ticket creation exist. Correlation, deduplication into incidents, escalation timers and SMS delivery do not."
+    }
+  ];
+
+  const AGT_BUILD = {
+    live:    { label: "Operating",   cls: "good", tip: "Built, tested, and running today." },
+    partial: { label: "Partial",     cls: "warn", tip: "Some of this agent's checks exist; the rest are specified but not written." },
+    design:  { label: "Specified",   cls: "info", tip: "Designed and scoped. No code yet — it reports nothing until built." },
+  };
+  const AGT_STATE = {
+    active: { label: "Active",  tip: "Runs on its schedule, silently, and reports through the Incident Commander." },
+    oncall: { label: "On call", tip: "Dormant. Runs only when you invoke it for a specific task." },
+    off:    { label: "Off",     tip: "Fully disabled. Publishes nothing." },
+  };
+  const AGT_DIVISIONS = ["Engineering", "Operations", "Data & Equipment", "Security"];
+
+  function agentById(id) { return AGENTS.find(a => a.id === id); }
+  function setAgentState(id, next) {
+    const a = agentById(id); if (!a) return;
+    a.state = next;
+    toast(`${a.role} — ${AGT_STATE[next].label.toLowerCase()}`);
+    render();
+  }
+
+  function viewAgents() {
+    const on = AGENTS.filter(a => a.state === "active").length;
+    const oncall = AGENTS.filter(a => a.state === "oncall").length;
+    const built = AGENTS.filter(a => a.build === "live").length;
+    const partial = AGENTS.filter(a => a.build === "partial").length;
+
+    const stats = [
+      { label: "Agents on duty", value: on, sub: `${oncall} on call · ${AGENTS.length - on - oncall} off`, accent: "var(--accent)",
+        how: "Agents whose state is Active — they run on their own schedule without being asked.", why: "Your standing background team. Everything else waits until you engage it." },
+      { label: "Actually built", value: `${built} of ${AGENTS.length}`, sub: `${partial} partially built`, accent: partial ? "var(--warn)" : "var(--good)",
+        how: "Agents whose logic exists and is tested in this repository, as opposed to specified only.", why: "Separates the team you have from the team you have designed. An agent set to Active but not built still reports nothing." },
+      { label: "Added Azure cost", value: "$0.00", sub: "per month, all agents active", accent: "var(--good)",
+        how: "Agents run as timer functions on the existing consumption plan and read telemetry already being collected. At full cadence the whole team uses roughly 25,000 executions a month against a 1,000,000 free monthly grant.", why: "You set a hard rule that agents must never raise your cloud bill. This is the number that proves it, and the Cost Guardian is what keeps it true." },
+      { label: "Notifies you", value: "1", sub: "MARSHAL-IR only", accent: "var(--info)",
+        how: "Only the Incident Commander sends outbound messages. Every other agent reports onto the internal bus.", why: "A single voice. Fifteen agents noticing one outage reaches you as one incident, not fifteen alerts at 3am." },
+    ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label} ${explain(s.how, s.why)}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+
+    const divisions = AGT_DIVISIONS.map(div => {
+      const cards = AGENTS.filter(a => a.div === div).map(a => {
+        const b = AGT_BUILD[a.build];
+        const seg = ["active", "oncall", "off"].map(k =>
+          `<button data-action="agent-state:${a.id}:${k}" aria-pressed="${a.state === k}" title="${esc(AGT_STATE[k].tip)}">${AGT_STATE[k].label}</button>`).join("");
+        return `<div class="agt ${a.state === "off" ? "agt--off" : ""}">
+          <div class="agt__top">
+            <div>
+              <div class="agt__role">${esc(a.role)}</div>
+              <div class="agt__id">${esc(a.id)}</div>
+            </div>
+            <span class="agt__i"><button class="mx-i" data-action="agent:${a.id}" aria-label="What ${esc(a.role)} does and how to run it" title="What it does and how to run it">${INFO_ICON}</button></span>
+          </div>
+          <div class="agt__does">${esc(a.does)}</div>
+          <div class="agt__foot">
+            <span class="agt__cadence">${esc(a.cadence)}</span>
+            <span class="pill pill--${b.cls}" title="${esc(b.tip)}"><span class="dot"></span>${b.label}</span>
+          </div>
+          <div class="agt__seg">${seg}</div>
+        </div>`;
+      }).join("");
+      return `<div class="agt-div"><div class="agt-div__head"><span class="agt-div__name">${esc(div)}</span><span class="agt-div__rule"></span></div><div class="agt-grid">${cards}</div></div>`;
+    }).join("");
+
+    return `
+      <div class="page-head"><h1>Agent Team</h1>
+        <p>Sixteen background agents across four divisions — an engineering, operations, data and security team that works silently and reports to you. Set an agent <b>Active</b> to let it run on its own schedule, <b>On call</b> to keep it dormant until you need it, or <b>Off</b>. Every agent carries an ${INFO_ICON.replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} explaining exactly what it does and how to run it.</p></div>
+      <div class="stats">${stats}</div>
+      ${divisions}
+      <div class="panel" style="margin-top:24px">
+        <div class="panel__head"><span class="panel__title">Manage the roster</span>
+          <span class="panel__note">
+            <button class="btn btn--sm" data-action="toast:Agent definition template opened — scope, schedule, topics and thresholds">Add an agent</button>
+            <button class="btn btn--sm" data-action="toast:Select an agent, then Off — retiring removes it from the roster and the bus">Retire an agent</button>
+          </span></div>
+        <div style="padding:15px 17px;display:flex;flex-direction:column;gap:13px">
+          <div class="callout">${INFO_ICON}
+            <div><b>Agents advise; they never act on equipment.</b> No agent can start or stop a pump, change a setpoint, apply a patch, or restart a service. The most any of them can do on its own is isolate one compromised device identity. Everything else is a recommendation with a human decision in front of it — the same hard gate that governs actuation platform-wide (CC-3.1/CC-4.1).</div></div>
+          <div class="callout" style="border-left:3px solid var(--good);padding-left:13px">${INFO_ICON}
+            <div><b>Why this costs nothing.</b> The agents reuse infrastructure you already pay for: timer functions on the existing consumption plan, the Log Analytics workspace already collecting telemetry, and Postgres as the message bus. No Kafka cluster, no Prometheus VM, no Grafana host, no SIEM licence. The one agent that can spend real money — the Continuity Warden's restore drill — is off by default and tears its scratch server down when it finishes.</div></div>
+          <div class="callout" style="border-left:3px solid var(--warn);padding-left:13px">${INFO_ICON}
+            <div><b>Four agents are specified but not yet built</b> — the Documentation Registrar, Continuity Warden, Tenant Isolation Prover and Identity Custodian. The Tenant Isolation Prover is the one to build first: it is the agent that would have caught the tenant-isolation defect that went unnoticed for this project's entire history.</div></div>
+        </div>
+      </div>`;
+  }
+
+  // Agent detail — the (i). Rich enough to need a drawer rather than the small
+  // hover tip: "how to run it" is a command line, not a sentence.
+  function openAgentDrawer(id) {
+    const a = agentById(id); if (!a) return;
+    const b = AGT_BUILD[a.build];
+    const topics = list => list.length
+      ? list.map(t => `<span class="pill pill--info" style="margin:0 4px 4px 0"><span class="dot"></span>${esc(t)}</span>`).join("")
+      : '<span class="muted" style="font-size:12.5px">None — it only listens.</span>';
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <aside class="drawer agt-drawer" role="dialog" aria-label="Agent detail">
+        <div class="drawer__head">
+          <div>
+            <div style="font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">${esc(a.div)} division</div>
+            <h2 class="drawer__title">${esc(a.role)}</h2>
+            <div class="drawer__id">${esc(a.id)}</div>
+          </div>
+          <button class="btn btn--sm" data-action="close-overlay" style="margin-left:auto">Close</button>
+        </div>
+        <div class="drawer__body">
+          <div class="agt-sec">
+            <div class="agt-sec__h">What it does</div>
+            <p>${esc(a.does)}</p>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">How to run it</div>
+            <div class="agt-run">${esc(a.run)}</div>
+            <p class="muted" style="font-size:12px">Set it <b>Active</b> and it runs this on its own schedule. <b>On call</b> means it only runs when you invoke it.</p>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">Status</div>
+            <dl>
+              <dt>Build state</dt><dd><span class="pill pill--${b.cls}"><span class="dot"></span>${b.label}</span></dd>
+              <dt>Schedule</dt><dd>${esc(a.cadence)}</dd>
+              <dt>Watches</dt><dd>${esc(a.watches)}</dd>
+            </dl>
+            <p class="muted" style="font-size:12.5px;margin-top:2px">${esc(a.note)}</p>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">Publishes to</div>
+            <div>${topics(a.publishes)}</div>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">Listens to</div>
+            <div>${topics(a.subs)}</div>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">What it costs you</div>
+            <p>${esc(a.cost)}</p>
+          </div>
+          <div class="agt-sec">
+            <div class="agt-sec__h">What it may not do</div>
+            <p>${esc(a.safety)}</p>
+          </div>
+        </div>
+      </aside>`;
+    $("#overlay-root").innerHTML = html;
   }
 
   // ---------- Views ----------
@@ -2688,8 +3200,8 @@
     device_silent: { name: "Device silent", body: "A device stopped reporting when it was expected to. It may be offline, disconnected, or failed — distinct from a bad reading." },
   };
 
-  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, channels: viewChannels, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings, peakview360: viewPeakView360, hubs: viewHubs, cmms: viewCmms, compliance: viewCompliance };
-  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", channels: "nav:channels", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance" };
+  const VIEWS = { fleet: viewFleet, tenants: viewTenants, partners: viewPartners, sites: viewSites, "tenant-detail": viewTenantDetail, "partner-detail": viewPartnerDetail, devices: viewDevices, channels: viewChannels, staff: viewStaff, audit: viewAudit, reports: viewReports, settings: viewSettings, peakview360: viewPeakView360, hubs: viewHubs, cmms: viewCmms, compliance: viewCompliance, agents: viewAgents };
+  const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", channels: "nav:channels", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance", agents: "nav:agents" };
   const TITLE = { fleet: "Fleet Overview", tenants: "Customer Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", channels: "System Channels", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
 
   function render() {
@@ -3425,6 +3937,8 @@
     else if (action === "save-branding") saveBranding(arg, arg2);
     else if (action === "device") openDeviceDrawer(arg);
     else if (action === "hub") openHubDrawer(arg);
+    else if (action === "agent") openAgentDrawer(arg);
+    else if (action === "agent-state") setAgentState(arg, arg2);
     else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
     else if (action === "site-open") openNewSite(arg);
