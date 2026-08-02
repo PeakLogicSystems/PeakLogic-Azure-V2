@@ -67,11 +67,11 @@ CREATE INDEX sites_channel_partner_idx ON sites(channel_partner_id) WHERE channe
 DROP POLICY IF EXISTS channel_partner_read ON tenants;
 CREATE POLICY channel_partner_read ON tenants FOR SELECT
   USING (
-    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    channel_partner_id = app_uuid('app.current_channel_partner_id')
     OR EXISTS (
       SELECT 1 FROM sites s
       WHERE s.tenant_id = tenants.id
-        AND s.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+        AND s.channel_partner_id = app_uuid('app.current_channel_partner_id')
     )
   );
 
@@ -83,19 +83,33 @@ CREATE POLICY channel_partner_read ON tenants FOR SELECT
 -- tenant-level check as before -- byte-identical behavior for the common
 -- case (the pure branding-RESOLUTION logic, a separate concern from this
 -- RLS predicate, is covered by backend/shared/branding.test.ts).
+-- TD-51 (fixed 2026-08-01): SECURITY DEFINER is load-bearing, not optional.
+-- A policy on `sites` calls this function, and the function's own body
+-- SELECTs from `sites` — which re-triggers that same policy, which calls
+-- this function again. Without SECURITY DEFINER that is unbounded recursion,
+-- and Postgres kills the query with "stack depth limit exceeded". It could
+-- never show up while the only connections exercising it were superusers
+-- (superusers bypass RLS entirely); it surfaced the moment integration tests
+-- started connecting as a real non-superuser role.
+--
+-- SECURITY DEFINER makes the function body run as the function's owner, so
+-- its internal reads are not re-filtered by the policies that invoked it.
+-- `SET search_path` is mandatory hardening that must accompany it —
+-- without a pinned search_path, a caller could shadow `sites`/`tenants`
+-- with their own objects and change what this security check resolves.
 CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1
     FROM sites s
     JOIN tenants t ON t.id = s.tenant_id
     WHERE s.id = p_site_id
-      AND COALESCE(s.channel_partner_id, t.channel_partner_id) = current_setting('app.current_channel_partner_id', true)::uuid
+      AND COALESCE(s.channel_partner_id, t.channel_partner_id) = app_uuid('app.current_channel_partner_id')
       AND (
         current_setting('app.current_channel_partner_role', true) = 'partner_admin'
         OR EXISTS (
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
-          WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          WHERE cpu.id = app_uuid('app.current_channel_partner_user_id')
             -- ST_Covers, not ST_Contains — REAL BUG found and fixed
             -- 2026-08-01 (Water-Sector Security Hardening Strategy §5):
             -- PostGIS has no ST_Contains(geography, geography) overload,
@@ -106,7 +120,7 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
         )
       )
   );
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- Down Migration
 
@@ -116,13 +130,13 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
     FROM sites s
     JOIN tenants t ON t.id = s.tenant_id
     WHERE s.id = p_site_id
-      AND t.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      AND t.channel_partner_id = app_uuid('app.current_channel_partner_id')
       AND (
         current_setting('app.current_channel_partner_role', true) = 'partner_admin'
         OR EXISTS (
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
-          WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          WHERE cpu.id = app_uuid('app.current_channel_partner_user_id')
             -- ST_Covers, not ST_Contains — REAL BUG found and fixed
             -- 2026-08-01 (Water-Sector Security Hardening Strategy §5):
             -- PostGIS has no ST_Contains(geography, geography) overload,
@@ -133,11 +147,11 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
         )
       )
   );
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 DROP POLICY IF EXISTS channel_partner_read ON tenants;
 CREATE POLICY channel_partner_read ON tenants FOR SELECT
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 DROP INDEX IF EXISTS sites_channel_partner_idx;
 ALTER TABLE sites DROP COLUMN IF EXISTS channel_partner_id;

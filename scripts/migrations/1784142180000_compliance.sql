@@ -46,7 +46,7 @@ CREATE INDEX compliance_reports_site_idx ON compliance_reports(site_id);
 ALTER TABLE compliance_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE compliance_reports FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON compliance_reports
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE exceedance_records (
   id             UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -64,7 +64,7 @@ CREATE INDEX exceedance_records_site_idx ON exceedance_records(site_id, occurred
 ALTER TABLE exceedance_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exceedance_records FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON exceedance_records
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

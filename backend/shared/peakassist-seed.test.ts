@@ -8,12 +8,23 @@ import { PEAKASSIST_CONTENT, PEAKASSIST_CONTENT_VERSION } from './peakassist-con
 // is a sibling of backend/, so ../../scripts reaches the migration.
 const MIGRATION_PATH = path.resolve(__dirname, '..', '..', 'scripts', 'migrations', '1784142300000_peakassist-seed.sql');
 
+// Line endings are normalized on BOTH sides before comparing. Without this the
+// test fails on any Windows checkout: git applies core.autocrlf and rewrites
+// the committed .sql with CRLF, while the generator always emits \n — so the
+// golden comparison reports "drift" that is purely a checkout artifact, not a
+// real corpus/migration divergence. Found 2026-08-01 when a routine
+// main↔dev checkout round-trip re-materialized the file with CRLF and turned
+// this guard red for the wrong reason. Normalizing keeps it sensitive to what
+// it actually exists to catch (content drift) and blind to what it should not
+// care about (how the working copy stores newlines).
+const normalizeEol = (s: string) => s.replace(/\r\n/g, '\n');
+
 describe('PeakAssist seed migration — golden file (single source of truth)', () => {
   it('the committed migration is exactly what the corpus generates (no drift)', () => {
     const onDisk = readFileSync(MIGRATION_PATH, 'utf8');
     const generated = buildPeakAssistSeedSql(PEAKASSIST_CONTENT, PEAKASSIST_CONTENT_VERSION);
     // If this fails, regenerate the .sql from the corpus — never hand-edit it.
-    expect(onDisk).toBe(generated);
+    expect(normalizeEol(onDisk)).toBe(normalizeEol(generated));
   });
 });
 

@@ -28,7 +28,7 @@ CREATE INDEX hmi_screens_site_idx ON hmi_screens(site_id);
 ALTER TABLE hmi_screens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hmi_screens FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON hmi_screens
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE tags (
   id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -48,7 +48,7 @@ CREATE INDEX tags_hub_idx ON tags(hub_id);
 ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tags FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tags
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE historian_pens (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -66,7 +66,7 @@ CREATE TABLE historian_pens (
 ALTER TABLE historian_pens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE historian_pens FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON historian_pens
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

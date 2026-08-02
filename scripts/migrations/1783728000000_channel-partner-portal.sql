@@ -26,7 +26,7 @@
 --
 -- ── Real bug fixed in the same migration, not a separate one ──────────
 -- Every EXISTING tenant_isolation policy uses
--- current_setting('app.current_tenant_id')::uuid with no missing_ok flag
+-- app_uuid('app.current_tenant_id') with no missing_ok flag
 -- -- which RAISES AN ERROR if that setting was never made for the
 -- session, rather than evaluating to false. A channel-partner session
 -- never sets app.current_tenant_id at all, so without this fix, the
@@ -46,39 +46,39 @@
 -- session) gets `false` (row excluded) instead of a hard error.
 DROP POLICY IF EXISTS tenant_isolation ON users;
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON sites;
 CREATE POLICY tenant_isolation ON sites
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON assets;
 CREATE POLICY tenant_isolation ON assets
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON devices;
 CREATE POLICY tenant_isolation ON devices
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON telemetry;
 CREATE POLICY tenant_isolation ON telemetry
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON telemetry_hourly;
 CREATE POLICY tenant_isolation ON telemetry_hourly
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON metric_baselines;
 CREATE POLICY tenant_isolation ON metric_baselines
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON alerts;
 CREATE POLICY tenant_isolation ON alerts
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON service_tickets;
 CREATE POLICY tenant_isolation ON service_tickets
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- channel_partners.branding
 
@@ -101,7 +101,7 @@ CREATE INDEX territories_channel_partner_idx ON territories(channel_partner_id);
 
 ALTER TABLE territories ENABLE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON territories
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 -- channel_partner_users
 
@@ -122,7 +122,7 @@ CREATE INDEX channel_partner_users_territory_idx ON channel_partner_users(territ
 
 ALTER TABLE channel_partner_users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON channel_partner_users
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 -- route_assignments (channel_partner_id denormalized here too, same
 -- rationale as every other tenant-scoped table in this schema: structural
@@ -149,10 +149,10 @@ CREATE INDEX route_assignments_partner_idx ON route_assignments(channel_partner_
 ALTER TABLE route_assignments ENABLE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON route_assignments
   USING (
-    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    channel_partner_id = app_uuid('app.current_channel_partner_id')
     AND (
       current_setting('app.current_channel_partner_role', true) = 'partner_admin'
-      OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+      OR technician_user_id = app_uuid('app.current_channel_partner_user_id')
     )
   );
 
@@ -174,10 +174,10 @@ CREATE POLICY channel_partner_isolation ON route_stops
   USING (
     route_assignment_id IN (
       SELECT id FROM route_assignments
-      WHERE channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      WHERE channel_partner_id = app_uuid('app.current_channel_partner_id')
         AND (
           current_setting('app.current_channel_partner_role', true) = 'partner_admin'
-          OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          OR technician_user_id = app_uuid('app.current_channel_partner_user_id')
         )
     )
   );
@@ -188,19 +188,33 @@ CREATE POLICY channel_partner_isolation ON route_stops
 -- site additionally falls within their assigned territory's boundary
 -- (their "preconfigured assets"). STABLE, not VOLATILE, since it only
 -- reads session GUCs and table data within the current transaction.
+-- TD-51 (fixed 2026-08-01): SECURITY DEFINER is load-bearing, not optional.
+-- A policy on `sites` calls this function, and the function's own body
+-- SELECTs from `sites` — which re-triggers that same policy, which calls
+-- this function again. Without SECURITY DEFINER that is unbounded recursion,
+-- and Postgres kills the query with "stack depth limit exceeded". It could
+-- never show up while the only connections exercising it were superusers
+-- (superusers bypass RLS entirely); it surfaced the moment integration tests
+-- started connecting as a real non-superuser role.
+--
+-- SECURITY DEFINER makes the function body run as the function's owner, so
+-- its internal reads are not re-filtered by the policies that invoked it.
+-- `SET search_path` is mandatory hardening that must accompany it —
+-- without a pinned search_path, a caller could shadow `sites`/`tenants`
+-- with their own objects and change what this security check resolves.
 CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1
     FROM sites s
     JOIN tenants t ON t.id = s.tenant_id
     WHERE s.id = p_site_id
-      AND t.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      AND t.channel_partner_id = app_uuid('app.current_channel_partner_id')
       AND (
         current_setting('app.current_channel_partner_role', true) = 'partner_admin'
         OR EXISTS (
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
-          WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          WHERE cpu.id = app_uuid('app.current_channel_partner_user_id')
             -- ST_Covers, not ST_Contains — REAL BUG found and fixed
             -- 2026-08-01 (Water-Sector Security Hardening Strategy §5):
             -- PostGIS has no ST_Contains(geography, geography) overload,
@@ -211,7 +225,7 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
         )
       )
   );
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- Additional permissive read policies on the five tenant-scoped tables a
 -- channel-partner session needs (site status/chemistry for the dispatch
@@ -284,7 +298,7 @@ CREATE INDEX audit_log_entries_channel_partner_idx ON audit_log_entries(channel_
 -- half: a channel-partner session may read entries scoped to their own
 -- channel_partner_id.
 CREATE POLICY channel_partner_isolation ON audit_log_entries
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 -- Down Migration
 
@@ -311,36 +325,36 @@ ALTER TABLE channel_partners DROP COLUMN IF EXISTS branding;
 
 DROP POLICY IF EXISTS tenant_isolation ON service_tickets;
 CREATE POLICY tenant_isolation ON service_tickets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON alerts;
 CREATE POLICY tenant_isolation ON alerts
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON metric_baselines;
 CREATE POLICY tenant_isolation ON metric_baselines
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON telemetry_hourly;
 CREATE POLICY tenant_isolation ON telemetry_hourly
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON telemetry;
 CREATE POLICY tenant_isolation ON telemetry
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON devices;
 CREATE POLICY tenant_isolation ON devices
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON assets;
 CREATE POLICY tenant_isolation ON assets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON sites;
 CREATE POLICY tenant_isolation ON sites
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 DROP POLICY IF EXISTS tenant_isolation ON users;
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));

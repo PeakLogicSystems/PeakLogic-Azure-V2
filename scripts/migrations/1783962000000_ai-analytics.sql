@@ -49,7 +49,7 @@ ALTER TABLE ai_models FORCE ROW LEVEL SECURITY;
 -- creates a cross-fleet model), tenant_id-set rows are normal tenant
 -- isolation.
 CREATE POLICY tenant_isolation ON ai_models
-  USING (tenant_id IS NULL OR tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id IS NULL OR tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX ai_models_tenant_idx ON ai_models(tenant_id);
 CREATE INDEX ai_models_platform_scope_idx ON ai_models(asset_class, metric) WHERE scope_level = 'platform';
@@ -76,7 +76,7 @@ ALTER TABLE ai_findings FORCE ROW LEVEL SECURITY;
 -- app.current_tenant_id is already set (step 3b runs after tenant resolution
 -- in step 1/step "Tenant now known").
 CREATE POLICY tenant_isolation ON ai_findings
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX ai_findings_tenant_idx ON ai_findings(tenant_id);
 CREATE INDEX ai_findings_device_idx ON ai_findings(device_id, created_at DESC);

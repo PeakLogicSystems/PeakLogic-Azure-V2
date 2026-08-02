@@ -43,6 +43,15 @@ describeIfDb('policy resolver — DB-backed resolution under RLS (real Postgres)
     setup = new Client({ connectionString: process.env.TEST_DATABASE_URL });
     await setup.connect();
     await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // Mirrors docs/data-model.sql's app_uuid() (TD-52) — returns NULL rather
+    // than raising when the session variable is unset, so an unscoped query is
+    // a clean deny instead of an error. The fixture must match the real schema
+    // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $$ LANGUAGE sql STABLE;
+    `);
 
     await setup.query(`
       DO $$ BEGIN
@@ -76,7 +85,7 @@ describeIfDb('policy resolver — DB-backed resolution under RLS (real Postgres)
       ALTER TABLE policies FORCE ROW LEVEL SECURITY;
       CREATE POLICY policies_platform_read ON policies FOR SELECT USING (tenant_id IS NULL);
       CREATE POLICY policies_tenant_rw ON policies FOR ALL
-        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
       GRANT SELECT, INSERT, UPDATE, DELETE ON policies TO policy_rls_owner;
     `);
 

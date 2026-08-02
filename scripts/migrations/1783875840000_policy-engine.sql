@@ -54,7 +54,7 @@ CREATE POLICY policies_platform_read ON policies FOR SELECT
 -- and, crucially, blocks writing a row for any other tenant or for the
 -- platform (tenant_id NULL never equals a set tenant id).
 CREATE POLICY policies_tenant_rw ON policies FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX policies_resolve_idx ON policies (category, kind, tenant_id, scope_level);
 
@@ -78,7 +78,7 @@ ALTER TABLE policy_history FORCE ROW LEVEL SECURITY;
 CREATE POLICY policy_history_platform_read ON policy_history FOR SELECT
   USING (tenant_id IS NULL);
 CREATE POLICY policy_history_tenant_rw ON policy_history FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 CREATE INDEX policy_history_policy_idx ON policy_history (policy_id, version);
 
 -- Cache-invalidation epoch (Design §4.2): bumped whenever a tenant's policies

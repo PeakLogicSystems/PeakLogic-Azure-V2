@@ -70,9 +70,9 @@
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tenants
-  USING (id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (id = app_uuid('app.current_tenant_id'));
 CREATE POLICY channel_partner_read ON tenants FOR SELECT
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 CREATE POLICY ingest_lookup ON devices FOR SELECT
   USING (current_setting('app.ingest_context', true) = 'true');

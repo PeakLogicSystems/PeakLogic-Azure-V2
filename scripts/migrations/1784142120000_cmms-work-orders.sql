@@ -38,7 +38,7 @@ CREATE INDEX pm_schedules_due_idx ON pm_schedules(next_due_at) WHERE enabled;
 ALTER TABLE pm_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm_schedules FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON pm_schedules
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Extend the existing service_tickets (= the work order) — complete the funnel
 -- and link PM-generated work orders to their schedule.
@@ -60,7 +60,7 @@ CREATE INDEX service_visits_ticket_idx ON service_visits(ticket_id);
 ALTER TABLE service_visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_visits FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_visits
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

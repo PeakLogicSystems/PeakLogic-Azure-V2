@@ -46,6 +46,33 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";   -- gen_random_uuid()
 CREATE EXTENSION IF NOT EXISTS "postgis";    -- GEOGRAPHY types, ST_Contains etc. (territories.boundary)
 
 -- ─────────────────────────────────────────────────────────────
+-- RLS SESSION-VARIABLE HELPER  (TD-52, added 2026-08-01)
+-- ─────────────────────────────────────────────────────────────
+-- Every RLS policy in this schema resolves the caller's scope from a session
+-- variable. Reading one directly is a trap in two different ways:
+--
+--   current_setting('app.x')::uuid          -- raises "unrecognized
+--                                           -- configuration parameter" when
+--                                           -- the variable was never set
+--   current_setting('app.x', true)::uuid    -- returns '' when unset, and
+--                                           -- ''::uuid raises "invalid input
+--                                           -- syntax for type uuid"
+--
+-- Both fail CLOSED (an error denies access), but both fail LOUDLY — a 500
+-- rather than a clean "no rows", which makes a genuine missing-context bug
+-- indistinguishable from a malformed-uuid bug at the call site. Surfaced for
+-- real on 2026-08-01, the first time RLS was genuinely exercised against a
+-- non-superuser connection.
+--
+-- app_uuid() returns NULL when the variable is unset or empty. Every policy
+-- comparison then evaluates to NULL (not true), so the row is simply not
+-- visible — a clean, quiet deny, which is what an RLS policy should do.
+CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+  SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+$$ LANGUAGE sql STABLE;
+
+
+-- ─────────────────────────────────────────────────────────────
 -- CHANNEL PARTNER GROUPS (holding companies, e.g. "Purple Standard")
 -- migration 1784048400000, whitelabel-estate-branding-design.md (#35).
 -- Same trust/access posture as channel_partners immediately below: NOT
@@ -118,7 +145,7 @@ CREATE INDEX tenants_channel_partner_idx ON tenants(channel_partner_id);
 ALTER TABLE tenants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tenants FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tenants
-  USING (id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (id = app_uuid('app.current_tenant_id'));
 -- channel_partner_read's real (widened) definition is deferred to the end of
 -- this file, in the channel_partner_read-policies section -- it needs `sites`
 -- to exist first (migration 1784048400000, #35: also matches via a
@@ -152,7 +179,7 @@ CREATE TABLE users (
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE users FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- ─────────────────────────────────────────────────────────────
 -- SITES
@@ -185,7 +212,7 @@ CREATE INDEX sites_channel_partner_idx ON sites(channel_partner_id) WHERE channe
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sites FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sites
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- A second, additional permissive policy granting channel-partner
 -- sessions cross-tenant read access is added at the end of this file
@@ -218,7 +245,7 @@ CREATE TABLE assets (
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE assets FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON assets
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- v1.1: permits backend/ingest/handler.ts's initial device/asset lookup by
 -- thing_name, before that device's tenant is known — narrowly scoped
@@ -254,7 +281,7 @@ CREATE TABLE devices (
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 ALTER TABLE devices FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON devices
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- v1.1: see assets' matching ingest_lookup policy above — same reasoning,
 -- this is the table the ingest handler actually looks up by thing_name.
@@ -280,7 +307,7 @@ CREATE POLICY provisioning_lookup ON devices FOR SELECT
   USING (current_setting('app.provisioning_context', true) = 'true');
 CREATE POLICY device_claim ON devices FOR UPDATE
   USING (tenant_id IS NULL)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  WITH CHECK (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
 
@@ -318,7 +345,7 @@ CREATE UNIQUE INDEX telemetry_dedup_idx ON telemetry(device_id, time, metric);
 ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
 ALTER TABLE telemetry FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- ─────────────────────────────────────────────────────────────
 -- POISON MESSAGES  (migration 1784055300000, Enterprise Audit 2026-07-19
@@ -362,7 +389,7 @@ CREATE TABLE telemetry_hourly (
 ALTER TABLE telemetry_hourly ENABLE ROW LEVEL SECURITY;
 ALTER TABLE telemetry_hourly FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry_hourly
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, hour_start DESC);
 
@@ -390,7 +417,7 @@ CREATE TABLE metric_baselines (
 ALTER TABLE metric_baselines ENABLE ROW LEVEL SECURITY;
 ALTER TABLE metric_baselines FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON metric_baselines
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX metric_baselines_tenant_idx ON metric_baselines(tenant_id);
 
@@ -423,7 +450,7 @@ CREATE TABLE ai_models (
 ALTER TABLE ai_models ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_models FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON ai_models
-  USING (tenant_id IS NULL OR tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id IS NULL OR tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX ai_models_tenant_idx ON ai_models(tenant_id);
 CREATE INDEX ai_models_platform_scope_idx ON ai_models(asset_class, metric) WHERE scope_level = 'platform';
@@ -445,7 +472,7 @@ CREATE TABLE ai_findings (
 ALTER TABLE ai_findings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE ai_findings FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON ai_findings
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX ai_findings_tenant_idx ON ai_findings(tenant_id);
 CREATE INDEX ai_findings_device_idx ON ai_findings(device_id, created_at DESC);
@@ -472,7 +499,7 @@ CREATE TABLE alerts (
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 ALTER TABLE alerts FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON alerts
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- ─────────────────────────────────────────────────────────────
 -- CMMS CONNECTORS  (reporting-and-kpi-design.md §2; migration
@@ -502,9 +529,9 @@ CREATE TABLE cmms_connectors (
 ALTER TABLE cmms_connectors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cmms_connectors FORCE ROW LEVEL SECURITY;
 CREATE POLICY cmms_connector_partner ON cmms_connectors
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 CREATE POLICY cmms_connector_tenant ON cmms_connectors
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 -- System read for the ingest dispatch path (same pattern as devices/assets ingest_lookup).
 CREATE POLICY cmms_connector_ingest_read ON cmms_connectors FOR SELECT
   USING (current_setting('app.ingest_context', true) = 'true');
@@ -546,7 +573,7 @@ CREATE TABLE service_tickets (
 ALTER TABLE service_tickets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_tickets FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_tickets
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Not extended with a channel_partner_read policy — no approved
 -- requirement (TR-1-TR-3) needs a channel-partner session to read
@@ -581,7 +608,7 @@ CREATE INDEX territories_channel_partner_idx ON territories(channel_partner_id);
 ALTER TABLE territories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE territories FORCE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON territories
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 -- A Territory's Site membership is DERIVED, never stored — a Site
 -- belongs to a Territory if (a) sites.tenant_id's tenant is attributed
@@ -608,7 +635,7 @@ CREATE INDEX channel_partner_users_territory_idx ON channel_partner_users(territ
 ALTER TABLE channel_partner_users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE channel_partner_users FORCE ROW LEVEL SECURITY;
 CREATE POLICY channel_partner_isolation ON channel_partner_users
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 -- A technician-role user's visible sites are scoped to their assigned
 -- territory (their "preconfigured assets"); a partner_admin has no such
@@ -645,10 +672,10 @@ ALTER TABLE route_assignments FORCE ROW LEVEL SECURITY;
 -- customer visit pattern, not just their name).
 CREATE POLICY channel_partner_isolation ON route_assignments
   USING (
-    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    channel_partner_id = app_uuid('app.current_channel_partner_id')
     AND (
       current_setting('app.current_channel_partner_role', true) = 'partner_admin'
-      OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+      OR technician_user_id = app_uuid('app.current_channel_partner_user_id')
     )
   );
 
@@ -672,10 +699,10 @@ CREATE POLICY channel_partner_isolation ON route_stops
   USING (
     route_assignment_id IN (
       SELECT id FROM route_assignments
-      WHERE channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+      WHERE channel_partner_id = app_uuid('app.current_channel_partner_id')
         AND (
           current_setting('app.current_channel_partner_role', true) = 'partner_admin'
-          OR technician_user_id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          OR technician_user_id = app_uuid('app.current_channel_partner_user_id')
         )
     )
   );
@@ -737,7 +764,7 @@ ALTER TABLE account_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE account_assignments FORCE ROW LEVEL SECURITY;
 CREATE POLICY account_assignment_visibility ON account_assignments
   USING (
-    staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+    staff_user_id = app_uuid('app.current_staff_user_id')
     OR current_setting('app.current_staff_role', true) = 'superadmin'
   );
 CREATE INDEX account_assignments_staff_idx ON account_assignments(staff_user_id);
@@ -781,9 +808,9 @@ CREATE TABLE audit_log_entries (
 ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
 ALTER TABLE audit_log_entries FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON audit_log_entries
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 CREATE POLICY channel_partner_isolation ON audit_log_entries
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
 CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
 CREATE INDEX audit_log_entries_channel_partner_idx ON audit_log_entries(channel_partner_id);
@@ -821,19 +848,33 @@ CREATE TRIGGER audit_log_entries_append_only
 -- that migration, and any row that doesn't need an override), COALESCE
 -- falls through to the exact same tenant-level check as before —
 -- byte-identical behavior for the common case.
+-- TD-51 (fixed 2026-08-01): SECURITY DEFINER is load-bearing, not optional.
+-- A policy on `sites` calls this function, and the function's own body
+-- SELECTs from `sites` — which re-triggers that same policy, which calls
+-- this function again. Without SECURITY DEFINER that is unbounded recursion,
+-- and Postgres kills the query with "stack depth limit exceeded". It could
+-- never show up while the only connections exercising it were superusers
+-- (superusers bypass RLS entirely); it surfaced the moment integration tests
+-- started connecting as a real non-superuser role.
+--
+-- SECURITY DEFINER makes the function body run as the function's owner, so
+-- its internal reads are not re-filtered by the policies that invoked it.
+-- `SET search_path` is mandatory hardening that must accompany it —
+-- without a pinned search_path, a caller could shadow `sites`/`tenants`
+-- with their own objects and change what this security check resolves.
 CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
   SELECT EXISTS (
     SELECT 1
     FROM sites s
     JOIN tenants t ON t.id = s.tenant_id
     WHERE s.id = p_site_id
-      AND COALESCE(s.channel_partner_id, t.channel_partner_id) = current_setting('app.current_channel_partner_id', true)::uuid
+      AND COALESCE(s.channel_partner_id, t.channel_partner_id) = app_uuid('app.current_channel_partner_id')
       AND (
         current_setting('app.current_channel_partner_role', true) = 'partner_admin'
         OR EXISTS (
           SELECT 1 FROM channel_partner_users cpu
           JOIN territories terr ON terr.id = cpu.territory_id
-          WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+          WHERE cpu.id = app_uuid('app.current_channel_partner_user_id')
             -- ST_Covers, not ST_Contains — REAL BUG found and fixed 2026-08-01
             -- (Water-Sector Security Hardening Strategy §5, the same session
             -- that finally got a real Postgres/PostGIS integration test run
@@ -849,7 +890,7 @@ CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS
         )
       )
   );
-$$ LANGUAGE sql STABLE;
+$$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
 -- Each policy below is a second, additional PERMISSIVE policy alongside
 -- that table's existing tenant_isolation policy — Postgres OR-combines
@@ -867,11 +908,11 @@ $$ LANGUAGE sql STABLE;
 -- that isn't the tenant's own default).
 CREATE POLICY channel_partner_read ON tenants FOR SELECT
   USING (
-    channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+    channel_partner_id = app_uuid('app.current_channel_partner_id')
     OR EXISTS (
       SELECT 1 FROM sites s
       WHERE s.tenant_id = tenants.id
-        AND s.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+        AND s.channel_partner_id = app_uuid('app.current_channel_partner_id')
     )
   );
 
@@ -947,7 +988,7 @@ CREATE POLICY staff_tenant_access ON tenants
     current_setting('app.current_staff_role', true) = 'superadmin'
     OR EXISTS (
       SELECT 1 FROM account_assignments aa
-      WHERE aa.staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+      WHERE aa.staff_user_id = app_uuid('app.current_staff_user_id')
         AND aa.tenant_id = tenants.id
     )
   );
@@ -995,7 +1036,7 @@ CREATE POLICY policies_platform_read ON policies FOR SELECT
 -- ...and reads/writes ONLY its own scoped rows (blocks writing another
 -- tenant's or a platform row, since tenant_id NULL never equals a set id).
 CREATE POLICY policies_tenant_rw ON policies FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 CREATE INDEX policies_resolve_idx ON policies (category, kind, tenant_id, scope_level);
 
 -- Append-only change history (Design §3.5) — safety-critical config must be
@@ -1016,7 +1057,7 @@ ALTER TABLE policy_history FORCE ROW LEVEL SECURITY;
 CREATE POLICY policy_history_platform_read ON policy_history FOR SELECT
   USING (tenant_id IS NULL);
 CREATE POLICY policy_history_tenant_rw ON policy_history FOR ALL
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 CREATE INDEX policy_history_policy_idx ON policy_history (policy_id, version);
 
 -- ─────────────────────────────────────────────────────────────
@@ -1067,7 +1108,7 @@ CREATE INDEX hubs_site_idx ON hubs(site_id);
 ALTER TABLE hubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hubs FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON hubs
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- PeakView360 HMI config (§2.10). Alarms = existing `alerts`; historian reads
 -- existing telemetry — only screens/tags/pens are new. (migration 1784142060000)
@@ -1087,7 +1128,7 @@ CREATE INDEX hmi_screens_site_idx ON hmi_screens(site_id);
 ALTER TABLE hmi_screens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hmi_screens FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON hmi_screens
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE tags (
   id               UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1107,7 +1148,7 @@ CREATE INDEX tags_hub_idx ON tags(hub_id);
 ALTER TABLE tags ENABLE ROW LEVEL SECURITY;
 ALTER TABLE tags FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON tags
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE historian_pens (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1125,7 +1166,7 @@ CREATE TABLE historian_pens (
 ALTER TABLE historian_pens ENABLE ROW LEVEL SECURITY;
 ALTER TABLE historian_pens FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON historian_pens
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Built-in CMMS (§2.12). service_tickets IS the work order (extended below);
 -- pm_schedules + the previously-missing service_visits are new.
@@ -1148,7 +1189,7 @@ CREATE INDEX pm_schedules_due_idx ON pm_schedules(next_due_at) WHERE enabled;
 ALTER TABLE pm_schedules ENABLE ROW LEVEL SECURITY;
 ALTER TABLE pm_schedules FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON pm_schedules
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Extend service_tickets (= the work order): complete the dispatch funnel and
 -- link PM-generated work orders. (FK added as a constraint here because
@@ -1173,7 +1214,7 @@ CREATE INDEX service_visits_ticket_idx ON service_visits(ticket_id);
 ALTER TABLE service_visits ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_visits FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_visits
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Compliance automation (§2.13). templates = global catalog (non-RLS);
 -- reports + exceedances = tenant data. (migration 1784142180000)
@@ -1206,7 +1247,7 @@ CREATE INDEX compliance_reports_site_idx ON compliance_reports(site_id);
 ALTER TABLE compliance_reports ENABLE ROW LEVEL SECURITY;
 ALTER TABLE compliance_reports FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON compliance_reports
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE exceedance_records (
   id             UUID             PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -1224,7 +1265,7 @@ CREATE INDEX exceedance_records_site_idx ON exceedance_records(site_id, occurred
 ALTER TABLE exceedance_records ENABLE ROW LEVEL SECURITY;
 ALTER TABLE exceedance_records FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON exceedance_records
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- PeakAssist help content (§2.14). Global PeakLogic-authored catalogs; a Hub
 -- carries a bundle offline and syncs newer ones. (migration 1784142240000)

@@ -31,7 +31,7 @@ CREATE INDEX hubs_site_idx ON hubs(site_id);
 ALTER TABLE hubs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE hubs FORCE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON hubs
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

@@ -61,7 +61,7 @@ ALTER TABLE account_assignments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE account_assignments FORCE ROW LEVEL SECURITY;
 CREATE POLICY account_assignment_visibility ON account_assignments
   USING (
-    staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+    staff_user_id = app_uuid('app.current_staff_user_id')
     OR current_setting('app.current_staff_role', true) = 'superadmin'
   );
 CREATE INDEX account_assignments_staff_idx ON account_assignments(staff_user_id);
@@ -79,7 +79,7 @@ CREATE POLICY staff_tenant_access ON tenants
     current_setting('app.current_staff_role', true) = 'superadmin'
     OR EXISTS (
       SELECT 1 FROM account_assignments aa
-      WHERE aa.staff_user_id = current_setting('app.current_staff_user_id', true)::uuid
+      WHERE aa.staff_user_id = app_uuid('app.current_staff_user_id')
         AND aa.tenant_id = tenants.id
     )
   );

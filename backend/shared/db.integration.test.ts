@@ -39,6 +39,15 @@ describeIfDb('withTenant() — RLS + tenant-suspension enforcement (real Postgre
     // what this test needs, not a full migration run. assets is omitted:
     // devices.asset_id is nullable and unused here.
     await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // Mirrors docs/data-model.sql's app_uuid() (TD-52) — returns NULL rather
+    // than raising when the session variable is unset, so an unscoped query is
+    // a clean deny instead of an error. The fixture must match the real schema
+    // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $$ LANGUAGE sql STABLE;
+    `);
 
     await setup.query(`
       CREATE TABLE tenants (
@@ -62,7 +71,7 @@ describeIfDb('withTenant() — RLS + tenant-suspension enforcement (real Postgre
       );
       ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
       CREATE POLICY tenant_isolation ON devices
-        USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
     `);
 
     await setup.query(`
@@ -75,7 +84,7 @@ describeIfDb('withTenant() — RLS + tenant-suspension enforcement (real Postgre
       );
       ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
       CREATE POLICY tenant_isolation ON telemetry
-        USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
     `);
 
     const { rows: [a] } = await setup.query(
@@ -177,6 +186,15 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
     await setup.connect();
 
     await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // Mirrors docs/data-model.sql's app_uuid() (TD-52) — returns NULL rather
+    // than raising when the session variable is unset, so an unscoped query is
+    // a clean deny instead of an error. The fixture must match the real schema
+    // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $$ LANGUAGE sql STABLE;
+    `);
     await setup.query('CREATE EXTENSION IF NOT EXISTS "postgis"');
 
     await setup.query(`
@@ -206,7 +224,7 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
       );
       ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
       CREATE POLICY tenant_isolation ON sites
-        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
 
       CREATE TABLE territories (
         id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -216,7 +234,7 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
       );
       ALTER TABLE territories ENABLE ROW LEVEL SECURITY;
       CREATE POLICY channel_partner_isolation ON territories
-        USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+        USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
       CREATE TABLE channel_partner_users (
         id                 UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -227,18 +245,18 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
       );
       ALTER TABLE channel_partner_users ENABLE ROW LEVEL SECURITY;
       CREATE POLICY channel_partner_isolation ON channel_partner_users
-        USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+        USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 
       CREATE OR REPLACE FUNCTION channel_partner_can_read_site(p_site_id UUID) RETURNS BOOLEAN AS $$
         SELECT EXISTS (
           SELECT 1 FROM sites s JOIN tenants t ON t.id = s.tenant_id
           WHERE s.id = p_site_id
-            AND t.channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid
+            AND t.channel_partner_id = app_uuid('app.current_channel_partner_id')
             AND (
               current_setting('app.current_channel_partner_role', true) = 'partner_admin'
               OR EXISTS (
                 SELECT 1 FROM channel_partner_users cpu JOIN territories terr ON terr.id = cpu.territory_id
-                WHERE cpu.id = current_setting('app.current_channel_partner_user_id', true)::uuid
+                WHERE cpu.id = app_uuid('app.current_channel_partner_user_id')
                   -- ST_Covers, not ST_Contains — REAL BUG found 2026-08-01,
                   -- the first time this fixture ever ran against real
                   -- PostGIS: no ST_Contains(geography, geography) overload
@@ -248,7 +266,7 @@ describeIfDb('withChannelPartner() — cross-tenant RLS (real Postgres)', () => 
               )
             )
         );
-      $$ LANGUAGE sql STABLE;
+      $$ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public, pg_temp;
 
       CREATE POLICY channel_partner_read ON sites FOR SELECT
         USING (channel_partner_can_read_site(id));
@@ -447,6 +465,15 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
       END $$;
     `);
     await setup.query('GRANT CREATE ON SCHEMA public TO rls_test_owner');
+    // Mirrors docs/data-model.sql's app_uuid() (TD-52) — returns NULL rather
+    // than raising when the session variable is unset, so an unscoped query is
+    // a clean deny instead of an error. The fixture must match the real schema
+    // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $ LANGUAGE sql STABLE;
+    `);
 
     const ownerUrl = new URL(process.env.TEST_DATABASE_URL!);
     ownerUrl.username = 'rls_test_owner';
@@ -467,7 +494,7 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
       );
       ALTER TABLE rls_test_devices ENABLE ROW LEVEL SECURITY;
       CREATE POLICY tenant_isolation ON rls_test_devices
-        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
       CREATE POLICY ingest_lookup ON rls_test_devices FOR SELECT
         USING (current_setting('app.ingest_context', true) = 'true');
     `);
@@ -589,6 +616,15 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
     await setup.connect();
 
     await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    // Mirrors docs/data-model.sql's app_uuid() (TD-52) — returns NULL rather
+    // than raising when the session variable is unset, so an unscoped query is
+    // a clean deny instead of an error. The fixture must match the real schema
+    // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $$ LANGUAGE sql STABLE;
+    `);
     // REAL BUG found and fixed 2026-08-01, the first time this fixture ever
     // ran: this table used to be named `claim_test_tenants`, but withTenant()
     // (the real, imported production function this whole block calls) has
@@ -614,7 +650,7 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
       ALTER TABLE claim_test_devices ENABLE ROW LEVEL SECURITY;
       ALTER TABLE claim_test_devices FORCE ROW LEVEL SECURITY;
       CREATE POLICY tenant_isolation ON claim_test_devices
-        USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
       CREATE POLICY unclaimed_lookup ON claim_test_devices FOR SELECT
         USING (tenant_id IS NULL AND current_setting('app.claim_context', true) = 'true');
       CREATE POLICY provision_unclaimed ON claim_test_devices FOR INSERT
@@ -623,7 +659,7 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
         USING (current_setting('app.provisioning_context', true) = 'true');
       CREATE POLICY device_claim ON claim_test_devices FOR UPDATE
         USING (tenant_id IS NULL)
-        WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+        WITH CHECK (tenant_id = app_uuid('app.current_tenant_id'));
     `);
 
     const { rows: [a] } = await setup.query('INSERT INTO tenants DEFAULT VALUES RETURNING id');

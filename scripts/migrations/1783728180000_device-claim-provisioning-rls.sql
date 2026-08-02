@@ -110,7 +110,7 @@ CREATE POLICY provisioning_lookup ON devices FOR SELECT
 
 CREATE POLICY device_claim ON devices FOR UPDATE
   USING (tenant_id IS NULL)
-  WITH CHECK (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  WITH CHECK (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

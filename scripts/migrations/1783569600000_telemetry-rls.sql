@@ -14,7 +14,7 @@
 
 ALTER TABLE telemetry ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 -- Down Migration
 

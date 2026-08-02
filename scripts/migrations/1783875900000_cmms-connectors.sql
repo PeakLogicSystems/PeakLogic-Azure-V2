@@ -38,10 +38,10 @@ ALTER TABLE cmms_connectors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE cmms_connectors FORCE ROW LEVEL SECURITY;
 -- A partner manages its own connector.
 CREATE POLICY cmms_connector_partner ON cmms_connectors
-  USING (channel_partner_id = current_setting('app.current_channel_partner_id', true)::uuid);
+  USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
 -- A tenant manages its own (tenant-owned) connector.
 CREATE POLICY cmms_connector_tenant ON cmms_connectors
-  USING (tenant_id = current_setting('app.current_tenant_id', true)::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 -- The ingest dispatch path may READ any connector to route an auto-ticket to
 -- the owning tenant's attributed partner — SELECT only, system path, same
 -- pattern as devices/assets ingest_lookup (data-model.sql).

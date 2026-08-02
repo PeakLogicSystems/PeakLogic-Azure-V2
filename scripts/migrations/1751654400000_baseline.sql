@@ -20,6 +20,33 @@
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE EXTENSION IF NOT EXISTS "postgis";
 
+-- ─────────────────────────────────────────────────────────────
+-- RLS SESSION-VARIABLE HELPER  (TD-52, added 2026-08-01)
+-- ─────────────────────────────────────────────────────────────
+-- Every RLS policy in this schema resolves the caller's scope from a session
+-- variable. Reading one directly is a trap in two different ways:
+--
+--   current_setting('app.x')::uuid          -- raises "unrecognized
+--                                           -- configuration parameter" when
+--                                           -- the variable was never set
+--   current_setting('app.x', true)::uuid    -- returns '' when unset, and
+--                                           -- ''::uuid raises "invalid input
+--                                           -- syntax for type uuid"
+--
+-- Both fail CLOSED (an error denies access), but both fail LOUDLY — a 500
+-- rather than a clean "no rows", which makes a genuine missing-context bug
+-- indistinguishable from a malformed-uuid bug at the call site. Surfaced for
+-- real on 2026-08-01, the first time RLS was genuinely exercised against a
+-- non-superuser connection.
+--
+-- app_uuid() returns NULL when the variable is unset or empty. Every policy
+-- comparison then evaluates to NULL (not true), so the row is simply not
+-- visible — a clean, quiet deny, which is what an RLS policy should do.
+CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+  SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+$$ LANGUAGE sql STABLE;
+
+
 CREATE TABLE channel_partners (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
   name         TEXT        NOT NULL,
@@ -57,7 +84,7 @@ CREATE TABLE users (
 
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON users
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE sites (
   id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -77,7 +104,7 @@ CREATE TABLE sites (
 
 ALTER TABLE sites ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON sites
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE assets (
   id              UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -99,7 +126,7 @@ CREATE TABLE assets (
 
 ALTER TABLE assets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON assets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX assets_site_idx ON assets(site_id);
 
@@ -120,7 +147,7 @@ CREATE TABLE devices (
 
 ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON devices
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
 
@@ -149,7 +176,7 @@ CREATE TABLE telemetry_hourly (
 
 ALTER TABLE telemetry_hourly ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON telemetry_hourly
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX telemetry_hourly_lookup ON telemetry_hourly (tenant_id, device_id, hour_start DESC);
 
@@ -167,7 +194,7 @@ CREATE TABLE metric_baselines (
 
 ALTER TABLE metric_baselines ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON metric_baselines
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX metric_baselines_tenant_idx ON metric_baselines(tenant_id);
 
@@ -189,7 +216,7 @@ CREATE TABLE alerts (
 
 ALTER TABLE alerts ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON alerts
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE service_tickets (
   id           UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -213,7 +240,7 @@ CREATE TABLE service_tickets (
 
 ALTER TABLE service_tickets ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON service_tickets
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE TABLE audit_log_entries (
   id            UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -229,7 +256,7 @@ CREATE TABLE audit_log_entries (
 
 ALTER TABLE audit_log_entries ENABLE ROW LEVEL SECURITY;
 CREATE POLICY tenant_isolation ON audit_log_entries
-  USING (tenant_id = current_setting('app.current_tenant_id')::uuid);
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
 
@@ -244,6 +271,8 @@ CREATE TRIGGER audit_log_entries_append_only
   FOR EACH ROW EXECUTE FUNCTION reject_audit_log_mutation();
 
 -- Down Migration
+
+DROP FUNCTION IF EXISTS app_uuid(TEXT);
 
 DROP TRIGGER IF EXISTS audit_log_entries_append_only ON audit_log_entries;
 DROP FUNCTION IF EXISTS reject_audit_log_mutation();
