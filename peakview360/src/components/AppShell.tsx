@@ -13,6 +13,19 @@ const NAV = [
   { to: '/equipment', label: 'Equipment', icon: Gauge, end: false },
 ];
 
+// `?embedded=1` — this app is running inside a portal's page rather than as its
+// own window. The host owns the theme in that case (it posts changes in), so the
+// in-frame toggle is hidden: offering a control the host silently overrides on
+// its next change is worse than not offering one. Everything else is unchanged —
+// an embedded operator view is still the full operator view.
+const EMBEDDED = (() => {
+  try {
+    return new URLSearchParams(window.location.search).get('embedded') === '1';
+  } catch {
+    return false;
+  }
+})();
+
 export function AppShell({ children }: { children: ReactNode }) {
   const { site, screen, alarms, acknowledge } = usePeakViewData();
 
@@ -37,7 +50,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           )}
           <Clock />
-          <ThemeToggle />
+          {!EMBEDDED && <ThemeToggle />}
         </div>
       </header>
 

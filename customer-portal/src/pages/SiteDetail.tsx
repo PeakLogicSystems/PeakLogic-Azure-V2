@@ -1,15 +1,16 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ExternalLink, MonitorPlay, Droplets } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Droplets } from 'lucide-react';
 import { alertsForSite, siteById } from '@/data';
 import { hasWaterQuality } from '@/data/waterQuality';
 import { DeviceStatusDot, HealthPill, SeverityRail } from '@/components/ui';
-
-const PEAKVIEW_URL = 'http://localhost:5175/';
+import { PeakViewEmbed } from '@/components/PeakViewEmbed';
 
 // A customer's view of one of their sites: monitor devices (read-only — the
-// customer watches; their service partner services), open the live operator view
-// in PeakView360, and see the site's alerts. PeakView360 is launched from HERE,
-// within the portal — it is not a separate login.
+// customer watches; their service partner services), watch the live operator
+// view in PeakView360, and see the site's alerts. PeakView360 is EMBEDDED here
+// rather than linked to — it is launched from within the portal and is not a
+// separate login, so navigating the tab away to it was the wrong model and left
+// the customer stranded outside their own authenticated session.
 export function SiteDetail() {
   const { siteId = '' } = useParams();
   const site = siteById(siteId);
@@ -37,14 +38,6 @@ export function SiteDetail() {
           </div>
           <p className="text-sm text-slate-500 dark:text-slate-400">{site.location}</p>
         </div>
-        <a
-          href={PEAKVIEW_URL}
-          target="_blank"
-          rel="noreferrer"
-          className={`inline-flex items-center gap-1.5 rounded-lg bg-brand-purple px-3 py-2 text-sm font-semibold text-white hover:bg-brand-purple-mid ${!site.peakview ? 'pointer-events-none opacity-40' : ''}`}
-        >
-          <MonitorPlay size={15} /> Open live view (PeakView360) <ExternalLink size={13} className="text-white/70" />
-        </a>
         {hasWaterQuality(site.id) && (
           <Link
             to={`/sites/${site.id}/water-quality`}
@@ -54,6 +47,10 @@ export function SiteDetail() {
           </Link>
         )}
       </div>
+
+      {/* Above Devices: the live view is what a customer opens this page for,
+          and it is the one thing on it that changes second to second. */}
+      <PeakViewEmbed siteId={site.id} enabled={site.peakview} />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Devices</h2>

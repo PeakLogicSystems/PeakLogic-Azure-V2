@@ -62,7 +62,10 @@ export function Shell({ children }: { children: ReactNode }) {
       <footer className="mt-auto border-t border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-2 px-4 py-4 text-xs text-slate-400 dark:text-slate-500">
           <span>© 2026 PeakLogic · Serviced by {CUSTOMER.provider}</span>
-          <a href={HUB_URL} className="hover:text-slate-600 dark:hover:text-slate-300">← PeakLogic platform demo</a>
+          {/* Opens in a new tab deliberately. Navigating the portal itself away
+              strands the customer outside their authenticated session with no
+              way back — the same class of bug as the old PeakView360 link. */}
+          <a href={HUB_URL} target="_blank" rel="noreferrer" className="hover:text-slate-600 dark:hover:text-slate-300">← PeakLogic platform demo ↗</a>
         </div>
       </footer>
     </div>
