@@ -1245,10 +1245,7 @@ npm run migrate:down    # roll back the most recent migration</pre>
   </tr>
 </table>
 
-<div class="box box-warn">
-  <div class="box-title"><span class="col-mono">frontend/</span> is the superseded original tenant app</div>
-  It predates the three-portal split and is not part of the demo or the current product story. Its pages were the basis for what became the Customer Portal. Do not treat it as the customer-facing application, and do not extend it — new tenant-facing work belongs in <span class="col-mono">customer-portal/</span>. Retained for reference only; last substantive change 2026-07-23.
-</div>
+<div class="box box-info"><div class="box-title"><span class="col-mono">frontend/</span> has been removed</div>The original single tenant app was retired on 2026-08-01 once its two remaining unique features were ported: the device-onboarding wizard to the Partner Portal (installing equipment is the partner&rsquo;s job) and the Water-Quality Report to the Customer Portal (the report is written for whoever owns the water). Both are live in their new homes; the directory is gone. References to it in the architecture documents are historical.</div>
 
 <h3>10.2 Customer Portal screens</h3>
 <table>

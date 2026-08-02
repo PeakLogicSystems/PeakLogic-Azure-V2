@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ExternalLink, MonitorPlay } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ExternalLink, MonitorPlay, Droplets } from 'lucide-react';
 import { alertsForSite, siteById } from '@/data';
+import { hasWaterQuality } from '@/data/waterQuality';
 import { DeviceStatusDot, HealthPill, SeverityRail } from '@/components/ui';
 
 const PEAKVIEW_URL = 'http://localhost:5175/';
@@ -44,6 +45,14 @@ export function SiteDetail() {
         >
           <MonitorPlay size={15} /> Open live view (PeakView360) <ExternalLink size={13} className="text-white/70" />
         </a>
+        {hasWaterQuality(site.id) && (
+          <Link
+            to={`/sites/${site.id}/water-quality`}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:border-brand-purple-mid hover:text-brand-purple-mid dark:border-slate-700 dark:text-slate-200"
+          >
+            <Droplets size={15} /> Water Quality Report
+          </Link>
+        )}
       </div>
 
       <section>

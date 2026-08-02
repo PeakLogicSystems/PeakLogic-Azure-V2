@@ -66,9 +66,9 @@ export function SiteDetail() {
         <a href={PEAKVIEW_URL} target="_blank" rel="noreferrer" className={`${secondaryBtn} ${!site.peakview ? 'pointer-events-none opacity-40' : ''}`}>
           <MonitorPlay size={15} /> Open in PeakView360 <ExternalLink size={13} className="text-slate-400" />
         </a>
-        <button onClick={() => flash('Zero-touch provisioning: register a device by serial/claim code, then it self-enrolls (preview).')} className={secondaryBtn}>
+        <Link to={`/sites/${site.id}/provision`} className={secondaryBtn}>
           <Plus size={15} /> Provision device
-        </button>
+        </Link>
       </div>
 
       {/* Facility View — rendered inline on the site page (not a separate sub-page).

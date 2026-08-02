@@ -63,3 +63,7 @@ device-certs/
 
 # Claude Code internal files — session memory and local settings, not application code
 .claude/
+
+# Vite dev-server dependency cache (build artifact)
+.vite/
+**/.vite/

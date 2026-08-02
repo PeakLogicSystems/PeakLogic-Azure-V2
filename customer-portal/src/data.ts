@@ -92,11 +92,29 @@ export const CUSTOMER: Customer = {
         { id: 'PLG-1103', name: 'Wet Well Level', type: 'Level Sensor', status: 'online', reading: '41 %' },
       ],
     },
+    {
+      // A municipality plausibly runs a public aquatic centre alongside its
+      // water infrastructure. Added 2026-08-01 so the ported Water-Quality
+      // Report (PRD §5.17 / SRS §3.19) has a real site to render against
+      // without inventing a second tenant.
+      id: 'site-aquatic',
+      name: 'Bayfront Community Aquatic Center',
+      location: 'Bayfront, FL',
+      health: 'watch',
+      peakview: false,
+      devices: [
+        { id: 'PLG-1210', name: 'Pool pH Probe', type: 'pH Analyzer', status: 'online', reading: '7.4 pH' },
+        { id: 'PLG-1211', name: 'Free Chlorine Probe', type: 'Chlorine Analyzer', status: 'online', reading: '0.8 ppm' },
+        { id: 'PLG-1212', name: 'TDS Probe', type: 'TDS Sensor', status: 'online', reading: '1,180 ppm' },
+        { id: 'PLG-1213', name: 'Circulation Pump CP-1', type: 'Pump', status: 'online', reading: '410 L/min' },
+      ],
+    },
   ],
   alerts: [
     { id: 'AL-3391', severity: 'warning', siteId: 'site-riverside', asset: 'Aeration Blower B-3', message: 'Blower power 52 kW above expected baseline — service dispatched', minutesAgo: 42, acknowledged: false },
     { id: 'AL-3388', severity: 'info', siteId: 'site-riverside', asset: 'Basin Temp T-9', message: 'Temp sensor has not reported in over 5 minutes', minutesAgo: 340, acknowledged: true },
     { id: 'AL-3380', severity: 'warning', siteId: 'site-riverside', asset: 'Chem Probe AN-2', message: 'pH trending toward upper range (7.4)', minutesAgo: 95, acknowledged: true },
+    { id: 'AL-3402', severity: 'warning', siteId: 'site-aquatic', asset: 'Free Chlorine Probe', message: 'Free chlorine 0.8 ppm below the 1.0 ppm minimum — service requested', minutesAgo: 26, acknowledged: false },
   ],
   reports: [
     { id: 'DMR-2026-06', title: 'NPDES Discharge Monitoring Report', period: 'June 2026', kind: 'Compliance · NPDES/DMR', status: 'submitted', date: 'Jul 10, 2026' },

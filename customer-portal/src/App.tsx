@@ -8,6 +8,7 @@ import { Login } from '@/pages/Login';
 import { Reports } from '@/pages/Reports';
 import { Settings } from '@/pages/Settings';
 import { SiteDetail } from '@/pages/SiteDetail';
+import { WaterQualityReport } from '@/pages/WaterQualityReport';
 
 // The PeakLogic Customer Portal — a tenant's view of THEIR own sites. PeakView360
 // is launched from within it (a site's "Open live view"), not a separate login.
@@ -22,6 +23,7 @@ export function App() {
               <Route element={<ShellLayout />}>
                 <Route path="/" element={<Home />} />
                 <Route path="/sites/:siteId" element={<SiteDetail />} />
+                  <Route path="/sites/:siteId/water-quality" element={<WaterQualityReport />} />
                 <Route path="/alerts" element={<Alerts />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />

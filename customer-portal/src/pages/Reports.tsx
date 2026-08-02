@@ -1,5 +1,7 @@
-import { Download, FileText } from 'lucide-react';
+import { Download, Droplets, FileText } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { CUSTOMER } from '@/data';
+import { hasWaterQuality } from '@/data/waterQuality';
 import { ReportStatusTag } from '@/components/ui';
 
 // Compliance & operations reports — what a municipal customer cares about
@@ -37,6 +39,23 @@ export function Reports() {
           ))}
         </ul>
       </div>
+
+      {CUSTOMER.sites.filter((s) => hasWaterQuality(s.id)).map((s) => (
+        <Link
+          key={s.id}
+          to={`/sites/${s.id}/water-quality`}
+          className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-brand-purple-mid dark:border-slate-800 dark:bg-slate-900"
+        >
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-brand-purple-soft text-brand-purple dark:bg-brand-purple/20 dark:text-brand-purple-mid">
+            <Droplets size={17} />
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-semibold text-slate-800 dark:text-slate-100">Water Quality Report</p>
+            <p className="truncate text-xs text-slate-500 dark:text-slate-400">{s.name} · weekly · sensed + technician-attested</p>
+          </div>
+          <span className="text-xs font-semibold text-brand-purple-mid">View</span>
+        </Link>
+      ))}
 
       <p className="text-xs text-slate-400">
         Compliance automation is operator-assist: PeakLogic drafts the report from your telemetry, but your operator remains

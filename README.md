@@ -84,7 +84,6 @@ PeakLogic-Azure-V2/
 │   ├── ingest/               # Telemetry ingestion, rules, anomaly detection
 │   ├── jobs/                 # Scheduled sweeps (silence detection, PM generation)
 │   └── shared/               # DB/RLS, auth, alerts, CMMS, PeakAssist
-├── frontend/                 # React + Vite SPA — tenant app
 ├── peakview360/              # React + Vite SPA — operator HMI/SCADA experience
 ├── channel-partner-portal/   # Partner white-label portal
 ├── customer-portal/          # Customer-facing portal
@@ -115,8 +114,7 @@ PeakLogic-Azure-V2/
 cd backend && npm ci
 npm run typecheck && npm test
 
-# Frontend / PeakView360
-cd frontend && npm ci && npm run dev
+# Front end (each portal is its own Vite app)
 cd peakview360 && npm ci && npm run dev
 
 # Infrastructure (validate — deploying needs a real Azure subscription)

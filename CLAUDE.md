@@ -44,7 +44,6 @@ Six sub-packages (five with their own `package.json`/`tsconfig.json`; `marketing
 | `windows-hub/` | PeakLogic Edge — the .NET on-prem Hub agent (Windows + Linux) | .NET 8 |
 | `scripts/` | Admin tooling, DB migrations | Node 20 |
 | `ops/` | Standalone operational functions (cost kill switch) | Node 20 |
-| `frontend/` | ⚠️ **SUPERSEDED** — the original single tenant app, replaced by `customer-portal/`. Not in the demo, not the product. Reference only | Browser |
 | `infra/` | ⚠️ **DEPRECATED** — pre-pivot AWS CDK. Deployed by nothing; see `infra/README.md` | Node 20 |
 
 **The backend is not deployed independently.** CDK bundles it at deploy time via esbuild. The `ApiStack` in `infra/lib/api-stack.ts` points `entry:` directly into `../../backend/`. There is no build step to run before deploying the backend.
@@ -54,12 +53,12 @@ Six sub-packages (five with their own `package.json`/`tsconfig.json`; `marketing
 ## Common Commands
 
 ```bash
-# Frontend
-cd frontend
-npm install
-npm run dev          # http://localhost:5173 (requires VITE_PREVIEW=true in .env.local)
-npm run build        # output to frontend/dist/
-npm run typecheck    # tsc --noEmit
+# Front end — three portals + the operator app, each its own Vite app
+cd customer-portal        && npm install && npm run dev   # :5176
+cd channel-partner-portal && npm install && npm run dev   # :5174
+cd peakview360            && npm install && npm run dev   # :5175
+# `npm run build` in any of them runs `tsc && vite build` (typecheck + bundle).
+# marketing/ (incl. demo.html and control-center.html) is static — no build step.
 
 # Channel Partner Portal (demo — login screen only, no real PartnerPool auth wired up)
 cd channel-partner-portal
@@ -216,7 +215,7 @@ Actuation (e.g. remotely shutting off a valve) is on the roadmap but not built. 
 
 ### Frontend Auth Bypass
 
-Set `VITE_PREVIEW=true` in `frontend/.env.local` to skip the Cognito `Authenticator` and render the app with a placeholder user. This flag is checked in `frontend/src/App.tsx`. All frontend pages currently use hardcoded mock data — they are not yet wired to the real API.
+Each portal ships a bypassable login for preview use. All four surfaces currently run on their own in-repo preview data and are not wired to the API — see §10 of the SysAdmin Guide.
 
 ## Key Files
 
@@ -235,7 +234,7 @@ Set `VITE_PREVIEW=true` in `frontend/.env.local` to skip the Cognito `Authentica
 
 ## Environment Setup
 
-**Frontend** (`frontend/.env.local` for local dev, `frontend/.env` for production builds):
+**Front end** (per-portal `.env.local` for local dev):
 ```
 VITE_PREVIEW=true                     # bypasses Cognito (dev only)
 VITE_API_URL=https://...amazonaws.com/v1
@@ -324,7 +323,7 @@ PeakLogic is an industrial IoT SaaS platform monitoring safety-critical equipmen
 Every time a version is accepted and shipped, run through all steps. **Two documentation sets are maintained in lockstep with every release, not as an afterthought**: the System Administrator Guide (always updated) and the User Guide (checked every time, updated when user-facing behavior changed). Skipping either check is how documentation quietly goes stale — don't skip it even when a release looks purely backend/infra.
 
 ```
-1.  All feature work merged to dev; typecheck passes (npm run typecheck in backend/ and frontend/)
+1.  All feature work merged to dev; typecheck passes (backend/ via `npm run typecheck`; each portal via `npm run build`)
 2.  Determine version bump based on change types above
 3.  Update CHANGELOG.md — move [Unreleased] items under new [vX.Y.Z] heading with ISO date
 4.  git checkout main && git merge dev && git push origin main
@@ -395,7 +394,7 @@ For months the User Guide described a single combined application (Dashboard / S
 | Control Center | `marketing/control-center.html` | PeakLogic staff only |
 | PeakView360 | `peakview360/src/screens/` + `components/AppShell.tsx` | Operators, launched from inside a portal |
 
-**`frontend/` is the superseded original tenant app.** It is not in the demo and is not the product. Do not document it as the customer-facing application and do not extend it.
+**`frontend/` no longer exists.** It was the original single tenant app; it was retired on 2026-08-01 after its two remaining unique features were ported (device onboarding → Partner Portal, water-quality report → Customer Portal). Anything referring to it in the architecture documents is historical.
 
 **Three specific accuracy rules, each learned from a real error:**
 1. **Never describe a capability as available when it is not.** The Partner Portal renders a *Control* affordance, but actuation is a hard MVP gate (CC-3.1/CC-4.1) and no code path publishes a device command. Mark it `Coming soon` with an honest status line.
