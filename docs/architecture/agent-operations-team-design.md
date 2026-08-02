@@ -94,7 +94,10 @@ exists specifically to keep that claim true rather than merely asserted.
 
 **One disclosed exception.** `KEEPER-DR`'s restore drill genuinely costs money — it creates a
 scratch Postgres server, restores into it, measures, and destroys it. Roughly **$2–4 per drill**.
-It is **off by default**, and it is the only agent that can spend anything.
+It is the only agent that can spend anything. **Approved 2026-08-01 at a monthly cadence**, so
+the team's true marginal cost is **~$3/month**, not $0.00 — stated that way everywhere rather
+than rounded down, because a cost rule that quietly excludes its own exception stops being
+enforceable. `ABACUS-FIN` alerts if actual spend drifts above it.
 
 ### 2.2 Two proposed agent duties violate the platform's own safety model
 
@@ -135,7 +138,9 @@ increasable to daily.
 **weekly, Monday 06:00 in the operator's local timezone**, which is the reading most consistent
 with "weekly health status report" and with the request to scale *up* to daily later. Changing
 to daily, monthly, or the literal first-Monday reading is a one-line config change (§5.4) with
-no redesign. **This default should be confirmed.**
+no redesign.
+
+**Confirmed 2026-08-01: weekly, Monday 06:00.** No longer an assumption.
 
 ---
 
@@ -507,12 +512,12 @@ sales collateral remains a separate go/no-go decision.
 
 | # | Assumption | Risk if wrong |
 |---|---|---|
-| 1 | Report cadence is **weekly Mon 06:00**, not first-Monday-monthly (§2.3) | Wrong frequency |
+| 1 | ~~Report cadence~~ — **CONFIRMED weekly Mon 06:00** (2026-08-01) | Resolved |
 | 2 | Timezone is US Eastern | Reports arrive at the wrong hour |
 | 3 | `blovas@msn.com` is the destination; **SMS number not yet provided** | Critical alerts cannot reach you by SMS |
 | 4 | Teams is the messaging channel (Azure-native) | Rework if Slack is preferred |
 | 5 | Postgres bus is acceptable over Kafka (§4.1) | Rework if a hard Kafka requirement exists |
-| 6 | `KEEPER-DR` may spend ~$2–4/drill, off by default | Disable entirely if truly zero |
+| 6 | ~~`KEEPER-DR` spend~~ — **APPROVED, monthly drills** (2026-08-01) | Resolved |
 | 7 | External IR retainer at +60min — **none currently exists** | Escalation dead-ends |
 | 8 | Agents may open PRs but never merge | Changes velocity expectations |
 
@@ -536,7 +541,7 @@ Ordered by consequence, not convenience.
 | Phase | Agents | Rationale |
 |---|---|---|
 | **0 — now** | `WARDEN-TEN` | The gap with a demonstrated total failure. Runs in CI; needs no deployment. |
-| **1** | `MARSHAL-IR`, `QUILL-RPT` | Without the voice and the report, other agents' findings reach no one. |
+| **1** | `MARSHAL-IR`, `QUILL-RPT` | Without the voice and the report, other agents' findings reach no one. Cadence confirmed: weekly Mon 06:00. |
 | **2** | `ABACUS-FIN`, `CIPHER-IAM` | Makes the cost rule enforceable; closes the fleet-dark expiry risk. |
 | **3** | `PULSE-OPS`, `ASSAY-DQ`, `AEGIS-SEC` | Complete existing partial implementations. |
 | **4** | `KEEPER-DR`, `MASON-CFG`, `NOTARY-CMP` | Need a deployed environment to be meaningful. |
@@ -591,7 +596,7 @@ SEVERITY CEILING: {{MAX_SEVERITY}}.
 | `LEDGER-SC` | `supply-chain` | `0 0 4 * * *` | `critical` | `security.alert`, `health.status` |
 | `SCRIBE-DOC` | `doc-registrar` | `0 0 5 * * 1` | `warning` | `health.status` |
 | `PULSE-OPS` | `sys-health` | `0 */5 * * * *` | `critical` | `performance.anomaly`, `health.status` |
-| `KEEPER-DR` | `continuity` | `0 0 2 * * *` | `critical` | `health.status`, `incident.response` |
+| `KEEPER-DR` | `continuity` | `0 0 2 * * *` verify · `0 0 3 1 * *` drill | `critical` | `health.status`, `incident.response` |
 | `ABACUS-FIN` | `cost-guardian` | `0 0 */6 * * *` | `critical` | `security.alert`, `health.status` |
 | `MASON-CFG` | `config-steward` | `0 0 * * * *` | `warning` | `security.alert`, `health.status` |
 | `ASSAY-DQ` | `data-integrity` | `0 */15 * * * *` | `critical` | `data.integrity.issue`, `maintenance.recommendation` |
@@ -677,10 +682,10 @@ equipment state. Recommend them in the action plan for a human to execute.
 
 ## 10. Open items
 
-- [ ] Confirm report cadence and timezone (§2.3, §7.5)
+- [x] ~~Confirm report cadence~~ — **weekly Mon 06:00**, confirmed 2026-08-01. Timezone still assumed US Eastern.
 - [ ] Provide SMS number and secondary escalation contact
 - [ ] Confirm Teams over Slack
-- [ ] Decide whether `KEEPER-DR` may spend ~$2–4/drill
+- [x] ~~`KEEPER-DR` spend~~ — **approved, monthly drills (~$3/mo)**, confirmed 2026-08-01
 - [ ] **Build `WARDEN-TEN`** — phase 0, needs no subscription
 - [ ] Legal review of CIRCIA/state regulatory triggers
 - [ ] Go/no-go on §7.4 sales collateral

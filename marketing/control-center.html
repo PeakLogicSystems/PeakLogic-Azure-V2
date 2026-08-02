@@ -1526,7 +1526,7 @@
       "role": "Continuity & Recovery Warden",
       "div": "Operations",
       "build": "design",
-      "state": "oncall",
+      "state": "active",
       "cadence": "Daily verify; monthly restore drill",
       "does": "Makes sure the backups exist and, more importantly, that they actually restore. Runs a real restore into a scratch database on a schedule and measures how long it took and how much data was lost.",
       "watches": "Postgres automated backups, retention windows, geo-redundancy, restore timings.",
@@ -1536,9 +1536,9 @@
       ],
       "subs": [],
       "run": "npm run agent -- KEEPER-DR --verify\nnpm run agent -- KEEPER-DR --restore-drill --target scratch",
-      "cost": "A restore drill briefly creates a scratch server — the one agent with real spend. Capped, torn down automatically, and off by default.",
+      "cost": "The one agent with real spend, and it is approved: a monthly restore drill creates a scratch server, proves recovery actually works, then destroys it. Roughly $2–4 a month. The daily backup verification is free.",
       "safety": "Restores only into an isolated scratch server. Never touches a live database.",
-      "note": "Proposed. TD-21: recovery objectives have never been drilled. An untested backup is not a backup."
+      "note": "Proposed. TD-21: recovery objectives have never been drilled. Monthly drills approved 2026-08-01 — running the drill is what turns a backup into a recovery."
     },
     {
       "id": "ABACUS-FIN",
@@ -1782,8 +1782,8 @@
         how: "Agents whose state is Active — they run on their own schedule without being asked.", why: "Your standing background team. Everything else waits until you engage it." },
       { label: "Actually built", value: `${built} of ${AGENTS.length}`, sub: `${partial} partially built`, accent: partial ? "var(--warn)" : "var(--good)",
         how: "Agents whose logic exists and is tested in this repository, as opposed to specified only.", why: "Separates the team you have from the team you have designed. An agent set to Active but not built still reports nothing." },
-      { label: "Added Azure cost", value: "$0.00", sub: "per month, all agents active", accent: "var(--good)",
-        how: "Agents run as timer functions on the existing consumption plan and read telemetry already being collected. At full cadence the whole team uses roughly 25,000 executions a month against a 1,000,000 free monthly grant.", why: "You set a hard rule that agents must never raise your cloud bill. This is the number that proves it, and the Cost Guardian is what keeps it true." },
+      { label: "Added Azure cost", value: "~$3", sub: "per month — one funded restore drill", accent: "var(--good)",
+        how: "Fifteen of the sixteen agents cost nothing — they run as timer functions on the existing consumption plan and read telemetry already being collected, using about 18,000 executions a month against a 1,000,000 free monthly grant. The exception is the Continuity Warden's monthly restore drill, which creates and destroys a scratch database to prove a backup really restores.", why: "You set a hard rule that agents must never raise your cloud bill, and then approved one deliberate exception to it. Showing the real number rather than a flat zero is what keeps the rule enforceable — the Cost Guardian alerts if it ever drifts above this." },
       { label: "Notifies you", value: "1", sub: "MARSHAL-IR only", accent: "var(--info)",
         how: "Only the Incident Commander sends outbound messages. Every other agent reports onto the internal bus.", why: "A single voice. Fifteen agents noticing one outage reaches you as one incident, not fifteen alerts at 3am." },
     ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label} ${explain(s.how, s.why)}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
@@ -1827,7 +1827,7 @@
           <div class="callout">${INFO_ICON}
             <div><b>Agents advise; they never act on equipment.</b> No agent can start or stop a pump, change a setpoint, apply a patch, or restart a service. The most any of them can do on its own is isolate one compromised device identity. Everything else is a recommendation with a human decision in front of it — the same hard gate that governs actuation platform-wide (CC-3.1/CC-4.1).</div></div>
           <div class="callout" style="border-left:3px solid var(--good);padding-left:13px">${INFO_ICON}
-            <div><b>Why this costs nothing.</b> The agents reuse infrastructure you already pay for: timer functions on the existing consumption plan, the Log Analytics workspace already collecting telemetry, and Postgres as the message bus. No Kafka cluster, no Prometheus VM, no Grafana host, no SIEM licence. The one agent that can spend real money — the Continuity Warden's restore drill — is off by default and tears its scratch server down when it finishes.</div></div>
+            <div><b>Why this costs nothing.</b> The agents reuse infrastructure you already pay for: timer functions on the existing consumption plan, the Log Analytics workspace already collecting telemetry, and Postgres as the message bus. No Kafka cluster, no Prometheus VM, no Grafana host, no SIEM licence. The one agent that can spend real money — the Continuity Warden's monthly restore drill, approved at roughly $3 a month — tears its scratch server down as soon as it finishes.</div></div>
           <div class="callout" style="border-left:3px solid var(--warn);padding-left:13px">${INFO_ICON}
             <div><b>Four agents are specified but not yet built</b> — the Documentation Registrar, Continuity Warden, Tenant Isolation Prover and Identity Custodian. The Tenant Isolation Prover is the one to build first: it is the agent that would have caught the tenant-isolation defect that went unnoticed for this project's entire history.</div></div>
         </div>
