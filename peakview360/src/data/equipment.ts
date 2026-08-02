@@ -39,6 +39,7 @@ const ASSET_META: Record<string, AssetMeta> = {
 function worstState(states: EquipmentState[]): EquipmentState {
   if (states.includes('offline')) return 'offline';
   if (states.includes('fault')) return 'fault';
+  if (states.includes('warning')) return 'warning';
   return 'running';
 }
 
@@ -61,6 +62,7 @@ export function computeAssets(tiles: Tile[], values: Record<string, ProcessValue
     let score = meta.baseHealth;
     if (states.includes('offline')) score = Math.min(score, 24);
     else if (states.includes('fault')) score -= 30;
+    else if (states.includes('warning')) score -= 12;
     score = Math.round(clamp(score, 0, 100));
 
     const status: HealthStatus = score >= 85 ? 'healthy' : score >= 60 ? 'watch' : 'at-risk';

@@ -75,9 +75,27 @@ const RULES: Rule[] = [
 
 const SEV_RANK: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 
-function firesCritical(metric: string, value: number): boolean {
-  return RULES.some((r) => r.metric === metric && r.severity === 'critical' && r.test(value));
+// The worst severity currently firing for a metric, or null if none. Tile
+// state and the alarm panel are both driven from this one function, which is
+// what keeps them from disagreeing.
+function worstFiring(metric: string, value: number): Severity | null {
+  let worst: Severity | null = null;
+  for (const r of RULES) {
+    if (r.metric !== metric || !r.test(value)) continue;
+    if (worst === null || SEV_RANK[r.severity] < SEV_RANK[worst]) worst = r.severity;
+  }
+  return worst;
 }
+
+function stateFor(metric: string, value: number): 'running' | 'warning' | 'fault' {
+  const sev = worstFiring(metric, value);
+  return sev === 'critical' ? 'fault' : sev === 'warning' ? 'warning' : 'running';
+}
+
+// How long a sensor must be silent before it is reported as such. Mirrors the
+// real sweep's shape (expected interval x grace multiplier) rather than
+// inventing a different rule for the demo.
+const SILENCE_AFTER_MS = 300_000;
 
 function seed(): Record<string, ProcessValue> {
   const now = Date.now();
@@ -111,7 +129,7 @@ function step(prev: Record<string, ProcessValue>): Record<string, ProcessValue> 
     out[m] = {
       metric: m,
       value,
-      state: firesCritical(m, value) ? 'fault' : 'running',
+      state: stateFor(m, value),
       trend: value - p.value,
       updatedAt: now,
     };
@@ -123,6 +141,37 @@ function reconcileAlarms(prev: Alarm[], values: Record<string, ProcessValue>): A
   const byKey = new Map(prev.map((a) => [`${a.metric}:${a.severity}`, a]));
   const seen = new Set<string>();
   const next: Alarm[] = [];
+
+  // A sensor that has stopped reporting raises a real alarm, exactly as
+  // backend/jobs/silence-detection.ts does in production (type 'device_silent',
+  // capped at warning because losing visibility is not the same as measuring a
+  // dangerous value). Without this the offline sensor showed a red "At risk"
+  // asset with an empty alarm panel behind it.
+  for (const [metric, pv] of Object.entries(values)) {
+    if (pv.state !== 'offline') continue;
+    const silentMs = Date.now() - pv.updatedAt;
+    if (silentMs < SILENCE_AFTER_MS) continue;
+    const key = `${metric}:warning`;
+    seen.add(key);
+    const existing = byKey.get(key);
+    const mins = Math.floor(silentMs / 60_000);
+    next.push(
+      existing
+        ? { ...existing, message: `No reading for ${mins} min — sensor is not reporting` }
+        : {
+            id: `alm-${key}-${Date.now()}`,
+            severity: 'warning',
+            status: 'active',
+            asset: ASSET_BY_METRIC[metric] ?? metric,
+            metric,
+            message: `No reading for ${mins} min — sensor is not reporting`,
+            aiContext:
+              'Device silence is detected by absence, not by a bad reading — every threshold rule needs a value to test, so a dead sensor would otherwise be indistinguishable from a healthy one.',
+            helpContextKey: `alarm.${metric}`,
+            raisedAt: Date.now(),
+          },
+    );
+  }
 
   for (const rule of RULES) {
     const pv = values[rule.metric];

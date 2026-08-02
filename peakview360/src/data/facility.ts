@@ -93,13 +93,20 @@ export function unitState(unit: FacilityUnit, values: Record<string, ProcessValu
   const states = unit.metrics.map((m) => values[m]?.state ?? 'offline');
   if (states.includes('offline')) return 'offline';
   if (states.includes('fault')) return 'fault';
+  if (states.includes('warning')) return 'warning';
   return 'running';
 }
 
+// These now line up with alarm severity, which they previously did not: `fault`
+// is raised by a CRITICAL rule but was drawn amber, the same colour a warning
+// gets everywhere else in the app. A red critical alarm in the panel beside an
+// amber unit on the plant view is exactly the kind of mismatch that teaches an
+// operator to distrust the colours.
 export const STATE_COLOR: Record<EquipmentState, string> = {
-  running: '#22C55E',
-  fault: '#F59E0B',
-  offline: '#64748B',
+  running: '#22C55E', // status.running
+  warning: '#F59E0B', // sev.warning
+  fault: '#EF4444', // sev.critical
+  offline: '#64748B', // status.offline
 };
 
 // ── Projection ───────────────────────────────────────────────────────────────

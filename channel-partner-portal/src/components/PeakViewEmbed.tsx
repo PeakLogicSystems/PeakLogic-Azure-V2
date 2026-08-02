@@ -19,8 +19,8 @@ const PEAKVIEW_URL = 'http://localhost:5175/';
 /** Must match ThemeProvider's listener in peakview360/src/theme.tsx. */
 const THEME_MESSAGE = 'peaklogic:theme';
 
-// `theme` is the value the app OPENS with. Once loaded, changes travel by
-// postMessage in both directions, so this is never re-read.
+// `theme` is the value the app OPENS with. Once loaded, further changes are
+// pushed down by postMessage, so this URL is never re-read.
 function peakViewUrl(siteId: string, theme: 'light' | 'dark') {
   const p = new URLSearchParams({ theme });
   if (siteId) p.set('site', siteId);
@@ -36,7 +36,7 @@ export function PeakViewEmbed({
   enabled: boolean;
   defaultOpen?: boolean;
 }) {
-  const { settings, update } = useSettings();
+  const { settings } = useSettings();
   const { partner } = usePartner();
   const t = partner.terms;
   const [open, setOpen] = useState(defaultOpen);
@@ -57,21 +57,10 @@ export function PeakViewEmbed({
   // posted before its listener mounts is simply dropped.
   useEffect(post, [settings.theme, open]);
 
-  // Follow a theme change made INSIDE the frame, so the toggle in the operator
-  // view drives the whole portal. Only messages from this exact frame are
-  // accepted — `e.source` is checked before anything is applied, because any
-  // page on the internet can postMessage into this window.
-  useEffect(() => {
-    function onMessage(e: MessageEvent) {
-      if (!frame.current || e.source !== frame.current.contentWindow) return;
-      const data = e.data as { type?: string; theme?: string } | null;
-      if (!data || data.type !== THEME_MESSAGE) return;
-      if (data.theme !== 'dark' && data.theme !== 'light') return;
-      if (data.theme !== settings.theme) update({ theme: data.theme });
-    }
-    window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
-  }, [settings.theme, update]);
+  // Deliberately no listener for theme changes coming FROM the frame. Sync is
+  // one-way: this portal drives the operator view, and a toggle inside the
+  // frame stays a local override rather than rewriting the user's saved
+  // portal setting.
 
   const btn =
     'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600';

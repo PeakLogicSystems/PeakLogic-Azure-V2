@@ -414,6 +414,19 @@
   .agt-sec p { margin: 0; font-size: 13px; line-height: 1.55; }
   .agt-run { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
 
+  /* Agent run result */
+  .runres { display: flex; gap: 11px; align-items: flex-start; border-radius: 10px; padding: 12px 14px; }
+  .runres--clean { background: color-mix(in srgb, var(--good) 10%, transparent); }
+  .runres--found { background: color-mix(in srgb, var(--warn) 12%, transparent); }
+  .runres--blocked { background: color-mix(in srgb, var(--crit) 11%, transparent); }
+  .runres__icon { flex: none; width: 17px; height: 17px; margin-top: 1px; }
+  .runlog { font-family: var(--mono); font-size: 11.5px; line-height: 1.7; background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; max-height: 210px; overflow-y: auto; }
+  .runlog__t { color: var(--text-faint); }
+  .runstat { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; }
+  .runstat__c { border: 1px solid var(--border); border-radius: 9px; padding: 9px 11px; }
+  .runstat__l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+  .runstat__v { font-size: 17px; font-weight: 750; margin-top: 2px; }
+
   /* Approval queue */
   .stat--click { cursor: pointer; }
   .stat--click:hover { border-color: var(--accent); }
@@ -1824,6 +1837,38 @@
     "MARSHAL-IR": [{ id: "test-escalation", label: "Send a test escalation", risk: "low", what: "Sends a clearly-marked drill through every channel so you can confirm alerts actually reach you before you need them to." },
                    { id: "suppress", label: "Acknowledge and suppress an incident", risk: "medium", what: "Stops the escalation timer for one incident. Recorded in the audit trail with your name against it." }],
   };
+  // What a run of each agent produces. These are the checks each agent actually
+  // performs per its design (artifact #38 §3), so a run reads as that agent's
+  // own work rather than a generic success message.
+  //
+  // `outcome` drives how the result is presented:
+  //   clean   — ran, found nothing to act on
+  //   found   — ran, found something needing attention (may queue an approval)
+  //   blocked — could not complete, and says why rather than reporting success
+  const AGENT_RUNS = {
+    "SENTRY-CQ":  { outcome: "clean",   headline: "12 CI jobs passed", steps: ["Typecheck — backend, 3 portals", "Unit tests — 118 passed", "Integration tests — 27/27 against real Postgres", "npm audit — no high/critical in production deps", "PSRule — 4 deployments expanded"], found: 0, checked: 12, dur: "3m 41s" },
+    "FORGE-CD":   { outcome: "blocked", headline: "No Azure subscription configured", steps: ["Resolved workflow deploy-dev.yml", "Requested federated credential for PeakLogic-dev-CiCd", "FAILED — AZURE_SUBSCRIPTION_ID is not set"], found: 0, checked: 0, dur: "0m 04s", why: "Deployment cannot run until a real Azure subscription and the per-stage Entra app registrations exist. This is the documented prerequisite, not a fault in the workflow." },
+    "LEDGER-SC":  { outcome: "found",   headline: "1 dependency advisory", steps: ["Inventoried 5 package manifests + the .NET hub agent", "Cross-checked 1,284 packages against advisory feeds", "FOUND — glob 7.2.3 (via node-pg-migrate), high severity", "Queued a pull request for your approval"], found: 1, checked: 1284, dur: "0m 52s" },
+    "SCRIBE-DOC": { outcome: "found",   headline: "2 documentation drifts", steps: ["Compared both guides against the live portal source", "FOUND — SysAdmin §10 lists a port that no longer exists", "FOUND — User Guide describes Control as available; it is gated", "No capability described as shipped that is not"], found: 2, checked: 41, dur: "0m 18s" },
+    "PULSE-OPS":  { outcome: "blocked", headline: "Nothing deployed to observe", steps: ["Queried Application Insights", "FAILED — no workspace exists"], found: 0, checked: 0, dur: "0m 02s", why: "This agent reads live telemetry. No Azure environment has ever been deployed, so there is nothing running for it to watch. It reports that rather than a healthy all-clear it cannot actually vouch for." },
+    "KEEPER-DR":  { outcome: "blocked", headline: "No backups to verify", steps: ["Looked for a Postgres Flexible Server", "FAILED — no server found in any resource group"], found: 0, checked: 0, dur: "0m 03s", why: "Restore drills need a real database with real backups. Until one exists, recovery time and data loss remain unmeasured — TD-21." },
+    "ABACUS-FIN": { outcome: "clean",   headline: "$3.10 of $100 limit", steps: ["Queried Cost Management for agent-attributed spend", "Compared against the $100 kill-switch ceiling", "Confirmed the kill switch is armed", "No new billable resource since the last run"], found: 0, checked: 14, dur: "0m 11s" },
+    "MASON-CFG":  { outcome: "clean",   headline: "No drift detected", steps: ["Compared deployed resources against Bicep — nothing deployed, nothing to diff", "Checked 3 Hub-reported bundles against desired state", "Firmware, drivers, config and agent versions all match"], found: 0, checked: 3, dur: "0m 22s" },
+    "ASSAY-DQ":   { outcome: "found",   headline: "1 sensor drifting", steps: ["Validated 4,812 readings against physical range", "No gaps, duplicates or out-of-order data", "FOUND — pH probe pl-4471-c has drifted 0.4 from three reagent panels", "Queued a recalibration flag for your approval"], found: 1, checked: 4812, dur: "1m 07s" },
+    "AUGUR-PDM":  { outcome: "found",   headline: "1 asset trending to failure", steps: ["Scored 38 devices against their own EWMA baselines", "FOUND — Aeration Blower B-3 drawing above baseline, 22,350 h runtime, 96 d since service", "Capped at warning — this agent may not dispatch a technician on its own"], found: 1, checked: 38, dur: "0m 34s" },
+    "QUILL-RPT":  { outcome: "clean",   headline: "Report composed", steps: ["Collected findings from 15 agents for the period", "Deduplicated by correlation id", "Marked agents with no data as gaps, not as healthy", "Composed 9 sections"], found: 0, checked: 15, dur: "0m 09s" },
+    "NOTARY-CMP": { outcome: "found",   headline: "1 deadline approaching", steps: ["Verified the audit trail is unbroken across the period", "FOUND — Riverside DMR is due in 9 days", "Collected 46 SOC 2 evidence items"], found: 1, checked: 46, dur: "0m 27s" },
+    "AEGIS-SEC":  { outcome: "clean",   headline: "No threats detected", steps: ["Reviewed authentication logs — no credential stuffing pattern", "Checked API traffic for gateway bypass — none", "Scored device connection cadence — all within baseline", "Verified Hub agent versions against published releases"], found: 0, checked: 41, dur: "0m 44s" },
+    "WARDEN-TEN": { outcome: "blocked", headline: "Agent not built yet", steps: ["Loaded the tenant-isolation check list", "FAILED — no implementation exists"], found: 0, checked: 0, dur: "0m 01s", why: "This is the highest-priority gap in the platform and phase 0 of the build sequence. It can be built today against the CI Postgres and needs no Azure subscription. Until it exists, tenant isolation is assumed rather than proven." },
+    "CIPHER-IAM": { outcome: "found",   headline: "17 certificates expiring", steps: ["Enumerated device certificates, Key Vault secrets and service principals", "FOUND — 17 device certs expire in 21 days, all issued the same day", "Reviewed 9 staff accounts — no orphans", "Queued a rotation for your approval"], found: 17, checked: 63, dur: "0m 16s" },
+    "MARSHAL-IR": { outcome: "clean",   headline: "No open incidents", steps: ["Correlated findings across all seven topics", "Nothing met the critical threshold", "3 warnings queued for the next scheduled report", "Heartbeat confirmed — escalation path is live"], found: 0, checked: 7, dur: "0m 06s" },
+  };
+  const RUN_META = {
+    clean:   { label: "Completed — nothing to action", cls: "good", pill: "good" },
+    found:   { label: "Completed — findings need your attention", cls: "warn", pill: "warn" },
+    blocked: { label: "Could not complete", cls: "crit", pill: "crit" },
+  };
+
   const RISK_META = {
     low:    { cls: "good", label: "Low risk" },
     medium: { cls: "warn", label: "Needs care" },
@@ -1979,6 +2024,11 @@
             ${actionsFor(a.id).length ? `<span class="pill pill--info" title="Actions this agent can propose. Each one needs your approval before it runs."><span class="dot"></span>${actionsFor(a.id).length} action${actionsFor(a.id).length > 1 ? "s" : ""}</span>` : ""}
             <span class="pill pill--${b.cls}" title="${esc(b.tip)}"><span class="dot"></span>${b.label}</span>
           </div>
+          <div class="agt__foot" style="padding-top:0">
+            <button class="btn btn--primary btn--sm" data-action="agent-run-now:${a.id}" ${agentRunning ? "disabled" : ""} style="flex:1;justify-content:center">
+              ${agentRunning === a.id ? "Running…" : "Run Agent"}
+            </button>
+          </div>
           <div class="agt__seg">${seg}</div>
         </div>`;
       }).join("");
@@ -2109,18 +2159,8 @@
     if (pvFrame.parentNode !== slot) slot.appendChild(pvFrame);
   }
 
-  // Follow a theme change made INSIDE the frame, so the operator view's own
-  // toggle drives this console too. Only messages from our own frame are
-  // accepted — any page can postMessage into this window.
-  window.addEventListener("message", (e) => {
-    if (!pvFrame || e.source !== pvFrame.contentWindow) return;
-    const d = e.data;
-    if (!d || d.type !== "peaklogic:theme") return;
-    if (d.theme !== "dark" && d.theme !== "light") return;
-    if (d.theme === currentTheme()) return;
-    document.documentElement.setAttribute("data-theme", d.theme);
-    setThemeIcon(d.theme);
-  });
+  // Deliberately no listener for theme changes coming FROM the frame. Sync is
+  // one-way: this console drives the operator view, never the reverse.
 
   // Drive the embedded operator app's theme from this console's toggle.
   // Targeted at PeakView360's own origin rather than "*", so the message is
@@ -2203,6 +2243,93 @@
       `Declined "${def.label}" · ${q.target} · risk ${def.risk} · not run`);
     toast(`Rejected — "${def.label}" will not run. The agent keeps reporting the finding.`);
     render();
+  }
+
+  // Running an agent. The button reports progress, then a modal states plainly
+  // what the agent did, what it checked, and what it found — including when it
+  // could NOT complete. An agent that reports success it cannot vouch for is
+  // worse than one that reports nothing.
+  let agentRunning = null;
+
+  function runAgent(id) {
+    const a = agentById(id); if (!a) return;
+    if (agentRunning) return;              // one at a time — the button shows why
+    agentRunning = id;
+    render();
+    // A short delay so the running state is actually visible; the real agent is
+    // a Timer-triggered function whose duration is reported in the result.
+    setTimeout(() => {
+      agentRunning = null;
+      const run = AGENT_RUNS[id];
+      audit("agent.run", `${a.role} (${id})`,
+        run ? `Manual run · ${RUN_META[run.outcome].label} · ${run.headline}` : "Manual run");
+      render();
+      openRunResult(id);
+    }, 1400);
+  }
+
+  function openRunResult(id) {
+    const a = agentById(id); if (!a) return;
+    const run = AGENT_RUNS[id];
+    if (!run) { toast(`${a.role} finished`); return; }
+    const meta = RUN_META[run.outcome];
+    const icon = run.outcome === "clean"
+      ? '<svg class="runres__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="color:var(--good)"><path d="M20 6 9 17l-5-5"/></svg>'
+      : run.outcome === "found"
+      ? '<svg class="runres__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--warn)"><path d="M12 9v4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/></svg>'
+      : '<svg class="runres__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="color:var(--crit)"><circle cx="12" cy="12" r="9"/><path d="M15 9l-6 6M9 9l6 6"/></svg>';
+
+    const steps = run.steps.map(t => {
+      const bad = /^FAILED/.test(t), hit = /^FOUND/.test(t);
+      const color = bad ? "var(--crit)" : hit ? "var(--warn)" : "var(--muted)";
+      return `<div><span class="runlog__t">›</span> <span style="color:${color}">${esc(t)}</span></div>`;
+    }).join("");
+
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Agent run result">
+        <div class="modal__head">
+          <div>
+            <h2 class="modal__title">${esc(a.role)}</h2>
+            <div class="mono" style="font-size:12px;color:var(--text-faint);margin-top:2px">${esc(id)} · manual run</div>
+          </div>
+          <button class="btn btn--sm" data-action="close-overlay" style="margin-left:auto">Close</button>
+        </div>
+        <div class="modal__body">
+          <div class="runres runres--${run.outcome}">
+            ${icon}
+            <div>
+              <div class="strong" style="font-size:13.5px">${meta.label}</div>
+              <div style="font-size:13px;color:var(--muted);margin-top:2px">${esc(run.headline)}</div>
+            </div>
+          </div>
+
+          <div class="runstat" style="margin-top:14px">
+            <div class="runstat__c"><div class="runstat__l">Checked</div><div class="runstat__v">${run.checked.toLocaleString()}</div></div>
+            <div class="runstat__c"><div class="runstat__l">Findings</div><div class="runstat__v" style="color:${run.found ? "var(--warn)" : "var(--good)"}">${run.found}</div></div>
+            <div class="runstat__c"><div class="runstat__l">Duration</div><div class="runstat__v">${esc(run.dur)}</div></div>
+          </div>
+
+          <div style="margin-top:14px">
+            <div style="font-size:11px;font-weight:750;letter-spacing:.07em;text-transform:uppercase;color:var(--muted);margin-bottom:6px">What it did</div>
+            <div class="runlog">${steps}</div>
+          </div>
+
+          ${run.why ? `<div class="callout" style="margin-top:13px;border-left:3px solid var(--crit);padding-left:13px">${INFO_ICON}
+            <div>${esc(run.why)}</div></div>` : ""}
+
+          ${run.outcome === "found" && AGENT_QUEUE.some(q => q.agent === id) ? `<div class="callout" style="margin-top:13px;border-left:3px solid var(--accent);padding-left:13px">${INFO_ICON}
+            <div>This agent has queued an action in <b>Waiting for your approval</b>. Nothing has run — it is waiting on you.</div></div>` : ""}
+
+          <div class="callout" style="margin-top:13px">${INFO_ICON}
+            <div>Recorded in the audit log as <code>agent.run</code> against your name. Preview build — this is the run this agent would perform; it is not executing against live infrastructure.</div></div>
+        </div>
+        <div class="modal__foot">
+          <button class="btn" data-action="close-overlay">Close</button>
+          ${run.outcome === "found" ? '<button class="btn btn--primary" data-action="nav:agents">Review the queue</button>' : ""}
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
   }
 
   function openKillswitch() {
@@ -2908,7 +3035,7 @@
   }
 
   function viewAudit() {
-    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "site.register": "info", "policy.update": "warn", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info", "agent.action.approve": "warn", "agent.action.reject": "neutral", "agent.state": "warn", "agent.killswitch": "crit", "agent.killswitch.trip": "crit", "agent.report.schedule": "info" };
+    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "site.register": "info", "policy.update": "warn", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info", "agent.action.approve": "warn", "agent.action.reject": "neutral", "agent.state": "warn", "agent.killswitch": "crit", "agent.killswitch.trip": "crit", "agent.report.schedule": "info", "agent.run": "accent" };
     const q = S.query.toLowerCase();
     const filtered = AUDIT.filter(a => !q || [a.actor, a.action, a.target, a.note].join(" ").toLowerCase().includes(q));
     const rows = filtered.map(a => `
@@ -4393,6 +4520,7 @@
     else if (action === "agent-state") setAgentState(arg, arg2);
     else if (action === "agent-approve") approveAgentAction(arg);
     else if (action === "agent-run") runAgentAction(arg);
+    else if (action === "agent-run-now") runAgent(arg);
     else if (action === "agent-reject") rejectAgentAction(arg);
     else if (action === "killswitch") openKillswitch();
     else if (action === "killswitch-submit") submitKillswitch();

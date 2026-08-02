@@ -7,18 +7,21 @@ import type { ProcessValue, Tile } from '../types';
 // color, not just number — the point of an operator screen.
 const STATE_STRIPE: Record<ProcessValue['state'], string> = {
   running: 'bg-status-running',
+  warning: 'bg-sev-warning',
   fault: 'bg-status-fault',
   offline: 'bg-status-offline',
 };
 
 const STATE_PILL: Record<ProcessValue['state'], string> = {
   running: 'text-status-running bg-status-running/10 ring-status-running/30',
+  warning: 'text-sev-warning bg-sev-warning/10 ring-sev-warning/30',
   fault: 'text-status-fault bg-status-fault/10 ring-status-fault/30',
   offline: 'text-status-offline bg-status-offline/10 ring-status-offline/30',
 };
 
 const STATE_LABEL: Record<ProcessValue['state'], string> = {
   running: 'Running',
+  warning: 'Warning',
   fault: 'Fault',
   offline: 'Offline',
 };

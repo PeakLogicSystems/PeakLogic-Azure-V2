@@ -6,7 +6,9 @@
 // Live process values resolve from the on-site Hub over the LAN; history/cross-
 // site from the cloud (the dual-source model, §3.1).
 
-export type EquipmentState = 'running' | 'fault' | 'offline';
+// 'warning' exists so a warning-severity alarm has somewhere to show on the
+// tile. Without it a raised alarm sat behind a green "Running" tile.
+export type EquipmentState = 'running' | 'warning' | 'fault' | 'offline';
 export type Severity = 'critical' | 'warning' | 'info';
 export type AlarmStatus = 'active' | 'acknowledged';
 export type DataSource = 'hub-lan' | 'cloud';
