@@ -21,17 +21,20 @@ const THEME_MESSAGE = 'peaklogic:theme';
 
 // `theme` is the value the app OPENS with. Once loaded, further changes are
 // pushed down by postMessage, so this URL is never re-read.
-function peakViewUrl(siteId: string, theme: 'light' | 'dark') {
+//
+// `site` is the scope contract, not a hint: PeakView360 renders only the site
+// it is opened for and refuses outright if it holds no data for that site,
+// rather than falling back to whichever facility it happens to have. See
+// peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
+// name the site the viewer is actually entitled to see.
+function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark') {
   const p = new URLSearchParams({ theme });
-  // Forward-wiring: PeakView360 resolves its site from the API once one exists.
-  // In preview it renders its own demo facility regardless — which is why the
-  // panel says so rather than letting a different site name sit silently under
-  // this page's heading.
   if (siteId) p.set('site', siteId);
+  if (siteName) p.set('siteName', siteName);
   return `${PEAKVIEW_URL}?${p.toString()}`;
 }
 
-export function PeakViewEmbed({ siteId, enabled }: { siteId: string; enabled: boolean }) {
+export function PeakViewEmbed({ siteId, siteName, enabled }: { siteId: string; siteName: string; enabled: boolean }) {
   const { settings } = useSettings();
   const [open, setOpen] = useState(true);
   const frame = useRef<HTMLIFrameElement>(null);
@@ -76,7 +79,7 @@ export function PeakViewEmbed({ siteId, enabled }: { siteId: string; enabled: bo
         <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Live view</h2>
         <div className="flex items-center gap-2">
           <a
-            href={peakViewUrl(siteId, settings.theme)}
+            href={peakViewUrl(siteId, siteName, settings.theme)}
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-brand-purple-mid hover:text-brand-purple-mid dark:border-slate-700 dark:text-slate-200"
@@ -110,7 +113,7 @@ export function PeakViewEmbed({ siteId, enabled }: { siteId: string; enabled: bo
             // it OPENS with; later changes arrive by postMessage instead. Keying
             // on siteId alone is what makes that true.
             key={siteId}
-            src={peakViewUrl(siteId, settings.theme)}
+            src={peakViewUrl(siteId, siteName, settings.theme)}
             title="PeakView360 live operator view"
             onLoad={() => {
               const el = frame.current;
@@ -134,8 +137,8 @@ export function PeakViewEmbed({ siteId, enabled }: { siteId: string; enabled: bo
       </div>
 
       <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-        Preview build — the operator view renders PeakLogic's demonstration facility, so the
-        equipment shown here is not yet this site's own.
+        Preview build. PeakView360 serves only the site it is opened for — if it holds no data for
+        this one it says so rather than showing another site's plant in its place.
       </p>
     </section>
   );

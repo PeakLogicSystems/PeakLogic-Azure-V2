@@ -50,7 +50,7 @@ export function SiteDetail() {
 
       {/* Above Devices: the live view is what a customer opens this page for,
           and it is the one thing on it that changes second to second. */}
-      <PeakViewEmbed siteId={site.id} enabled={site.peakview} />
+      <PeakViewEmbed siteId={site.id} siteName={site.name} enabled={site.peakview} />
 
       <section>
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">Devices</h2>

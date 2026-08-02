@@ -9,7 +9,15 @@ import type { Alarm, HmiScreen, ProcessValue, Severity, Site } from '../types';
 // sensor is intentionally OFFLINE (no data), exercising the silent/offline state
 // the platform's device-silence detection is built around.
 
-export const PREVIEW_SITE: Site = { id: 'site-riverside', name: 'Riverside Water Reclamation Facility' };
+// The site's outbound work-order link. Set to null to see the ungated
+// behaviour: the "Issue WO" action disappears entirely rather than appearing
+// disabled, because a control an operator cannot use should not be on screen
+// implying the capability exists.
+export const PREVIEW_SITE: Site = {
+  id: 'site-riverside',
+  name: 'Riverside Water Reclamation Facility',
+  cmms: { partner: 'Ace Septic & Waste', system: 'UpKeep', active: true },
+};
 
 export const PREVIEW_SCREEN: HmiScreen = {
   id: 'screen-chlor-aer',

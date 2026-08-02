@@ -1907,6 +1907,51 @@
   // `actor` is passed rather than assumed because not every entry has a human
   // behind it: the cost kill switch fires on its own, and recording that as
   // though a person did it would be a lie in the one record that must not lie.
+  // The console's demo state is held in memory, so every browser refresh used
+  // to wipe it — agent changes, approvals and their audit entries all vanished.
+  // That makes it impossible to walk someone through the console across more
+  // than one page load, which is exactly what this file is for.
+  //
+  // Persisted here rather than by rewriting each data structure: the seeded
+  // arrays stay the source of truth for a first visit, and this layer replays
+  // whatever the operator has since done on top of them.
+  const DEMO_KEY = "pcc-demo-state";
+  const AUDIT_CAP = 300; // a demo does not need an unbounded log in localStorage
+
+  function saveDemo() {
+    try {
+      localStorage.setItem(DEMO_KEY, JSON.stringify({
+        v: 1,
+        audit: AUDIT.slice(0, AUDIT_CAP),
+        agents: AGENTS.map(a => ({ id: a.id, state: a.state })),
+        queue: AGENT_QUEUE,
+        killswitch: AGENT_KILLSWITCH,
+        report: AGENT_REPORT,
+      }));
+    } catch (e) { /* storage full or blocked — the console still works, it just won't survive a reload */ }
+  }
+
+  function restoreDemo() {
+    let raw;
+    try { raw = localStorage.getItem(DEMO_KEY); } catch (e) { return; }
+    if (!raw) return;
+    let d;
+    try { d = JSON.parse(raw); } catch (e) { return; }
+    if (!d || d.v !== 1) return;
+    // Each block is guarded separately: a partially-corrupt saved state should
+    // restore what it can rather than silently discarding all of it.
+    if (Array.isArray(d.audit) && d.audit.length) { AUDIT.length = 0; d.audit.forEach(e => AUDIT.push(e)); }
+    if (Array.isArray(d.agents)) d.agents.forEach(sv => { const a = agentById(sv.id); if (a && AGT_STATE[sv.state]) a.state = sv.state; });
+    if (Array.isArray(d.queue)) AGENT_QUEUE = d.queue;
+    if (d.killswitch && typeof d.killswitch.thresholdUsd === "number") Object.assign(AGENT_KILLSWITCH, d.killswitch);
+    if (d.report && REPORT_CADENCES[d.report.cadence]) Object.assign(AGENT_REPORT, d.report);
+  }
+
+  function resetDemo() {
+    try { localStorage.removeItem(DEMO_KEY); } catch (e) { /* nothing to clear */ }
+    location.reload();
+  }
+
   function audit(action, target, note, actor) {
     const who = actor || { name: ME.name, oid: ME.oid };
     const d = new Date();
@@ -1915,6 +1960,7 @@
       ts: `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`,
       actor: who.name, oid: who.oid, action: action, target: target, note: note,
     });
+    saveDemo();
   }
   // Actions the platform takes on its own, with no operator behind them.
   const SYSTEM_ACTOR = { name: "PeakLogic platform", oid: "system" };
@@ -2046,6 +2092,7 @@
           <span class="panel__note">
             <button class="btn btn--sm" data-action="toast:Agent definition template opened — scope, schedule, topics and thresholds">Add an agent</button>
             <button class="btn btn--sm" data-action="toast:Select an agent, then Off — retiring removes it from the roster and the bus">Retire an agent</button>
+            <button class="btn btn--sm" data-action="reset-demo">Reset demo state</button>
           </span></div>
         <div style="padding:15px 17px;display:flex;flex-direction:column;gap:13px">
           <div class="callout">${INFO_ICON}
@@ -3052,7 +3099,7 @@
       <div class="toolbar">
         <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input type="text" id="q" placeholder="Search by actor, action, or organization…" value="${esc(S.query)}" autocomplete="off"></div>
-        <span class="faint" style="font-size:12.5px">${filtered.length} of ${AUDIT.length} entries</span>
+        <span class="faint" style="font-size:12.5px">${filtered.length} of ${AUDIT.length} entries · retained across reloads</span>
         <button class="btn btn--ghost" data-action="toast:Audit log exported (CSV)" style="margin-left:auto">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export</button>
       </div>
@@ -3782,7 +3829,12 @@
   const NAV_FOR = { fleet: "nav:fleet", tenants: "nav:tenants", "tenant-detail": "nav:tenants", partners: "nav:partners", "partner-detail": "nav:partners", sites: "nav:sites", devices: "nav:devices", channels: "nav:channels", staff: "nav:staff", audit: "nav:audit", reports: "nav:reports", settings: "nav:settings", peakview360: "nav:peakview360", hubs: "nav:hubs", cmms: "nav:cmms", compliance: "nav:compliance", agents: "nav:agents" };
   const TITLE = { fleet: "Fleet Overview", tenants: "Customer Tenants", partners: "Channel Partners", sites: "Sites", devices: "Devices", channels: "System Channels", staff: "Staff & Access", audit: "Audit Log", reports: "Reports", settings: "Settings", peakview360: "PeakView360", hubs: "PeakLogic Hubs", cmms: "CMMS — Work Orders", compliance: "Compliance" };
 
+  // Restored once, before the first render, so the console opens showing
+  // whatever was done to it last time rather than the seeded defaults.
+  let demoRestored = false;
+
   function render() {
+    if (!demoRestored) { demoRestored = true; restoreDemo(); }
     $("#view").innerHTML = (VIEWS[S.view] || viewFleet)();
     // nav active
     document.querySelectorAll(".nav__item").forEach(b => b.classList.toggle("nav__item--active", b.getAttribute("data-action") === NAV_FOR[S.view]));
@@ -4521,6 +4573,7 @@
     else if (action === "agent-approve") approveAgentAction(arg);
     else if (action === "agent-run") runAgentAction(arg);
     else if (action === "agent-run-now") runAgent(arg);
+    else if (action === "reset-demo") resetDemo();
     else if (action === "agent-reject") rejectAgentAction(arg);
     else if (action === "killswitch") openKillswitch();
     else if (action === "killswitch-submit") submitKillswitch();

@@ -1,5 +1,5 @@
-import { BellRing, CheckCircle2, ChevronRight, CircleHelp, Sparkles } from 'lucide-react';
-import type { Alarm, Severity } from '../types';
+import { BellRing, CheckCircle2, ChevronRight, CircleHelp, Sparkles, Wrench } from 'lucide-react';
+import type { Alarm, CmmsLink, Severity } from '../types';
 
 // The docked alarm panel (PV-2): a projection over the alerts pipeline. Each
 // alarm carries its AI/threshold context and a one-click PeakAssist deep-link
@@ -21,11 +21,25 @@ export function AlarmPanel({
   alarms,
   onAcknowledge,
   onCollapse,
+  cmms,
+  workOrders = {},
+  onAcknowledgeAndDispatch,
 }: {
   alarms: Alarm[];
   onAcknowledge: (id: string) => void;
   onCollapse?: () => void;
+  /** The site's outbound work-order link, or null when there is none. */
+  cmms?: CmmsLink | null;
+  workOrders?: Record<string, string>;
+  onAcknowledgeAndDispatch?: (id: string) => string | null;
 }) {
+  // "Acknowledge & Issue WO" appears ONLY with a live link to a real
+  // work-order partner. With no link — or a link that exists but is
+  // disconnected — the action is absent entirely rather than shown disabled:
+  // a greyed-out button still advertises a capability this site does not have,
+  // and an operator in an incident should not be reading tooltips to find out
+  // that dispatch was never available.
+  const canDispatch = Boolean(cmms && cmms.active && onAcknowledgeAndDispatch);
   const active = alarms.filter((a) => a.status === 'active');
 
   return (
@@ -67,7 +81,14 @@ export function AlarmPanel({
         ) : (
           <ul className="divide-y divide-slate-200 dark:divide-slate-800">
             {alarms.map((a) => (
-              <AlarmRow key={a.id} alarm={a} onAcknowledge={onAcknowledge} />
+              <AlarmRow
+                key={a.id}
+                alarm={a}
+                onAcknowledge={onAcknowledge}
+                cmms={canDispatch ? cmms! : null}
+                workOrder={workOrders[a.id]}
+                onAcknowledgeAndDispatch={canDispatch ? onAcknowledgeAndDispatch : undefined}
+              />
             ))}
           </ul>
         )}
@@ -76,7 +97,19 @@ export function AlarmPanel({
   );
 }
 
-function AlarmRow({ alarm, onAcknowledge }: { alarm: Alarm; onAcknowledge: (id: string) => void }) {
+function AlarmRow({
+  alarm,
+  onAcknowledge,
+  cmms,
+  workOrder,
+  onAcknowledgeAndDispatch,
+}: {
+  alarm: Alarm;
+  onAcknowledge: (id: string) => void;
+  cmms: CmmsLink | null;
+  workOrder?: string;
+  onAcknowledgeAndDispatch?: (id: string) => string | null;
+}) {
   const acked = alarm.status === 'acknowledged';
   return (
     <li className={`relative pl-4 pr-3 py-3 ${acked ? 'opacity-55' : ''}`}>
@@ -99,18 +132,34 @@ function AlarmRow({ alarm, onAcknowledge }: { alarm: Alarm; onAcknowledge: (id: 
         </p>
       )}
 
-      <div className="mt-2 flex items-center gap-3">
+      <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
         {acked ? (
           <span className="flex items-center gap-1 text-xs font-medium text-emerald-500">
             <CheckCircle2 size={13} /> Acknowledged
           </span>
         ) : (
-          <button
-            onClick={() => onAcknowledge(alarm.id)}
-            className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
-          >
-            Acknowledge
-          </button>
+          <>
+            <button
+              onClick={() => onAcknowledge(alarm.id)}
+              className="rounded-md bg-slate-800 px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-slate-700 dark:bg-slate-200 dark:text-slate-900 dark:hover:bg-white"
+            >
+              Acknowledge
+            </button>
+            {cmms && onAcknowledgeAndDispatch && (
+              <button
+                onClick={() => onAcknowledgeAndDispatch(alarm.id)}
+                title={`Raise a work order to ${cmms.partner} via ${cmms.system}`}
+                className="flex items-center gap-1 rounded-md bg-brand-purple px-2.5 py-1 text-xs font-semibold text-white transition-colors hover:bg-brand-purple-mid"
+              >
+                <Wrench size={12} /> Acknowledge &amp; Issue WO
+              </button>
+            )}
+          </>
+        )}
+        {workOrder && cmms && (
+          <span className="flex items-center gap-1 text-xs font-medium text-brand-purple-mid">
+            <Wrench size={12} /> {workOrder} → {cmms.partner}
+          </span>
         )}
         <a
           href={`#/help/${alarm.helpContextKey}`}

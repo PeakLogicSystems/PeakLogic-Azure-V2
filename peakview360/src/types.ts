@@ -63,4 +63,24 @@ export interface Alarm {
 export interface Site {
   id: string;
   name: string;
+  /**
+   * The outbound CMMS link this site dispatches work orders through, or null
+   * when there is none. Null is the DEFAULT, not an error state: plenty of
+   * sites are self-maintained or their provider has no integrated CMMS.
+   *
+   * Nothing in the UI may offer to raise a work order unless this is present.
+   * Offering a dispatch that silently goes nowhere is worse than not offering
+   * it — an operator would believe a technician had been called.
+   */
+  cmms: CmmsLink | null;
+}
+
+/** An active outbound link to a service partner-s work-order system. */
+export interface CmmsLink {
+  /** The servicing partner the work order is dispatched TO. */
+  partner: string;
+  /** Their work-order system, e.g. UpKeep, ServiceTitan, Limble. */
+  system: string;
+  /** False while a link exists but is disconnected/unauthorised — treated as no link. */
+  active: boolean;
 }

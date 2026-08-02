@@ -70,7 +70,7 @@ export function SiteDetail() {
 
       {/* Live view above the built Facility View: the facility layout is what
           this partner drew, the live view is what the plant is doing right now. */}
-      <PeakViewEmbed siteId={site.id} enabled={site.peakview} />
+      <PeakViewEmbed siteId={site.id} siteName={site.name} enabled={site.peakview} />
 
       {/* Facility View — rendered inline on the site page (not a separate sub-page).
           Falls back to a Facility Builder prompt when nothing is built yet. */}

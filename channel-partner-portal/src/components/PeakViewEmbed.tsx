@@ -21,18 +21,26 @@ const THEME_MESSAGE = 'peaklogic:theme';
 
 // `theme` is the value the app OPENS with. Once loaded, further changes are
 // pushed down by postMessage, so this URL is never re-read.
-function peakViewUrl(siteId: string, theme: 'light' | 'dark') {
+// `site` is the scope contract, not a hint: PeakView360 renders only the site
+// it is opened for and refuses outright if it holds no data for that site,
+// rather than falling back to whichever facility it happens to have. See
+// peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
+// name the site the viewer is actually entitled to see.
+function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark') {
   const p = new URLSearchParams({ theme });
   if (siteId) p.set('site', siteId);
+  if (siteName) p.set('siteName', siteName);
   return `${PEAKVIEW_URL}?${p.toString()}`;
 }
 
 export function PeakViewEmbed({
   siteId,
+  siteName,
   enabled,
   defaultOpen = true,
 }: {
   siteId: string;
+  siteName: string;
   enabled: boolean;
   defaultOpen?: boolean;
 }) {
@@ -87,7 +95,7 @@ export function PeakViewEmbed({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className={heading}>Live view</h2>
         <div className="flex items-center gap-2">
-          <a href={peakViewUrl(siteId, settings.theme)} target="_blank" rel="noreferrer" className={btn}>
+          <a href={peakViewUrl(siteId, siteName, settings.theme)} target="_blank" rel="noreferrer" className={btn}>
             Open in new window <ExternalLink size={12} />
           </a>
           <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={btn}>
@@ -121,7 +129,7 @@ export function PeakViewEmbed({
             // theme is just the value it opens with, later changes come by
             // postMessage.
             key={siteId}
-            src={peakViewUrl(siteId, settings.theme)}
+            src={peakViewUrl(siteId, siteName, settings.theme)}
             title="PeakView360 live operator view"
             onLoad={post}
             className="block h-[clamp(440px,68vh,820px)] w-full border-0 bg-[#0b1120]"
@@ -137,8 +145,9 @@ export function PeakViewEmbed({
       </div>
 
       <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
-        Preview build — the operator view renders PeakLogic’s demonstration facility, so the equipment
-        shown here is not yet this {t.siteSingular.toLowerCase()}’s own.
+        Preview build. PeakView360 serves only the {t.siteSingular.toLowerCase()} it is opened for —
+        if it holds no data for this one it says so rather than showing another customer’s plant in
+        its place.
       </p>
     </section>
   );

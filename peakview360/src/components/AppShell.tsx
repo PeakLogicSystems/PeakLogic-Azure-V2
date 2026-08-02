@@ -16,7 +16,7 @@ const NAV = [
 const ALARMS_KEY = 'pv360-alarms-open';
 
 export function AppShell({ children }: { children: ReactNode }) {
-  const { site, screen, alarms, acknowledge } = usePeakViewData();
+  const { site, screen, alarms, acknowledge, workOrders, acknowledgeAndDispatch } = usePeakViewData();
 
   // The docked alarm panel collapses so the process screens can use the full
   // width — they are responsive grids, so they genuinely reflow into it rather
@@ -104,7 +104,14 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Docked alarm panel — collapsible to a rail. */}
         <div className={`hidden shrink-0 lg:block ${alarmsOpen ? 'w-80' : 'w-12'}`}>
           {alarmsOpen ? (
-            <AlarmPanel alarms={alarms} onAcknowledge={acknowledge} onCollapse={() => setAlarmsOpen(false)} />
+            <AlarmPanel
+              alarms={alarms}
+              onAcknowledge={acknowledge}
+              onCollapse={() => setAlarmsOpen(false)}
+              cmms={site.cmms}
+              workOrders={workOrders}
+              onAcknowledgeAndDispatch={acknowledgeAndDispatch}
+            />
           ) : (
             <CollapsedAlarms active={activeAlarms} onExpand={() => setAlarmsOpen(true)} />
           )}
