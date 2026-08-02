@@ -1,13 +1,43 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 
 type Theme = 'dark' | 'light';
 
 const ThemeCtx = createContext<{ theme: Theme; toggle: () => void }>({ theme: 'dark', toggle: () => {} });
 
+const STORAGE_KEY = 'pv360-theme';
+
+/** Message the embedding console sends to drive this app's theme. */
+const THEME_MESSAGE = 'peaklogic:theme';
+
+// Resolve the starting theme with the same precedence the pre-paint script in
+// index.html uses. Both must agree, or the app would repaint on mount — which is
+// exactly the white flash that block exists to prevent. Keep them in step.
+//
+//   1. ?theme= on the URL   — set by an embedding console, so an iframe opens
+//                             already matching its parent rather than adopting
+//                             the operator's own stored preference and flipping.
+//   2. localStorage         — the operator's own choice when running standalone.
+//   3. dark                 — control rooms run dark.
+function initialTheme(): Theme {
+  try {
+    const fromUrl = new URLSearchParams(window.location.search).get('theme');
+    if (fromUrl === 'dark' || fromUrl === 'light') return fromUrl;
+    return localStorage.getItem(STORAGE_KEY) === 'light' ? 'light' : 'dark';
+  } catch {
+    return 'dark'; // storage or URL blocked — fail to the control-room default
+  }
+}
+
 // Control rooms run dark by default; the toggle is per-operator and persisted —
 // mirrors the tenant app's SET-4 ThemeContext (user choice, not OS media query).
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  const [theme, setTheme] = useState<Theme>(() => (localStorage.getItem('pv360-theme') as Theme) ?? 'dark');
+  const [theme, setTheme] = useState<Theme>(initialTheme);
+
+  // Whether the current value was pushed in by an embedding console rather than
+  // chosen here. An embedded theme is applied but deliberately NOT persisted:
+  // viewing PeakView360 inside the light-mode Control Center must not silently
+  // overwrite the operator's own standalone preference.
+  const external = useRef(false);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
@@ -15,14 +45,35 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     // index.html. Without keeping it in step here, toggling to light would
     // leave the dark canvas showing behind the app on the next load.
     document.documentElement.classList.toggle('pv-light', theme !== 'dark');
-    localStorage.setItem('pv360-theme', theme);
+    if (!external.current) {
+      try {
+        localStorage.setItem(STORAGE_KEY, theme);
+      } catch {
+        /* storage blocked — the theme still applies for this session */
+      }
+    }
   }, [theme]);
 
-  return (
-    <ThemeCtx.Provider value={{ theme, toggle: () => setTheme((t) => (t === 'dark' ? 'light' : 'dark')) }}>
-      {children}
-    </ThemeCtx.Provider>
-  );
+  // Follow the embedding console's theme (Control Center → this iframe).
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      const data = e.data as { type?: string; theme?: string } | null;
+      if (!data || data.type !== THEME_MESSAGE) return;
+      if (data.theme !== 'dark' && data.theme !== 'light') return;
+      external.current = true;
+      setTheme(data.theme);
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, []);
+
+  // An explicit toggle here is the operator's own choice again, so it persists.
+  const toggle = () => {
+    external.current = false;
+    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+  };
+
+  return <ThemeCtx.Provider value={{ theme, toggle }}>{children}</ThemeCtx.Provider>;
 }
 
 export const useTheme = () => useContext(ThemeCtx);

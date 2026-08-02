@@ -42,8 +42,13 @@ export function AppShell({ children }: { children: ReactNode }) {
       </header>
 
       <div className="flex min-h-0 flex-1">
-        {/* Left nav rail */}
-        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-slate-200 bg-white py-3 dark:border-slate-800 dark:bg-slate-900/60 md:w-44 md:items-stretch md:px-2">
+        {/* Left nav rail — permanently dark-branded, like the top bar above it
+            and the Control Center's own rail. It deliberately does NOT follow
+            the light/dark toggle: the rail is brand chrome, and the theme
+            governs the operator canvas. Colours are the Control Center's
+            --rail-* palette so the two consoles read as one product, which
+            matters most when this app is embedded in that console's iframe. */}
+        <nav className="flex w-16 shrink-0 flex-col items-center gap-1 border-r border-[#1e2a44] bg-[#0a0f1d] py-3 md:w-44 md:items-stretch md:px-2">
           {NAV.map(({ to, label, icon: Icon, end }) => (
             <NavLink
               key={to}
@@ -51,17 +56,21 @@ export function AppShell({ children }: { children: ReactNode }) {
               end={end}
               className={({ isActive }) =>
                 [
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
                   'justify-center md:justify-start',
                   isActive
-                    ? 'bg-brand-purple-soft text-brand-purple dark:bg-brand-purple/20 dark:text-brand-purple-soft'
-                    : 'text-slate-500 hover:bg-slate-100 hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100',
+                    ? 'bg-brand-purple/[0.16] font-semibold text-white'
+                    : 'font-medium text-[#7f8db0] hover:bg-white/5 hover:text-[#e8ecf5]',
                 ].join(' ')
               }
               title={label}
             >
-              <Icon size={18} className="shrink-0" />
-              <span className="hidden md:inline">{label}</span>
+              {({ isActive }) => (
+                <>
+                  <Icon size={18} className={`shrink-0 ${isActive ? 'text-[#a78bfa]' : ''}`} />
+                  <span className="hidden md:inline">{label}</span>
+                </>
+              )}
             </NavLink>
           ))}
         </nav>

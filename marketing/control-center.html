@@ -2062,11 +2062,31 @@
     if (!slot) return;
     if (!pvFrame) {
       pvFrame = document.createElement("iframe");
-      pvFrame.src = PEAKVIEW360_URL;
+      // Hand the current theme over on the URL so the frame's pre-paint script
+      // opens already matching this console, instead of loading in the
+      // operator's stored theme and visibly flipping a moment later.
+      pvFrame.src = PEAKVIEW360_URL + (PEAKVIEW360_URL.indexOf("?") < 0 ? "?" : "&") + "theme=" + currentTheme();
       pvFrame.title = "PeakView360";
       pvFrame.setAttribute("style", "display:block;width:100%;height:100%;border:0;background:#0b1120");
+      // The frame can finish loading long after a theme toggle, so re-send on
+      // load. postMessage before the listener is mounted would be dropped.
+      pvFrame.addEventListener("load", () => syncPeakViewTheme(currentTheme()));
     }
     if (pvFrame.parentNode !== slot) slot.appendChild(pvFrame);
+  }
+
+  // Drive the embedded operator app's theme from this console's toggle.
+  // Targeted at PeakView360's own origin rather than "*", so the message is
+  // never delivered to some other document that happens to be framed.
+  function syncPeakViewTheme(theme) {
+    if (!pvFrame || !pvFrame.contentWindow) return;
+    let origin;
+    try { origin = new URL(PEAKVIEW360_URL, window.location.href).origin; } catch (e) { return; }
+    try {
+      pvFrame.contentWindow.postMessage({ type: "peaklogic:theme", theme: theme }, origin);
+    } catch (e) {
+      /* frame not ready or cross-origin blocked — the load handler retries */
+    }
   }
 
   // ---------- Agent approvals, kill switch, report schedule ----------
@@ -4399,6 +4419,9 @@
     const next = currentTheme() === "dark" ? "light" : "dark";
     document.documentElement.setAttribute("data-theme", next);
     setThemeIcon(next);
+    // Keep the embedded operator app in step. It is the same product; the
+    // console going light while the frame inside it stays dark looks broken.
+    syncPeakViewTheme(next);
   }
 
   // ---------- Init ----------

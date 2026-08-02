@@ -26,8 +26,15 @@
     </style>
     <script>
       (function () {
+        // Precedence must match initialTheme() in src/theme.tsx exactly:
+        //   ?theme= (an embedding console) > localStorage (operator) > dark.
+        // If these two disagree the app repaints on mount, which is the very
+        // flash this block exists to prevent.
         var t = 'dark';
-        try { t = localStorage.getItem('pv360-theme') || 'dark'; } catch (e) { /* storage blocked — keep the dark default */ }
+        try {
+          var u = new URLSearchParams(window.location.search).get('theme');
+          t = (u === 'dark' || u === 'light') ? u : (localStorage.getItem('pv360-theme') || 'dark');
+        } catch (e) { /* storage or URL blocked — keep the dark default */ }
         var d = t !== 'light';
         document.documentElement.classList.toggle('dark', d);
         document.documentElement.classList.toggle('pv-light', !d);
