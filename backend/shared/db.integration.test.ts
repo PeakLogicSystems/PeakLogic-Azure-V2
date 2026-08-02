@@ -473,7 +473,7 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
       CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
         SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
       $$ LANGUAGE sql STABLE;
-    `);
+    `);
 
     const ownerUrl = new URL(process.env.TEST_DATABASE_URL!);
     ownerUrl.username = 'rls_test_owner';
@@ -710,6 +710,14 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
     await setup.query('BEGIN');
     try {
       await withTenant(tenantA, async (client) => {
+        // claim_context must be set for the UPDATE too, not just a prior
+        // lookup — devices.ts's real claim() sets it once for the whole
+        // transaction. Without it the unclaimed row (tenant_id IS NULL) is
+        // invisible to this session under every SELECT policy, so the UPDATE
+        // matches zero rows and silently does nothing. This test previously
+        // omitted it and therefore did not mirror the code path it exists to
+        // cover.
+        await client.query("SET LOCAL app.claim_context = 'true'");
         const { rows } = await client.query(
           'UPDATE claim_test_devices SET tenant_id = $2 WHERE id = $1 RETURNING *',
           [unclaimedDeviceId, tenantA],
@@ -725,9 +733,14 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
 
   it('device_claim\'s WITH CHECK rejects claiming a device into a DIFFERENT tenant than the session\'s own — real defense-in-depth, not just trusted application logic', async () => {
     await expect(
-      withTenant(tenantA, (client) =>
-        client.query('UPDATE claim_test_devices SET tenant_id = $2 WHERE id = $1 RETURNING *', [unclaimedDeviceId, tenantB]),
-      ),
+      withTenant(tenantA, async (client) => {
+        // Same as the test above: claim_context is what makes the unclaimed
+        // row visible at all. Without it this UPDATE matches zero rows and
+        // resolves quietly, which looks like "WITH CHECK didn't fire" when in
+        // fact the policy was never reached.
+        await client.query("SET LOCAL app.claim_context = 'true'");
+        return client.query('UPDATE claim_test_devices SET tenant_id = $2 WHERE id = $1 RETURNING *', [unclaimedDeviceId, tenantB]);
+      }),
     ).rejects.toThrow(/row-level security/i);
   });
 
