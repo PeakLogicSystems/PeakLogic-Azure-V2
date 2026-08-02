@@ -470,9 +470,9 @@ describeIfDb('FORCE ROW LEVEL SECURITY — table-owner bypass fix (real Postgres
     // a clean deny instead of an error. The fixture must match the real schema
     // here: a fixture that quietly differs is how TD-51/TD-52 stayed invisible.
     await setup.query(`
-      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
         SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
-      $ LANGUAGE sql STABLE;
+      $$ LANGUAGE sql STABLE;
     `);
 
     const ownerUrl = new URL(process.env.TEST_DATABASE_URL!);
