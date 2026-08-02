@@ -31,14 +31,21 @@ The goal of this discipline is a fully commercialized, enterprise-sellable produ
 
 Six sub-packages (five with their own `package.json`/`tsconfig.json`; `marketing/` is plain static HTML, no build tooling). `windows-hub/` (a separate .NET/C# codebase, PeakLogic Edge — the hub device app) is intentionally outside this table's Node/CDK conventions; see its own `windows-hub/README.md`.
 
-| Directory     | Purpose                                      | Runtime   |
-|---------------|-----------------------------------------------|-----------|
-| `infra/`      | AWS CDK v2 stacks (TypeScript)               | Node 20   |
-| `backend/`    | Lambda source (API + ingest)                 | Node 20   |
-| `frontend/`   | React SPA (Vite + Tailwind) — the authenticated tenant app, served at `app.{domain}` | Browser   |
-| `channel-partner-portal/` | Channel partner white-label portal — separate app, separate `PartnerPool` auth (Security Architecture §2.4), demo-only so far (login screen only, UX Wireframes §2.11) | Browser   |
-| `marketing/`  | Public marketing site (`peaklogicsolutions.com`) — plain static HTML/CSS, no build step, deployed via `infra/lib/marketing-stack.ts` | Browser   |
-| `scripts/`    | Admin tooling (device provisioning, DB migrations) | Node 20   |
+**The front end is three portals plus one operator app** — not one application with role-based menus. `marketing/demo.html` is the definitive map.
+
+| Directory | Purpose | Runtime |
+|---|---|---|
+| `infra-azure/` | **Bicep IaC — all live Azure resources.** Modules + `entra/` app registrations | — |
+| `backend/` | Azure Functions — REST API, telemetry ingest, scheduled jobs | Node 20 |
+| `customer-portal/` | **Customer Portal** — equipment owners; their own sites, alerts and compliance reports only | Browser |
+| `channel-partner-portal/` | **Partner Portal** — a service company's whole book of business (home, sites, device *Control* affordance, work orders, Facility Builder, partner switching). White-labelled per partner | Browser |
+| `peakview360/` | **PeakView360** — the live per-site operator view (Facility View, Historian, Equipment + docked alarm panel). Launched from inside a portal; *not* a separate login | Browser |
+| `marketing/` | Public site (`peaklogicsolutions.com`) + `demo.html` (demo index) + `control-center.html` (**Control Center**, staff-only) | Browser |
+| `windows-hub/` | PeakLogic Edge — the .NET on-prem Hub agent (Windows + Linux) | .NET 8 |
+| `scripts/` | Admin tooling, DB migrations | Node 20 |
+| `ops/` | Standalone operational functions (cost kill switch) | Node 20 |
+| `frontend/` | ⚠️ **SUPERSEDED** — the original single tenant app, replaced by `customer-portal/`. Not in the demo, not the product. Reference only | Browser |
+| `infra/` | ⚠️ **DEPRECATED** — pre-pivot AWS CDK. Deployed by nothing; see `infra/README.md` | Node 20 |
 
 **The backend is not deployed independently.** CDK bundles it at deploy time via esbuild. The `ApiStack` in `infra/lib/api-stack.ts` points `entry:` directly into `../../backend/`. There is no build step to run before deploying the backend.
 
@@ -371,6 +378,29 @@ Backend and frontend are bundled fresh at every `cdk deploy` — there is no sep
 ### CHANGELOG Format
 
 Follows [Keep a Changelog](https://keepachangelog.com/en/1.0.0/). Use these categories only: `Added`, `Changed`, `Fixed`, `Deprecated`, `Removed`, `Security`. Write entries in past tense, user-facing language. Always maintain an `[Unreleased]` section at the top for work in progress.
+
+### ⚠️ Guides Track the Product, Not the Architecture Docs (added 2026-08-01)
+
+**Both guides must be verified against the actual running surfaces — the click-through demo (`marketing/demo.html`) and the portal apps themselves — not against the architecture documents.** This is not a style preference; it is the rule that would have prevented the worst documentation failure this project has had.
+
+For months the User Guide described a single combined application (Dashboard / Sites / Assets / Devices / Alerts / Tickets) that **is not the product**. The real front end is three separate portals plus PeakView360. The guide was internally consistent, versioned, archived, and completely wrong, because every update was written from architecture docs rather than from the screens. The SysAdmin Guide had the same failure in its §10 and additionally documented AWS infrastructure while titled "Azure fork".
+
+**Before changing either guide, open these and confirm what is actually there:**
+
+| Surface | Where | Audience |
+|---|---|---|
+| Demo index | `marketing/demo.html` | The definitive map of what the product *is* |
+| Customer Portal | `customer-portal/src/pages/` | Equipment owners — their sites only |
+| Partner Portal | `channel-partner-portal/src/pages/` | Service companies — their whole book of business |
+| Control Center | `marketing/control-center.html` | PeakLogic staff only |
+| PeakView360 | `peakview360/src/screens/` + `components/AppShell.tsx` | Operators, launched from inside a portal |
+
+**`frontend/` is the superseded original tenant app.** It is not in the demo and is not the product. Do not document it as the customer-facing application and do not extend it.
+
+**Three specific accuracy rules, each learned from a real error:**
+1. **Never describe a capability as available when it is not.** The Partner Portal renders a *Control* affordance, but actuation is a hard MVP gate (CC-3.1/CC-4.1) and no code path publishes a device command. Mark it `Coming soon` with an honest status line.
+2. **Count the screens.** PeakView360 has *three* nav destinations plus a docked alarm panel — an earlier standalone Operator screen was merged into Facility View. A guide claiming "five screens" was wrong.
+3. **State the deployment reality.** No Azure environment has ever been deployed. Any procedure never executed against a live subscription must say so rather than reading as a tested runbook.
 
 ### Documentation Archiving Rules (SysAdmin Guide + User Guide)
 
