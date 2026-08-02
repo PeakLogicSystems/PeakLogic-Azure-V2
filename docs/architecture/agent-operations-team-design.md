@@ -367,7 +367,56 @@ Every event carries a common envelope: `event_id`, `agent`, `topic`, `severity`,
 tenant-scoped data and are subject to the same RLS as everything else. An agent must not become a
 cross-tenant information leak.
 
-### 4.3 Enable / disable
+### 4.3 Audit contract for agent actions
+
+**Every authorised agent action is written to `audit_log_entries`.** Agent activity is privileged
+activity: an approved action can revoke a device identity, overwrite deployed configuration, or
+spend money, so it belongs in the same immutable record as an act-as session or a device command.
+
+Six action types:
+
+| Action | Written when | Actor |
+|---|---|---|
+| `agent.action.approve` | An operator authorises a proposed action | The approving operator |
+| `agent.action.reject` | An operator declines one | The declining operator |
+| `agent.state` | An agent is set Active / On call / Off | The operator |
+| `agent.killswitch` | The cost ceiling is moved, armed, or disarmed | The operator |
+| `agent.killswitch.trip` | Spend crosses the ceiling and agents auto-disable | **The platform** |
+| `agent.report.schedule` | The report cadence changes | The operator |
+
+Five rules, each deliberate:
+
+1. **The actor is the operator who authorised it, never the agent that proposed it.** An agent
+   cannot be accountable. "`AEGIS-SEC` revoked a device" is not an answer to the question an
+   incident review actually asks, which is *who allowed it*.
+2. **Rejections are recorded too.** Otherwise the trail cannot distinguish a proposal that was
+   reviewed and declined from one that never surfaced — a meaningful difference when explaining
+   why a known risk went unaddressed.
+3. **The authorisation is written before the action is reported successful.** An action that later
+   fails must still leave a record of who authorised it; a trail that captures only successes
+   cannot answer the question asked after an incident.
+4. **`agent.killswitch.trip` is attributed to the platform, not to whoever was signed in.**
+   Nobody authorised it. Recording a person against an automatic event would be a falsehood in the
+   one record that must not contain any.
+5. **Disabling a Security-division agent is flagged in the entry text.** Turning off the Tenant
+   Isolation Prover or the Threat Detection Officer is exactly the change an attacker would make
+   first, and it must never be silently possible.
+
+Entries name the agent, its role, the specific target, and the risk grade; `high`-risk approvals
+additionally record that the second confirmation was given.
+
+**🔴 Blocked in the backend — see TD-55.** The Control Center writes all six today, but
+`audit_log_entries_scope_check` requires exactly one of `tenant_id`/`channel_partner_id` to be
+non-null, and most agent actions are scoped to **neither** — disabling an agent, a kill-switch
+trip and every `WARDEN-TEN` finding are platform-level events. Such an INSERT is rejected
+outright, and `backend/shared/audit.ts`'s `AuditEntry` union has no `scope: 'platform'` variant to
+express it. The fix is a migration relaxing that constraint plus the matching union member; it is
+a **hard prerequisite** for the first real agent action, not a follow-up. The *actor* half already
+works — the original migration deliberately permits both actor columns to be null, calling a
+system-triggered entry with no human actor "a legitimate existing case", which is exactly what a
+kill-switch trip is.
+
+### 4.4 Enable / disable
 
 Agent state lives in an `agents` table (`active` / `oncall` / `off`) read at the top of each run.
 The Control Center's **Agents** menu writes to it. Three consequences worth stating:

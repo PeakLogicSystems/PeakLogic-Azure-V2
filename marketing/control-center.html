@@ -1853,6 +1853,27 @@
   };
   const AGENT_REPORT = { cadence: "weekly", timeA: "06:00", timeB: "18:00", tz: "America/New_York", email: true, dashboard: true };
 
+  // Append an entry to the audit log. Agent activity is privileged activity:
+  // an approved action can revoke a device identity, overwrite deployed
+  // configuration, or spend money, so it belongs in the same immutable record
+  // as an act-as session or a device command — attributed to the operator who
+  // authorised it, not to the agent that proposed it.
+  //
+  // `actor` is passed rather than assumed because not every entry has a human
+  // behind it: the cost kill switch fires on its own, and recording that as
+  // though a person did it would be a lie in the one record that must not lie.
+  function audit(action, target, note, actor) {
+    const who = actor || { name: ME.name, oid: ME.oid };
+    const d = new Date();
+    const p = (n) => String(n).padStart(2, "0");
+    AUDIT.unshift({
+      ts: `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())} ${p(d.getUTCHours())}:${p(d.getUTCMinutes())}:${p(d.getUTCSeconds())}`,
+      actor: who.name, oid: who.oid, action: action, target: target, note: note,
+    });
+  }
+  // Actions the platform takes on its own, with no operator behind them.
+  const SYSTEM_ACTOR = { name: "PeakLogic platform", oid: "system" };
+
   function agentById(id) { return AGENTS.find(a => a.id === id); }
   function actionsFor(id) { return AGENT_ACTIONS[id] || []; }
   function actionDef(agentId, actionId) { return actionsFor(agentId).find(x => x.id === actionId); }
@@ -1863,13 +1884,26 @@
   function evaluateKillswitch() {
     if (!AGENT_KILLSWITCH.armed) return false;
     if (AGENT_KILLSWITCH.spendUsd < AGENT_KILLSWITCH.thresholdUsd) return false;
+    const stopped = AGENTS.filter(a => a.state !== "off").length;
     AGENTS.forEach(a => { a.state = "off"; });
     AGENT_KILLSWITCH.trippedAt = new Date().toLocaleString();
+    // Attributed to the platform, not to whoever happened to be signed in —
+    // nobody authorised this, and the record should say so.
+    audit("agent.killswitch.trip", "All agents",
+      `Spend $${AGENT_KILLSWITCH.spendUsd.toFixed(2)} reached the $${AGENT_KILLSWITCH.thresholdUsd} limit · ${stopped} agent${stopped === 1 ? "" : "s"} switched off automatically`,
+      SYSTEM_ACTOR);
     return true;
   }
   function setAgentState(id, next) {
     const a = agentById(id); if (!a) return;
+    const prev = a.state;
+    if (prev === next) return;
     a.state = next;
+    // Turning an agent off is itself a security event — a disabled Tenant
+    // Isolation Prover or Threat Detection Officer is exactly the change an
+    // attacker would make first, and it must not be silently possible.
+    audit("agent.state", `${a.role} (${id})`,
+      `${AGT_STATE[prev].label} → ${AGT_STATE[next].label}${next === "off" && a.div === "Security" ? " · SECURITY AGENT DISABLED" : ""}`);
     toast(`${a.role} — ${AGT_STATE[next].label.toLowerCase()}`);
     render();
   }
@@ -2137,13 +2171,23 @@
     const a = agentById(q.agent), def = actionDef(q.agent, q.action);
     AGENT_QUEUE = AGENT_QUEUE.filter(x => x.qid !== qid);
     closeOverlay();
+    // Record the authorisation BEFORE reporting success. If an action later
+    // fails, the record of who authorised it must still exist — an audit trail
+    // that only captures successes cannot answer the question asked after an
+    // incident, which is always "who allowed this?".
+    audit("agent.action.approve", `${a.role} (${q.agent})`,
+      `Authorised "${def.label}" · ${q.target} · risk ${def.risk}${def.risk === "high" ? " · confirmed twice" : ""}`);
     toast(`Approved — ${a.role} is running "${def.label}". Logged to the audit trail.`);
     render();
   }
   function rejectAgentAction(qid) {
     const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
-    const def = actionDef(q.agent, q.action);
+    const a = agentById(q.agent), def = actionDef(q.agent, q.action);
     AGENT_QUEUE = AGENT_QUEUE.filter(x => x.qid !== qid);
+    // A refusal is evidence too — it shows the proposal was seen and declined,
+    // rather than never surfacing at all.
+    audit("agent.action.reject", `${a.role} (${q.agent})`,
+      `Declined "${def.label}" · ${q.target} · risk ${def.risk} · not run`);
     toast(`Rejected — "${def.label}" will not run. The agent keeps reporting the finding.`);
     render();
   }
@@ -2205,8 +2249,15 @@
     const v = parseFloat(($("#ks-threshold") || {}).value);
     const armed = ($("#ks-armed") || {}).value === "yes";
     if (!isFinite(v) || v <= 0) { toast("Enter a threshold above $0"); return; }
+    const prevV = AGENT_KILLSWITCH.thresholdUsd, prevArmed = AGENT_KILLSWITCH.armed;
     AGENT_KILLSWITCH.thresholdUsd = v;
     AGENT_KILLSWITCH.armed = armed;
+    if (v !== prevV || armed !== prevArmed) {
+      // Disarming the ceiling is a more significant act than moving it, so the
+      // entry names it plainly rather than burying it in a number change.
+      audit("agent.killswitch", "Agent cost ceiling",
+        `Limit $${prevV} → $${v}${armed !== prevArmed ? ` · ${armed ? "ARMED" : "DISARMED — agents may now run past the limit"}` : ""}`);
+    }
     closeOverlay();
     if (evaluateKillswitch()) {
       toast(`Threshold $${v} is at or below current spend — all agents switched off.`);
@@ -2216,7 +2267,15 @@
     render();
   }
 
-  function setReportCadence(c) { AGENT_REPORT.cadence = c; toast(`Agent reports — ${REPORT_CADENCES[c].label.toLowerCase()}`); render(); }
+  function setReportCadence(c) {
+    const prev = AGENT_REPORT.cadence;
+    if (prev === c) return;
+    AGENT_REPORT.cadence = c;
+    audit("agent.report.schedule", "Agent health report",
+      `${REPORT_CADENCES[prev].label} → ${REPORT_CADENCES[c].label} (${REPORT_CADENCES[c].cron})`);
+    toast(`Agent reports — ${REPORT_CADENCES[c].label.toLowerCase()}`);
+    render();
+  }
 
   // ---------- Views ----------
   function viewFleet() {
@@ -2836,7 +2895,7 @@
   }
 
   function viewAudit() {
-    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "site.register": "info", "policy.update": "warn", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info" };
+    const actionPill = { "act-as.enter": "accent", "act-as.exit": "neutral", "device.command": "warn", "device.register": "info", "site.register": "info", "policy.update": "warn", "ticket.escalate": "warn", "assignment.grant": "good", "tenant.create": "good", "partner.create": "good", "staff.invite": "good", "cmms.connect": "info", "agent.action.approve": "warn", "agent.action.reject": "neutral", "agent.state": "warn", "agent.killswitch": "crit", "agent.killswitch.trip": "crit", "agent.report.schedule": "info" };
     const q = S.query.toLowerCase();
     const filtered = AUDIT.filter(a => !q || [a.actor, a.action, a.target, a.note].join(" ").toLowerCase().includes(q));
     const rows = filtered.map(a => `
@@ -2848,7 +2907,8 @@
     return `
       <div class="page-head"><h1>Audit Log</h1><p>An immutable, append-only record of every privileged action — who did what, to which organization, and when. Superadmin-only, retained 7 years, exportable for compliance.</p></div>
       <div class="callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l8 4v6c0 5-3.5 8-8 10-4.5-2-8-5-8-10V6z"/><path d="M9 12l2 2 4-4"/></svg>
-        <div>Append-only by design — entries can never be edited or deleted (<code>audit_log_entries</code>). Every act-as session, device command, and access change is attributed to a real staff <code>oid</code>. This is the evidence trail for SOC 2 and customer security reviews.</div></div>
+        <div>Append-only by design — entries can never be edited or deleted (<code>audit_log_entries</code>). Every act-as session, device command, access change, and <b>authorised agent action</b> is attributed to a real staff <code>oid</code>. This is the evidence trail for SOC 2 and customer security reviews.
+        <div style="margin-top:7px">Agent entries record the operator who <b>authorised</b> the action, never the agent that proposed it — an agent cannot be accountable. Rejections are recorded too, so the trail shows a proposal was seen and declined rather than never surfacing. The one exception is <code>agent.killswitch.trip</code>, attributed to the platform itself because nobody authorised it.</div></div></div>
       <div class="toolbar">
         <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
           <input type="text" id="q" placeholder="Search by actor, action, or organization…" value="${esc(S.query)}" autocomplete="off"></div>
