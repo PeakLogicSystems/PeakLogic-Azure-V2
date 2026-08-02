@@ -313,6 +313,10 @@
   .btn--primary { background: var(--accent); color: #fff; }
   .btn--primary:hover { background: var(--accent-ink); }
   .btn--ghost { background: var(--surface); color: var(--text); border-color: var(--border-strong); }
+  /* Confirming a disruptive agent action — the button must not look like the
+     routine primary, or the confirmation step stops carrying any weight. */
+  .btn--danger { background: var(--crit); color: #fff; border-color: transparent; }
+  .btn--danger:hover { filter: brightness(.92); }
   .btn--ghost:hover { background: var(--surface-2); }
   .btn svg { width: 14px; height: 14px; }
 
@@ -409,6 +413,23 @@
   .agt-sec__h { font-size: 11px; font-weight: 750; letter-spacing: .07em; text-transform: uppercase; color: var(--muted); }
   .agt-sec p { margin: 0; font-size: 13px; line-height: 1.55; }
   .agt-run { font-family: var(--mono); font-size: 11.5px; line-height: 1.65; background: var(--surface-3); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; white-space: pre-wrap; overflow-x: auto; }
+
+  /* Approval queue */
+  .stat--click { cursor: pointer; }
+  .stat--click:hover { border-color: var(--accent); }
+  .appr { display: flex; gap: 14px; align-items: flex-start; border: 1px solid var(--border); border-left-width: 3px; border-radius: 10px; padding: 12px 14px; background: var(--surface-2); }
+  .appr--low { border-left-color: var(--good); }
+  .appr--medium { border-left-color: var(--warn); }
+  .appr--high { border-left-color: var(--crit); }
+  .appr__main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 5px; }
+  .appr__top { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+  .appr__label { font-size: 13.5px; font-weight: 700; }
+  .appr__target { font-family: var(--mono); font-size: 12px; color: var(--text); }
+  .appr__why, .appr__what { font-size: 12.5px; line-height: 1.5; color: var(--muted); }
+  .appr__meta { font-size: 11px; color: var(--text-faint); font-family: var(--mono); margin-top: 2px; }
+  .appr__btns { display: flex; flex-direction: column; gap: 6px; flex: none; }
+  .ks-row { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+  .ks-row:last-child { border-bottom: none; }
 
   /* ---------- Overlay / drawer / modal / toast ---------- */
   /* The overlay root is a sibling of .app, so it does NOT inherit .app's
@@ -539,7 +560,11 @@
   .chart-legend i { width: 16px; height: 0; border-top-width: 2px; border-top-style: solid; display: inline-block; }
 
   /* ---------- Metric explainer ("how it's calculated / why it matters") ---------- */
-  .mx-i { display: inline-flex; width: 14px; height: 14px; color: var(--text-faint); cursor: help; vertical-align: middle; }
+  .mx-i { display: inline-flex; width: 14px; height: 14px; color: var(--text-faint); cursor: help; vertical-align: middle;
+           /* Reset button chrome: .mx-i is used on span AND button elements, and
+              without this a button rendered its default fill/border inside 14px. */
+           padding: 0; border: 0; background: none; font: inherit; -webkit-appearance: none; appearance: none; }
+  button.mx-i { cursor: pointer; }
   .mx-i:hover, .mx-i:focus-visible { color: var(--accent); outline: none; }
   .mx-i svg { width: 14px; height: 14px; }
   #mx-tip { position: fixed; z-index: 80; width: 252px; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow-lg); padding: 12px 14px; font-size: 12px; line-height: 1.5; opacity: 0; visibility: hidden; transition: opacity .1s ease; pointer-events: none; }
@@ -1394,6 +1419,9 @@
   function showMxTip(el) {
     const tip = $("#mx-tip");
     const plain = el.getAttribute("data-tip");
+    // Defensive: an .mx-i carrying none of the three payload attributes used to
+    // render "How it's calculated: null". Show nothing rather than nonsense.
+    if (plain == null && el.getAttribute("data-how") == null) return;
     tip.innerHTML = plain != null
       ? `<p>${esc(plain)}</p>`
       : `<b>How it's calculated</b><p>${esc(el.getAttribute("data-how"))}</p><b>Why it matters</b><p>${esc(el.getAttribute("data-why"))}</p>`;
@@ -1763,7 +1791,82 @@
   };
   const AGT_DIVISIONS = ["Engineering", "Operations", "Data & Equipment", "Security"];
 
+  // ---- Actions an agent may PROPOSE. None of these run on their own. ----
+  // This is the change that turns the team from advisory-only into
+  // propose-and-approve: an agent may now actually execute something, but only
+  // after it appears in the approval queue and a human presses Approve. The
+  // safety property is preserved — nothing is autonomous — while the operator
+  // gets one place to authorise real work instead of doing it by hand.
+  //
+  // `risk` drives how the approval card is presented. `high` means the action
+  // is disruptive or destructive and the card says so plainly before you click.
+  const AGENT_ACTIONS = {
+    "SENTRY-CQ":  [{ id: "pr-lint", label: "Open PR with lint & format fixes", risk: "low", what: "Raises a pull request containing only mechanical formatting and lint fixes. You review and merge it — the agent never merges." }],
+    "FORGE-CD":   [{ id: "deploy-dev", label: "Deploy current dev branch", risk: "medium", what: "Runs the dev deployment workflow. Dev only — staging and production always require you to trigger them." },
+                   { id: "rollback", label: "Roll back to previous release tag", risk: "high", what: "Redeploys the last known-good tag. Disruptive: in-flight requests will fail during the swap." }],
+    "LEDGER-SC":  [{ id: "pr-bump", label: "Open PR bumping a vulnerable dependency", risk: "low", what: "Raises a pull request upgrading one package with a known advisory. CI must pass before you merge." }],
+    "SCRIBE-DOC": [{ id: "pr-docs", label: "Open PR syncing a drifted guide section", risk: "low", what: "Raises a pull request correcting a documented capability that no longer matches the product." }],
+    "PULSE-OPS":  [{ id: "restart-fn", label: "Restart a failed function app", risk: "high", what: "Restarts the app. Clears the fault but destroys in-memory diagnostic state — if the cause is unknown, capture evidence first." }],
+    "KEEPER-DR":  [{ id: "drill", label: "Run a restore drill now", risk: "medium", what: "Creates a scratch database, restores the latest backup into it, measures recovery time and data loss, then destroys it. Costs roughly $2–4." }],
+    "ABACUS-FIN": [{ id: "stop-nonprod", label: "Stop non-production databases", risk: "medium", what: "Stops dev and staging databases to halt spend. Production is never touched. Restart is manual." },
+                   { id: "all-agents-off", label: "Disable every agent", risk: "high", what: "Turns the whole team off immediately. This is the same action the cost kill switch performs automatically at your threshold." }],
+    "MASON-CFG":  [{ id: "reconcile", label: "Reconcile drift to declared state", risk: "high", what: "Overwrites what is deployed with what the code declares. Only approve once you know WHY it drifted — unexplained drift can be an intrusion, and this erases it." }],
+    "ASSAY-DQ":   [{ id: "quarantine", label: "Quarantine a suspect device's readings", risk: "medium", what: "Marks the device's recent readings as untrusted so they are excluded from analytics and compliance reports. Nothing is deleted; the raw data is retained." },
+                   { id: "flag-recal", label: "Flag a sensor for recalibration", risk: "low", what: "Raises a calibration task for the servicing partner. Advisory only." }],
+    "AUGUR-PDM":  [{ id: "create-wo", label: "Create a preventive work order", risk: "medium", what: "Dispatches a technician. This spends real money, which is why it needs your approval rather than firing on a prediction." }],
+    "QUILL-RPT":  [{ id: "send-now", label: "Generate and send the report now", risk: "low", what: "Builds the health report for the current period and emails it immediately, outside the normal schedule." }],
+    "NOTARY-CMP": [{ id: "evidence", label: "Generate a compliance evidence pack", risk: "low", what: "Assembles the audit-trail evidence an assessor asks for into a downloadable archive. Files nothing with any regulator." }],
+    "AEGIS-SEC":  [{ id: "revoke-device", label: "Revoke a compromised device identity", risk: "high", what: "Disables one device's credentials immediately. That device goes dark until it is re-provisioned on site — this is containment, and it has a field-visit cost." },
+                   { id: "block-client", label: "Block an abusive API client", risk: "medium", what: "Adds an API client to the deny list. Reversible from this console." }],
+    "WARDEN-TEN": [{ id: "block-deploy", label: "Block the deployment", risk: "medium", what: "Fails the build so a change that would weaken tenant isolation cannot ship. Approving this is almost always correct." }],
+    "CIPHER-IAM": [{ id: "rotate-cert", label: "Rotate an expiring certificate", risk: "high", what: "Issues and installs a replacement. A botched rotation is itself an outage, so this is never done unattended — schedule it in a maintenance window." },
+                   { id: "disable-orphan", label: "Disable an orphaned account", risk: "medium", what: "Disables (does not delete) an account whose owner has left. Fully reversible." }],
+    "MARSHAL-IR": [{ id: "test-escalation", label: "Send a test escalation", risk: "low", what: "Sends a clearly-marked drill through every channel so you can confirm alerts actually reach you before you need them to." },
+                   { id: "suppress", label: "Acknowledge and suppress an incident", risk: "medium", what: "Stops the escalation timer for one incident. Recorded in the audit trail with your name against it." }],
+  };
+  const RISK_META = {
+    low:    { cls: "good", label: "Low risk" },
+    medium: { cls: "warn", label: "Needs care" },
+    high:   { cls: "crit", label: "Disruptive" },
+  };
+
+  // Actions an agent has actually proposed and is waiting on you for. Nothing
+  // here has run. Seeded with three realistic proposals so the queue is not empty.
+  let AGENT_QUEUE = [
+    { qid: "q1", agent: "CIPHER-IAM", action: "rotate-cert", target: "17 device certificates expiring in 21 days", why: "Riverside's fleet certs were all issued on the same day, so they expire on the same day — the whole site would go dark at once.", at: "today 03:04" },
+    { qid: "q2", agent: "LEDGER-SC", action: "pr-bump", target: "glob 7.2.3 → 10.4.5 (via node-pg-migrate)", why: "A high-severity advisory was published against the installed version after it was added.", at: "today 04:00" },
+    { qid: "q3", agent: "ASSAY-DQ", action: "flag-recal", target: "pH probe pl-4471-c at Bayfront Aquatic Center", why: "Reading has drifted 0.4 pH from the technician's reagent panel over three visits — the sensor, not the water.", at: "today 05:15" },
+  ];
+
+  // ---- Cost kill switch: a hard ceiling that turns the whole team off. ----
+  // Distinct from the Azure budget kill switch (which stops the DATABASE at
+  // 100% of the cloud budget). This one governs the AGENTS specifically, so
+  // runaway agent activity can be stopped without touching the platform.
+  const AGENT_KILLSWITCH = { thresholdUsd: 100, spendUsd: 3.1, armed: true, trippedAt: null };
+
+  // ---- Report schedule (Settings -> Agent Reports) ----
+  const REPORT_CADENCES = {
+    "first-monday": { label: "First Monday of each month", cron: "0 6 1-7 * 1", sub: "Monthly — 06:00 on the first Monday" },
+    "weekly":       { label: "Weekly", cron: "0 6 * * 1", sub: "Every Monday at 06:00" },
+    "daily":        { label: "Daily", cron: "0 6 * * *", sub: "Every day at 06:00" },
+    "twice-daily":  { label: "Twice daily", cron: "0 6,18 * * *", sub: "Two scheduled times each day" },
+  };
+  const AGENT_REPORT = { cadence: "weekly", timeA: "06:00", timeB: "18:00", tz: "America/New_York", email: true, dashboard: true };
+
   function agentById(id) { return AGENTS.find(a => a.id === id); }
+  function actionsFor(id) { return AGENT_ACTIONS[id] || []; }
+  function actionDef(agentId, actionId) { return actionsFor(agentId).find(x => x.id === actionId); }
+
+  // The kill switch is evaluated wherever spend could have changed. Tripping it
+  // forces every agent off and latches — it does not silently re-arm when spend
+  // is edited back down, because you should know it fired.
+  function evaluateKillswitch() {
+    if (!AGENT_KILLSWITCH.armed) return false;
+    if (AGENT_KILLSWITCH.spendUsd < AGENT_KILLSWITCH.thresholdUsd) return false;
+    AGENTS.forEach(a => { a.state = "off"; });
+    AGENT_KILLSWITCH.trippedAt = new Date().toLocaleString();
+    return true;
+  }
   function setAgentState(id, next) {
     const a = agentById(id); if (!a) return;
     a.state = next;
@@ -1782,11 +1885,46 @@
         how: "Agents whose state is Active — they run on their own schedule without being asked.", why: "Your standing background team. Everything else waits until you engage it." },
       { label: "Actually built", value: `${built} of ${AGENTS.length}`, sub: `${partial} partially built`, accent: partial ? "var(--warn)" : "var(--good)",
         how: "Agents whose logic exists and is tested in this repository, as opposed to specified only.", why: "Separates the team you have from the team you have designed. An agent set to Active but not built still reports nothing." },
-      { label: "Added Azure cost", value: "~$3", sub: "per month — one funded restore drill", accent: "var(--good)",
+      { label: "Added Azure cost", value: "$" + AGENT_KILLSWITCH.spendUsd.toFixed(2), sub: "of $" + AGENT_KILLSWITCH.thresholdUsd + " kill-switch limit — click to change", accent: AGENT_KILLSWITCH.trippedAt ? "var(--crit)" : "var(--good)", action: "killswitch",
         how: "Fifteen of the sixteen agents cost nothing — they run as timer functions on the existing consumption plan and read telemetry already being collected, using about 18,000 executions a month against a 1,000,000 free monthly grant. The exception is the Continuity Warden's monthly restore drill, which creates and destroys a scratch database to prove a backup really restores.", why: "You set a hard rule that agents must never raise your cloud bill, and then approved one deliberate exception to it. Showing the real number rather than a flat zero is what keeps the rule enforceable — the Cost Guardian alerts if it ever drifts above this." },
       { label: "Notifies you", value: "1", sub: "MARSHAL-IR only", accent: "var(--info)",
         how: "Only the Incident Commander sends outbound messages. Every other agent reports onto the internal bus.", why: "A single voice. Fifteen agents noticing one outage reaches you as one incident, not fifteen alerts at 3am." },
-    ].map(s => `<div class="stat"><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label} ${explain(s.how, s.why)}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+    ].map(s => `<div class="stat${s.action ? " stat--click" : ""}"${s.action ? ` data-action="${s.action}" role="button" tabindex="0"` : ""}><div class="stat__accent" style="background:${s.accent}"></div><div class="stat__label">${s.label} ${explain(s.how, s.why)}</div><div class="stat__value">${s.value}</div><div class="stat__sub">${s.sub}</div></div>`).join("");
+
+    // Pending approvals come FIRST — this is the one part of the console that
+    // represents work waiting on the operator rather than status to read.
+    const queue = AGENT_QUEUE.map(q => {
+      const a = agentById(q.agent), def = actionDef(q.agent, q.action);
+      if (!a || !def) return "";
+      const rm = RISK_META[def.risk];
+      return `<div class="appr appr--${def.risk}">
+        <div class="appr__main">
+          <div class="appr__top">
+            <span class="appr__label">${esc(def.label)}</span>
+            <span class="pill pill--${rm.cls}"><span class="dot"></span>${rm.label}</span>
+          </div>
+          <div class="appr__target">${esc(q.target)}</div>
+          <div class="appr__why"><b>Why ${esc(a.role)} is proposing this:</b> ${esc(q.why)}</div>
+          <div class="appr__what">${esc(def.what)}</div>
+          <div class="appr__meta">${esc(q.agent)} · proposed ${esc(q.at)} · has not run</div>
+        </div>
+        <div class="appr__btns">
+          <button class="btn btn--primary btn--sm" data-action="agent-approve:${q.qid}">Approve &amp; run</button>
+          <button class="btn btn--sm" data-action="agent-reject:${q.qid}">Reject</button>
+        </div>
+      </div>`;
+    }).join("");
+
+    const queuePanel = AGENT_QUEUE.length ? `
+      <div class="panel" style="margin-top:22px;border-color:var(--accent)">
+        <div class="panel__head"><span class="panel__title">Waiting for your approval — ${AGENT_QUEUE.length}</span>
+          <span class="panel__note">Nothing below has run. Agents propose; you authorise.</span></div>
+        <div style="padding:14px 16px;display:flex;flex-direction:column;gap:11px">${queue}</div>
+      </div>` : `
+      <div class="panel" style="margin-top:22px">
+        <div class="panel__head"><span class="panel__title">Waiting for your approval</span></div>
+        <div style="padding:20px;color:var(--muted);font-size:13px">Nothing pending. Proposed actions appear here for you to approve or reject before any of them run.</div>
+      </div>`;
 
     const divisions = AGT_DIVISIONS.map(div => {
       const cards = AGENTS.filter(a => a.div === div).map(a => {
@@ -1799,11 +1937,12 @@
               <div class="agt__role">${esc(a.role)}</div>
               <div class="agt__id">${esc(a.id)}</div>
             </div>
-            <span class="agt__i"><button class="mx-i" data-action="agent:${a.id}" aria-label="What ${esc(a.role)} does and how to run it" title="What it does and how to run it">${INFO_ICON}</button></span>
+            <span class="agt__i"><button class="mx-i" data-action="agent:${a.id}" aria-label="What ${esc(a.role)} does and how to run it" data-tip="${esc(a.role)} — ${esc(a.cadence)}. Click for what it does, how to run it, what it costs, and what it may not do.">${INFO_ICON}</button></span>
           </div>
           <div class="agt__does">${esc(a.does)}</div>
           <div class="agt__foot">
             <span class="agt__cadence">${esc(a.cadence)}</span>
+            ${actionsFor(a.id).length ? `<span class="pill pill--info" title="Actions this agent can propose. Each one needs your approval before it runs."><span class="dot"></span>${actionsFor(a.id).length} action${actionsFor(a.id).length > 1 ? "s" : ""}</span>` : ""}
             <span class="pill pill--${b.cls}" title="${esc(b.tip)}"><span class="dot"></span>${b.label}</span>
           </div>
           <div class="agt__seg">${seg}</div>
@@ -1814,8 +1953,9 @@
 
     return `
       <div class="page-head"><h1>Agent Team</h1>
-        <p>Sixteen background agents across four divisions — an engineering, operations, data and security team that works silently and reports to you. Set an agent <b>Active</b> to let it run on its own schedule, <b>On call</b> to keep it dormant until you need it, or <b>Off</b>. Every agent carries an ${INFO_ICON.replace('<svg', '<svg style="width:13px;height:13px;vertical-align:-2px"')} explaining exactly what it does and how to run it.</p></div>
+        <p>Sixteen background agents across four divisions — an engineering, operations, data and security team that works silently and reports to you. Set an agent <b>Active</b> to let it run on its own schedule, <b>On call</b> to keep it dormant until you need it, or <b>Off</b>. Every agent carries an <span class="mx-i" style="cursor:default">${INFO_ICON}</span> explaining exactly what it does and how to run it.</p></div>
       <div class="stats">${stats}</div>
+      ${queuePanel}
       ${divisions}
       <div class="panel" style="margin-top:24px">
         <div class="panel__head"><span class="panel__title">Manage the roster</span>
@@ -1881,6 +2021,14 @@
             <div>${topics(a.subs)}</div>
           </div>
           <div class="agt-sec">
+            <div class="agt-sec__h">Actions it can propose</div>
+            ${actionsFor(a.id).length ? actionsFor(a.id).map(x => `<div style="border:1px solid var(--border);border-left:3px solid var(--${RISK_META[x.risk].cls === "good" ? "good" : RISK_META[x.risk].cls === "warn" ? "warn" : "crit"});border-radius:8px;padding:9px 11px;margin-bottom:7px">
+                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="font-size:12.5px">${esc(x.label)}</b><span class="pill pill--${RISK_META[x.risk].cls}"><span class="dot"></span>${RISK_META[x.risk].label}</span></div>
+                <div style="font-size:12.5px;line-height:1.5;color:var(--muted);margin-top:4px">${esc(x.what)}</div>
+              </div>`).join("") : '<p class="muted" style="font-size:12.5px">None. This agent only reports.</p>'}
+            <p class="muted" style="font-size:12px">Every one of these lands in <b>Waiting for your approval</b> first. None of them run on their own.</p>
+          </div>
+          <div class="agt-sec">
             <div class="agt-sec__h">What it costs you</div>
             <p>${esc(a.cost)}</p>
           </div>
@@ -1892,6 +2040,135 @@
       </aside>`;
     $("#overlay-root").innerHTML = html;
   }
+
+  // ---------- Agent approvals, kill switch, report schedule ----------
+  function approveAgentAction(qid) {
+    const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
+    const def = actionDef(q.agent, q.action); if (!def) return;
+    // Disruptive actions get a second, explicit confirmation naming the
+    // consequence again. One click in a list is intent; the modal is consent.
+    if (def.risk === "high") { openConfirmAction(qid); return; }
+    runAgentAction(qid);
+  }
+
+  function openConfirmAction(qid) {
+    const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
+    const a = agentById(q.agent), def = actionDef(q.agent, q.action);
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Confirm a disruptive action">
+        <div class="modal__head"><h2 class="modal__title">Confirm — this one is disruptive</h2>
+          <button class="btn btn--sm" data-action="close-overlay">Close</button></div>
+        <div class="modal__body">
+          <div class="appr appr--high" style="background:var(--surface-3)">
+            <div class="appr__main">
+              <div class="appr__top"><span class="appr__label">${esc(def.label)}</span>
+                <span class="pill pill--crit"><span class="dot"></span>Disruptive</span></div>
+              <div class="appr__target">${esc(q.target)}</div>
+              <div class="appr__what">${esc(def.what)}</div>
+            </div>
+          </div>
+          <p style="font-size:13px;line-height:1.6;margin:14px 0 0">
+            <b>${esc(a.role)} (${esc(q.agent)})</b> will carry this out immediately once you approve.
+            It will be recorded in the audit trail against your name.
+          </p>
+          <div class="callout" style="margin-top:12px">${INFO_ICON}
+            <div>If you are not certain <b>why</b> this is being proposed, reject it. The agent keeps
+            reporting the underlying finding either way — rejecting loses you nothing except the automation.</div></div>
+        </div>
+        <div class="modal__foot">
+          <button class="btn" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--danger" data-action="agent-run:${q.qid}">Yes — run it</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
+  function runAgentAction(qid) {
+    const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
+    const a = agentById(q.agent), def = actionDef(q.agent, q.action);
+    AGENT_QUEUE = AGENT_QUEUE.filter(x => x.qid !== qid);
+    closeOverlay();
+    toast(`Approved — ${a.role} is running "${def.label}". Logged to the audit trail.`);
+    render();
+  }
+  function rejectAgentAction(qid) {
+    const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
+    const def = actionDef(q.agent, q.action);
+    AGENT_QUEUE = AGENT_QUEUE.filter(x => x.qid !== qid);
+    toast(`Rejected — "${def.label}" will not run. The agent keeps reporting the finding.`);
+    render();
+  }
+
+  function openKillswitch() {
+    const k = AGENT_KILLSWITCH;
+    const pct = Math.min(100, Math.round((k.spendUsd / k.thresholdUsd) * 100));
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Agent cost kill switch">
+        <div class="modal__head"><h2 class="modal__title">Agent cost kill switch</h2>
+          <button class="btn btn--sm" data-action="close-overlay">Close</button></div>
+        <div class="modal__body">
+          <p class="muted" style="font-size:13px;line-height:1.6;margin:0 0 14px">
+            A hard ceiling on what the agent team may cost you. If agent-attributable spend reaches this
+            figure, <b>every agent is switched off immediately</b> — no approval, no delay.
+          </p>
+          <div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Spend this month</div>
+              <div class="muted" style="font-size:12px">Attributed to agents only</div></div>
+            <div class="mono strong" style="font-size:18px">$${k.spendUsd.toFixed(2)}</div>
+          </div>
+          <div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Kill-switch threshold</div>
+              <div class="muted" style="font-size:12px">All agents off at or above this</div></div>
+            <div style="display:flex;align-items:center;gap:6px">
+              <span class="mono muted">$</span>
+              <input id="ks-threshold" class="field" type="number" min="1" step="1" value="${k.thresholdUsd}" style="width:110px" />
+            </div>
+          </div>
+          <div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Kill switch armed</div>
+              <div class="muted" style="font-size:12px">Disarming means agents keep running past the limit</div></div>
+            <select id="ks-armed" class="field" style="width:auto;min-width:120px">
+              <option value="yes"${k.armed ? " selected" : ""}>Armed</option>
+              <option value="no"${!k.armed ? " selected" : ""}>Disarmed</option>
+            </select>
+          </div>
+          <div style="margin-top:14px">
+            <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:5px">
+              <span>${pct}% of limit used</span><span class="mono">$${k.spendUsd.toFixed(2)} / $${k.thresholdUsd}</span></div>
+            <div style="height:7px;border-radius:4px;background:var(--surface-3);overflow:hidden">
+              <div style="height:100%;width:${pct}%;background:${pct >= 100 ? "var(--crit)" : pct >= 80 ? "var(--warn)" : "var(--good)"}"></div></div>
+          </div>
+          ${k.trippedAt ? `<div class="callout" style="margin-top:14px;border-left:3px solid var(--crit);padding-left:13px">${INFO_ICON}
+            <div><b>The kill switch fired at ${esc(k.trippedAt)}</b> and every agent was switched off. It stays latched until you raise the threshold and turn agents back on deliberately — it does not re-arm quietly.</div></div>` : ""}
+          <div class="callout" style="margin-top:14px">${INFO_ICON}
+            <div>This is separate from the <b>Azure budget kill switch</b>, which stops the database at 100% of your cloud budget. This one governs the agents only, so runaway agent activity can be stopped without taking the platform down with it.</div></div>
+        </div>
+        <div class="modal__foot">
+          <button class="btn" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="killswitch-submit">Save threshold</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
+  function submitKillswitch() {
+    const v = parseFloat(($("#ks-threshold") || {}).value);
+    const armed = ($("#ks-armed") || {}).value === "yes";
+    if (!isFinite(v) || v <= 0) { toast("Enter a threshold above $0"); return; }
+    AGENT_KILLSWITCH.thresholdUsd = v;
+    AGENT_KILLSWITCH.armed = armed;
+    closeOverlay();
+    if (evaluateKillswitch()) {
+      toast(`Threshold $${v} is at or below current spend — all agents switched off.`);
+    } else {
+      toast(`Kill switch ${armed ? "armed" : "disarmed"} at $${v}`);
+    }
+    render();
+  }
+
+  function setReportCadence(c) { AGENT_REPORT.cadence = c; toast(`Agent reports — ${REPORT_CADENCES[c].label.toLowerCase()}`); render(); }
 
   // ---------- Views ----------
   function viewFleet() {
@@ -2647,6 +2924,7 @@
       { id: "profile", label: "Your profile" },
       { id: "preferences", label: "Preferences" },
       { id: "notifications", label: "Notifications" },
+      { id: "agent-reports", label: "Agent Reports" },
       { id: "platform", label: "Platform" },
     ];
     const nav = tabs.map(t => `<button class="set-nav__item ${S.setTab === t.id ? 'set-nav__item--active' : ''}" data-action="set-tab:${t.id}">${t.label}</button>`).join("");
@@ -2696,6 +2974,58 @@
             <select class="field" style="width:auto;min-width:120px"><option>12-hour</option><option>24-hour</option></select></div>
           <div class="toggle-row"><div><div class="toggle-row__label">Default landing page</div><div class="toggle-row__sub">Where the console opens</div></div>
             <select class="field" style="width:auto;min-width:170px"><option>Fleet Overview</option><option>Reports</option><option>Customer Tenants</option></select></div>
+        </div></div>`;
+    }
+    if (S.setTab === "agent-reports") {
+      const r = AGENT_REPORT;
+      const opts = Object.keys(REPORT_CADENCES).map(k => {
+        const c = REPORT_CADENCES[k], on = r.cadence === k;
+        return `<button class="appr" style="text-align:left;cursor:pointer;border-left-color:${on ? "var(--accent)" : "var(--border)"};background:${on ? "var(--accent-soft)" : "var(--surface-2)"};border-width:1px;border-left-width:3px;font-family:inherit;width:100%" data-action="report-cadence:${k}">
+          <div class="appr__main">
+            <div class="appr__top"><span class="appr__label">${c.label}</span>${on ? '<span class="pill pill--accent"><span class="dot"></span>Selected</span>' : ""}</div>
+            <div class="appr__why">${c.sub}</div>
+            <div class="appr__meta">cron ${c.cron}</div>
+          </div></button>`;
+      }).join("");
+      return `<div class="panel">
+        <div class="panel__head"><span class="panel__title">Agent Reports</span>
+          <span class="panel__note">Composed by the Reporting Officer (QUILL-RPT)</span></div>
+        <div style="padding:16px 20px 20px;display:flex;flex-direction:column;gap:16px">
+          <p class="muted" style="font-size:13px;line-height:1.6;margin:0">
+            How often the consolidated health report reaches you. Every agent contributes; one report arrives.
+            Changing this is a schedule change only — nothing about what the report contains depends on how often it runs.
+          </p>
+          <div style="display:flex;flex-direction:column;gap:9px">${opts}</div>
+
+          <div class="ks-row" style="border-top:1px solid var(--border);padding-top:15px">
+            <div><div class="strong" style="font-size:13px">${r.cadence === "twice-daily" ? "First delivery" : "Delivery time"}</div>
+              <div class="muted" style="font-size:12px">Local to your time zone</div></div>
+            <input class="field" type="time" value="${r.timeA}" style="width:auto" data-report-time="a" />
+          </div>
+          ${r.cadence === "twice-daily" ? `<div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Second delivery</div>
+              <div class="muted" style="font-size:12px">The second of the two daily reports</div></div>
+            <input class="field" type="time" value="${r.timeB}" style="width:auto" data-report-time="b" />
+          </div>` : ""}
+          <div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Time zone</div>
+              <div class="muted" style="font-size:12px">Reports and their timestamps</div></div>
+            <select class="field" style="width:auto;min-width:200px">
+              <option>America/New_York (ET)</option><option>America/Chicago (CT)</option>
+              <option>America/Denver (MT)</option><option>America/Los_Angeles (PT)</option><option>UTC</option></select>
+          </div>
+          <div class="ks-row">
+            <div><div class="strong" style="font-size:13px">Delivery</div>
+              <div class="muted" style="font-size:12px">Where the report arrives</div></div>
+            <div style="display:flex;gap:8px">
+              <span class="pill pill--good"><span class="dot"></span>Email</span>
+              <span class="pill pill--good"><span class="dot"></span>Dashboard</span></div>
+          </div>
+
+          <div class="callout">${INFO_ICON}
+            <div><b>Critical alerts ignore this schedule entirely.</b> A confirmed tenant-data exposure, safety risk, compliance breach or total outage reaches you immediately through the Incident Commander, whatever cadence you pick here. This setting only governs the routine consolidated report.</div></div>
+          <div><button class="btn btn--primary" data-action="toast:Report schedule saved">Save schedule</button>
+            <button class="btn btn--ghost" data-action="toast:Sample report generated — check your email">Send me a sample now</button></div>
         </div></div>`;
     }
     if (S.setTab === "notifications") {
@@ -3939,6 +4269,12 @@
     else if (action === "hub") openHubDrawer(arg);
     else if (action === "agent") openAgentDrawer(arg);
     else if (action === "agent-state") setAgentState(arg, arg2);
+    else if (action === "agent-approve") approveAgentAction(arg);
+    else if (action === "agent-run") runAgentAction(arg);
+    else if (action === "agent-reject") rejectAgentAction(arg);
+    else if (action === "killswitch") openKillswitch();
+    else if (action === "killswitch-submit") submitKillswitch();
+    else if (action === "report-cadence") setReportCadence(arg);
     else if (action === "register-open") openRegister(arg);
     else if (action === "register-submit") submitRegister();
     else if (action === "site-open") openNewSite(arg);

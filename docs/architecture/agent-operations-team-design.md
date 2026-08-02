@@ -99,6 +99,15 @@ the team's true marginal cost is **~$3/month**, not $0.00 — stated that way ev
 than rounded down, because a cost rule that quietly excludes its own exception stops being
 enforceable. `ABACUS-FIN` alerts if actual spend drifts above it.
 
+**Agent cost kill switch (added 2026-08-01).** A hard ceiling, set in the Control Center at
+**$100/month** by default: if agent-attributable spend reaches it, **every agent is switched off
+immediately** — no approval, no delay. It is deliberately separate from the existing Azure budget
+kill switch (which stops the *database* at 100% of the cloud budget) so that runaway agent
+activity can be stopped without taking the platform down with it. It **latches** once tripped —
+lowering spend does not quietly re-arm the team, because you should know it fired. At the current
+~$3/month the headroom is roughly 32×, so it is a backstop against something going wrong, not a
+budget the team is expected to approach.
+
 ### 2.2 Two proposed agent duties violate the platform's own safety model
 
 The brief asks the Security agent to *apply automated patches where safe*, and the Incident
@@ -112,21 +121,50 @@ compliance violation**. Worse, unexplained drift and unexpected process behaviou
 the signals of an intrusion in progress; an agent that "helpfully" reconciles them destroys
 evidence and can complete an attacker's persistence for them.
 
-**Resolution: agents advise, humans act.** Ceilings enforced in code:
+**Resolution: agents propose, humans authorise, agents then execute.** *(Revised 2026-08-01 —
+see §2.2a. The original resolution was advisory-only; approval-gated execution supersedes it and
+preserves the same safety property.)*
 
-| Capability | Permitted | Rationale |
-|---|---|---|
-| Read telemetry, logs, metrics, config | ✅ | Core function |
-| Raise alerts, open tickets, write findings | ✅ | Advisory output |
-| Open a pull request with a proposed fix | ✅ | Human reviews and merges |
-| Isolate one compromised **device identity** | ✅ | Narrowest containment; reversible; already built |
-| Apply a patch to running infrastructure | ❌ | Bypasses CI and change control |
-| Restart a service or reroute workloads | ❌ | Masks the fault and destroys evidence |
-| Change equipment state or a setpoint | ❌ | CC-3.1/CC-4.1 hard gate |
-| Reconcile configuration drift automatically | ❌ | Drift may be an intrusion |
+| Capability | Autonomous | With your approval | Rationale |
+|---|---|---|---|
+| Read telemetry, logs, metrics, config | ✅ | — | Core function |
+| Raise alerts, open tickets, write findings | ✅ | — | Advisory output |
+| Open a pull request with a proposed fix | ✅ | — | Human still reviews and merges |
+| Isolate one compromised **device identity** | ✅ | — | Narrowest containment; reversible; already built |
+| Apply a patch / deploy / roll back | ❌ | ✅ | Approval *is* the change control |
+| Restart a service | ❌ | ✅ | You decide whether evidence matters more than uptime |
+| Reconcile configuration drift | ❌ | ✅ | Drift may be an intrusion — you must know why before erasing it |
+| Rotate a credential or certificate | ❌ | ✅ | A botched rotation is itself an outage; needs a window |
+| Revoke a device identity at scale | ❌ | ✅ | Each revocation costs a site visit |
+| Dispatch a technician / spend money | ❌ | ✅ | Never on an unproven prediction |
+| **Change equipment state or a setpoint** | ❌ | ❌ | CC-3.1/CC-4.1 hard gate — no approval path exists |
 
-This ceiling is the assistive-AI principle the brief asks to be aligned with, and — per §7 —
-it is also a commercial asset, not a limitation.
+The last row is the one that does not move. Everything else can be authorised; **actuation cannot
+be authorised from this console at all**, because no code path publishes a device command and the
+gate is a product decision rather than a permission.
+
+### 2.2a Approval-gated execution (added 2026-08-01)
+
+The operator asked that agents be able to run automated actions subject to UI validation. That is
+implemented as an **approval queue**, and it strengthens rather than weakens the model above:
+
+- An agent **proposes**; the proposal appears in *Waiting for your approval* in the Control
+  Center. Nothing has run at that point, and the card says so.
+- Each proposal states the action, the exact target, **why that agent is proposing it**, what will
+  happen, and a risk grade (`low` / `medium` / `high`).
+- **`high`-risk actions require a second confirmation** in a modal that restates the consequence.
+  One click in a list is intent; the modal is consent. This covers the cases where the cost of a
+  wrong approval is real — a revoked device needs a site visit, a reconciled drift may have erased
+  intrusion evidence, a botched certificate rotation is an outage.
+- Rejecting costs nothing: the agent keeps reporting the underlying finding, it just does not act.
+- Every approval is recorded in the audit trail against the approving operator's name.
+
+22 actions are defined across all 16 agents — 7 low, 9 medium, 6 high. The safety property is
+unchanged: **no agent action is autonomous.** What changed is that the human decision now happens
+*in the console* instead of in a terminal afterwards, which is both faster and more auditable.
+
+This is the assistive-AI principle the brief asks to be aligned with, and — per §7 — it is also a
+commercial asset, not a limitation.
 
 ### 2.3 The reporting schedule is internally contradictory
 
@@ -376,17 +414,29 @@ Exactly the brief's six, plus two:
 
 ### 5.4 Schedule and delivery
 
+Configurable from **Settings → Agent Reports**. Four cadences ship:
+
+| Option | Cron | Delivery |
+|---|---|---|
+| First Monday of each month | `0 6 1-7 * 1` | Monthly, 06:00 |
+| **Weekly** *(default)* | `0 6 * * 1` | Every Monday, 06:00 |
+| Daily | `0 6 * * *` | Every day, 06:00 |
+| Twice daily | `0 6,18 * * *` | Two configurable times |
+
 ```jsonc
 {
-  "schedule": "0 6 * * 1",          // Mon 06:00 — default
-  // "0 6 * * *"   daily
-  // "0 6 1-7 * 1" first Monday monthly (the literal reading of the brief)
+  "cadence": "weekly",              // first-monday | weekly | daily | twice-daily
+  "timeA": "06:00",                 // primary delivery
+  "timeB": "18:00",                 // second delivery, twice-daily only
   "timezone": "America/New_York",   // ASSUMPTION — confirm
-  "window": "7d",                   // follows schedule unless pinned
+  "window": "7d",                   // follows cadence unless pinned
   "deliver": ["email", "dashboard"],
   "recipients": ["blovas@msn.com"]
 }
 ```
+
+**Critical alerts ignore this schedule entirely** — they route through `MARSHAL-IR` immediately
+whatever cadence is set. This setting governs only the routine consolidated report.
 
 Weekly → daily is a cron change. Nothing about aggregation, storage or delivery is
 frequency-coupled, which is the design property the brief asked for.
@@ -687,5 +737,7 @@ equipment state. Recommend them in the action plan for a human to execute.
 - [ ] Confirm Teams over Slack
 - [x] ~~`KEEPER-DR` spend~~ — **approved, monthly drills (~$3/mo)**, confirmed 2026-08-01
 - [ ] **Build `WARDEN-TEN`** — phase 0, needs no subscription
+- [ ] Wire the approval queue (§2.2a) to real agent execution — the UI and the action catalogue exist; no agent can actually run anything yet
+- [ ] Decide whether the $100 agent kill-switch threshold is right once real spend data exists
 - [ ] Legal review of CIRCIA/state regulatory triggers
 - [ ] Go/no-go on §7.4 sales collateral
