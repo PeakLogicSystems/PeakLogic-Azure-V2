@@ -68,9 +68,30 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // An explicit toggle here is the operator's own choice again, so it persists.
+  //
+  // When framed, it is also announced UPWARD so the surrounding portal follows.
+  // Sync has to work both ways: a dark operator view sitting inside a light
+  // portal looks broken, and the operator should not have to find the host's
+  // toggle to fix what they just changed here.
+  //
+  // No loop: the host applies it, then echoes it back down; that arrives as an
+  // external change with the value already set, so setTheme is a no-op and
+  // nothing is posted up again.
   const toggle = () => {
     external.current = false;
-    setTheme((t) => (t === 'dark' ? 'light' : 'dark'));
+    const next: Theme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(next);
+    if (window.parent !== window) {
+      try {
+        // targetOrigin '*' — a framed app cannot know its host's origin. The
+        // payload is a theme name and nothing else, so there is nothing here
+        // worth protecting; the HOST is the side that validates, and it checks
+        // the message came from this exact frame before acting on it.
+        window.parent.postMessage({ type: THEME_MESSAGE, theme: next }, '*');
+      } catch {
+        /* host unreachable — the local theme still changed */
+      }
+    }
   };
 
   return <ThemeCtx.Provider value={{ theme, toggle }}>{children}</ThemeCtx.Provider>;

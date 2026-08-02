@@ -1,4 +1,4 @@
-import { BellRing, CheckCircle2, CircleHelp, Sparkles } from 'lucide-react';
+import { BellRing, CheckCircle2, ChevronRight, CircleHelp, Sparkles } from 'lucide-react';
 import type { Alarm, Severity } from '../types';
 
 // The docked alarm panel (PV-2): a projection over the alerts pipeline. Each
@@ -17,25 +17,45 @@ const DOT: Record<Severity, string> = {
   info: 'text-sev-info',
 };
 
-export function AlarmPanel({ alarms, onAcknowledge }: { alarms: Alarm[]; onAcknowledge: (id: string) => void }) {
+export function AlarmPanel({
+  alarms,
+  onAcknowledge,
+  onCollapse,
+}: {
+  alarms: Alarm[];
+  onAcknowledge: (id: string) => void;
+  onCollapse?: () => void;
+}) {
   const active = alarms.filter((a) => a.status === 'active');
 
   return (
     <aside className="flex h-full w-full flex-col border-l border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-950/40">
-      <header className="flex items-center justify-between border-b border-slate-200 px-4 py-3 dark:border-slate-800">
-        <div className="flex items-center gap-2">
+      <header className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-3 dark:border-slate-800">
+        <div className="flex min-w-0 items-center gap-2">
           <BellRing size={16} className={active.length ? 'text-sev-critical' : 'text-slate-400'} />
           <h2 className="text-sm font-semibold text-slate-800 dark:text-slate-100">Alarms</h2>
         </div>
-        <span
-          className={`nums rounded-full px-2 py-0.5 text-xs font-bold ${
-            active.length
-              ? 'bg-sev-critical/15 text-sev-critical'
-              : 'bg-emerald-500/15 text-emerald-500'
-          }`}
-        >
-          {active.length} active
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`nums rounded-full px-2 py-0.5 text-xs font-bold ${
+              active.length
+                ? 'bg-sev-critical/15 text-sev-critical'
+                : 'bg-emerald-500/15 text-emerald-500'
+            }`}
+          >
+            {active.length} active
+          </span>
+          {onCollapse && (
+            <button
+              onClick={onCollapse}
+              title="Collapse the alarm panel"
+              aria-label="Collapse the alarm panel"
+              className="rounded p-1 text-slate-400 transition-colors hover:bg-slate-200 hover:text-slate-700 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+            >
+              <ChevronRight size={15} />
+            </button>
+          )}
+        </div>
       </header>
 
       <div className="flex-1 overflow-y-auto">

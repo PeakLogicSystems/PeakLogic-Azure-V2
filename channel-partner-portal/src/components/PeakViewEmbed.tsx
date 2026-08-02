@@ -19,12 +19,10 @@ const PEAKVIEW_URL = 'http://localhost:5175/';
 /** Must match ThemeProvider's listener in peakview360/src/theme.tsx. */
 const THEME_MESSAGE = 'peaklogic:theme';
 
-// `embedded` is only set for the framed instance, never the pop-out. Inside a
-// frame the host owns the theme, so PeakView360 hides its own toggle rather
-// than offering a control the host overrides on its next change.
-function peakViewUrl(siteId: string, theme: 'light' | 'dark', embedded: boolean) {
+// `theme` is the value the app OPENS with. Once loaded, changes travel by
+// postMessage in both directions, so this is never re-read.
+function peakViewUrl(siteId: string, theme: 'light' | 'dark') {
   const p = new URLSearchParams({ theme });
-  if (embedded) p.set('embedded', '1');
   if (siteId) p.set('site', siteId);
   return `${PEAKVIEW_URL}?${p.toString()}`;
 }
@@ -38,7 +36,7 @@ export function PeakViewEmbed({
   enabled: boolean;
   defaultOpen?: boolean;
 }) {
-  const { settings } = useSettings();
+  const { settings, update } = useSettings();
   const { partner } = usePartner();
   const t = partner.terms;
   const [open, setOpen] = useState(defaultOpen);
@@ -58,6 +56,22 @@ export function PeakViewEmbed({
   // load, because the frame can finish loading after a toggle and a message
   // posted before its listener mounts is simply dropped.
   useEffect(post, [settings.theme, open]);
+
+  // Follow a theme change made INSIDE the frame, so the toggle in the operator
+  // view drives the whole portal. Only messages from this exact frame are
+  // accepted — `e.source` is checked before anything is applied, because any
+  // page on the internet can postMessage into this window.
+  useEffect(() => {
+    function onMessage(e: MessageEvent) {
+      if (!frame.current || e.source !== frame.current.contentWindow) return;
+      const data = e.data as { type?: string; theme?: string } | null;
+      if (!data || data.type !== THEME_MESSAGE) return;
+      if (data.theme !== 'dark' && data.theme !== 'light') return;
+      if (data.theme !== settings.theme) update({ theme: data.theme });
+    }
+    window.addEventListener('message', onMessage);
+    return () => window.removeEventListener('message', onMessage);
+  }, [settings.theme, update]);
 
   const btn =
     'inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-slate-700 hover:border-slate-300 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-slate-600';
@@ -84,7 +98,7 @@ export function PeakViewEmbed({
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className={heading}>Live view</h2>
         <div className="flex items-center gap-2">
-          <a href={peakViewUrl(siteId, settings.theme, false)} target="_blank" rel="noreferrer" className={btn}>
+          <a href={peakViewUrl(siteId, settings.theme)} target="_blank" rel="noreferrer" className={btn}>
             Open in new window <ExternalLink size={12} />
           </a>
           <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={btn}>
@@ -118,7 +132,7 @@ export function PeakViewEmbed({
             // theme is just the value it opens with, later changes come by
             // postMessage.
             key={siteId}
-            src={peakViewUrl(siteId, settings.theme, true)}
+            src={peakViewUrl(siteId, settings.theme)}
             title="PeakView360 live operator view"
             onLoad={post}
             className="block h-[clamp(440px,68vh,820px)] w-full border-0 bg-[#0b1120]"

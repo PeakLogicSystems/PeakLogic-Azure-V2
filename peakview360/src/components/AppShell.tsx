@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { NavLink } from 'react-router-dom';
-import { Factory, Gauge, LineChart, Moon, Radio, Sun, TriangleAlert } from 'lucide-react';
+import { BellRing, ChevronLeft, Factory, Gauge, LineChart, Moon, Radio, Sun, TriangleAlert } from 'lucide-react';
 import { PREVIEW } from '../api';
 import { useTheme } from '../theme';
 import { usePeakViewData } from '../store';
@@ -13,21 +13,31 @@ const NAV = [
   { to: '/equipment', label: 'Equipment', icon: Gauge, end: false },
 ];
 
-// `?embedded=1` — this app is running inside a portal's page rather than as its
-// own window. The host owns the theme in that case (it posts changes in), so the
-// in-frame toggle is hidden: offering a control the host silently overrides on
-// its next change is worse than not offering one. Everything else is unchanged —
-// an embedded operator view is still the full operator view.
-const EMBEDDED = (() => {
-  try {
-    return new URLSearchParams(window.location.search).get('embedded') === '1';
-  } catch {
-    return false;
-  }
-})();
+const ALARMS_KEY = 'pv360-alarms-open';
 
 export function AppShell({ children }: { children: ReactNode }) {
   const { site, screen, alarms, acknowledge } = usePeakViewData();
+
+  // The docked alarm panel collapses so the process screens can use the full
+  // width — they are responsive grids, so they genuinely reflow into it rather
+  // than just leaving the space empty. Persisted, because an operator who wants
+  // the wide layout wants it every shift, not once.
+  const [alarmsOpen, setAlarmsOpen] = useState(() => {
+    try {
+      return localStorage.getItem(ALARMS_KEY) !== 'collapsed';
+    } catch {
+      return true;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(ALARMS_KEY, alarmsOpen ? 'open' : 'collapsed');
+    } catch {
+      /* storage blocked — the choice still holds for this session */
+    }
+  }, [alarmsOpen]);
+
+  const activeAlarms = alarms.filter((a) => a.status === 'active').length;
 
   return (
     <div className="flex h-screen flex-col bg-slate-100 text-slate-900 dark:bg-[#0B1120] dark:text-slate-100">
@@ -50,7 +60,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </span>
           )}
           <Clock />
-          {!EMBEDDED && <ThemeToggle />}
+          <ThemeToggle />
         </div>
       </header>
 
@@ -91,12 +101,47 @@ export function AppShell({ children }: { children: ReactNode }) {
         {/* Main surface */}
         <main className="min-w-0 flex-1 overflow-y-auto p-5">{children}</main>
 
-        {/* Docked alarm panel */}
-        <div className="hidden w-80 shrink-0 lg:block">
-          <AlarmPanel alarms={alarms} onAcknowledge={acknowledge} />
+        {/* Docked alarm panel — collapsible to a rail. */}
+        <div className={`hidden shrink-0 lg:block ${alarmsOpen ? 'w-80' : 'w-12'}`}>
+          {alarmsOpen ? (
+            <AlarmPanel alarms={alarms} onAcknowledge={acknowledge} onCollapse={() => setAlarmsOpen(false)} />
+          ) : (
+            <CollapsedAlarms active={activeAlarms} onExpand={() => setAlarmsOpen(true)} />
+          )}
         </div>
       </div>
     </div>
+  );
+}
+
+// The alarm panel collapsed to a rail.
+//
+// This deliberately still shows the ACTIVE ALARM COUNT, in severity colour. An
+// operator must never be able to hide the fact that alarms exist — collapsing
+// is about reclaiming width for the process screens, not about silencing the
+// annunciator. A collapsed panel that showed nothing would turn a UI preference
+// into a safety hazard on equipment this app supervises.
+function CollapsedAlarms({ active, onExpand }: { active: number; onExpand: () => void }) {
+  return (
+    <button
+      onClick={onExpand}
+      title={active ? `${active} active alarm${active === 1 ? '' : 's'} — click to open` : 'No active alarms — click to open'}
+      aria-label={`Open alarm panel. ${active} active alarm${active === 1 ? '' : 's'}.`}
+      className="flex h-full w-full flex-col items-center gap-2.5 border-l border-slate-200 bg-slate-50 py-3 transition-colors hover:bg-slate-100 dark:border-slate-800 dark:bg-slate-950/40 dark:hover:bg-slate-900/60"
+    >
+      <ChevronLeft size={15} className="text-slate-400" />
+      <BellRing size={17} className={active ? 'text-sev-critical' : 'text-slate-400'} />
+      <span
+        className={`nums rounded-full px-1.5 py-0.5 text-[11px] font-bold ${
+          active ? 'bg-sev-critical/15 text-sev-critical' : 'bg-emerald-500/15 text-emerald-500'
+        }`}
+      >
+        {active}
+      </span>
+      <span className="mt-1 text-[11px] font-semibold uppercase tracking-wider text-slate-400 [writing-mode:vertical-rl]">
+        Alarms
+      </span>
+    </button>
   );
 }
 

@@ -2109,6 +2109,19 @@
     if (pvFrame.parentNode !== slot) slot.appendChild(pvFrame);
   }
 
+  // Follow a theme change made INSIDE the frame, so the operator view's own
+  // toggle drives this console too. Only messages from our own frame are
+  // accepted — any page can postMessage into this window.
+  window.addEventListener("message", (e) => {
+    if (!pvFrame || e.source !== pvFrame.contentWindow) return;
+    const d = e.data;
+    if (!d || d.type !== "peaklogic:theme") return;
+    if (d.theme !== "dark" && d.theme !== "light") return;
+    if (d.theme === currentTheme()) return;
+    document.documentElement.setAttribute("data-theme", d.theme);
+    setThemeIcon(d.theme);
+  });
+
   // Drive the embedded operator app's theme from this console's toggle.
   // Targeted at PeakView360's own origin rather than "*", so the message is
   // never delivered to some other document that happens to be framed.
