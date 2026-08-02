@@ -11,6 +11,10 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', theme === 'dark');
+    // `pv-light` drives the pre-paint <html> background set inline in
+    // index.html. Without keeping it in step here, toggling to light would
+    // leave the dark canvas showing behind the app on the next load.
+    document.documentElement.classList.toggle('pv-light', theme !== 'dark');
     localStorage.setItem('pv360-theme', theme);
   }, [theme]);
 

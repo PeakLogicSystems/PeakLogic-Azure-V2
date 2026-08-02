@@ -7,6 +7,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+    <!-- Paint the operator canvas BEFORE React mounts.
+
+         ThemeProvider sets the `dark` class in a useEffect, which by definition
+         runs after first paint — so the browser painted a white page, then went
+         dark a frame or two later. Standalone that reads as a brief flicker; in
+         the Control Center's iframe it reads as a white flash on every load,
+         because an iframe repaints from scratch each time it is attached.
+
+         These two blocks are the fix and must stay in the document HEAD, inline
+         and un-deferred: the class has to be on <html> before the first paint,
+         which rules out doing it from the bundle. Keep the storage key and the
+         'dark' default in step with src/theme.tsx. -->
+    <style>
+      html { background: #0b1120; }            /* dark canvas, the default */
+      html.pv-light { background: #f1f5f9; }   /* matches AppShell's bg-slate-100 */
+    </style>
+    <script>
+      (function () {
+        var t = 'dark';
+        try { t = localStorage.getItem('pv360-theme') || 'dark'; } catch (e) { /* storage blocked — keep the dark default */ }
+        var d = t !== 'light';
+        document.documentElement.classList.toggle('dark', d);
+        document.documentElement.classList.toggle('pv-light', !d);
+      })();
+    </script>
   </head>
   <body class="font-sans antialiased">
     <div id="root"></div>

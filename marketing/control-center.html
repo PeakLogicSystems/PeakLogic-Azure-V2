@@ -2041,6 +2041,34 @@
     $("#overlay-root").innerHTML = html;
   }
 
+  // ---------- PeakView360 embed ----------
+  // render() replaces #view's innerHTML wholesale, which destroyed and rebuilt
+  // the frame element on EVERY console re-render — and a fresh iframe node means a
+  // full reload of the operator app: a white flash, and any operator state lost.
+  // Toggling the theme or running a search while on this page was enough to
+  // trigger it.
+  //
+  // So the iframe is created once and kept in this variable for the lifetime of
+  // the page. Each render puts an empty #pv-slot in the markup and we re-parent
+  // the SAME element into it. Moving a node with appendChild does not reload it
+  // (unlike re-parsing identical HTML, which does), so the app keeps running.
+  //
+  // The slot carries PeakView360's own dark canvas colour rather than #fff, so
+  // the very first load — the one time the frame really is fetching — settles
+  // onto the operator canvas instead of flashing white against it.
+  let pvFrame = null;
+  function mountPeakView() {
+    const slot = $("#pv-slot");
+    if (!slot) return;
+    if (!pvFrame) {
+      pvFrame = document.createElement("iframe");
+      pvFrame.src = PEAKVIEW360_URL;
+      pvFrame.title = "PeakView360";
+      pvFrame.setAttribute("style", "display:block;width:100%;height:100%;border:0;background:#0b1120");
+    }
+    if (pvFrame.parentNode !== slot) slot.appendChild(pvFrame);
+  }
+
   // ---------- Agent approvals, kill switch, report schedule ----------
   function approveAgentAction(qid) {
     const q = AGENT_QUEUE.find(x => x.qid === qid); if (!q) return;
@@ -3083,7 +3111,7 @@
       <div class="page-head"><h1>PeakView360</h1>
         <p>The real operator app, embedded live — the same screen a customer's on-site team sees when they sign in, scoped to their own site. Rendered from the on-site <b>PeakLogic Hub</b> over the LAN in production, so it keeps working if the internet drops.</p></div>
       <div style="border:1px solid var(--border);border-radius:14px;overflow:hidden;box-shadow:var(--shadow, 0 1px 2px rgba(0,0,0,.06))">
-        <iframe src="${PEAKVIEW360_URL}" title="PeakView360" style="display:block;width:100%;height:calc(100vh - 230px);min-height:520px;border:0;background:#fff"></iframe>
+        <div id="pv-slot" style="display:block;width:100%;height:calc(100vh - 230px);min-height:520px;background:#0b1120"></div>
       </div>
       <div class="callout" style="margin-top:10px;font-size:12.5px">${INFO_ICON}
         <div>Blank or not loading? PeakView360 runs as its own app on <code>${PEAKVIEW360_URL}</code> — make sure its dev server is running (<code>cd peakview360 &amp;&amp; npm run dev</code>), then reload this page.</div></div>
@@ -3548,6 +3576,7 @@
       crumb = `<span class="sep">Channel Partners</span><span class="sep">/</span><b>${esc(p.name)}</b>`;
     }
     $("#crumb").innerHTML = crumb;
+    if (S.view === "peakview360") mountPeakView();
     renderBanner();
     // focus search if present
     const q = $("#q"); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); }
