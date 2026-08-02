@@ -74,7 +74,9 @@ export function PartnerShell({ children }: { children: ReactNode }) {
               </span>
             </span>
           </span>
-          <a href="http://localhost:5180/demo.html" className="hover:text-slate-600 dark:hover:text-slate-300">← PeakLogic platform demo</a>
+          {/* New tab deliberately: navigating the portal itself away strands the
+              user outside their authenticated session with no way back. */}
+          <a href="http://localhost:5180/demo.html" target="_blank" rel="noreferrer" className="hover:text-slate-600 dark:hover:text-slate-300">← PeakLogic platform demo</a>
         </div>
       </footer>
     </div>

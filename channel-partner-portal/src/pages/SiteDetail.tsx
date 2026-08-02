@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ChevronRight, ExternalLink, Hammer, MonitorPlay, PencilRuler, Plus, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, ChevronRight, Hammer, PencilRuler, Plus, SlidersHorizontal } from 'lucide-react';
 import { usePartner } from '@/PartnerContext';
 import { siteById, type Device } from '@/data/types';
 import { DeviceStatusDot, HealthPill } from '@/components/ui';
@@ -8,8 +8,8 @@ import { DeviceDetail } from '@/components/DeviceDetail';
 import { TicketRow } from '@/components/TicketRow';
 import { PoolFacility } from '@/components/PoolFacility';
 import { PlantFacility } from '@/components/PlantFacility';
+import { PeakViewEmbed } from '@/components/PeakViewEmbed';
 
-const PEAKVIEW_URL = 'http://localhost:5175/';
 
 export function SiteDetail() {
   const { partner, tickets, updateTicket } = usePartner();
@@ -63,13 +63,14 @@ export function SiteDetail() {
       </div>
 
       <div className="flex flex-wrap gap-2">
-        <a href={PEAKVIEW_URL} target="_blank" rel="noreferrer" className={`${secondaryBtn} ${!site.peakview ? 'pointer-events-none opacity-40' : ''}`}>
-          <MonitorPlay size={15} /> Open in PeakView360 <ExternalLink size={13} className="text-slate-400" />
-        </a>
         <Link to={`/sites/${site.id}/provision`} className={secondaryBtn}>
           <Plus size={15} /> Provision device
         </Link>
       </div>
+
+      {/* Live view above the built Facility View: the facility layout is what
+          this partner drew, the live view is what the plant is doing right now. */}
+      <PeakViewEmbed siteId={site.id} enabled={site.peakview} />
 
       {/* Facility View — rendered inline on the site page (not a separate sub-page).
           Falls back to a Facility Builder prompt when nothing is built yet. */}
