@@ -773,6 +773,7 @@
           { name: "Lift Station", cat: "lift_station", health: "warn", devices: [
             { id: "ace-2140-a", name: "Wet Well Level", state: "reporting", metric: "level 74%", spark: [55,58,62,66,70,72,73,74], health: "warn" } ] } ] } ] },
     { id: "bayfront", name: "Bayfront Municipal District", industry: "Municipal wastewater", partnerId: "ace", mgr: "Dana Whitfield",
+      brand: "#0E7490", header: "#06333F", logo: "BMD",
       online: 54, total: 56, crit: 0, warn: 1, tickets: 1, health: "good",
       sites: [
         { name: "Ballast Point Lift Station", lat: 27.897, lng: -82.487, assets: [
@@ -877,7 +878,7 @@
   // channel partners kicking off the platform. brand/logo are sampled from
   // purple-standard.com and are updatable in the console (Branding tab).
   const PARTNERS = [
-    { id: "ace", name: "ACE Septic & Waste", region: "Tampa Bay, FL", accounts: 2, techs: 12, routes: 5, health: "good", brand: "#6D28D9", logo: "ACE",
+    { id: "ace", name: "ACE Septic & Waste", region: "Tampa Bay, FL", accounts: 2, techs: 12, routes: 5, health: "good", brand: "#6D28D9", header: "#3B1A7A", logo: "ACE",
       funnel: { dispatched: 168, accepted: 159, onsite: 142, completed: 133 },
       subdomain: "portal.acesepticwaste.com",
       accountList: ["Coastal Kitchen Restaurants", "Bayfront Municipal District"],
@@ -894,7 +895,7 @@
         { name: "Route TB-1", stops: 9, tech: "Luis Ramirez", status: "in-progress" },
         { name: "Route TB-2", stops: 7, tech: "Tanya Cole", status: "in-progress" },
         { name: "Route STP-1", stops: 6, tech: "Devin Marsh", status: "scheduled" } ] },
-    { id: "boyette", name: "Boyette Pump & Well", region: "Riverview / FishHawk, FL", accounts: 2, techs: 9, routes: 4, health: "warn", brand: "#0369A1", logo: "BPW",
+    { id: "boyette", name: "Boyette Pump & Well", region: "Riverview / FishHawk, FL", accounts: 2, techs: 9, routes: 4, health: "warn", brand: "#0369A1", header: "#06364F", logo: "BPW",
       funnel: { dispatched: 96, accepted: 90, onsite: 78, completed: 74 },
       subdomain: "portal.boyettepumpwell.com",
       accountList: ["FishHawk Water District", "Riverview Ag & Irrigation"],
@@ -908,7 +909,7 @@
       routes: [
         { name: "Route RV-1", stops: 8, tech: "Cody Barnes", status: "in-progress" },
         { name: "Route RV-2", stops: 5, tech: "Marisol Vega", status: "delayed" } ] },
-    { id: "current", name: "Purple Current", region: "Tampa–Clearwater, FL", accounts: 2, techs: 14, routes: 6, health: "warn", brand: "#F59E0B", logo: "PC",
+    { id: "current", name: "Purple Current", region: "Tampa–Clearwater, FL", accounts: 2, techs: 14, routes: 6, health: "warn", brand: "#B45309", header: "#4A2405", logo: "PC",
       funnel: { dispatched: 142, accepted: 118, onsite: 79, completed: 71 },
       subdomain: "portal.purplecurrent.com",
       accountList: ["Gulfstream Retail Centers", "Tampa Cold Logistics"],
@@ -924,7 +925,7 @@
         { name: "Route TPA-1", stops: 9, tech: "Andre Willis", status: "in-progress" },
         { name: "Route TPA-2", stops: 7, tech: "Grace Nkosi", status: "in-progress" },
         { name: "Route CLW-1", stops: 5, tech: "Petra Lindgren", status: "delayed" } ] },
-    { id: "wtrdr", name: "WTR DR", region: "St. Petersburg, FL", accounts: 2, techs: 8, routes: 3, health: "good", brand: "#0891B2", logo: "WDR",
+    { id: "wtrdr", name: "WTR DR", region: "St. Petersburg, FL", accounts: 2, techs: 8, routes: 3, health: "good", brand: "#0E7490", header: "#06333F", logo: "WDR",
       funnel: { dispatched: 88, accepted: 82, onsite: 69, completed: 64 },
       subdomain: "portal.wtrdr.com",
       accountList: ["Sunset Aquatic Clubs", "Harborview Hotels"],
@@ -938,7 +939,7 @@
       routes: [
         { name: "Route STP-1", stops: 7, tech: "Ryan Delgado", status: "in-progress" },
         { name: "Route TPA-1", stops: 5, tech: "Beau Fontaine", status: "scheduled" } ] },
-    { id: "rodrigues", name: "Rodrigues Roofing, LLC", region: "Tampa, FL", accounts: 1, techs: 6, routes: 2, health: "good", brand: "#C2410C", logo: "RR",
+    { id: "rodrigues", name: "Rodrigues Roofing, LLC", region: "Tampa, FL", accounts: 1, techs: 6, routes: 2, health: "good", brand: "#C2410C", header: "#6B2408", logo: "RR",
       funnel: { dispatched: 44, accepted: 40, onsite: 31, completed: 29 },
       subdomain: "portal.rodriguesroofing.com",
       accountList: ["Meridian Commercial Plaza"],
@@ -950,7 +951,7 @@
         { name: "Elena Soto", cert: "GAF Master", status: "available" } ],
       routes: [
         { name: "Route HIL-1", stops: 6, tech: "Marco Rodrigues", status: "in-progress" } ] },
-    { id: "brisa", name: "Brisa Climate Solutions", region: "Wesley Chapel, FL", accounts: 1, techs: 5, routes: 2, health: "good", brand: "#0D9488", logo: "BCS",
+    { id: "brisa", name: "Brisa Climate Solutions", region: "Wesley Chapel, FL", accounts: 1, techs: 5, routes: 2, health: "good", brand: "#0F766E", header: "#06382F", logo: "BCS",
       funnel: { dispatched: 22, accepted: 20, onsite: 16, completed: 15 },
       subdomain: "portal.brisaclimate.com",
       accountList: ["Brisa Pilot — QSR Group"],
@@ -1142,13 +1143,37 @@
   // A partner's white-label logo mark (initials on the partner's brand color).
   // Brand mark for a partner OR a tenant: an uploaded logo image (data URL)
   // wins; otherwise an initials mark on the entity's brand color (default accent).
+  // Relative luminance, so a mark's text colour is chosen rather than assumed.
+  // White on a light brand (amber, cyan, teal) fails contrast badly; this picks
+  // whichever of white or ink is actually legible.
+  function relLum(hex) {
+    const v = String(hex || "").replace("#", "");
+    if (v.length !== 6) return 0;
+    const ch = [0, 2, 4].map((i) => {
+      const c = parseInt(v.slice(i, i + 2), 16) / 255;
+      return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * ch[0] + 0.7152 * ch[1] + 0.0722 * ch[2];
+  }
+  function inkOn(bg) { return relLum(bg) > 0.42 ? "#0F172A" : "#ffffff"; }
+
+  // A header derived from a mark colour, for orgs created after this and for
+  // the live preview before an administrator picks one. Same hue, much darker.
+  function derivedHeader(hex) {
+    const v = String(hex || "#7c3aed").replace("#", "");
+    if (v.length !== 6) return "#1e1b4b";
+    const rgb = [0, 2, 4].map((i) => Math.round(parseInt(v.slice(i, i + 2), 16) * 0.42));
+    return "#" + rgb.map((c) => c.toString(16).padStart(2, "0")).join("");
+  }
+
   function brandMark(e, px) {
     const s = px || 34;
     const radius = Math.round(s * 0.28);
     if (e.logoImg) {
       return `<span style="width:${s}px;height:${s}px;border-radius:${radius}px;background:#fff center/cover no-repeat;background-image:url('${e.logoImg}');flex:none;display:block"></span>`;
     }
-    return `<span style="width:${s}px;height:${s}px;border-radius:${radius}px;background:${e.brand || 'var(--accent)'};display:grid;place-items:center;color:#fff;font-weight:800;font-size:${Math.round(s * 0.34)}px;flex:none;letter-spacing:-.02em">${esc(e.logo || (e.name ? e.name[0] : '?'))}</span>`;
+    const bg = e.brand || "#7c3aed";
+    return `<span style="width:${s}px;height:${s}px;border-radius:${radius}px;background:${bg};display:grid;place-items:center;color:${inkOn(bg)};font-weight:800;font-size:${Math.round(s * 0.34)}px;flex:none;letter-spacing:-.02em">${esc(e.logo || (e.name ? e.name[0] : '?'))}</span>`;
   }
   function partnerLogo(p, px) { return brandMark(p, px); }
 
@@ -2725,7 +2750,30 @@
         </div>
         <div class="field--row">
           <div class="field"><label for="br-logo">Logo mark (initials)</label><input id="br-logo" type="text" maxlength="4" value="${esc(e.logo || e.name[0])}" style="text-transform:uppercase" autocomplete="off"></div>
-          <div class="field"><label for="br-brand">Primary color</label><input id="br-brand" type="color" value="${e.brand || "#7c3aed"}" style="height:38px;padding:3px"></div>
+          <div class="field"><label for="br-brand">Mark colour</label><input id="br-brand" type="color" value="${e.brand || "#7c3aed"}" style="height:38px;padding:3px">
+            <div class="hint">The logo tile and accent colour. Used only when no logo image is uploaded.</div></div>
+          <div class="field"><label for="br-header">Header colour</label><input id="br-header" type="color" value="${e.header || derivedHeader(e.brand)}" style="height:38px;padding:3px">
+            <div class="hint">The page banner behind white text. Keep it dark — a light header makes the banner unreadable.</div></div>
+        </div>
+
+        <div class="field--row">
+          <div class="field"><label for="br-title">Banner title</label><input id="br-title" type="text" value="${esc(e.bannerTitle || e.name)}" autocomplete="off">
+            <div class="hint">Shown as the primary line in their portal banner.</div></div>
+          <div class="field"><label for="br-sub">Banner subtitle</label><input id="br-sub" type="text" value="${esc(e.bannerSub || e.industry || e.region || "")}" autocomplete="off">
+            <div class="hint">The smaller line beneath it.</div></div>
+        </div>
+
+        <div>
+          <div style="font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:8px">Banner preview</div>
+          <div style="border-radius:12px;overflow:hidden;border:1px solid var(--border)">
+            <div style="background:${e.header || derivedHeader(e.brand)};padding:14px 16px;display:flex;align-items:center;gap:12px">
+              ${brandMark(e, 38)}
+              <div style="min-width:0">
+                <div style="color:#fff;font-weight:700;font-size:15px;line-height:1.2">${esc(e.bannerTitle || e.name)}</div>
+                <div style="color:rgba(255,255,255,.72);font-size:12px;margin-top:2px">${esc(e.bannerSub || e.industry || e.region || "")}</div>
+              </div>
+            </div>
+          </div>
         </div>
         <dl class="kv">
           <dt>Portal domain</dt><dd class="mono">${esc(domain)}</dd>
@@ -2738,17 +2786,67 @@
   // Apply edited white-label branding to a partner or tenant (in-memory) and
   // re-render, so the new mark/color/logo show everywhere the entity appears.
   // Audited, like any real change.
+  // Branding is published to the shared store the portals read, so an
+  // administrator's change reaches the partner and customer portals instead of
+  // stopping at this console. Without this the portals keep hand-mirrored
+  // copies, and the three drift apart — which is exactly what happened with WTR
+  // DR (#0891B2 here, #0EA5E9 in the portal).
+  //
+  // The store lives on the operator app's origin (:5175) because these are all
+  // different ports and therefore different origins. In production one API
+  // replaces it and this frame disappears.
+  const BRAND_BROKER = "http://localhost:5175/photo-broker.html";
+  let brandFrame = null;
+  function publishBranding(orgId, brand) {
+    if (!brandFrame) {
+      brandFrame = document.createElement("iframe");
+      brandFrame.src = BRAND_BROKER;
+      brandFrame.setAttribute("aria-hidden", "true");
+      brandFrame.style.cssText = "position:absolute;width:0;height:0;border:0;visibility:hidden";
+      document.body.appendChild(brandFrame);
+    }
+    const send = () => {
+      try {
+        brandFrame.contentWindow.postMessage(
+          { type: "pl-brand:set", reqId: "b" + Date.now(), orgId: orgId, brand: brand },
+          new URL(BRAND_BROKER).origin,
+        );
+      } catch (e) {
+        /* operator app not running — branding still saved in this console */
+      }
+    };
+    // The frame may not have loaded yet on the first save of a session.
+    if (brandFrame.contentWindow && brandFrame.dataset.ready) send();
+    else {
+      brandFrame.addEventListener("load", () => { brandFrame.dataset.ready = "1"; send(); }, { once: true });
+      setTimeout(send, 1200);
+    }
+  }
+
   function saveBranding(kind, id) {
     const e = kind === "partner" ? partnerById(id) : tenantById(id);
     if (!e) return;
-    const logoEl = $("#br-logo"), brandEl = $("#br-brand");
+    const logoEl = $("#br-logo"), brandEl = $("#br-brand"), headEl = $("#br-header");
+    const titleEl = $("#br-title"), subEl = $("#br-sub");
     e.logo = ((logoEl && logoEl.value) || e.name[0]).toUpperCase().trim().slice(0, 4) || e.name[0];
     e.brand = (brandEl && brandEl.value) || e.brand || "#7c3aed";
+    e.header = (headEl && headEl.value) || e.header || derivedHeader(e.brand);
+    e.bannerTitle = (titleEl && titleEl.value.trim()) || e.name;
+    e.bannerSub = subEl ? subEl.value.trim() : (e.bannerSub || "");
     if (pendingLogoUpload) { e.logoImg = pendingLogoUpload; pendingLogoUpload = null; }
+    publishBranding(e.id, {
+      brand: e.brand,
+      header: e.header,
+      logo: e.logo,
+      logoImg: e.logoImg || null,
+      name: e.name,
+      bannerTitle: e.bannerTitle,
+      bannerSub: e.bannerSub,
+    });
     AUDIT.unshift({ ts: nowStamp(), actor: ME.name, oid: ME.oid, action: kind + ".branding", target: e.name,
-      note: `White-label mark "${e.logo}" · ${e.brand.toUpperCase()}${e.logoImg ? " · logo image" : ""}` });
+      note: `Mark "${e.logo}" ${e.brand.toUpperCase()} · header ${e.header.toUpperCase()}${e.logoImg ? " · logo image" : ""} · banner "${e.bannerTitle}"` });
     render();
-    toast(`Branding saved for ${e.name}`);
+    toast(`Branding saved for ${e.name} — applied to their portal`);
   }
 
   function viewTenantDetail() {
@@ -3542,7 +3640,19 @@
         : (cats.includes("wastewater") || cats.includes("energy_meter")) ? "Modbus TCP · OPC-UA"
         : cats.includes("refrigeration") ? "OPC-UA · EtherNet/IP" : "Modbus TCP";
       let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
-      const id = `hub-${t.id}-${si + 1}`;
+      // ONE Hub identifier convention across the whole platform.
+      //
+      // This console used to mint `hub-bayfront-2` while the partner portal
+      // issued `BMD-H01` for the same class of hardware — two schemes for one
+      // physical thing, which makes an ID useless for talking to anybody.
+      //
+      // The convention, matching nextHubId() in the partner portal:
+      //   <customer prefix>-H<nn>   e.g. BMD-H01
+      // Prefix is the configured logo mark, falling back to the first three
+      // letters of the name. Hubs are numbered PER SITE, because a site is what
+      // a Hub belongs to; sensors carry their own separate series.
+      const hubPrefix = (t.logo || t.name.replace(/[^A-Za-z]/g, "").slice(0, 3)).toUpperCase();
+      const id = `${hubPrefix}-H${String(si + 1).padStart(2, "0")}`;
       const channelKey = h % 9 === 0 ? "preview" : h % 6 === 0 ? "beta" : "stable";
       const bundle = hubBundleFor(id, channelKey);
       const compliance = hubCompliance(bundle);

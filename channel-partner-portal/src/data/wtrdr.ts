@@ -8,9 +8,13 @@ import type { Partner } from './types';
 export const WTRDR: Partner = {
   id: 'wtrdr',
   name: 'WTR DR',
-  logoText: 'wtr dr',
-  lowercaseLogo: true,
-  primaryColor: '#0EA5E9',
+  // Branding below is configured by a PeakLogic administrator in Control
+  // Center (Channel Partners → the partner's record). It is mirrored here, not
+  // invented here — if these disagree with Control Center, Control Center wins.
+  logoText: 'WDR',
+  lowercaseLogo: false,
+  primaryColor: '#0E7490',
+  headerColor: '#06333F', // Control Center → Branding → Header colour
   secondaryColor: '#0C4A6E',
   vertical: 'pool',
   terms: {
@@ -53,7 +57,7 @@ export const WTRDR: Partner = {
       health: 'healthy',
       alarms: 0,
       hasFacility: false,
-      peakview: false,
+      peakview: true,
       devices: [
         { id: 'WTR-2101', name: 'IntelliChlor IC20', type: 'Salt Chlorinator', status: 'online', reading: '35 % output', controllable: true, running: true },
         { id: 'WTR-2102', name: 'SuperFlo VS Pump', type: 'Variable-Speed Pump', status: 'online', reading: '1,800 RPM', controllable: true, running: true },

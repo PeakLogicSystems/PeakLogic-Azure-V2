@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>PeakLogic site-photo broker</title>
+  </head>
+  <body>
+    <script>
+      // Cross-portal site-photo store.
+      //
+      // WHY THIS EXISTS. The Customer Portal (:5176) and Partner Portal (:5174)
+      // are different ORIGINS, and localStorage is partitioned per origin — so a
+      // photo the technician uploads in the partner portal is invisible to the
+      // customer who is supposed to see it. Cookies are shared across ports but
+      // capped near 4KB, which will not hold an image.
+      //
+      // So both portals talk to this page, hosted on a single origin (:5175, the
+      // operator app, which is already running whenever the demo is). It owns the
+      // storage; the portals ask it. This is the standard cross-domain-storage
+      // broker pattern, not a workaround peculiar to this project.
+      //
+      // In production both portals are served from one domain against the real
+      // API, and this whole file disappears — the API becomes the shared store.
+      // The message contract below is deliberately shaped like the API calls that
+      // will replace it (list / replace, per site) so that swap stays mechanical.
+      //
+      // TRUST. This broker performs no authorisation: any page that frames it can
+      // read or write site photos. That is acceptable for a preview build running
+      // on localhost and is NOT acceptable in production — there, the API enforces
+      // tenant scope and this page does not ship at all.
+
+      var PREFIX = 'peaklogic-site-photos:';
+      var BRAND_PREFIX = 'peaklogic-brand:';
+
+      function key(siteId) {
+        return PREFIX + siteId;
+      }
+
+      function read(siteId) {
+        try {
+          var raw = localStorage.getItem(key(siteId));
+          if (!raw) return [];
+          var v = JSON.parse(raw);
+          // Tolerate a corrupt entry rather than throwing: a bad record should
+          // cost one site its photos, not break the page that asked.
+          return Array.isArray(v) ? v.filter(function (p) { return p && typeof p.dataUrl === 'string'; }) : [];
+        } catch (e) {
+          return [];
+        }
+      }
+
+      function reply(source, origin, msg) {
+        // Echo back to the exact frame that asked, at its own origin.
+        try {
+          source.postMessage(msg, origin === 'null' ? '*' : origin);
+        } catch (e) {
+          /* frame went away mid-request */
+        }
+      }
+
+      function readBrand(orgId) {
+        try {
+          var raw = localStorage.getItem(BRAND_PREFIX + orgId);
+          return raw ? JSON.parse(raw) : null;
+        } catch (e) {
+          return null;
+        }
+      }
+
+      window.addEventListener('message', function (e) {
+        var d = e.data;
+        if (!d || typeof d !== 'object' || typeof d.type !== 'string') return;
+        var isBrand = d.type.indexOf('pl-brand:') === 0;
+        if (!isBrand && d.type.indexOf('pl-photos:') !== 0) return;
+        if (isBrand) {
+          if (typeof d.orgId !== 'string' || !d.orgId) return;
+        } else if (typeof d.siteId !== 'string' || !d.siteId) {
+          return;
+        }
+
+        // Branding, written by Control Center and read by both portals, so an
+        // administrator's change reaches every surface instead of living in
+        // three hand-mirrored copies that drift apart.
+        if (d.type === 'pl-brand:get') {
+          reply(e.source, e.origin, { type: 'pl-brand:result', reqId: d.reqId, orgId: d.orgId, brand: readBrand(d.orgId) });
+          return;
+        }
+        if (d.type === 'pl-brand:set') {
+          var bok = true, berr = null;
+          try {
+            localStorage.setItem(BRAND_PREFIX + d.orgId, JSON.stringify(d.brand || {}));
+          } catch (err) {
+            bok = false;
+            berr = 'Storage is full — branding could not be saved.';
+          }
+          reply(e.source, e.origin, { type: 'pl-brand:result', reqId: d.reqId, orgId: d.orgId, ok: bok, error: berr, brand: readBrand(d.orgId) });
+          return;
+        }
+
+        if (d.type === 'pl-photos:get') {
+          reply(e.source, e.origin, { type: 'pl-photos:result', reqId: d.reqId, siteId: d.siteId, photos: read(d.siteId) });
+          return;
+        }
+
+        if (d.type === 'pl-photos:set') {
+          var ok = true;
+          var error = null;
+          try {
+            localStorage.setItem(key(d.siteId), JSON.stringify(Array.isArray(d.photos) ? d.photos : []));
+          } catch (err) {
+            // Almost always the storage quota. Report it rather than letting the
+            // caller believe a save succeeded.
+            ok = false;
+            error = 'Storage is full. Remove some photos before adding more.';
+          }
+          reply(e.source, e.origin, { type: 'pl-photos:result', reqId: d.reqId, siteId: d.siteId, ok: ok, error: error, photos: read(d.siteId) });
+        }
+      });
+
+      // Tell the host we are ready, so it does not post into a page whose
+      // listener has not mounted yet and silently lose the first request.
+      try {
+        if (window.parent !== window) window.parent.postMessage({ type: 'pl-photos:ready' }, '*');
+      } catch (e) {
+        /* not framed */
+      }
+    </script>
+  </body>
+</html>

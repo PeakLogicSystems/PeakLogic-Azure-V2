@@ -68,20 +68,22 @@ export function SiteDetail() {
         </Link>
       </div>
 
-      {/* Live view above the built Facility View: the facility layout is what
-          this partner drew, the live view is what the plant is doing right now. */}
-      <PeakViewEmbed siteId={site.id} siteName={site.name} enabled={site.peakview} />
+      <PeakViewEmbed site={site} />
 
-      {/* Facility View — rendered inline on the site page (not a separate sub-page).
-          Falls back to a Facility Builder prompt when nothing is built yet. */}
+      {/* The static layout — shown ONLY where there is no Hub, because there it
+          is the only picture of the equipment there is.
+
+          With a Hub, the live Facility View above IS the facility, and repeating
+          the same pad with the same readings underneath it was pure redundancy.
+          The Facility Builder stays reachable either way: its button lives in
+          the Live View header on every site, with or without a Hub. */}
+      {!site.peakview && (
       <section>
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className={heading}>{t.facilityNoun}</h2>
-          {site.hasFacility && (
-            <button onClick={() => navigate(`/sites/${site.id}/facility`)} className={secondaryBtn}>
-              <PencilRuler size={15} /> Edit in Facility Builder
-            </button>
-          )}
+          <button onClick={() => navigate(`/sites/${site.id}/facility`)} className={secondaryBtn}>
+            <PencilRuler size={15} /> {site.hasFacility ? 'Edit in Facility Builder' : t.facilityBuild}
+          </button>
         </div>
         {site.hasFacility ? (
           partner.vertical === 'pool' ? <PoolFacility site={site} /> : <PlantFacility site={site} />
@@ -105,6 +107,7 @@ export function SiteDetail() {
           </div>
         )}
       </section>
+      )}
 
       <section>
         <div className="mb-3 flex items-center justify-between">

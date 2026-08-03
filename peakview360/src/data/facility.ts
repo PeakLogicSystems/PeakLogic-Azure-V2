@@ -12,7 +12,7 @@ import type { EquipmentState, ProcessValue } from '../types';
 // on the ground (y: 0→h).
 
 export type FacilityView = 'iso' | 'top' | 'front' | 'side';
-export type SensorType = 'flow' | 'level' | 'pressure' | 'chemistry' | 'temperature' | 'power';
+export type SensorType = 'flow' | 'level' | 'pressure' | 'chemistry' | 'temperature' | 'power' | 'speed';
 
 export const SENSOR_TYPE_OF: Record<string, SensorType> = {
   flow_lpm: 'flow',
@@ -23,6 +23,8 @@ export const SENSOR_TYPE_OF: Record<string, SensorType> = {
   ph: 'chemistry',
   temp_c: 'temperature',
   power_kw: 'power',
+  orp_mv: 'chemistry',  // oxidation-reduction potential — a chemistry reading, not a separate class
+  pump_rpm: 'speed',    // variable-speed drives report RPM, not power
 };
 
 export const SENSOR_TYPE_META: Record<SensorType, { label: string; color: string }> = {
@@ -32,6 +34,7 @@ export const SENSOR_TYPE_META: Record<SensorType, { label: string; color: string
   chemistry: { label: 'Chemistry', color: '#22C55E' },
   temperature: { label: 'Temperature', color: '#F59E0B' },
   power: { label: 'Power', color: '#EC4899' },
+  speed: { label: 'Speed', color: '#F97316' },
 };
 
 export interface FacilityUnit {
@@ -82,7 +85,78 @@ export const RIVERSIDE_FACILITY: Facility = {
   ],
 };
 
-const FACILITIES: Record<string, Facility> = { [RIVERSIDE_FACILITY.siteId]: RIVERSIDE_FACILITY };
+// Sunset Ridge HOA — Community Pool. Serviced by WTR DR.
+//
+// A real scene in the same projected model as Riverside, not a flat schematic.
+// It is laid out the way a pool actually plumbs, because that is what makes the
+// view diagnostic rather than decorative: water leaves the pool through the
+// skimmer, is pulled by the variable-speed pump, pushed through the filter,
+// past the salt cell and the heater, and returns. When filter pressure climbs,
+// an operator can see that everything downstream of it is what suffers.
+//
+// The equipment pad sits alongside the pool body (z: 8) as it does on site,
+// rather than being drawn in an abstract line.
+export const SUNSET_RIDGE_FACILITY: Facility = {
+  siteId: 'pool-sunsetridge',
+  name: 'Sunset Ridge HOA — Community Pool',
+  center: { x: 50, z: 26 },
+  units: [
+    // The pool body — wide, shallow, and the only unit that is not equipment.
+    { id: 'pool', label: 'Community Pool', x: 44, z: 40, w: 46, d: 22, h: 2, metrics: ['temp_c', 'ph'] },
+    { id: 'skimmer', label: 'Skimmer', x: 18, z: 26, w: 4, d: 4, h: 3, metrics: [] },
+    { id: 'pump', label: 'VS Pump', x: 30, z: 10, w: 8, d: 7, h: 6, metrics: ['pump_rpm', 'flow_lpm'] },
+    { id: 'filter', label: 'Cartridge Filter', x: 45, z: 10, w: 8, d: 8, h: 11, metrics: ['pressure_psi'] },
+    { id: 'chlorinator', label: 'Salt Cell', x: 60, z: 10, w: 7, d: 6, h: 6, metrics: ['free_chlorine_ppm', 'salt_ppm'] },
+    { id: 'heater', label: 'Heater', x: 74, z: 10, w: 9, d: 7, h: 7, metrics: ['temp_c'] },
+    { id: 'controller', label: 'pH / ORP Controller', x: 60, z: 24, w: 5, d: 4, h: 5, metrics: ['ph', 'orp_mv'] },
+    { id: 'returns', label: 'Returns', x: 88, z: 26, w: 4, d: 6, h: 3, metrics: [] },
+  ],
+  pipes: [
+    { from: 'pool', to: 'skimmer' },
+    { from: 'skimmer', to: 'pump' },
+    { from: 'pump', to: 'filter' },
+    { from: 'filter', to: 'chlorinator' },
+    { from: 'chlorinator', to: 'heater' },
+    { from: 'chlorinator', to: 'controller' },
+    { from: 'heater', to: 'returns' },
+    { from: 'returns', to: 'pool' },
+  ],
+};
+
+// The Johnson Residence — a backyard pool, drawn to its actual relative scale.
+//
+// Deliberately smaller than the HOA scene rather than the same boxes renamed:
+// a compact kidney-ish body, one skimmer, a tight equipment pad against the
+// house, and no separate ORP controller cabinet — residential controllers are
+// wall units on the pad. A partner opening this after Sunset Ridge should see
+// immediately that it is a different class of job.
+export const JOHNSON_FACILITY: Facility = {
+  siteId: 'pool-johnson',
+  name: 'The Johnson Residence',
+  center: { x: 44, z: 26 },
+  units: [
+    { id: 'pool', label: 'Pool', x: 40, z: 36, w: 28, d: 16, h: 2, metrics: ['temp_c', 'ph'] },
+    { id: 'skimmer', label: 'Skimmer', x: 22, z: 24, w: 3, d: 3, h: 2, metrics: [] },
+    { id: 'pump', label: 'VS Pump', x: 36, z: 12, w: 6, d: 5, h: 4, metrics: ['pump_rpm'] },
+    { id: 'filter', label: 'Filter', x: 48, z: 12, w: 6, d: 6, h: 8, metrics: ['pressure_psi'] },
+    { id: 'chlorinator', label: 'Salt Cell', x: 60, z: 12, w: 5, d: 4, h: 4, metrics: ['free_chlorine_ppm', 'salt_ppm', 'orp_mv'] },
+    { id: 'returns', label: 'Returns', x: 68, z: 26, w: 3, d: 4, h: 2, metrics: [] },
+  ],
+  pipes: [
+    { from: 'pool', to: 'skimmer' },
+    { from: 'skimmer', to: 'pump' },
+    { from: 'pump', to: 'filter' },
+    { from: 'filter', to: 'chlorinator' },
+    { from: 'chlorinator', to: 'returns' },
+    { from: 'returns', to: 'pool' },
+  ],
+};
+
+const FACILITIES: Record<string, Facility> = {
+  [RIVERSIDE_FACILITY.siteId]: RIVERSIDE_FACILITY,
+  [SUNSET_RIDGE_FACILITY.siteId]: SUNSET_RIDGE_FACILITY,
+  [JOHNSON_FACILITY.siteId]: JOHNSON_FACILITY,
+};
 
 export function facilityForSite(siteId: string): Facility | undefined {
   return FACILITIES[siteId];

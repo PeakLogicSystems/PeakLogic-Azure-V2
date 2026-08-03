@@ -1,4 +1,4 @@
-import { PREVIEW_SITE } from './data/preview';
+import { DEFAULT_SITE_ID, SITE_CONFIGS } from './data/sites';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SITE SCOPE GUARD — fail closed.
@@ -12,8 +12,8 @@ import { PREVIEW_SITE } from './data/preview';
 // `site-riverside`, which belongs to Bayfront Municipal District. Opening a WTR
 // DR site therefore rendered Bayfront's plant, its equipment and its live
 // values inside a different organisation's page. That is a cross-tenant
-// disclosure, and it is exactly the failure this platform's entire security
-// model exists to prevent.
+// disclosure, and it is exactly the failure this platform's security model
+// exists to prevent.
 //
 // The rule, and it is not negotiable: if a site is requested and this app does
 // not hold that site's data, it renders NOTHING about any other site. It does
@@ -24,6 +24,9 @@ import { PREVIEW_SITE } from './data/preview';
 // This mirrors how the backend behaves. Row-level security returns zero rows
 // for a tenant that may not see them; it does not return a different tenant's
 // rows because they were closer to hand.
+//
+// Note that adding sites does NOT weaken this. A site renders because it has a
+// configuration of its own in data/sites.ts, never because it was near to hand.
 // ─────────────────────────────────────────────────────────────────────────────
 
 function param(name: string): string | null {
@@ -43,15 +46,18 @@ export const REQUESTED_SITE_ID = param('site');
  *
  * Used ONLY to name the site in the refusal screen, so the message refers to
  * the site the viewer is entitled to see. The refusal must never name, or hint
- * at, whichever site this build does hold.
+ * at, whichever sites this build does hold.
  */
 export const REQUESTED_SITE_NAME = param('siteName');
 
 /**
  * True when it is safe to render.
  *
- * No `?site=` means standalone/demo use — the app shows its own facility, which
- * is nobody else's data. A `?site=` that matches is in scope. Anything else is
- * out of scope and must render the refusal.
+ * No `?site=` means standalone use — the default demo facility, which is nobody
+ * else's data. A `?site=` with a configuration of its own is in scope. Anything
+ * else is out of scope and must render the refusal.
  */
-export const SITE_IN_SCOPE = REQUESTED_SITE_ID === null || REQUESTED_SITE_ID === PREVIEW_SITE.id;
+export const SITE_IN_SCOPE = REQUESTED_SITE_ID === null || REQUESTED_SITE_ID in SITE_CONFIGS;
+
+/** The site actually being rendered. Only meaningful when SITE_IN_SCOPE. */
+export const ACTIVE_SITE_ID = REQUESTED_SITE_ID ?? DEFAULT_SITE_ID;

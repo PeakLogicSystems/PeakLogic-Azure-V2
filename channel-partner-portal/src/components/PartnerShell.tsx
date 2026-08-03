@@ -5,6 +5,9 @@ import { useAuth } from '@/AuthContext';
 import { usePartner } from '@/PartnerContext';
 import { useSettings } from '@/SettingsContext';
 import { PartnerSwitcher } from '@/components/PartnerSwitcher';
+import { useBrandTab } from '@/useBrandTab';
+import { useBrandOverride } from '@/brandOverride';
+import { derivedHeader, inkOn } from '@/brandColor';
 
 const NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
@@ -12,24 +15,63 @@ const NAV = [
 ];
 
 export function PartnerShell({ children }: { children: ReactNode }) {
-  const { partner: p } = usePartner();
+  const { partner: base } = usePartner();
+
+  // Branding an administrator set in Control Center wins over the bundled
+  // default. Applied here, at the shell, so it reaches the header, every
+  // accent colour derived from --partner-primary, and the browser tab together
+  // — one source, not three that drift.
+  const override = useBrandOverride(base.id);
+  const p = override
+    ? {
+        ...base,
+        primaryColor: override.brand || base.primaryColor,
+        headerColor: override.header || base.headerColor || derivedHeader(override.brand || base.primaryColor),
+        bannerTitle: override.bannerTitle || base.bannerTitle,
+        bannerSub: override.bannerSub || base.bannerSub,
+        logoText: override.logo || base.logoText,
+        logoImg: override.logoImg || base.logoImg,
+        // Control Center stores marks uppercase; honour that rather than
+        // re-lowercasing an administrator's explicit choice.
+        lowercaseLogo: override.logo ? false : base.lowercaseLogo,
+      }
+    : base;
+
+  useBrandTab(p);
   return (
     <div
       className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100"
       style={{ ['--partner-primary' as string]: p.primaryColor, ['--partner-secondary' as string]: p.secondaryColor } as React.CSSProperties}
     >
       {/* Header uses the partner's own brand color in both themes. */}
-      <header className="text-white" style={{ backgroundColor: p.primaryColor }}>
+      {/* The banner uses the DEEP tier; the mark beside it uses the vivid one. */}
+      <header className="text-white" style={{ backgroundColor: p.headerColor }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-end gap-2.5">
-            <span className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-sm font-black tracking-tight text-white ${p.lowercaseLogo ? 'lowercase' : ''}`} style={{ backgroundColor: p.secondaryColor }}>
-              {p.logoText}
-            </span>
+            {/* The mark: identical to the browser tab and to Control Center's
+                own rendering. It uses the BRAND colour, not the secondary —
+                using secondary here is what made the tab and the header
+                disagree about the same organisation. An uploaded logo replaces
+                the initials entirely, exactly as it does in Control Center. */}
+            {p.logoImg ? (
+              <span
+                className="grid h-9 min-w-9 place-items-center overflow-hidden rounded-lg bg-white"
+                style={{ backgroundImage: `url(${p.logoImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                aria-label={`${p.name} logo`}
+              />
+            ) : (
+              <span
+                className={`grid h-9 min-w-9 place-items-center rounded-lg px-2 text-sm font-black tracking-tight ring-1 ring-white/25 ${p.lowercaseLogo ? 'lowercase' : ''}`}
+                style={{ backgroundColor: p.primaryColor, color: inkOn(p.primaryColor) }}
+              >
+                {p.logoText}
+              </span>
+            )}
             <div className="leading-tight">
-              <p className="text-base font-bold leading-tight">{p.name}</p>
+              <p className="text-base font-bold leading-tight">{p.bannerTitle || p.name}</p>
               {/* System-generated categorization, not the partner's own marketing
                   voice -- never invent a tagline attributed to a real company. */}
-              <p className="text-[11px] capitalize text-white/70">{p.vertical} · on PeakLogicSystems</p>
+              <p className="text-[11px] text-white/70">{p.bannerSub || `${p.vertical} · on PeakLogicSystems`}</p>
             </div>
           </div>
 

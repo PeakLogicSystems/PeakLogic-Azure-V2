@@ -1,85 +1,29 @@
 import { useEffect, useState } from 'react';
 import type { Alarm, HmiScreen, ProcessValue, Severity, Site } from '../types';
+import { configForSite } from './sites';
+import { ACTIVE_SITE_ID } from '../scope';
 
-// Preview data + a live simulation. Deliberately coherent: alarms are DERIVED
-// from the same live process values the tiles show (via the same kind of
-// threshold rules the real platform runs, backend/ingest/rules.ts), so the
-// alarm panel reacts to the floor in real time and alarms auto-clear when a
-// value returns to range — the real alarm lifecycle, not a scripted list. One
-// sensor is intentionally OFFLINE (no data), exercising the silent/offline state
-// the platform's device-silence detection is built around.
+// The live preview simulation. Alarms are DERIVED from the same process values
+// the tiles show, using the same kind of threshold rules the real platform runs
+// (backend/ingest/rules.ts), so the alarm panel reacts to the floor in real time
+// and alarms auto-clear when a value returns to range — the real alarm
+// lifecycle, not a scripted list.
+//
+// Which site this simulates is decided by src/scope.ts, which has already
+// refused to render anything if the requested site has no configuration. By the
+// time this module runs, ACTIVE_SITE_ID is known-good.
+const ACTIVE = configForSite(ACTIVE_SITE_ID)!;
 
-// The site's outbound work-order link. Set to null to see the ungated
-// behaviour: the "Issue WO" action disappears entirely rather than appearing
-// disabled, because a control an operator cannot use should not be on screen
-// implying the capability exists.
-export const PREVIEW_SITE: Site = {
-  id: 'site-riverside',
-  name: 'Riverside Water Reclamation Facility',
-  cmms: { partner: 'Ace Septic & Waste', system: 'UpKeep', active: true },
-};
+export const PREVIEW_SITE: Site = ACTIVE.site;
+export const PREVIEW_SCREEN: HmiScreen = ACTIVE.screen;
 
-export const PREVIEW_SCREEN: HmiScreen = {
-  id: 'screen-chlor-aer',
-  siteId: PREVIEW_SITE.id,
-  name: 'Chlorination & Aeration',
-  helpContextKey: 'screen.chlorination',
-  tiles: [
-    { id: 't-flow', label: 'Influent Flow', metric: 'flow_lpm', unit: 'L/min', asset: 'Influent Pump P-101' },
-    { id: 't-cl', label: 'Chlorine Residual', metric: 'free_chlorine_ppm', unit: 'ppm', asset: 'Chlorinator CL-1' },
-    { id: 't-ph', label: 'pH', metric: 'ph', unit: '', asset: 'Chem Probe AN-2' },
-    { id: 't-salt', label: 'Salt', metric: 'salt_ppm', unit: 'ppm', asset: 'Chlorinator CL-1' },
-    { id: 't-lvl', label: 'Wet Well Level', metric: 'level_pct', unit: '%', asset: 'Influent Pump P-101' },
-    { id: 't-pwr', label: 'Blower Power', metric: 'power_kw', unit: 'kW', asset: 'Aeration Blower B-3' },
-    { id: 't-psi', label: 'Header Pressure', metric: 'pressure_psi', unit: 'psi', asset: 'Influent Pump P-101' },
-    { id: 't-temp', label: 'Basin Temp', metric: 'temp_c', unit: '°C', asset: 'Aeration Basin Sensor T-9' },
-  ],
-};
-
-const ASSET_BY_METRIC = Object.fromEntries(PREVIEW_SCREEN.tiles.map((t) => [t.metric, t.asset]));
-
-const BASE: Record<string, number> = {
-  flow_lpm: 1180, free_chlorine_ppm: 3.1, ph: 7.4, salt_ppm: 3200,
-  level_pct: 62, power_kw: 41, pressure_psi: 48,
-};
-const SPREAD: Record<string, number> = {
-  flow_lpm: 55, free_chlorine_ppm: 0.9, ph: 0.28, salt_ppm: 70,
-  level_pct: 14, power_kw: 6, pressure_psi: 9,
-};
-const OFFLINE = new Set(['temp_c']); // basin temp sensor is silent — shows offline / no data
-
-interface Rule {
-  metric: string;
-  severity: Severity;
-  test: (v: number) => boolean;
-  message: (v: number) => string;
-  ai: string;
-}
-
-// Thresholds echo backend/ingest/rules.ts (pool_chemistry CDC values, etc.).
-const RULES: Rule[] = [
-  { metric: 'ph', severity: 'critical', test: (v) => v > 8.0,
-    message: (v) => `pH ${v.toFixed(2)} critically high — chlorine disinfection significantly impaired above 8.0`,
-    ai: 'CDC MAHC: disinfection efficacy drops sharply above pH 8.0.' },
-  { metric: 'ph', severity: 'warning', test: (v) => v < 7.0 || (v > 7.8 && v <= 8.0),
-    message: (v) => `pH ${v.toFixed(2)} outside CDC-recommended range (7.0–7.8)`,
-    ai: 'Trending out of range; recommend checking acid feed calibration.' },
-  { metric: 'free_chlorine_ppm', severity: 'critical', test: (v) => v > 10,
-    message: (v) => `Free chlorine ${v.toFixed(1)} ppm exceeds the bather-safety limit (10 ppm)`,
-    ai: 'Overfeed detected — verify chlorinator output setpoint.' },
-  { metric: 'free_chlorine_ppm', severity: 'warning', test: (v) => v < 2,
-    message: (v) => `Free chlorine ${v.toFixed(1)} ppm below the 2 ppm minimum`,
-    ai: 'Residual falling; disinfection may be inadequate.' },
-  { metric: 'level_pct', severity: 'warning', test: (v) => v > 88,
-    message: (v) => `Wet well level ${v.toFixed(0)}% — approaching high-level`,
-    ai: 'Inflow exceeding pump-out; watch for a lead-pump fault.' },
-  { metric: 'pressure_psi', severity: 'critical', test: (v) => v > 62,
-    message: (v) => `Header pressure ${v.toFixed(0)} psi exceeds the safe limit`,
-    ai: 'Possible downstream blockage or closed valve.' },
-  { metric: 'power_kw', severity: 'warning', test: (v) => v > 52,
-    message: (v) => `Blower power ${v.toFixed(1)} kW above expected baseline`,
-    ai: 'Elevated draw may indicate a fouled diffuser or bearing wear.' },
-];
+const BASE = ACTIVE.base;
+const SPREAD = ACTIVE.spread;
+const OFFLINE = ACTIVE.offline;
+const RULES = ACTIVE.rules;
+const ASSET_BY_METRIC: Record<string, string> = Object.fromEntries(
+  ACTIVE.screen.tiles.map((t) => [t.metric, t.asset]),
+);
 
 const SEV_RANK: Record<Severity, number> = { critical: 0, warning: 1, info: 2 };
 
@@ -210,8 +154,7 @@ function reconcileAlarms(prev: Alarm[], values: Record<string, ProcessValue>): A
 }
 
 function round(v: number, metric: string): number {
-  const decimals = metric === 'ph' ? 2 : metric === 'free_chlorine_ppm' ? 1 : 0;
-  const f = 10 ** decimals;
+  const f = 10 ** (ACTIVE.decimals[metric] ?? 0);
   return Math.round(v * f) / f;
 }
 

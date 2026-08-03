@@ -47,6 +47,20 @@ export interface Report {
 
 export interface Customer {
   name: string;
+  /**
+   * Branding configured for this organisation in Control Center. Drives the
+   * browser tab, exactly as it does in the partner portal — a customer's portal
+   * carries THEIR mark, not the platform vendor's.
+   */
+  brand: string;
+  /** The deep tier — the banner behind white text. */
+  headerColor: string;
+  /** Banner copy, fully configurable in Control Center. */
+  bannerTitle?: string;
+  bannerSub?: string;
+  logoText: string;
+  /** Uploaded logo, when they have supplied one. */
+  logoImg?: string;
   kind: string;
   location: string;
   user: { name: string; role: string; email: string };
@@ -59,6 +73,14 @@ export interface Customer {
 
 export const CUSTOMER: Customer = {
   name: 'Bayfront Municipal District',
+  // Configured by a PeakLogic administrator in Control Center (Customer
+  // Tenants → this tenant's record) and mirrored here. Control Center wins if
+  // the two ever disagree. An uploaded logo replaces the initials mark.
+  brand: '#0E7490',
+  headerColor: '#06333F',
+  bannerTitle: 'Bayfront Municipal District',
+  bannerSub: 'Municipal Utility · monitored by PeakLogic',
+  logoText: 'BMD',
   kind: 'Municipal Utility',
   location: 'Bayfront, FL',
   user: { name: 'Sarah Rivera', role: 'Operations Manager', email: 'srivera@bayfrontmd.gov' },

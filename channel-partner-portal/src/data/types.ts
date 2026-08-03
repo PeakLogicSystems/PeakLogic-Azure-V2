@@ -18,6 +18,14 @@ export type Vertical = 'wastewater' | 'pool';
 export type SiteKind = 'residential' | 'commercial' | 'municipal';
 
 export interface Device {
+  /**
+   * Manufacturer's serial, read off the hardware label at install.
+   *
+   * Distinct from `id`, which PeakLogic assigns. Kept because it is the only
+   * number that ties a row in this system to a physical object a technician can
+   * hold — an RMA, a warranty claim or a "which one is it?" all start here.
+   */
+  serial?: string;
   id: string; // serial
   name: string;
   type: string;
@@ -66,8 +74,21 @@ export interface Partner {
   id: string;
   name: string;
   logoText: string;
+  /** Uploaded logo from Control Center branding, when the partner has supplied one. */
+  logoImg?: string;
   lowercaseLogo: boolean;
+  /** The logo tile and accent colour — the vivid tier. */
   primaryColor: string;
+  /**
+   * The page banner behind white text — the deep tier.
+   *
+   * Separate from primaryColor because a mark and a full-width banner have
+   * different jobs: the mark can be vivid at 40px, the banner cannot without
+   * becoming unreadable. Both are configured in Control Center.
+   */
+  headerColor: string;
+  bannerTitle?: string;
+  bannerSub?: string;
   secondaryColor: string;
   vertical: Vertical;
   terms: VerticalTerms;

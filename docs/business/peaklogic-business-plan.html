@@ -1,0 +1,783 @@
+<title>PeakLogic — Business Plan &amp; Investment Case</title>
+<style>
+  :root {
+    --bg: #f6f7fa; --surface: #fff; --surface-2: #eef0f6; --raise: #fbfcfe;
+    --line: #dcdfeb; --line-2: #c3c8db;
+    --ink: #10131f; --ink-2: #3f4661; --ink-3: #6a7291;
+    --accent: #5b2fc9; --accent-2: #7b4fe0; --accent-soft: #ebe4fb;
+    --good: #146c43; --good-soft: #dcf5e7;
+    --warn: #9a5b06; --warn-soft: #fdf0d5;
+    --bad: #a81f1f; --bad-soft: #fbe3e3;
+    --mono: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, monospace;
+    --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #090b13; --surface: #12151f; --surface-2: #191d2a; --raise: #161a26;
+      --line: #242939; --line-2: #333a4f;
+      --ink: #eef0f7; --ink-2: #aeb5cb; --ink-3: #79819c;
+      --accent: #a684f5; --accent-2: #b79cf8; --accent-soft: #221a3a;
+      --good: #4fd18b; --good-soft: #0e2a1c;
+      --warn: #f0b429; --warn-soft: #2c2210;
+      --bad: #f47b7b; --bad-soft: #2c1414;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #090b13; --surface: #12151f; --surface-2: #191d2a; --raise: #161a26;
+    --line: #242939; --line-2: #333a4f;
+    --ink: #eef0f7; --ink-2: #aeb5cb; --ink-3: #79819c;
+    --accent: #a684f5; --accent-2: #b79cf8; --accent-soft: #221a3a;
+    --good: #4fd18b; --good-soft: #0e2a1c;
+    --warn: #f0b429; --warn-soft: #2c2210;
+    --bad: #f47b7b; --bad-soft: #2c1414;
+  }
+  :root[data-theme="light"] {
+    --bg: #f6f7fa; --surface: #fff; --surface-2: #eef0f6; --raise: #fbfcfe;
+    --line: #dcdfeb; --line-2: #c3c8db;
+    --ink: #10131f; --ink-2: #3f4661; --ink-3: #6a7291;
+    --accent: #5b2fc9; --accent-2: #7b4fe0; --accent-soft: #ebe4fb;
+    --good: #146c43; --good-soft: #dcf5e7;
+    --warn: #9a5b06; --warn-soft: #fdf0d5;
+    --bad: #a81f1f; --bad-soft: #fbe3e3;
+  }
+
+  body { background: var(--bg); color: var(--ink); font-family: var(--sans); line-height: 1.62; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 60px 24px 110px; display: flex; flex-direction: column; gap: 54px; }
+
+  .eyebrow { font-family: var(--mono); font-size: 11px; letter-spacing: .17em; text-transform: uppercase; color: var(--accent); }
+  h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.05; letter-spacing: -.03em; font-weight: 800; margin: 12px 0 0; text-wrap: balance; }
+  .lede { font-size: 17.5px; color: var(--ink-2); max-width: 62ch; margin-top: 16px; }
+  h2 { font-size: 23px; letter-spacing: -.02em; font-weight: 760; margin: 0; text-wrap: balance; }
+  h3 { font-size: 15px; font-weight: 700; margin: 0; letter-spacing: -.005em; }
+  p { margin: 0; }
+  section { display: flex; flex-direction: column; gap: 18px; }
+  .head { border-top: 2px solid var(--ink); padding-top: 15px; display: flex; flex-direction: column; gap: 7px; }
+  .head p { color: var(--ink-2); font-size: 14.5px; max-width: 70ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 20px 22px; display: flex; flex-direction: column; gap: 9px; }
+  .card p { font-size: 14px; color: var(--ink-2); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+  .grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 15px; }
+  @media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+
+  /* Hero */
+  .hero { display: flex; flex-direction: column; gap: 18px; }
+  /* Spacing comes from the flex gap here — the base margins would double it. */
+  .hero .lede { max-width: 58ch; margin-top: 0; }
+  .hero h1 { margin-top: 10px; }
+  .hero__sub { font-size: 15px; color: var(--ink-3); max-width: 58ch; }
+
+  /* The chain: monitor -> predict -> dispatch -> prove. Four steps, because
+     that is the actual product, and the arrow between them is the argument. */
+  .chain { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+  .chain__s { border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; background: var(--surface); display: flex; flex-direction: column; gap: 6px; position: relative; }
+  .chain__k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--accent); }
+  .chain__s h3 { font-size: 15px; }
+  .chain__s p { font-size: 13px; color: var(--ink-2); line-height: 1.5; }
+
+  /* Why-now drivers, numbered because they are ranked by force, not listed. */
+  .driver { border: 1px solid var(--line); border-radius: 13px; padding: 20px 22px; background: var(--surface); display: flex; gap: 18px; align-items: flex-start; }
+  .driver__n { font-family: var(--mono); font-size: 30px; font-weight: 700; line-height: 1; color: var(--accent); opacity: .35; flex: none; width: 44px; }
+  .driver__b { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .driver h3 { font-size: 17px; letter-spacing: -.014em; }
+  .driver p { font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+  .driver .tag { font-size: 11px; font-weight: 680; padding: 2px 9px; border-radius: 999px; align-self: flex-start; }
+
+  /* The three outcomes — the value pitch, made scannable instead of a
+     paragraph of bolded clauses. */
+  .outcomes { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 14px; margin-top: 4px; }
+  .outcome { border: 1px solid var(--line); border-radius: 13px; padding: 18px 20px; background: var(--surface); display: flex; flex-direction: column; gap: 7px; }
+  .outcome__n { font-family: var(--mono); font-size: 11px; letter-spacing: .12em; color: var(--accent); }
+  .outcome h3 { font-size: 16px; letter-spacing: -.012em; }
+  .outcome p { font-size: 13.5px; color: var(--ink-2); line-height: 1.55; }
+
+  /* Positioning — one idea, set as a quote rather than a bolded block. */
+  .position { border-left: 3px solid var(--accent); padding: 4px 0 4px 24px; display: flex; flex-direction: column; gap: 14px; }
+  .position p { font-size: 16.5px; line-height: 1.6; color: var(--ink); max-width: 68ch; }
+  .position em { font-style: normal; color: var(--accent); font-weight: 650; }
+
+  .thesis { background: var(--surface); border: 1px solid var(--line); border-radius: 13px; padding: 22px 26px; display: flex; flex-direction: column; gap: 12px; }
+  .thesis p { font-size: 15px; color: var(--ink-2); line-height: 1.6; max-width: 72ch; }
+  .thesis b { color: var(--ink); }
+  .thesis h3 { font-size: 16px; }
+
+  .tw { overflow-x: auto; border: 1px solid var(--line); border-radius: 13px; background: var(--surface); }
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  th { text-align: left; font-size: 10.5px; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 700; padding: 13px 14px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  td { padding: 11px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  tbody tr:last-child td { border-bottom: none; }
+  .num { text-align: right; font-variant-numeric: tabular-nums; font-family: var(--mono); font-size: 12.5px; white-space: nowrap; }
+  .strong td { font-weight: 700; background: var(--surface-2); }
+  caption { caption-side: bottom; text-align: left; padding: 11px 14px; font-size: 12px; color: var(--ink-3); border-top: 1px solid var(--line); }
+
+  .kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 13px; }
+  .kpi { border: 1px solid var(--line); border-radius: 12px; padding: 15px 17px; background: var(--surface); }
+  .kpi__l { font-size: 10.5px; text-transform: uppercase; letter-spacing: .09em; color: var(--ink-3); font-weight: 700; }
+  .kpi__v { font-size: 27px; font-weight: 780; letter-spacing: -.025em; margin-top: 4px; font-variant-numeric: tabular-nums; }
+  .kpi__s { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+
+  .chip { display: inline-block; font-size: 11px; font-weight: 680; padding: 2px 9px; border-radius: 999px; }
+  .c-good { background: var(--good-soft); color: var(--good); }
+  .c-warn { background: var(--warn-soft); color: var(--warn); }
+  .c-bad { background: var(--bad-soft); color: var(--bad); }
+  .c-acc { background: var(--accent-soft); color: var(--accent); }
+
+  ul { margin: 0; padding-left: 19px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; color: var(--ink-2); }
+  li b, p b { color: var(--ink); }
+  code { font-family: var(--mono); font-size: .88em; background: var(--surface-2); padding: 1.5px 5px; border-radius: 4px; }
+  .foot { font-size: 12.5px; color: var(--ink-3); border-top: 1px solid var(--line); padding-top: 18px; }
+
+  @media print {
+    /* A PDF is printed on white regardless of the reader theme. */
+    :root, :root[data-theme="dark"], :root[data-theme="light"] {
+      --bg: #fff; --surface: #fff; --surface-2: #f4f5f9; --raise: #fff;
+      --line: #d8dce7; --line-2: #b9c0d2;
+      --ink: #10131f; --ink-2: #333a4f; --ink-3: #5d6579;
+      --accent: #5b2fc9; --accent-soft: #ece6fb;
+      --good: #14663f; --good-soft: #e4f6ec; --warn: #8a5205; --warn-soft: #fdf2dc;
+      --bad: #9c1d1d; --bad-soft: #fbe6e6;
+    }
+    @page { size: A4; margin: 16mm 14mm; }
+    body { background: #fff; font-size: 10.5pt; line-height: 1.5; }
+    .wrap { max-width: none; padding: 0; gap: 26px; }
+    h1 { font-size: 26pt; }
+    h2 { font-size: 14pt; }
+    h3 { font-size: 11pt; }
+    .lede { font-size: 12pt; }
+    /* Nothing should be split across a page boundary mid-thought. */
+    section, .card, .driver, .chain__s, .kpi, .tw, .position, .thesis { break-inside: avoid; page-break-inside: avoid; }
+    .head { break-after: avoid; page-break-after: avoid; }
+    table { font-size: 9pt; }
+    th, td { padding: 6px 8px; }
+    .tw { overflow: visible; }
+    a { color: inherit; text-decoration: none; }
+  }
+</style>
+
+<div class="wrap">
+
+<header class="hero">
+  <div>
+    <div class="eyebrow">Business plan &amp; investment case · Confidential</div>
+    <h1>An intelligence layer for essential field services</h1>
+  </div>
+  <p class="lede">
+    PeakLogic connects the equipment your business already operates and services — pumps, treatment
+    units, chemistry, refrigeration — to monitoring, alerts, automation, and dispatch. Issues surface
+    early, and the right work lands in the right system. Asset visibility and risk reduction,
+    delivered as a service. </p>
+</header>
+
+<!-- The necessity argument. This is the section that has to land: not what the
+     product does, but why an operator cannot keep running without it. -->
+<section>
+  <div class="head">
+    <h2>Why essential-service operators cannot keep running blind</h2>
+  </div>
+  <div class="position">
+    <p>
+      Essential services do not get to fail quietly. When a lift station overflows, a treatment unit
+      stops disinfecting, or a walk-in loses temperature, the outcome is a regulator, a public
+      health notice, or a customer lost — <em>not a maintenance ticket</em>. </p>
+    <p>
+      Yet these are the assets nobody can see: too dispersed for a control room, too small for SCADA
+      economics, and maintained by crews that shrink while the estate they cover grows. <em>The gap between what an operator is accountable for and what they can actually observe
+      widens every year</em> — and every one of those failures announced itself first, in current
+      draw, in run time, in drifting chemistry. </p>
+    <p>
+      PeakLogic closes that gap without asking anyone to become a SCADA operator. It reads the
+      warning, decides what matters, and puts the work in front of the person who can act on it. </p>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <h2>What the platform actually does</h2>
+    <p>Four steps. Most competitors stop after the first, which is why an alarm reaches a phone and nothing else happens.</p>
+  </div>
+  <div class="chain">
+    <div class="chain__s">
+      <span class="chain__k">01 · Monitor</span>
+      <h3>Connect what exists</h3>
+      <p>Pumps, blowers, chemistry, level, refrigeration — mixed vendors, on one platform, over cellular or the site's own network.</p>
+    </div>
+    <div class="chain__s">
+      <span class="chain__k">02 · Predict</span>
+      <h3>Read the warning</h3>
+      <p>Per-asset baselines catch degradation — rising draw, longer cycles, drifting chemistry — weeks before the failure it becomes.</p>
+    </div>
+    <div class="chain__s">
+      <span class="chain__k">03 · Dispatch</span>
+      <h3>Land the work</h3>
+      <p>An alarm becomes a work order in the servicing partner's own system, routed to whoever is accountable, not an email nobody owns.</p>
+    </div>
+    <div class="chain__s">
+      <span class="chain__k">04 · Prove</span>
+      <h3>Keep the evidence</h3>
+      <p>The record a regulator, insurer or disputing customer asks for is compiled as it happens, not reconstructed from paper afterwards.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><h2>Positioning</h2></div>
+  <div class="position">
+    <p>
+      For operators of distributed critical equipment — wastewater and septic, campus and
+      assisted-living facilities, food service, pools, and light commercial mechanical — who
+      <em>cannot justify a traditional SCADA deployment but cannot absorb the failures either</em>,
+      PeakLogic is a predictive analytics and asset-management platform that converts unplanned
+      failure into scheduled work. </p>
+    <p>
+      Autodialers call once the overflow has happened. SCADA is priced and scoped as a capital
+      project. PeakLogic reaches these sites a third way — <em>through the service contractors
+      already maintaining them</em> — so it arrives with no integration project and pays for itself
+      out of emergencies that no longer occur. </p>
+  </div>
+</section>
+
+<section>
+  <div class="head">
+    <h2>How it reaches the market</h2>
+    <p>The distribution model is the part of this business that is genuinely difficult to copy.</p>
+  </div>
+  <div class="thesis">
+    <h3>The constraint is truck rolls, not demand</h3>
+    <p>
+      Every competitor's growth is capped by how many sites their own people can drive to. We remove
+      that cap by making the service contractor the channel, so <b>customer acquisition costs a
+      partner signature rather than a site visit</b>. One partner with 90 sites is worth ninety
+      direct sales — and they install on visits already scheduled. </p>
+    <h3 style="margin-top:6px">Direct sales run alongside it</h3>
+    <p>
+      Some operators run their own crews, and institutional campuses have no contractor in the
+      middle. Direct is the smaller book by site count but the higher-value one per site, and it
+      produces the reference customers that make a channel conversation credible. <b>Roughly 39% of recurring revenue is direct</b> across the plan. </p>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>The problem, and what it costs</h2>
+    <p>Across wastewater, septic, pools, HVAC, and cold chain the operating model is identical: assets run until they fail or somebody complains. The cost is not the repair — it is the consequence.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Today</th><th>What it costs the operator</th><th>What monitoring changes</th></tr></thead>
+      <tbody>
+        <tr><td>Phone autodialer calls at high water</td><td>Sanitary sewer overflow, fines, emergency crews</td><td>Rising-level trend flags the problem days earlier</td></tr>
+        <tr><td>Service trucks run on a calendar</td><td>Visits that were not needed; failures between visits</td><td>Visits triggered by condition, not the month</td></tr>
+        <tr><td>Failed blower found on a routine visit</td><td>Failed inspection, treatment out of compliance</td><td>Power and runtime drift raises a work order first</td></tr>
+        <tr><td>Full SCADA quoted, or nothing at all</td><td>Small sites get nothing, indefinitely</td><td>A standard kit and a subscription, no integrator project</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p style="font-size:14px;color:var(--ink-2)">
+    The pattern matters more than any one vertical: the same platform serves all of them, because
+    the failure being prevented is always the same shape — <b>an asset degrading unobserved between
+    scheduled visits.</b>
+  </p>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Why now — and why the window is dated</h2>
+    <p>Four forces, ranked by how much of the market each one moves. Only the second is time-boxed — but it is the one that determines whether this is the right twenty-four months.</p>
+  </div>
+  <div style="display:flex;flex-direction:column;gap:14px">
+
+    <div class="driver">
+      <span class="driver__n">01</span>
+      <div class="driver__b">
+        <span class="tag c-good">Market creation, not displacement</span>
+        <h3>At most of these sites, the incumbent is nothing at all</h3>
+        <p>
+          "Displacement" overstates it. The overwhelming majority of lift stations, treatment units,
+          and light commercial mechanical rooms have <b>no monitoring at all, or a phone autodialer
+          that calls once the failure has happened</b>. There is no vendor to unseat, no contract to
+          buy out, and nothing to rip out. </p>
+        <p>
+          That is the stronger position: no switching friction, no incumbent defending an account,
+          and a buyer adopting for the first time rather than being asked to admit an earlier
+          decision was wrong. Where we <em>do</em> displace, it is narrow — ageing autodialers, and
+          OEM apps that see only their own manufacturer's equipment. </p>
+      </div>
+    </div>
+
+    <div class="driver">
+      <span class="driver__n">02</span>
+      <div class="driver__b">
+        <span class="tag c-warn">Time-boxed</span>
+        <h3>Consolidation has orphaned the installer channel</h3>
+        <p>
+          DataFlow Systems, the dominant lift-station monitoring vendor, was acquired by SmartCover
+          in 2023 and SmartCover by Badger Meter in 2025 for <b>$185M</b>. The product line is being
+          folded into Badger's BlueEdge suite: contracts, billing, support contacts, and domains are
+          all moving, and small-to-midsize lift-station work receives the least attention during an
+          integration of that size. </p>
+        <p>
+          This is both a displacement and a partnership opening, and the partnership half is the
+          durable one. <b>Panel builders are the distribution channel, not the competition.</b> They
+          already sell to towns and operators, most of their panels still ship with a dialer or
+          nothing, and they want recurring revenue without building cloud software. This window
+          closes when Badger finishes integrating — the channel relationships formed during the
+          disruption are what outlast it. </p>
+      </div>
+    </div>
+
+    <div class="driver">
+      <span class="driver__n">03</span>
+      <div class="driver__b">
+        <span class="tag c-acc">Structural</span>
+        <h3>A modernisation cycle is arriving whether operators are ready or not</h3>
+        <p>
+          Three forces are converging on one estate. The installed base of dialers and custom relay
+          panels is <b>reaching end of life</b> just as the cellular and sensing hardware to replace
+          it has fallen to a fraction of its former cost. Meanwhile the workforce that carried this
+          knowledge in their heads is retiring, and the crews replacing them are smaller and cover
+          more sites. </p>
+        <p>
+          The result is an operator being asked to supervise a growing estate with fewer people and
+          ageing instrumentation — and increasingly being asked by their own board, insurer or
+          council to <b>evidence</b> that they can. Modernisation stops being discretionary at that
+          point. The question becomes what they modernise onto. </p>
+      </div>
+    </div>
+
+    <div class="driver">
+      <span class="driver__n">04</span>
+      <div class="driver__b">
+        <span class="tag c-bad">Now a procurement gate</span>
+        <h3>Security has moved from a checkbox to a condition of sale</h3>
+        <p>
+          The 2026 coordinated intrusions against US water utilities changed what a security review
+          is for. Legacy autodialers and one-off control panels have essentially no security posture
+          to present: no patching story, no audit trail, no way to answer what a compromised device
+          could reach. Operators are now being asked those questions by regulators, insurers, and
+          their own boards, and many cannot answer them. </p>
+        <p>
+          Our position here is a commercial asset rather than an engineering detail, and it has two
+          parts. <b>Today the platform is read-only by construction</b> — no code path issues a
+          device command and no permission grants one. For a utility security reviewer that is a
+          materially shorter conversation than any competitor can offer, and it removes the single
+          largest objection to connecting a plant to anything. </p>
+        <p>
+          <b>Control is on the roadmap</b>, because operators will eventually want remote reset,
+          setpoint change and shutoff, and a monitoring-only product would cede that ground. The
+          advantage is not that we will never actuate — it is the order in which we get to build. The authorisation model, the safety interlocks, and the audit trail are being designed
+          before a single command path exists. Safety-critical actions stay local to the equipment
+          and trip on their own sensor reading without waiting on the cloud; the platform provides
+          override, evidence, and accountability rather than the trip itself. </p>
+        <p>
+          Every incumbent in this category is attempting the reverse — retrofitting a security
+          posture onto control systems designed before any of this was a threat. That is
+          substantially harder, and it is why a security review is a competitive event for us
+          rather than an obstacle. </p>
+      </div>
+    </div>
+
+  </div>
+
+  <p style="font-size:14px;color:var(--ink-2)">
+    Drivers 3 and 4 are the ones that make this a market rather than a niche — they apply to every
+    site in it, not just those a competitor happens to be neglecting. Driver 2 is what makes the
+    next twenty-four months the right ones to move in. </p>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Business model</h2>
+    <p>Three revenue lines, deliberately weighted so that the durable one is the one that compounds.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Line</th><th>Who pays</th><th class="num">Price</th><th>Role in the business</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Partner platform fee</b></td><td>Service company</td>
+          <td class="num">$250–$4,000 / mo<br><span style="color:var(--ink-3)">by fleet size</span></td>
+          <td>The durable line. Buys the partner a business system — dispatch, work orders, a branded customer portal, compliance evidence.</td>
+        </tr>
+        <tr>
+          <td><b>Per-site monitoring</b></td><td>Service company, marked up to their customer</td>
+          <td class="num">$18–$25 / site / mo</td>
+          <td>Scales with the partner's own book. They resell it inside contracts they already hold.</td>
+        </tr>
+        <tr>
+          <td><b>Direct monitoring</b></td><td>Site owner, sold by us</td>
+          <td class="num">$38 / site / mo</td>
+          <td>No partner margin to share, so we keep the full rate. Higher acquisition cost per site, and the source of reference customers a channel sale leans on.</td>
+        </tr>
+        <tr>
+          <td><b>Hardware &amp; commissioning</b></td><td>Site owner, via partner or direct</td>
+          <td class="num">~$1,800 / site</td>
+          <td><span class="chip c-warn">Cost-plus, ~20%</span> Deliberately <b>not</b> a profit centre — a customer-acquisition cost we recover, priced to remove the barrier to the first site.</td>
+        </tr>
+      </tbody>
+      <caption>Institutional campuses (assisted living, healthcare) at ~$25K/yr are always direct — larger, slower, and far higher value per logo.</caption>
+    </table>
+  </div>
+  <div class="card">
+    <h3>Why the partner, and not the site owner</h3>
+    <p>
+      A site owner buys monitoring once, reluctantly, and churns when budgets tighten. A service
+      company buys it to <b>protect margin on contracts they already have</b> — fewer emergency
+      callouts, fewer wasted visits, evidence when a customer disputes work. That is a
+      operating-cost decision, not a capital one, and it renews because the alternative is going
+      back to driving blind. </p>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Financial model</h2>
+    <p>Built from partner and site counts against published pricing. Every figure below is arithmetic from those two inputs — no top-down market share assumptions.</p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi__l">Recurring per site</div><div class="kpi__v">$264</div><div class="kpi__s">channel · $456 direct</div></div>
+    <div class="kpi"><div class="kpi__l">Hardware per site</div><div class="kpi__v">$1,800</div><div class="kpi__s">one-time, ~20% margin</div></div>
+    <div class="kpi"><div class="kpi__l">Sites per partner</div><div class="kpi__v">~90</div><div class="kpi__s">at maturity</div></div>
+    <div class="kpi"><div class="kpi__l">7-yr site value</div><div class="kpi__v">$3.6K</div><div class="kpi__s">recurring + one hardware cycle</div></div>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead>
+        <tr>
+          <th>Year</th><th class="num">Partners</th><th class="num">Sites</th>
+          <th class="num">of which direct</th><th class="num">Exit ARR</th>
+          <th class="num">Revenue</th><th class="num">Gross profit</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>1</td><td class="num">3</td><td class="num">150</td><td class="num">30</td><td class="num">$97K</td><td class="num">$319K</td><td class="num">$94K</td></tr>
+        <tr><td>2</td><td class="num">8</td><td class="num">600</td><td class="num">120</td><td class="num">$328K</td><td class="num">$1.02M</td><td class="num">$337K</td></tr>
+        <tr class="strong"><td>3</td><td class="num">20</td><td class="num">1,800</td><td class="num">350</td><td class="num">$922K</td><td class="num">$2.79M</td><td class="num">$945K</td></tr>
+        <tr><td>4</td><td class="num">40</td><td class="num">4,000</td><td class="num">800</td><td class="num">$1.97M</td><td class="num">$5.41M</td><td class="num">$1.98M</td></tr>
+        <tr><td>5</td><td class="num">70</td><td class="num">8,000</td><td class="num">1,600</td><td class="num">$3.75M</td><td class="num">$10.06M</td><td class="num">$3.78M</td></tr>
+        <tr><td>10</td><td class="num">190</td><td class="num">27,000</td><td class="num">5,400</td><td class="num">$11.82M</td><td class="num">$15.78M</td><td class="num">$10.15M</td></tr>
+      </tbody>
+      <caption>
+        Recurring revenue is recognised on the average of opening and closing base, not the exit
+        run-rate — the most common way early-stage models overstate year one. </caption>
+    </table>
+  </div>
+
+  <div class="card" style="border-left:3px solid var(--good)">
+    <h3>Is 600 sites in two years actually deliverable?</h3>
+    <p>
+      As a single number it reads like more than one installation every working day for two years,
+      which no two-person company could staff. That is the wrong unit. The correct one:
+    </p>
+    <div class="tw" style="margin:4px 0">
+      <table>
+        <thead><tr><th>Year</th><th class="num">Channel sites added</th><th class="num">Partners</th><th class="num">Per partner / year</th><th class="num">Per partner / week</th></tr></thead>
+        <tbody>
+          <tr><td>1</td><td class="num">120</td><td class="num">3</td><td class="num">40</td><td class="num">0.83</td></tr>
+          <tr><td>2</td><td class="num">360</td><td class="num">8</td><td class="num">45</td><td class="num">0.94</td></tr>
+          <tr><td>3</td><td class="num">970</td><td class="num">20</td><td class="num">49</td><td class="num">1.01</td></tr>
+          <tr><td>5</td><td class="num">3,200</td><td class="num">70</td><td class="num">46</td><td class="num">0.95</td></tr>
+        </tbody>
+        <caption>48 working weeks. Channel sites only — partners install those on visits already scheduled. The direct book is installed by us and is an order of magnitude smaller.</caption>
+      </table>
+    </div>
+    <p>
+      <b>Slightly under one site per partner per week, every year of the plan.</b> A service company
+      with fifty accounts adding monitoring to one of them a week is not a stretch target — it is a
+      slow adoption curve, and it never rises. The number looks large only because it is the sum of
+      many small, independent efforts, which is precisely what the channel model is for. </p>
+    <p>
+      The real risk here is <b>not</b> installation capacity. It is partner recruitment: 8 signed
+      partners by month 24, then 70 by year five. That is the number to challenge, and it is
+      addressed in Risks below. </p>
+  </div>
+
+  <div class="card" style="border-left:3px solid var(--warn)">
+    <h3>Revenue mix, and why gross profit is the better measure</h3>
+    <p>
+      Revenue is hardware-heavy in the early years — <b>only 21% of Year 3 revenue is recurring</b>,
+      because every new site carries ~$1,800 of equipment. Presented as SaaS, that would be
+      misleading, and it is exactly the flaw we found in the prior forecasts. </p>
+    <p>
+      So we report <b>gross profit mix instead of revenue mix</b>. Hardware runs at ~20% margin and
+      software at ~82%, which means recurring gross profit overtakes hardware in <b>Year 2</b> and
+      reaches 60% by Year 5, 81% by Year 8. Revenue makes this look like an equipment business;
+      profit shows it is not. </p>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi"><div class="kpi__l">Partner LTV</div><div class="kpi__v">$173K</div><div class="kpi__s">90 sites, 5-yr platform, 7-yr site life</div></div>
+    <div class="kpi"><div class="kpi__l">LTV : CAC</div><div class="kpi__v">4.3–11.6×</div><div class="kpi__s">at $40K–$15K partner acquisition cost</div></div>
+    <div class="kpi"><div class="kpi__l">Software margin</div><div class="kpi__v">82%</div><div class="kpi__s">hardware held at ~20% by design</div></div>
+    <div class="kpi"><div class="kpi__l">Y5 ARR</div><div class="kpi__v">$3.44M</div><div class="kpi__s">70 partners · 8,000 sites</div></div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>How we acquire the customers</h2>
+    <p>Eight partners by month 24 and seventy by year five is the number that carries the plan. Here is where they come from.</p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Channel</th><th class="num">Partners by Yr 5</th><th>Route in</th><th>Why they say yes</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><b>Affiliate operator</b></td><td class="num">1</td>
+          <td>Already held. First fleet live in month 3.</td>
+          <td>No sales cycle. Produces the case studies every other conversation needs.</td>
+        </tr>
+        <tr>
+          <td><b>Control-panel builders</b></td><td class="num">25–30</td>
+          <td>Direct outreach to shops serving wastewater and light commercial, concentrated in states with the densest lift-station counts.</td>
+          <td>Their panels ship with a dialer or nothing. We add a recurring line to a sale they already make, with no cloud software to build.</td>
+        </tr>
+        <tr>
+          <td><b>Displaced DataFlow accounts</b></td><td class="num">10–15</td>
+          <td>Operators and builders disrupted by the Badger integration, reached through panel-builder referrals and trade associations.</td>
+          <td>They need a stable lift-station-first vendor during a transition they did not choose.</td>
+        </tr>
+        <tr>
+          <td><b>Service-contractor referral</b></td><td class="num">20–25</td>
+          <td>Each live partner introduces adjacent trades — septic to pool, pool to HVAC — inside the same territory.</td>
+          <td>A partner already running the platform is a credible reference to a peer, and they are not competitors.</td>
+        </tr>
+        <tr>
+          <td><b>OEM embed</b></td><td class="num">2–4</td>
+          <td>Equipment makers shipping connected panels under their own brand.</td>
+          <td>Years of app development avoided. Longest cycle, largest volume per agreement.</td>
+        </tr>
+      </tbody>
+      <caption>Direct sites and institutional campuses are sold by us, not through these channels — roughly 39% of recurring revenue.</caption>
+    </table>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>What a partner sale costs</h3>
+      <p>
+        Two to four field visits, a witnessed alarm test at one site, and a 90-day pilot before a
+        fleet commitment. Modelled at <b>$15K–$40K per partner</b> against a <b>$173K</b> lifetime
+        value — 4.3× to 11.6×. No partner requires a sales team we do not have. </p>
+    </div>
+    <div class="card">
+      <h3>What makes it repeat</h3>
+      <p>
+        Partners expand rather than churn: they add sites from their own book at their own pace. Net revenue retention above 110% is the target, and it comes from site growth inside an
+        existing agreement, not from upselling a new product. </p>
+    </div>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Competitive position</h2>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Category</th><th>Their position</th><th>Ours</th></tr></thead>
+      <tbody>
+        <tr><td>Badger Meter / DataFlow</td><td>Lift-station SCADA absorbed into a metering suite after two mergers</td><td>Lift-station-first, fast pilot, work orders built in, aimed at operators and panel builders rather than large utilities</td></tr>
+        <tr><td>Legacy SCADA (Ignition, VTScada, Wonderware)</td><td>Excellent for a plant; priced and scoped as a capital project</td><td>Complementary. We instrument the long tail those platforms cannot economically reach, and feed data upward into them where they exist</td></tr>
+        <tr><td>Autodialer vendors</td><td>A phone call once the failure has happened</td><td>Trend history, fleet view, automatic work orders</td></tr>
+        <tr><td>OEM equipment apps</td><td>One manufacturer's equipment only</td><td>One platform across mixed fleets, which is what every real site actually has</td></tr>
+        <tr><td>Generic cloud IoT</td><td>Built for IT infrastructure</td><td>Built for pumps, blowers, and chemistry, with the regulatory thresholds already encoded</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <h3>Security as a commercial asset, not a compliance cost</h3>
+    <p>
+      Following the 2026 coordinated intrusions against US water utilities, security review is now
+      a procurement gate rather than a formality. The platform is architected so that
+      <b>it is read-only by construction today</b> — no code path issues a device command, and no
+      permission grants one. Control is roadmapped, but the authorisation model, interlocks, and
+      audit trail are being designed before any command path exists, and safety-critical trips stay
+      local to the equipment. Competitors are retrofitting security onto control systems built
+      decades earlier, which is the harder direction. </p>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Status — what exists today</h2>
+    <p>Stated plainly, because the gap between built and deployed is the first thing diligence establishes.</p>
+  </div>
+  <div class="grid3">
+    <div class="card"><span class="chip c-good" style="align-self:flex-start">Built</span><h3>Platform</h3><p>Multi-tenant core with enforced data isolation, three portals, operator HMI, edge agent, compliance reporting, predictive baselines, automated work orders.</p></div>
+    <div class="card"><span class="chip c-warn" style="align-self:flex-start">Not deployed</span><h3>Infrastructure</h3><p>Cloud infrastructure is defined as code and validated, but no environment has been provisioned. First deployment is a funded milestone, not a technical unknown.</p></div>
+    <div class="card"><span class="chip c-bad" style="align-self:flex-start">None yet</span><h3>Customers</h3><p>No paying customers, no pilot, and therefore no measured acquisition cost or churn. Every unit-economic figure here is a target derived from pricing, not an observation.</p></div>
+  </div>
+  <div class="card">
+    <h3>The channel asset</h3>
+    <p>
+      An affiliated operating company — a septic and wastewater service business with an
+      established regional fleet — provides the first partner deployment without a sales cycle. This converts the hardest problem in the plan (proving the model on real sites, with real
+      technicians, against real equipment) into an internal scheduling exercise. It is the single
+      largest de-risking factor in this proposal, and no competitor entering this market has an
+      equivalent. </p>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>Risks</h2>
+    <p>Ranked by what would actually damage the plan, not by what is easiest to mitigate.</p>
+  </div>
+  <div class="tw">
+    <table>
+      <thead><tr><th>Risk</th><th class="num">Severity</th><th>Response</th></tr></thead>
+      <tbody>
+        <tr><td><b>Partner-led model unproven.</b> The entire thesis assumes service companies will resell monitoring inside their contracts. If they will not, growth reverts to direct sales and the truck-roll ceiling returns.</td><td class="num"><span class="chip c-bad">High</span></td><td>The first partner deployment tests exactly this, in month one, at low cost. If attach rates disappoint, we learn it before the raise is spent.</td></tr>
+        <tr><td><b>No measured CAC or churn.</b> LTV:CAC of 4–12× is derived, not observed.</td><td class="num"><span class="chip c-bad">High</span></td><td>Both become measurable within 9 months. We would treat month-9 cohort data as the gate for any follow-on round.</td></tr>
+        <tr><td><b>Hardware margin compresses</b> or supply moves against us, since it is priced near cost.</td><td class="num"><span class="chip c-warn">Medium</span></td><td>Hardware is explicitly not a profit centre; it can move to partner-procured with no change to the recurring lines.</td></tr>
+        <tr><td><b>Badger integrates faster than expected</b>, closing the displacement window.</td><td class="num"><span class="chip c-warn">Medium</span></td><td>The window accelerates year one but is not the long-term thesis. Panel-builder channel economics hold regardless.</td></tr>
+        <tr><td><b>Municipal sales cycles</b> run long and unpredictably.</td><td class="num"><span class="chip c-good">Low</span></td><td>Contract operators and private sites first; towns later, using bid language written to specify condition-based monitoring.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- ───────────────────────────── -->
+<section>
+  <div class="head">
+    <h2>The ask</h2>
+  </div>
+  <div class="kpis">
+    <div class="kpi" style="border-color:var(--accent)"><div class="kpi__l">Investment</div><div class="kpi__v">$1.05M</div><div class="kpi__s">equity · funds 24 months</div></div>
+    <div class="kpi"><div class="kpi__l">Deepest trough</div><div class="kpi__v">$819K</div><div class="kpi__s">month 18 — the figure that sizes it</div></div>
+    <div class="kpi"><div class="kpi__l">Month-24 ARR</div><div class="kpi__v">$328K</div><div class="kpi__s">8 partners · 600 sites</div></div>
+    <div class="kpi" style="border-color:var(--accent)"><div class="kpi__l">Forecast return</div><div class="kpi__v">3.6–5.7×</div><div class="kpi__s">by year 5 · 29–41% IRR</div></div>
+    <div class="kpi"><div class="kpi__l">Cash-flow positive</div><div class="kpi__v">Yr 4</div><div class="kpi__s">+$1.24M cumulative by year 5</div></div>
+  </div>
+
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <h3>How the figure was sized</h3>
+    <p>
+      Cash is modelled monthly and the investment sized against the <b>deepest trough — $819K in
+      month 18</b> — plus a buffer. Costs land from month one while recurring revenue compounds
+      late; an annual average would hide the point at which the company actually runs out of money. </p>
+    <p>
+      <b>Why $1.05M funds $1.13M of cost.</b> Operating cost over 24 months is $1.13M; revenue
+      earned in those months contributes <b>$259K of gross profit</b>. Capital is needed only for
+      the gap, and only down to its deepest point — covered here with roughly 28% headroom. </p>
+    <p>
+      The team is <b>two senior roles</b> — platform and engineering — rising to nine by year five. Development is AI-assisted and partners perform installation, so headcount tracks partner
+      count rather than site count. Staffing an installation team would rebuild the constraint this
+      model exists to remove. </p>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Use of funds</th><th class="num">24-mo cost</th><th>What it buys</th></tr></thead>
+      <tbody>
+        <tr><td><b>Team</b> — two senior roles, fully loaded</td><td class="num">$870K</td><td>Platform and engineering. Costed at <b>market compensation including employer taxes, benefits, and retirement</b> — a loading of roughly 21% over base, and the line most often under-provisioned in a lean plan</td></tr>
+        <tr><td><b>Compliance &amp; security</b></td><td class="num">$66K</td><td>SOC 2 Type 1 (m9), third-party penetration test (m11), SOC 2 Type 2 (m21). Required to sell to utilities, not optional overhead</td></tr>
+        <tr><td><b>Cloud &amp; AI</b></td><td class="num">$58K</td><td>Azure across three environments, scaling with sites; AI development tooling — the reason two people can carry this scope</td></tr>
+        <tr><td><b>Outsourced specialist work</b></td><td class="num">$36K</td><td>Panel safety listing, edge-agent work, penetration-test remediation — the work AI assistance cannot do</td></tr>
+        <tr><td><b>Insurance, legal, tooling, travel</b></td><td class="num">$102K</td><td>E&amp;O and cyber liability (a contract prerequisite for utility work), partner and reseller agreements, partner recruitment travel</td></tr>
+        <tr><td><b>Hardware working capital</b></td><td class="num">float</td><td>Kits are purchased before partners pay. Self-correcting on ~75-day terms, but the raise must carry the float</td></tr>
+        <tr><td>Total operating cost, 24 months</td><td class="num">$1.13M</td><td>—</td></tr>
+        <tr><td>Less gross profit earned in the same period</td><td class="num">($259K)</td><td>Revenue funds part of the build; only the gap needs capital</td></tr>
+        <tr class="strong"><td>Capital required at the deepest point</td><td class="num">$819K</td><td>Month 18. The investment of <b>$1.05M</b> carries this with ~28% headroom</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Cash flow</th><th class="num">Yr 1</th><th class="num">Yr 2</th><th class="num">Yr 3</th><th class="num">Yr 4</th><th class="num">Yr 5</th></tr></thead>
+      <tbody>
+        <tr><td>Gross profit</td><td class="num">$94K</td><td class="num">$337K</td><td class="num">$945K</td><td class="num">$1.98M</td><td class="num">$3.78M</td></tr>
+        <tr><td>Operating cost</td><td class="num">$513K</td><td class="num">$531K</td><td class="num">$1.02M</td><td class="num">$1.54M</td><td class="num">$2.30M</td></tr>
+        <tr class="strong"><td>Free cash flow</td><td class="num">($419K)</td><td class="num">($195K)</td><td class="num">($76K)</td><td class="num">$442K</td><td class="num">$1.49M</td></tr>
+        <tr><td>Cumulative</td><td class="num">($419K)</td><td class="num">($614K)</td><td class="num">($690K)</td><td class="num">($248K)</td><td class="num">$1.24M</td></tr>
+      </tbody>
+      <caption>
+        Headcount rises with partner count, not site count — 2 people through year 2, 9 by year 5. Partners install; we do not. The deepest cumulative position is $690K in year 3, inside the
+        capital raised. </caption>
+    </table>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Forecast return on $1.05M</th><th class="num">Proceeds</th><th class="num">Multiple</th><th class="num">IRR</th></tr></thead>
+      <tbody>
+        <tr><td>Exit at year 5 — ARR $3.75M</td><td class="num">$3.76M – $5.96M</td><td class="num">3.6× – 5.7×</td><td class="num">29% – 41%</td></tr>
+        <tr><td>Exit at year 10 — ARR $11.8M</td><td class="num">$11.3M – $17.7M</td><td class="num">10.8× – 16.9×</td><td class="num">27% – 33%</td></tr>
+      </tbody>
+      <caption>
+        Assumes 25% equity, no dilution from later rounds, and a blend of ARR and revenue multiples
+        in line with recent transactions in the category. Returns move with the ownership
+        negotiated and with retention at the time of sale. </caption>
+    </table>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Milestone</th><th>By</th><th>Why it is the right gate</th></tr></thead>
+      <tbody>
+        <tr><td>Production environment live; first partner fleet monitored</td><td>Month 3</td><td>Converts the platform from built to operating</td></tr>
+        <tr><td>150 sites; three documented prevented failures</td><td>Month 9</td><td>First real CAC and churn data; the evidence a second partner needs</td></tr>
+        <tr><td>Three partners beyond the affiliate; one OEM letter of intent</td><td>Month 15</td><td>Proves the channel works with parties who are not related to us</td></tr>
+        <tr><td>600 sites; $305K ARR; 8 partners</td><td>Month 24</td><td>Series A metrics, or default-alive on gross profit</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Scenario</th><th class="num">Raise</th><th>Trade-off</th></tr></thead>
+      <tbody>
+        <tr><td><b>Lean</b> — reduced compensation through year one, stepping up in year two</td><td class="num">$900K</td><td>Lowest dilution, but two senior operators carry below-market pay through the hardest year of the plan</td></tr>
+        <tr class="strong"><td><b>Recommended</b> — market compensation from month one</td><td class="num">$1.05M</td><td>Removes the compensation question from a two-person company where losing either person ends the plan</td></tr>
+        <tr><td><b>Buffered</b> — market compensation plus a six-month ramp slip</td><td class="num">$1.15M</td><td>Absorbs the most likely failure mode: partner signing takes longer than modelled</td></tr>
+      </tbody>
+      <caption>Every scenario reaches the same month-24 position: 8 partners, 600 sites, $305K ARR, monthly net positive.</caption>
+    </table>
+  </div>
+
+  <div class="tw">
+    <table>
+      <thead><tr><th>Exit</th><th class="num">ARR</th><th class="num">Revenue</th><th class="num">On ARR</th><th class="num">On revenue</th><th class="num">Enterprise value</th></tr></thead>
+      <tbody>
+        <tr><td><b>Year 5</b><br><span style="color:var(--ink-3)">sub-scale, growing fast</span></td><td class="num">$3.75M</td><td class="num">$10.06M</td><td class="num">4–6×</td><td class="num">1.5–2.5×</td><td class="num"><b>$15–24M</b></td></tr>
+        <tr><td><b>Year 10</b><br><span style="color:var(--ink-3)">proven retention, cleaner mix</span></td><td class="num">$11.82M</td><td class="num">$15.78M</td><td class="num">5–8×</td><td class="num">2–3×</td><td class="num"><b>$45–71M</b></td></tr>
+      </tbody>
+      <caption>
+        Valued on both lenses because a hybrid hardware-and-software business is argued both ways;
+        the figure shown is the blend. Multiples follow the metrics at the time of sale. </caption>
+    </table>
+  </div>
+
+  <div class="card" style="border-left:3px solid var(--accent)">
+    <h3>Why a strategic buyer pays it</h3>
+    <p>
+      This category is actively consolidating and the comparables are recent and public: SmartCover
+      acquired DataFlow Systems (2023); Badger Meter acquired SmartCover for <b>$185M</b> (2025). Xylem and Veralto are acquiring in adjacent water-infrastructure software. </p>
+    <p>
+      What those buyers are acquiring is <b>distribution into the long tail</b> — the hundreds of
+      thousands of small sites their enterprise products cannot economically reach. A platform
+      arriving with a signed contractor channel, several thousand monitored sites and a direct
+      reference book is that distribution, already assembled. It is materially harder to build
+      than to buy, which is what supports the upper half of the ranges above. </p>
+  </div>
+</section>
+
+<p class="foot">
+  Financial figures are a model built from partner counts, site counts and published pricing —
+  not a forecast, and not audited. No customer revenue has been earned to date. Market sizing is
+  directional. Prepared for discussion under confidentiality.
+</p>
+
+</div>

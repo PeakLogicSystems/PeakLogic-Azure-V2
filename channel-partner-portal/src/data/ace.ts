@@ -3,12 +3,16 @@ import type { Partner } from './types';
 // Ace Septic & Waste — wastewater / septic / grease service provider. Services
 // municipal and commercial treatment facilities and lift stations. Navy +
 // service-orange, an industrial-service palette.
+// Branding is configured by a PeakLogic administrator in Control Center
+// (Channel Partners → the partner's record) and mirrored here. Control Center
+// wins if the two ever disagree.
 export const ACE: Partner = {
   id: 'ace',
   name: 'Ace Septic & Waste',
   logoText: 'ACE',
   lowercaseLogo: false,
-  primaryColor: '#12455F',
+  primaryColor: '#6D28D9',
+  headerColor: '#3B1A7A', // Control Center → Branding → Header colour
   secondaryColor: '#EA7317',
   vertical: 'wastewater',
   terms: {

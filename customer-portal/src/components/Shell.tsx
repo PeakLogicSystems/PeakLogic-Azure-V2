@@ -2,6 +2,9 @@ import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Bell, FileText, LayoutDashboard, LogOut, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useAuth } from '@/AuthContext';
+import { useBrandTab } from '@/useBrandTab';
+import { useBrandOverride } from '@/brandOverride';
+import { derivedHeader, inkOn } from '@/brandColor';
 import { CUSTOMER } from '@/data';
 import { useSettings } from '@/settings';
 
@@ -14,25 +17,47 @@ const NAV = [
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
+  // Branding an administrator set in Control Center wins over the bundled
+  // default, and drives the tab. Same rule as the partner portal.
+  const override = useBrandOverride('bayfront');
+  const branded = override
+    ? {
+        ...CUSTOMER,
+        brand: override.brand || CUSTOMER.brand,
+        headerColor: override.header || CUSTOMER.headerColor || derivedHeader(override.brand || CUSTOMER.brand),
+        bannerTitle: override.bannerTitle || CUSTOMER.bannerTitle,
+        bannerSub: override.bannerSub || CUSTOMER.bannerSub,
+        logoText: override.logo || CUSTOMER.logoText,
+        logoImg: override.logoImg || CUSTOMER.logoImg,
+      }
+    : CUSTOMER;
+  useBrandTab(branded);
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-50 text-slate-900 dark:bg-slate-950 dark:text-slate-100">
-      <header className="bg-brand-black text-white">
+      {/* The customer's own banner — colour, mark and copy all configured in
+          Control Center. This was PeakLogic's chrome with the customer's name
+          appended; it is now theirs, with PeakLogic credited in the footer. */}
+      <header className="text-white" style={{ backgroundColor: branded.headerColor }}>
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3">
           <div className="flex items-center gap-3">
-            {/* PeakLogic brand (the customer is a PeakLogic tenant). */}
-            <div className="flex items-baseline gap-2">
-              <svg width="18" height="14" viewBox="4 10 24 18" fill="none" aria-hidden="true">
-                <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#7C3AED" />
-                <path d="M18 20 L23 12 L28 28 Z" fill="#22C55E" opacity="0.85" />
-              </svg>
-              <span className="text-[15px] font-extrabold leading-none tracking-tight">
-                <span className="text-white">Peak</span><span className="text-brand-purple-mid">Logic</span>
+            {branded.logoImg ? (
+              <span
+                className="grid h-9 min-w-9 place-items-center overflow-hidden rounded-lg bg-white"
+                style={{ backgroundImage: `url(${branded.logoImg})`, backgroundSize: 'cover', backgroundPosition: 'center' }}
+                aria-label={`${branded.name} logo`}
+              />
+            ) : (
+              <span
+                className="grid h-9 min-w-9 place-items-center rounded-lg px-2 text-sm font-black tracking-tight ring-1 ring-white/25"
+                style={{ backgroundColor: branded.brand, color: inkOn(branded.brand) }}
+              >
+                {branded.logoText}
               </span>
-            </div>
-            <span className="hidden h-5 w-px bg-white/15 sm:block" />
-            <div className="hidden leading-tight sm:block">
-              <p className="text-sm font-bold">{CUSTOMER.name}</p>
-              <p className="text-[11px] text-white/60">{CUSTOMER.kind}</p>
+            )}
+            <div className="leading-tight">
+              <p className="text-base font-bold">{branded.bannerTitle || branded.name}</p>
+              <p className="text-[11px] text-white/70">{branded.bannerSub || branded.kind}</p>
             </div>
           </div>
 
