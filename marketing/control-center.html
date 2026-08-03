@@ -1952,6 +1952,7 @@
         queue: AGENT_QUEUE,
         killswitch: AGENT_KILLSWITCH,
         report: AGENT_REPORT,
+        hubs: HUB_REGISTRY,
       }));
     } catch (e) { /* storage full or blocked — the console still works, it just won't survive a reload */ }
   }
@@ -1970,6 +1971,9 @@
     if (Array.isArray(d.queue)) AGENT_QUEUE = d.queue;
     if (d.killswitch && typeof d.killswitch.thresholdUsd === "number") Object.assign(AGENT_KILLSWITCH, d.killswitch);
     if (d.report && REPORT_CADENCES[d.report.cadence]) Object.assign(AGENT_REPORT, d.report);
+    // The Hub registry has to survive a reload, or a provisioned ID would be
+    // handed out a second time — the one thing this scheme must never do.
+    if (Array.isArray(d.hubs) && d.hubs.length) HUB_REGISTRY = d.hubs;
   }
 
   function resetDemo() {
@@ -3625,43 +3629,123 @@
   }
 
   // ---------- PeakLogic Hubs (on-prem edge fleet) ----------
-  // Derived from the REAL estate: one Hub per physically-located site. Status is
-  // derived from the site's device states (a silent device -> the Hub can't reach
-  // it -> offline; a provisioning device -> the Hub is still being set up), so the
-  // edge fleet can never disagree with the devices it acquires.
+  //
+  // HUB IDENTITY IS PLATFORM-WIDE AND SEQUENTIAL: PLH-00042, allocated from one
+  // counter, never reissued — not on transfer between customers, and not after
+  // a decommission.
+  //
+  // This replaced two earlier schemes that were both wrong in the same way.
+  // First `hub-bayfront-2`, then `<customer prefix>-H<nn>` numbered per site,
+  // which the partner portal matched. Both encoded the CURRENT OWNER into the
+  // identifier — so the identifier had to change when the unit moved, and an
+  // identifier that changes is not an identifier. Per-site numbering was worse
+  // still: BMD-H01 and SUN-H01 are two different physical objects wearing what
+  // reads as the same name.
+  //
+  // A Hub is PeakLogic's own hardware passing through a customer site. It ships
+  // from our stock, sits somewhere for a few years, comes back on an RMA, gets
+  // refurbished and goes out again. The number is its name in OUR asset
+  // register; where it currently lives is a property of the record. Sensors
+  // keep the customer-scoped series, because a sensor is bolted to that
+  // customer's equipment and stays with it.
+  //
+  // Two provisioning routes draw on the same counter — staff here, installers
+  // in the field (channel-partner-portal DeviceOnboard) — which is what stops
+  // two routes issuing the same number. A field claim of a serial already in
+  // stock ADOPTS that record rather than minting a second one.
+  const HUB_RETENTION = {
+    d30: { label: "30 days", days: 30, sub: "Warranty swap with no compliance history behind it." },
+    d60: { label: "60 days", days: 60, sub: "Covers a billing dispute or a returned-goods cycle." },
+    d90: { label: "90 days", days: 90, sub: "Default. Outlasts a quarterly compliance review." },
+    y1: { label: "1 year", days: 365, sub: "Sites under a discharge permit — survives an annual audit." },
+    manual: { label: "Manual deletion only", days: null, sub: "Never purged on a timer. Someone deletes it deliberately." },
+  };
+  const HUB_RETENTION_DEFAULT = "d90";
+  const HUB_MODELS_CC = {
+    "hub-200": { name: "PeakLogic Hub 200", protocols: "Modbus TCP" },
+    "hub-400": { name: "PeakLogic Hub 400", protocols: "Modbus TCP · OPC-UA · EtherNet/IP" },
+    "hub-400x": { name: "PeakLogic Hub 400X", protocols: "Modbus TCP · OPC-UA · cellular" },
+  };
+  const hubIdFor = (n) => "PLH-" + String(n).padStart(5, "0");
+  /** The next number in the platform sequence — retired units included, so it never wraps back. */
+  function nextHubSeq() {
+    return HUB_REGISTRY.reduce((m, h) => {
+      const x = /^PLH-(\d+)$/.exec(h.id);
+      return x ? Math.max(m, parseInt(x[1], 10)) : m;
+    }, 0) + 1;
+  }
+  function seededSerial(seed) {
+    let h = 0; for (let i = 0; i < seed.length; i++) h = (h * 33 + seed.charCodeAt(i)) >>> 0;
+    return "4K8M" + String(20000000 + (h % 1900000));
+  }
+  // Built once from the real estate: one Hub per physically-located site, plus
+  // a unit in stock and a retired unit, so both lifecycle ends are visible
+  // without waiting for someone to exercise them.
+  function buildHubRegistry() {
+    const reg = [];
+    let seq = 0;
+    TENANTS.forEach(t => t.sites.forEach(s => {
+      if (s.lat == null) return;
+      const id = hubIdFor(++seq);
+      let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
+      reg.push({
+        id, serial: seededSerial(id + s.name), model: h % 3 === 0 ? "hub-400" : h % 5 === 0 ? "hub-400x" : "hub-200",
+        orgId: t.id, site: s.name, label: null, state: "assigned",
+        channelKey: h % 9 === 0 ? "preview" : h % 6 === 0 ? "beta" : "stable",
+        provisionedBy: h % 4 === 0 ? "field" : "control-center",
+        provisionedAt: new Date(Date.now() - (120 + (h % 500)) * 86400000).toISOString(),
+      });
+    }));
+    const stockId = hubIdFor(++seq);
+    reg.push({
+      id: stockId, serial: seededSerial(stockId), model: "hub-400x", orgId: null, site: null, label: null,
+      state: "available", channelKey: "stable", provisionedBy: "control-center",
+      provisionedAt: new Date(Date.now() - 9 * 86400000).toISOString(),
+    });
+    const first = reg[0];
+    if (first) {
+      const retiredId = hubIdFor(++seq);
+      reg.push({
+        id: retiredId, serial: seededSerial(retiredId), model: "hub-200", orgId: first.orgId, site: first.site,
+        label: "Original unit", state: "decommissioned", channelKey: "stable", provisionedBy: "control-center",
+        provisionedAt: new Date(Date.now() - 700 * 86400000).toISOString(),
+        decommission: {
+          at: new Date(Date.now() - 291 * 86400000).toISOString(), by: "M. Alvarez",
+          reason: "Damaged — water ingress", retention: "y1",
+          purgeAt: new Date(Date.now() + 74 * 86400000).toISOString(),
+        },
+      });
+    }
+    return reg;
+  }
+  let HUB_REGISTRY = buildHubRegistry();
+  const hubById = (id) => HUB_REGISTRY.find(h => h.id === id);
+  function hubDaysLeft(h) {
+    if (!h.decommission || !h.decommission.purgeAt) return null;
+    return Math.ceil((new Date(h.decommission.purgeAt).getTime() - Date.now()) / 86400000);
+  }
+
+  // Status stays DERIVED from the site's own device states (a silent device ->
+  // the Hub can't reach it -> offline), so the edge fleet can never disagree
+  // with the devices it acquires. Identity comes from the registry above.
   function fleetHubs() {
     const hubs = [];
-    TENANTS.forEach(t => t.sites.forEach((s, si) => {
-      if (s.lat == null) return;
+    HUB_REGISTRY.filter(r => r.state === "assigned").forEach(r => {
+      const t = tenantById(r.orgId);
+      const s = t && t.sites.find(x => x.name === r.site);
+      if (!t || !s) return;
       const states = s.assets.flatMap(a => a.devices.map(d => d.state));
       const status = states.includes("provisioning") ? "provisioning" : states.includes("silent") ? "offline" : "online";
-      const cats = [...new Set(s.assets.map(a => a.cat))];
-      const protocols = status === "provisioning" ? "— (setup)"
-        : (cats.includes("wastewater") || cats.includes("energy_meter")) ? "Modbus TCP · OPC-UA"
-        : cats.includes("refrigeration") ? "OPC-UA · EtherNet/IP" : "Modbus TCP";
-      let h = 0; for (let i = 0; i < s.name.length; i++) h = (h * 31 + s.name.charCodeAt(i)) >>> 0;
-      // ONE Hub identifier convention across the whole platform.
-      //
-      // This console used to mint `hub-bayfront-2` while the partner portal
-      // issued `BMD-H01` for the same class of hardware — two schemes for one
-      // physical thing, which makes an ID useless for talking to anybody.
-      //
-      // The convention, matching nextHubId() in the partner portal:
-      //   <customer prefix>-H<nn>   e.g. BMD-H01
-      // Prefix is the configured logo mark, falling back to the first three
-      // letters of the name. Hubs are numbered PER SITE, because a site is what
-      // a Hub belongs to; sensors carry their own separate series.
-      const hubPrefix = (t.logo || t.name.replace(/[^A-Za-z]/g, "").slice(0, 3)).toUpperCase();
-      const id = `${hubPrefix}-H${String(si + 1).padStart(2, "0")}`;
-      const channelKey = h % 9 === 0 ? "preview" : h % 6 === 0 ? "beta" : "stable";
-      const bundle = hubBundleFor(id, channelKey);
+      const protocols = status === "provisioning" ? "— (setup)" : HUB_MODELS_CC[r.model].protocols;
+      const bundle = hubBundleFor(r.id, r.channelKey);
       const compliance = hubCompliance(bundle);
       const tags = status === "provisioning" ? 0 : s.assets.reduce((a, x) => a + x.devices.length, 0) * 6 + 6;
-      hubs.push({ id, orgId: t.id, org: t.name, site: s.name, status, protocols, tags,
-        channelKey, channel: HUB_RELEASE_CHANNELS[channelKey].label, bundle, compliance,
+      hubs.push({ id: r.id, serial: r.serial, model: r.model, label: r.label,
+        provisionedBy: r.provisionedBy, orgId: t.id, org: t.name, site: s.name, status, protocols, tags,
+        channelKey: r.channelKey, channel: HUB_RELEASE_CHANNELS[r.channelKey].label, bundle, compliance,
         agent: bundle.reported.software, content: bundle.reported.peakassist,
         seen: status === "online" ? "just now" : status === "offline" ? "17 min ago" : "—" });
-    }));
+    });
     return hubs;
   }
   function viewHubs() {
@@ -3669,9 +3753,11 @@
     const online = hubs.filter(h => h.status === "online").length;
     const stale = hubs.filter(h => h.content !== "2026.07.1").length;
     const fullyCompliant = hubs.filter(h => h.compliance.compliant).length;
+    const stock = HUB_REGISTRY.filter(h => h.state === "available");
+    const retired = HUB_REGISTRY.filter(h => h.state === "decommissioned");
     const stats = [
       { label: "Hubs online", value: `${online} / ${hubs.length}`, sub: `${hubs.length - online} offline or provisioning`, accent: online === hubs.length ? "var(--good)" : "var(--warn)" },
-      { label: "Tags acquired", value: hubs.reduce((a, h) => a + h.tags, 0), sub: "PLC/RTU points across the fleet", accent: "var(--accent)" },
+      { label: "In stock", value: stock.length, sub: "provisioned, awaiting field registration", accent: stock.length ? "var(--accent)" : "var(--muted)" },
       { label: "PeakAssist content", value: `${hubs.length - stale} current`, sub: `${stale} Hub(s) behind v2026.07.1`, accent: stale ? "var(--warn)" : "var(--good)" },
       { label: "Desired-state compliance", value: `${fullyCompliant} / ${hubs.length}`, sub: `${hubs.length - fullyCompliant} Hub(s) with component drift`,
         accent: fullyCompliant === hubs.length ? "var(--good)" : "var(--warn)" },
@@ -3681,19 +3767,52 @@
       <td><div class="row-main"><span class="strong">${esc(h.site)}</span><span class="row-sub">${esc(h.org)}</span></div></td>
       <td>${pvPill(h.status)}</td>
       <td>${channelPill(h.channelKey, h.channel)}</td>
-      <td class="mono muted">${esc(h.protocols)}</td>
+      <td class="mono muted">${esc(h.serial)}</td>
       <td class="mono muted">v${h.agent}</td>
       <td>${h.content === "2026.07.1" ? `<span class="pill pill--good"><span class="dot"></span>v${h.content}</span>` : `<span class="pill pill--warn"><span class="dot"></span>v${h.content}</span>`}</td>
       <td>${h.compliance.compliant ? `<span class="pill pill--good"><span class="dot"></span>${h.compliance.total}/${h.compliance.total} in sync</span>` : `<span class="pill pill--warn"><span class="dot"></span>${h.compliance.driftCount} drifted</span>`}</td>
       <td class="mono muted">${h.seen}</td></tr>`).join("");
+    const stockPanel = stock.length ? `
+      <div class="panel" style="margin-top:22px">
+        <div class="panel__head"><span class="panel__title">In stock</span><span class="panel__note">provisioned here, not yet installed</span></div>
+        <table class="tbl"><thead><tr><th>Hub ID</th><th>Model</th><th>Serial</th><th>Channel</th><th>Provisioned</th></tr></thead><tbody>${
+          stock.map(h => `<tr><td class="mono strong">${esc(h.id)}</td><td>${esc(HUB_MODELS_CC[h.model].name)}<div class="row-sub muted">${esc(HUB_MODELS_CC[h.model].protocols)}</div></td>
+            <td class="mono muted">${esc(h.serial)}</td><td>${channelPill(h.channelKey, HUB_RELEASE_CHANNELS[h.channelKey].label)}</td>
+            <td class="muted">${new Date(h.provisionedAt).toLocaleDateString()}</td></tr>`).join("")
+        }</tbody></table>
+        <p class="hint" style="padding:0 16px 14px">An installer entering one of these serials in the field <b>adopts</b> the record — the unit keeps the ID it was issued here, rather than being counted a second time.</p></div>` : "";
+
+    const retiredPanel = `
+      <div class="panel" style="margin-top:22px">
+        <div class="panel__head"><span class="panel__title">Decommissioned Hardware</span><span class="panel__note">${retired.length} retired · records held in the customer tenant</span></div>
+        ${retired.length ? `<table class="tbl"><thead><tr><th>Hub ID</th><th>Was installed at</th><th>Retired</th><th>Reason</th><th>Retention hold</th></tr></thead><tbody>${
+          retired.map(h => {
+            const left = hubDaysLeft(h);
+            const hold = h.decommission ? HUB_RETENTION[h.decommission.retention] : null;
+            const pill = !hold ? "" : hold.days === null
+              ? `<span class="pill pill--muted"><span class="dot"></span>Manual deletion only</span>`
+              : left <= 0 ? `<span class="pill pill--warn"><span class="dot"></span>Eligible for purge</span>`
+              : `<span class="pill pill--muted"><span class="dot"></span>${left} day${left === 1 ? "" : "s"} of ${hold.label} left</span>`;
+            const t = tenantById(h.orgId);
+            return `<tr><td class="mono strong">${esc(h.id)}<div class="row-sub muted">${esc(h.serial)}</div></td>
+              <td><div class="row-main"><span class="strong">${esc(h.site || "—")}</span><span class="row-sub">${esc(t ? t.name : "—")}</span></div></td>
+              <td class="muted">${h.decommission ? new Date(h.decommission.at).toLocaleDateString() : "—"}<div class="row-sub muted">by ${esc(h.decommission ? h.decommission.by : "—")}</div></td>
+              <td class="muted">${esc(h.decommission ? h.decommission.reason : "—")}</td><td>${pill}</td></tr>`;
+          }).join("")
+        }</tbody></table>` : `<p class="hint" style="padding:14px 16px">Nothing retired yet.</p>`}
+        <p class="hint" style="padding:0 16px 14px">A retired record keeps its serial, its site, its service history and the readings it produced — deleting it with the hardware would leave that history attributed to a device the platform no longer knows about. The <b>Hub ID is retired with it and never reissued</b>, so an old reading always resolves to the unit that actually took it. The hold is chosen per unit at decommission, because a warranty swap on a pool pad and a failed Hub at a permitted discharge site have different evidentiary lives.</p></div>`;
+
     return `
       <div class="page-head"><h1>PeakLogic Hubs</h1>
+        <button class="btn btn--primary" style="float:right" data-action="hub-provision">Provision Hub</button>
         <p>The on-prem edge fleet — each Hub acquires from PLCs/RTUs, evaluates alarms locally, serves PeakView360 and PeakAssist on the LAN (offline-capable), and store-and-forwards to the cloud over an outbound-only connection. Each Hub is assigned a <b>Release Channel</b> — a named bundle of firmware, drivers, the agent, config, security, and PeakAssist content — the same desired-state model the on-device reconciler enforces. Click a Hub for its full component breakdown.</p></div>
       <div class="stats">${stats}</div>
       <div class="panel" style="margin-top:22px">
-        <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${hubs.length} Hubs · one per located site · fan-out per org</span></div>
-        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Channel</th><th>Protocols</th><th>Agent</th><th>PeakAssist content ${explainCol("The offline help-content bundle version synced to this Hub — not the interactive assistant itself. See the Help (PeakAssist) button, top right, for that.")}</th><th>Compliance</th><th>Last seen</th></tr></thead>
+        <div class="panel__head"><span class="panel__title">Edge units</span><span class="panel__note">${hubs.length} deployed · ${stock.length} in stock · IDs from one platform sequence</span></div>
+        <table class="tbl"><thead><tr><th>Hub ID</th><th>Site</th><th>Status</th><th>Channel</th><th>Serial</th><th>Agent</th><th>PeakAssist content ${explainCol("The offline help-content bundle version synced to this Hub — not the interactive assistant itself. See the Help (PeakAssist) button, top right, for that.")}</th><th>Compliance</th><th>Last seen</th></tr></thead>
           <tbody>${rows}</tbody></table></div>
+      ${stockPanel}
+      ${retiredPanel}
       <div class="callout" style="margin-top:20px">${INFO_ICON}
         <div>A Hub reports online/offline the same way a device does, so <b>silence detection generalizes to the edge fleet</b>. An offline Hub's site keeps operating on Hub-local PeakView360 while cloud sync pauses; a Hub a content version behind pulls the newer PeakAssist bundle on its next sync. Component drift shown here is exactly what the on-device <b>desired-state reconciler</b> computes — expected drift (an active override) vs unexpected drift, never a plain mismatch.</div></div>`;
   }
@@ -4026,6 +4145,128 @@
   // the "correctly represented software/driver/firmware" view the per-leaf-
   // device Firmware Catalog can't provide on its own — a Hub is a small
   // computer running a stack, not a single-firmware sensor.
+  // ---------- Hub provisioning & decommissioning (staff route) ----------
+  //
+  // Provisioning here is the OTHER half of the two-route model: staff issue an
+  // ID against a serial before the unit ships, and the installer's field
+  // registration adopts that record instead of minting a second one. Both
+  // routes take the next number from the same platform sequence, which is what
+  // stops two routes from ever issuing the same number.
+  function openProvisionHub() {
+    const opts = Object.keys(HUB_MODELS_CC)
+      .map((k, i) => `<option value="${k}"${i === 0 ? " selected" : ""}>${HUB_MODELS_CC[k].name} — ${HUB_MODELS_CC[k].protocols}</option>`).join("");
+    const nextId = hubIdFor(nextHubSeq());
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Provision Hub">
+        <div class="modal__head">
+          <h2>Provision Hub</h2>
+          <p>Issue a Hub ID against a serial before the unit ships. It enters stock unassigned; an installer registering that serial in the field adopts this record rather than creating a second one for the same box.</p>
+        </div>
+        <div class="modal__body">
+          <div class="field--row">
+            <div class="field"><label for="ph-serial">Serial number (S/N)</label><input id="ph-serial" type="text" placeholder="4K8M20719334" autocomplete="off" spellcheck="false"></div>
+            <div class="field"><label for="ph-qty">Quantity</label><input id="ph-qty" type="number" min="1" max="25" value="1"></div>
+          </div>
+          <div class="field"><label for="ph-model">Model</label><select id="ph-model">${opts}</select></div>
+          <p class="hint">Next in the sequence: <b class="mono">${nextId}</b>. Hub IDs are allocated in order across the whole platform — every customer, every partner, one counter — and are never reissued, including after a decommission. Each unit subscribes to the <b>Stable</b> channel for its own model on registration; Beta and Preview are deliberate per-unit decisions made afterwards, never a default a field installer can trip into.</p>
+          <p class="hint">A quantity above one allocates consecutive IDs and generates placeholder serials, for a batch being labelled at the bench. Correct them before the units ship — the serial is the only value that ties a record to a physical object a technician can hold.</p>
+        </div>
+        <div class="modal__foot">
+          <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="hub-provision-submit">Provision</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
+  function submitProvisionHub() {
+    const serial = ($("#ph-serial").value || "").trim().toUpperCase();
+    const model = $("#ph-model").value;
+    const qty = Math.max(1, Math.min(25, parseInt($("#ph-qty").value, 10) || 1));
+    if (qty === 1 && !/^[A-Z0-9][A-Z0-9-]{4,22}[A-Z0-9]$/.test(serial)) {
+      toast("Enter the serial exactly as printed on the label");
+      return;
+    }
+    if (qty === 1 && HUB_REGISTRY.some(h => h.serial.toUpperCase() === serial)) {
+      toast(serial + " is already provisioned — check the label");
+      return;
+    }
+    const issued = [];
+    for (let i = 0; i < qty; i++) {
+      const id = hubIdFor(nextHubSeq());
+      HUB_REGISTRY.push({
+        id, serial: qty === 1 ? serial : seededSerial(id), model, orgId: null, site: null, label: null,
+        state: "available", channelKey: "stable", provisionedBy: "control-center",
+        provisionedAt: new Date().toISOString(),
+      });
+      issued.push(id);
+    }
+    saveDemo();
+    audit("hub.provision", issued.join(", "),
+      "Provisioned " + qty + " " + HUB_MODELS_CC[model].name + (qty > 1 ? "s" : "") + " into stock on the Stable channel. IDs allocated from the platform sequence.");
+    $("#overlay-root").innerHTML = "";
+    toast(issued.length + " Hub" + (issued.length > 1 ? "s" : "") + " provisioned — " + issued[0] + (issued.length > 1 ? " … " + issued[issued.length - 1] : ""));
+    render();
+  }
+
+  const HUB_DECOMMISSION_REASONS = ["Replaced under warranty", "End of life", "Site closed", "Upgraded to newer model",
+    "Damaged — water ingress", "Damaged — lightning / surge", "Returned to PeakLogic (RMA)", "Other"];
+
+  function openDecommissionHub(id) {
+    const r = hubById(id); if (!r) return;
+    const t = tenantById(r.orgId);
+    const siblings = HUB_REGISTRY.filter(h => h.state === "assigned" && h.orgId === r.orgId && h.site === r.site);
+    const reasons = HUB_DECOMMISSION_REASONS.map((x, i) => `<option value="${esc(x)}"${i === 0 ? " selected" : ""}>${esc(x)}</option>`).join("");
+    const holds = Object.keys(HUB_RETENTION).map(k =>
+      `<option value="${k}"${k === HUB_RETENTION_DEFAULT ? " selected" : ""}>${HUB_RETENTION[k].label} — ${esc(HUB_RETENTION[k].sub)}</option>`).join("");
+    const html = `
+      <div class="overlay" data-action="close-overlay"></div>
+      <div class="modal" role="dialog" aria-label="Decommission Hub">
+        <div class="modal__head">
+          <h2>Decommission ${esc(r.id)}</h2>
+          <p>${esc(HUB_MODELS_CC[r.model].name)} · S/N <b class="mono">${esc(r.serial)}</b> · ${esc(r.site || "—")}${t ? " · " + esc(t.name) : ""}</p>
+        </div>
+        <div class="modal__body">
+          ${siblings.length <= 1 ? `<div class="callout" style="margin-bottom:14px">${INFO_ICON}
+            <div>This is the last Hub at ${esc(r.site || "this site")}. Retiring it turns off the live Facility View there — for the partner and for the customer. Readings already collected are unaffected.</div></div>` : ""}
+          <div class="field"><label for="dh-reason">Reason</label><select id="dh-reason">${reasons}</select></div>
+          <div class="field"><label for="dh-other">If other, what happened to it?</label><input id="dh-other" type="text" placeholder="Optional unless Reason is Other"></div>
+          <div class="field"><label for="dh-hold">Retention hold</label><select id="dh-hold">${holds}</select></div>
+          <p class="hint">The record stays in <b>${esc(t ? t.name : "the customer")}</b>'s tenant under <b>Decommissioned Hardware</b>, with its serial, its site, its service history and the readings it produced. Removal from a site is a <b>state change, never a delete</b> — the record is the only remaining evidence that the device which produced that history existed at all.</p>
+          <p class="hint">The hold is chosen per unit rather than set once globally, because a warranty swap on a pool pad and a failed Hub at a permitted discharge site have genuinely different evidentiary lives. <b>${esc(r.id)}</b> is retired with the record and never reissued.</p>
+        </div>
+        <div class="modal__foot">
+          <button class="btn btn--ghost" data-action="close-overlay">Cancel</button>
+          <button class="btn btn--primary" data-action="hub-decommission-submit:${r.id}">Decommission ${esc(r.id)}</button>
+        </div>
+      </div>`;
+    $("#overlay-root").innerHTML = html;
+  }
+
+  function submitDecommissionHub(id) {
+    const r = hubById(id); if (!r) return;
+    const picked = $("#dh-reason").value;
+    const other = ($("#dh-other").value || "").trim();
+    const reason = picked === "Other" ? other : picked;
+    const hold = $("#dh-hold").value;
+    if (!reason) { toast("Say what happened to it"); return; }
+    const days = HUB_RETENTION[hold].days;
+    r.state = "decommissioned";
+    r.decommission = {
+      at: new Date().toISOString(), by: ME.name, reason: reason, retention: hold,
+      purgeAt: days === null ? null : new Date(Date.now() + days * 86400000).toISOString(),
+    };
+    const t = tenantById(r.orgId);
+    saveDemo();
+    audit("hub.decommission", r.id,
+      "Retired from " + (r.site || "—") + (t ? " (" + t.name + ")" : "") + " — " + reason +
+      ". Record held in the customer tenant, " + HUB_RETENTION[hold].label.toLowerCase() + ". ID retired permanently.");
+    $("#overlay-root").innerHTML = "";
+    toast(r.id + " decommissioned — record held " + HUB_RETENTION[hold].label.toLowerCase());
+    render();
+  }
+
   function openHubDrawer(id) {
     const hubs = fleetHubs();
     const h = hubs.find((x) => x.id === id); if (!h) return;
@@ -4068,6 +4309,17 @@
           </div>
 
           <div>
+            <div class="dsec__label">Identity <span class="arrow">platform sequence · never reissued</span></div>
+            <table class="twin"><tbody>
+              <tr><td>Hub ID</td><td class="mono strong">${esc(h.id)}</td></tr>
+              <tr><td>Serial (manufacturer)</td><td class="mono muted">${esc(h.serial || "—")}</td></tr>
+              <tr><td>Model</td><td class="muted">${esc(HUB_MODELS_CC[h.model] ? HUB_MODELS_CC[h.model].name : h.model)}</td></tr>
+              <tr><td>Provisioned by</td><td class="muted">${h.provisionedBy === "field" ? "Registered in the field" : "PeakLogic staff — Control Center"}</td></tr>
+            </tbody></table>
+            <p class="hint" style="margin:10px 0 0">The ID is PeakLogic's, not the customer's: this unit keeps <code>${esc(h.id)}</code> across every site it is ever installed at, and the number is never issued again once retired. The <b>serial</b> is the only value that ties this row to a physical object a technician can hold — an RMA or a warranty claim starts there.</p>
+          </div>
+
+          <div>
             <div class="dsec__label">Desired-state bundle <span class="arrow">Release Channel → Hub</span>
               <span class="sync sync--${h.compliance.compliant ? "good" : "warn"}" style="margin-left:auto;background:var(--${h.compliance.compliant ? "good-soft" : "warn-soft"});color:var(--${h.compliance.compliant ? "good-ink" : "warn-ink"})">
                 <span class="dot" style="background:var(--${h.compliance.compliant ? "good" : "warn"})"></span>${h.compliance.compliant ? "Compliant" : `${h.compliance.driftCount} component(s) drifted`}</span>
@@ -4082,6 +4334,7 @@
               ${h.compliance.compliant ? "" : `<button class="btn btn--primary" data-action="method:hub-resync:${h.id}">Push channel now</button>`}
               <button class="btn btn--ghost" data-action="method:hub-ping:${h.id}">Ping Hub</button>
               <button class="btn btn--ghost" data-action="manage-tenant:${h.orgId}">Enter as ${esc(h.org)}</button>
+              <button class="btn btn--ghost" data-action="hub-decommission:${h.id}">Decommission</button>
             </div>
           </div>
         </div>
@@ -4678,6 +4931,10 @@
     else if (action === "save-branding") saveBranding(arg, arg2);
     else if (action === "device") openDeviceDrawer(arg);
     else if (action === "hub") openHubDrawer(arg);
+    else if (action === "hub-provision") openProvisionHub();
+    else if (action === "hub-provision-submit") submitProvisionHub();
+    else if (action === "hub-decommission") openDecommissionHub(arg);
+    else if (action === "hub-decommission-submit") submitDecommissionHub(arg);
     else if (action === "agent") openAgentDrawer(arg);
     else if (action === "agent-state") setAgentState(arg, arg2);
     else if (action === "agent-approve") approveAgentAction(arg);

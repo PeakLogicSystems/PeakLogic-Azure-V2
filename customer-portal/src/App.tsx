@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/AuthContext';
 import { SettingsProvider } from '@/settings';
 import { Shell } from '@/components/Shell';
 import { Alerts } from '@/pages/Alerts';
+import { Hardware } from '@/pages/Hardware';
 import { Home } from '@/pages/Home';
 import { Login } from '@/pages/Login';
 import { Reports } from '@/pages/Reports';
@@ -24,6 +25,7 @@ export function App() {
                 <Route path="/" element={<Home />} />
                 <Route path="/sites/:siteId" element={<SiteDetail />} />
                   <Route path="/sites/:siteId/water-quality" element={<WaterQualityReport />} />
+                <Route path="/hardware" element={<Hardware />} />
                 <Route path="/alerts" element={<Alerts />} />
                 <Route path="/reports" element={<Reports />} />
                 <Route path="/settings" element={<Settings />} />

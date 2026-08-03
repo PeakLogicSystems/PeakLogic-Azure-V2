@@ -61,3 +61,20 @@ export const SITE_IN_SCOPE = REQUESTED_SITE_ID === null || REQUESTED_SITE_ID in 
 
 /** The site actually being rendered. Only meaningful when SITE_IN_SCOPE. */
 export const ACTIVE_SITE_ID = REQUESTED_SITE_ID ?? DEFAULT_SITE_ID;
+
+/**
+ * The Hub whose feed the host asked for, when a site has more than one.
+ *
+ * A treatment plant's headworks, aeration deck and chem building are separate
+ * acquisition points, each behind its own Hub, so the host names which one it
+ * wants rather than assuming a site has exactly one source.
+ *
+ * Deliberately NOT part of the scope guard. The guard's job is the tenant
+ * boundary, and that is decided entirely by `?site=` — a Hub id is a selection
+ * WITHIN a site the caller has already been cleared for, so an unknown one is a
+ * stale bookmark, not an attempt to reach another customer's data. Treating it
+ * as a scope failure would refuse a legitimate viewer over a naming change,
+ * while adding nothing: whatever it names, it cannot widen what `?site=`
+ * already allowed.
+ */
+export const REQUESTED_HUB_ID = param('hub');

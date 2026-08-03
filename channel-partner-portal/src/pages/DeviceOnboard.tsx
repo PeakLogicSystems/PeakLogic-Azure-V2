@@ -1,8 +1,16 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, AlertCircle, CheckCircle2, Cpu, Layers, Loader2, RotateCcw, Router } from 'lucide-react';
+import { ArrowLeft, AlertCircle, CheckCircle2, Cpu, Layers, Loader2, PackageCheck, RadioTower, RotateCcw, Router } from 'lucide-react';
 import { usePartner } from '@/PartnerContext';
 import { siteById } from '@/data/types';
+import {
+  HUB_MODELS,
+  REGISTRATION_CHANNEL,
+  SERIAL_SHAPE,
+  channelVersion,
+  nextHubId,
+  type HubModel,
+} from '@/data/hubs';
 
 // Onboarding wizard for BOTH kinds of hardware a partner installs.
 //
@@ -37,39 +45,35 @@ import { siteById } from '@/data/types';
 // label. Rejecting a valid serial costs a truck roll; accepting an odd-looking
 // one costs nothing, because the claim is verified server-side anyway.
 //
+// HUB IDs ARE NOT CUSTOMER-SCOPED. They come from one platform-wide sequence
+// (PLH-00042) that never reissues a number, including after a decommission —
+// the full reasoning is in data/hubs.ts, and it is the reason this screen no
+// longer derives an ID from the customer's name. Sensors keep the customer
+// series, because a sensor belongs to that customer's equipment and stays with
+// it; a Hub is PeakLogic's own hardware passing through.
+//
+// A serial already provisioned into stock by staff is ADOPTED here, keeping the
+// ID it was issued at provisioning. The alternative — minting a second ID for
+// hardware the platform already counted — would put the same physical box in
+// the asset register twice.
+//
 // PREVIEW MODE. No API client exists yet. The flow, validation and failure
 // states are real. When the backend is wired, the calls are:
 //
-//   Hub     POST /v1/hubs             { serial, siteId }
+//   Hub     POST /v1/hubs             { serial, model, siteId }
 //   Device  POST /v1/devices          { serial }          -> claims it
 //           PUT  /v1/devices/{id}     { siteId, assetId } -> assigns it
 
 type Kind = 'hub' | 'device';
 type Step = 'kind' | 'serial' | 'assign' | 'done';
 
-// What manufacturers actually print: a run of 6–24 letters and digits, with
-// dashes optional and meaningless. Deliberately loose — see the note above
-// about whose numbering this is. Rejecting a valid serial costs a truck roll.
-const SERIAL_SHAPE = /^[A-Z0-9][A-Z0-9-]{4,22}[A-Z0-9]$/i;
-
-// The next ID in this customer's series.
-//
-// HUBS AND SENSORS ARE NUMBERED SEPARATELY. A Hub serves a whole site; a sensor
-// serves one piece of equipment; and a site can carry several Hubs. Issuing both
-// from one counter made an ID meaningless — you could not tell what class of
-// hardware you were looking at. Hubs take an -H01 suffix per site, sensors take
-// the running numeric series for the customer.
-//
-// The customer prefix keeps everything at one account reading as one family. In
-// production these are issued server-side: a client cannot be trusted to
-// allocate a unique id, and two installers claiming at once would collide.
 function customerPrefix(source: string): string {
   return source.replace(/[^A-Za-z]/g, '').slice(0, 3).toUpperCase() || 'PLG';
 }
 
+/** The next ID in this CUSTOMER's sensor series — sensors only. */
 function nextSensorId(source: string, existing: string[]): string {
   const used = existing
-    .filter((id) => !/-H\d+$/i.test(id)) // Hub ids never advance the sensor series
     .map((id) => {
       const m = id.match(/(\d+)\s*$/);
       return m ? parseInt(m[1], 10) : 0;
@@ -79,22 +83,10 @@ function nextSensorId(source: string, existing: string[]): string {
   return `${customerPrefix(source)}-${next}`;
 }
 
-/** Hubs are numbered per SITE, because that is the thing a Hub belongs to. */
-function nextHubId(source: string, siteHubIds: string[]): string {
-  const used = siteHubIds
-    .map((id) => {
-      const m = id.match(/-H(\d+)$/i);
-      return m ? parseInt(m[1], 10) : 0;
-    })
-    .filter((n) => n > 0);
-  const next = (used.length ? Math.max(...used) : 0) + 1;
-  return `${customerPrefix(source)}-H${String(next).padStart(2, '0')}`;
-}
-
 const KIND_META: Record<Kind, { label: string; sub: string; icon: typeof Cpu; example: string; where: string }> = {
   hub: {
     label: 'PeakLogic Hub',
-    sub: 'The on-site gateway. One per site — it serves the live Facility View over the local network and forwards data to the cloud.',
+    sub: 'The on-site gateway. It serves the live Facility View over the local network and forwards data to the cloud. A site can carry several — one per acquisition point.',
     icon: Router,
     example: '4K8M20719334',
     where: 'Printed beneath the barcode on the label on the underside of the Hub.',
@@ -111,12 +103,14 @@ const KIND_META: Record<Kind, { label: string; sub: string; icon: typeof Cpu; ex
 export function DeviceOnboard() {
   const navigate = useNavigate();
   const { siteId: siteIdParam } = useParams();
-  const { partner, addDevice } = usePartner();
+  const { partner, addDevice, hubs, addHub } = usePartner();
   const t = partner.terms;
 
   const [kind, setKind] = useState<Kind | null>(null);
   const [step, setStep] = useState<Step>('kind');
   const [serial, setSerial] = useState('');
+  const [model, setModel] = useState<HubModel>('hub-200');
+  const [label, setLabel] = useState('');
   const [claiming, setClaiming] = useState(false);
   const [claimError, setClaimError] = useState('');
 
@@ -132,18 +126,27 @@ export function DeviceOnboard() {
 
   const claimed = serial.trim().toUpperCase();
 
-  // Allocated once the serial is accepted, from the CUSTOMER's series — a
-  // partner servicing several customers issues into each one separately.
+  /** The stock unit this serial belongs to, if staff already provisioned it. */
+  const stockUnit = useMemo(
+    () => hubs.find((h) => h.state === 'available' && h.serial.toUpperCase() === claimed),
+    [hubs, claimed],
+  );
+
+  // Allocated once the serial is accepted.
+  //
+  // Hubs draw from the PLATFORM sequence — next available across the whole
+  // fleet, every partner and every customer — while sensors draw from the
+  // customer's own series. Two different registers, because they are two
+  // different kinds of property.
   const assignedId = useMemo(() => {
+    if (kind === 'hub') return stockUnit ? stockUnit.id : nextHubId(hubs);
     const customer = site?.customer ?? partner.name;
-    if (kind === 'hub') {
-      // Per site: a second Hub at Sunset Ridge is SUN-H02, not the next number
-      // in a sequence shared with every sensor the customer owns.
-      const hubsHere = (site?.devices ?? []).filter((d) => d.type === 'Hub').map((d) => d.id);
-      return nextHubId(customer, hubsHere);
-    }
     return nextSensorId(customer, partner.sites.flatMap((sx) => sx.devices.map((d) => d.id)));
-  }, [kind, site, partner]);
+  }, [kind, stockUnit, hubs, site, partner]);
+
+  // A Hub in stock already knows what it is — the model is a fact about the
+  // hardware, not a choice the installer gets to make about a unit that shipped.
+  const effectiveModel: HubModel = stockUnit ? stockUnit.model : model;
 
   const handleClaim = async () => {
     if (!claimed || !kind) return;
@@ -154,9 +157,13 @@ export function DeviceOnboard() {
     // Compare serials with serials. The previous check compared the entered
     // serial against assigned Device IDs, which are a different namespace
     // entirely — it could not detect a genuine duplicate.
-    const inService = partner.sites.some((s) =>
+    const deviceInService = partner.sites.some((s) =>
       s.devices.some((d) => (d.serial ?? '').toUpperCase() === claimed),
     );
+    // A Hub already deployed somewhere. Stock units are excluded — those are
+    // exactly the ones this flow is meant to claim.
+    const hubInService = hubs.some((h) => h.serial.toUpperCase() === claimed && h.state !== 'available');
+    const inService = kind === 'hub' ? hubInService : deviceInService;
 
     if (!SERIAL_SHAPE.test(claimed)) {
       setClaimError(
@@ -177,15 +184,25 @@ export function DeviceOnboard() {
   // appeared anywhere afterwards.
   const register = () => {
     if (!siteId || !kind) return;
-    addDevice(siteId, {
-      id: assignedId,
-      serial: claimed,
-      name: kind === 'hub' ? 'PeakLogic Hub' : assets.find((a) => a.id === assetId)?.name ?? 'New sensor',
-      type: kind === 'hub' ? 'Hub' : 'Sensor',
-      status: 'online',
-      reading: kind === 'hub' ? 'online' : '—',
-      controllable: false,
-    });
+    if (kind === 'hub') {
+      addHub({
+        serial: claimed,
+        model: effectiveModel,
+        siteId,
+        customer: site?.customer ?? partner.name,
+        label: label.trim() || undefined,
+      });
+    } else {
+      addDevice(siteId, {
+        id: assignedId,
+        serial: claimed,
+        name: assets.find((a) => a.id === assetId)?.name ?? 'New sensor',
+        type: 'Sensor',
+        status: 'online',
+        reading: '—',
+        controllable: false,
+      });
+    }
     setStep('done');
   };
 
@@ -193,6 +210,8 @@ export function DeviceOnboard() {
     setKind(null);
     setStep('kind');
     setSerial('');
+    setLabel('');
+    setModel('hub-200');
     setSiteId(siteIdParam ?? '');
     setAssetId('');
     setClaimError('');
@@ -271,7 +290,7 @@ export function DeviceOnboard() {
           {(Object.keys(KIND_META) as Kind[]).map((k) => {
             const m = KIND_META[k];
             const Icon = m.icon;
-            const hubExists = k === 'hub' && site?.peakview;
+            const hubsHere = k === 'hub' && site ? hubs.filter((h) => h.siteId === site.id && h.state !== 'decommissioned').length : 0;
             return (
               <button
                 key={k}
@@ -287,9 +306,10 @@ export function DeviceOnboard() {
                 <div className="min-w-0">
                   <p className="font-semibold text-slate-900 dark:text-white">{m.label}</p>
                   <p className="mt-1 text-sm leading-relaxed text-slate-500 dark:text-slate-400">{m.sub}</p>
-                  {hubExists && (
-                    <p className="mt-2 text-xs font-medium text-amber-600 dark:text-amber-500">
-                      This {t.siteSingular.toLowerCase()} already has a Hub. Only add another if you are replacing it.
+                  {hubsHere > 0 && (
+                    <p className="mt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+                      {hubsHere === 1 ? '1 Hub is' : `${hubsHere} Hubs are`} already registered at this{' '}
+                      {t.siteSingular.toLowerCase()}. Adding another is normal — one per acquisition point.
                     </p>
                   )}
                 </div>
@@ -340,9 +360,40 @@ export function DeviceOnboard() {
             Typically 10–16 letters and numbers, printed beneath the barcode — for example{' '}
             <span className="font-mono">{meta.example}</span>. Dashes are optional.
           </p>
+          {/* Model matters because the release channel is per model — see
+              data/hubs.ts. Hidden entirely once the serial matches stock: the
+              unit already shipped as a specific model, and offering a choice
+              there invites someone to record the wrong one. */}
+          {kind === 'hub' && !stockUnit && (
+            <>
+              <label className="mb-1.5 mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">Model</label>
+              <select value={model} onChange={(e) => setModel(e.target.value as HubModel)} className={field}>
+                {(Object.keys(HUB_MODELS) as HubModel[]).map((m) => (
+                  <option key={m} value={m}>
+                    {HUB_MODELS[m].name} — {HUB_MODELS[m].protocols}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1.5 text-xs text-slate-400">{HUB_MODELS[model].sub}</p>
+            </>
+          )}
+
+          {kind === 'hub' && stockUnit && (
+            <p className="mt-3 flex items-start gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-[11.5px] leading-relaxed text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-200">
+              <PackageCheck size={15} className="mt-0.5 flex-none" />
+              <span>
+                Recognised — PeakLogic provisioned this {HUB_MODELS[stockUnit.model].name} as{' '}
+                <span className="font-mono font-bold">{stockUnit.id}</span>. It keeps that ID; registering it here just
+                puts it on site.
+              </span>
+            </p>
+          )}
+
           <p className="mt-2 rounded-lg bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-500 dark:bg-slate-800/50 dark:text-slate-400">
-            You do not name the device. PeakLogic assigns its ID automatically, next in this customer&rsquo;s series, once
-            the serial is accepted.
+            You do not name the hardware. PeakLogic assigns its ID automatically once the serial is accepted —{' '}
+            {kind === 'hub'
+              ? 'the next available Hub in the platform sequence.'
+              : `next in ${site ? site.customer : 'this customer'}'s device series.`}
           </p>
 
           <div className="mt-6 flex gap-2">
@@ -415,19 +466,57 @@ export function DeviceOnboard() {
             </>
           )}
 
+          {/* Several Hubs at one site is normal — a plant's headworks and its
+              chem building are different acquisition points. The label is what
+              an operator picks between in the Facility View, so it is worth
+              asking for at install rather than leaving three units called
+              "PeakLogic Hub". */}
+          {kind === 'hub' && (
+            <>
+              <label className="mb-1.5 mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
+                Where on site <span className="font-normal text-slate-400">(optional)</span>
+              </label>
+              <input
+                value={label}
+                onChange={(e) => setLabel(e.target.value)}
+                placeholder="Headworks, chem building, pump room…"
+                className={field}
+              />
+              <p className="mt-1.5 text-xs text-slate-400">
+                What operators call this spot. It labels the Hub in the Facility View switcher.
+              </p>
+            </>
+          )}
+
           <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {kind === 'hub' ? 'Hub ID' : 'Device ID'} — assigned by PeakLogic
             </p>
             <p className="mt-0.5 font-mono text-sm font-bold text-slate-900 dark:text-white">{assignedId}</p>
             <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
-              Issued automatically —{' '}
               {kind === 'hub'
-                ? `the next Hub at this ${t.siteSingular.toLowerCase()}`
-                : `next in ${site ? site.customer : 'this customer'}'s device series`}
-              . Nothing to type: the serial stays with the hardware, this is how the platform refers to it.
+                ? stockUnit
+                  ? 'Already issued when PeakLogic provisioned this unit into stock. A Hub keeps one ID for its whole service life, across every site it is ever installed at.'
+                  : 'The next available Hub in the platform sequence. Hub IDs are PeakLogic-issued and never reused — not even after a decommission.'
+                : `Next in ${site ? site.customer : 'this customer'}'s device series. Nothing to type: the serial stays with the hardware, this is how the platform refers to it.`}
             </p>
           </div>
+
+          {kind === 'hub' && (
+            <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2.5 dark:border-slate-700 dark:bg-slate-800/50">
+              <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+                <RadioTower size={12} /> Release channel — assigned on registration
+              </p>
+              <p className="mt-0.5 font-mono text-sm font-bold text-slate-900 dark:text-white">
+                Stable · {channelVersion(effectiveModel, REGISTRATION_CHANNEL)}
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">
+                Every Hub subscribes to the stable channel for its own model — {HUB_MODELS[effectiveModel].name} — and
+                converges to that bundle on its first sync. Beta and preview are deliberate, per-unit decisions made in
+                Control Center, never a default.
+              </p>
+            </div>
+          )}
 
           {kind === 'hub' && siteId && (
             <p className="mt-4 rounded-lg bg-partner-primary/5 px-3 py-2.5 text-xs leading-relaxed text-slate-600 dark:text-slate-300">

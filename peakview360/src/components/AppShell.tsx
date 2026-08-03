@@ -3,6 +3,7 @@ import { NavLink } from 'react-router-dom';
 import { BellRing, ChevronLeft, Factory, Gauge, LineChart, Moon, Radio, Sun, TriangleAlert } from 'lucide-react';
 import { PREVIEW } from '../api';
 import { useTheme } from '../theme';
+import { REQUESTED_HUB_ID } from '../scope';
 import { usePeakViewData } from '../store';
 import { AlarmPanel } from './AlarmPanel';
 import { BrandMark } from './BrandMark';
@@ -48,7 +49,14 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="hidden h-5 w-px bg-white/15 sm:block" />
           <div className="hidden min-w-0 sm:block">
             <p className="truncate text-sm font-semibold text-white">{site.name}</p>
-            <p className="truncate text-xs text-slate-400">{screen.name}</p>
+            {/* Naming the Hub matters as soon as a site has more than one: the
+                same screen fed from the headworks and from the chem building
+                shows different equipment, and an operator has to be able to
+                tell at a glance which source they are looking at. */}
+            <p className="truncate text-xs text-slate-400">
+              {screen.name}
+              {REQUESTED_HUB_ID && <span className="text-slate-500"> · via {REQUESTED_HUB_ID}</span>}
+            </p>
           </div>
         </div>
 

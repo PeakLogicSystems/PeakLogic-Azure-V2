@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from '@/AuthContext';
 import { PartnerProvider } from '@/PartnerContext';
 import { SettingsProvider } from '@/SettingsContext';
 import { PartnerShell } from '@/components/PartnerShell';
+import { Decommissioned } from '@/pages/Decommissioned';
 import { DeviceOnboard } from '@/pages/DeviceOnboard';
 import { Facility } from '@/pages/Facility';
 import { Home } from '@/pages/Home';
@@ -30,6 +31,7 @@ export function App() {
                   <Route path="/sites/:siteId/provision" element={<DeviceOnboard />} />
                   <Route path="/provision" element={<DeviceOnboard />} />
                   <Route path="/tickets" element={<Tickets />} />
+                  <Route path="/decommissioned" element={<Decommissioned />} />
                   <Route path="/settings" element={<Settings />} />
                 </Route>
               </Route>

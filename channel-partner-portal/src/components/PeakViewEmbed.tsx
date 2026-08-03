@@ -1,11 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Camera, ChevronDown, ChevronUp, ExternalLink, MonitorPlay, PencilRuler, Router, X } from 'lucide-react';
+import { Archive, Camera, ChevronDown, ChevronUp, ExternalLink, MonitorPlay, PencilRuler, Router, X } from 'lucide-react';
 import { useSettings } from '@/SettingsContext';
 import { usePartner } from '@/PartnerContext';
 import type { Device, Site } from '@/data/types';
+import { HUB_MODELS, type Hub } from '@/data/hubs';
 import { useSitePhotos } from '@/sitePhoto';
 import { PhotoLightbox } from '@/components/PhotoLightbox';
+import { DecommissionDialog } from '@/components/DecommissionDialog';
 
 // PeakView360, embedded in the site page rather than linked away to.
 //
@@ -33,12 +35,24 @@ const THEME_MESSAGE = 'peaklogic:theme';
 // rather than falling back to whichever facility it happens to have. See
 // peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
 // name the site the viewer is actually entitled to see.
-function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark') {
+function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark', hubId?: string) {
   const p = new URLSearchParams({ theme });
   if (siteId) p.set('site', siteId);
   if (siteName) p.set('siteName', siteName);
+  // Which Hub's feed to render. A plant's three Hubs each acquire a different
+  // part of the process, so "the site's live view" is an incomplete idea —
+  // there is one per acquisition point and the operator picks.
+  if (hubId) p.set('hub', hubId);
   return `${PEAKVIEW_URL}?${p.toString()}`;
 }
+
+const HUB_DOT: Record<Hub['state'], string> = {
+  online: 'bg-emerald-500',
+  offline: 'bg-slate-400',
+  provisioning: 'bg-sky-500',
+  available: 'bg-slate-300',
+  decommissioned: 'bg-slate-300',
+};
 
 const DOT: Record<Device['status'], string> = {
   online: 'bg-emerald-500',
@@ -59,10 +73,12 @@ const rank = (type: string) => {
 // whole second application before anyone has asked for it.
 export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defaultOpen?: boolean }) {
   const { settings } = useSettings();
-  const { partner } = usePartner();
+  const { partner, hubsAt, decommissionHub } = usePartner();
   const t = partner.terms;
   const [open, setOpen] = useState(defaultOpen);
   const [lightbox, setLightbox] = useState<number | null>(null);
+  const [activeHubId, setActiveHubId] = useState<string | null>(null);
+  const [retiring, setRetiring] = useState<Hub | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const { photos, add, remove, error: photoError, busy, max } = useSitePhotos(site.id);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -200,13 +216,75 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
   }
 
   // ── Hub present ───────────────────────────────────────────────────────
-  // Hubs are infrastructure, not instrumentation — they are listed separately
-  // rather than sitting in the equipment strip beside a chemistry probe.
-  const hubs = site.devices.filter((d) => d.type === 'Hub');
+  // Hubs are infrastructure, not instrumentation — they come from the fleet
+  // register rather than the site's device list, and are never shown in the
+  // equipment strip beside a chemistry probe.
+  const hubs = hubsAt(site.id);
+  const active = hubs.find((h) => h.id === activeHubId) ?? hubs.find((h) => h.state === 'online') ?? hubs[0];
   const pad = site.devices
     .filter((d) => d.type !== 'Hub')
     .sort((a, b) => rank(a.type) - rank(b.type))
     .slice(0, 8);
+
+  // The switcher. Rendered whenever there is a Hub, not only when there are
+  // several: with one Hub it is the only place its ID, model and health are
+  // visible on this page, and hiding it until a second unit appears would make
+  // that information show up out of nowhere the day someone installs one.
+  const hubBar = (
+    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
+      <span className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">
+        {hubs.length > 1 ? `${hubs.length} Hubs` : 'Hub'}
+      </span>
+      {hubs.map((h) => {
+        const on = h.id === active?.id;
+        return (
+          <button
+            key={h.id}
+            onClick={() => setActiveHubId(h.id)}
+            aria-pressed={on}
+            title={`${HUB_MODELS[h.model].name} · ${HUB_MODELS[h.model].protocols} · firmware ${h.firmware} (${h.channel}) · ${h.tags ?? 0} tags · last seen ${h.lastSeen ?? '—'}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors ${
+              on
+                ? 'border-partner-primary bg-partner-primary/10'
+                : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${HUB_DOT[h.state]}`} />
+            <span className={`font-mono text-[11px] ${on ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+              {h.id}
+            </span>
+            {h.label && <span className="text-[11px] text-slate-500 dark:text-slate-400">{h.label}</span>}
+          </button>
+        );
+      })}
+      {active && (
+        <button
+          onClick={() => setRetiring(active)}
+          title={`Decommission ${active.id}`}
+          className="ml-auto inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 text-[11px] font-semibold text-slate-500 hover:border-amber-300 hover:text-amber-700 dark:border-slate-700 dark:text-slate-400 dark:hover:border-amber-800 dark:hover:text-amber-400"
+        >
+          <Archive size={11} /> Decommission
+        </button>
+      )}
+    </div>
+  );
+
+  const retireDialog = retiring ? (
+    <DecommissionDialog
+      hub={retiring}
+      siteName={site.name}
+      isLastAtSite={hubs.length === 1}
+      actor={partner.user.name}
+      onCancel={() => setRetiring(null)}
+      onConfirm={(opts) => {
+        decommissionHub(retiring.id, opts);
+        // Fall back to whatever Hub is left, rather than holding a selection
+        // that no longer exists and rendering an empty frame.
+        setActiveHubId(null);
+        setRetiring(null);
+      }}
+    />
+  ) : null;
 
   return (
     <section>
@@ -220,7 +298,7 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
             <PencilRuler size={12} /> {site.hasFacility ? 'Edit layout' : 'Build layout'}
           </Link>
           {photoControls}
-          <a href={peakViewUrl(site.id, site.name, settings.theme)} target="_blank" rel="noreferrer" className={btn}>
+          <a href={peakViewUrl(site.id, site.name, settings.theme, active?.id)} target="_blank" rel="noreferrer" className={btn}>
             Open in new window <ExternalLink size={12} />
           </a>
           <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={btn}>
@@ -254,15 +332,19 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
           </span>
         </div>
 
+        {/* Expanded too: switching Hub is the point of the control, and having
+            to collapse the view to reach it would be the opposite of that. */}
+        {open && <div className="bg-white dark:bg-slate-900">{hubBar}</div>}
+
         {open ? (
           <iframe
             ref={frame}
-            // Keyed on site.id ONLY. Keying on theme would remount and reload
-            // the app on every toggle, losing whatever was being watched; the
-            // URL's theme is just the value it opens with, later changes come
-            // by postMessage.
-            key={site.id}
-            src={peakViewUrl(site.id, site.name, settings.theme)}
+            // Keyed on the ACTIVE HUB, not just the site. Switching Hub is a
+            // genuine change of source, so the frame must reload; switching
+            // theme is not, and keying on it would throw away whatever the
+            // operator was watching on every toggle.
+            key={`${site.id}:${active?.id ?? ''}`}
+            src={peakViewUrl(site.id, site.name, settings.theme, active?.id)}
             title="PeakView360 live operator view"
             onLoad={post}
             className="block h-[clamp(440px,68vh,820px)] w-full border-0 bg-[#0b1120]"
@@ -272,22 +354,7 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
           // separate facility section used to show — moved here, so collapsing
           // the Facility View still leaves the site's equipment on screen.
           <div className="bg-white dark:bg-slate-900">
-            {hubs.length > 0 && (
-              <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 px-3 py-2 dark:border-slate-800">
-                <span className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">
-                  {hubs.length > 1 ? `${hubs.length} Hubs` : 'Hub'}
-                </span>
-                {hubs.map((h) => (
-                  <span
-                    key={h.id}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-slate-200 px-2 py-1 dark:border-slate-700"
-                  >
-                    <span className={`h-1.5 w-1.5 rounded-full ${DOT[h.status]}`} />
-                    <span className="font-mono text-[11px] text-slate-600 dark:text-slate-300">{h.id}</span>
-                  </span>
-                ))}
-              </div>
-            )}
+            {hubs.length > 0 && hubBar}
             <div className="flex min-w-max items-center gap-2 overflow-x-auto p-3">
               {pad.map((d, i) => (
                 <div key={d.id} className="flex items-center gap-2">
@@ -315,6 +382,7 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
       {!open && photoPanel && <div className="mt-3">{photoPanel}</div>}
 
       {lightboxEl}
+      {retireDialog}
 
       <p className="mt-2 text-[11px] text-slate-400 dark:text-slate-500">
         Preview build. PeakView360 serves only the {t.siteSingular.toLowerCase()} it is opened for —

@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogOut, Moon, Settings as SettingsIcon, Sun, Ticket } from 'lucide-react';
+import { Archive, LayoutDashboard, LogOut, Moon, Settings as SettingsIcon, Sun, Ticket } from 'lucide-react';
 import { useAuth } from '@/AuthContext';
 import { usePartner } from '@/PartnerContext';
 import { useSettings } from '@/SettingsContext';
@@ -12,6 +12,7 @@ import { derivedHeader, inkOn } from '@/brandColor';
 const NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/tickets', label: 'Tickets', icon: Ticket, end: false },
+  { to: '/decommissioned', label: 'Retired', icon: Archive, end: false },
 ];
 
 export function PartnerShell({ children }: { children: ReactNode }) {

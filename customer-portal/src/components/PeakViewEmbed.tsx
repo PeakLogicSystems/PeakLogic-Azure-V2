@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, ChevronUp, ExternalLink, MonitorPlay, Router } from 'lucide-react';
 import { useSettings } from '@/settings';
 import { CUSTOMER, type Device, type Site } from '@/data';
+import { liveHubsAt } from '@/data/hardware';
 import { useSitePhotos } from '@/sitePhoto';
 import { PhotoLightbox } from '@/components/PhotoLightbox';
 
@@ -32,12 +33,24 @@ const THEME_MESSAGE = 'peaklogic:theme';
 // rather than falling back to whichever facility it happens to have. See
 // peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
 // name the site the viewer is actually entitled to see.
-function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark') {
+function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark', hubId?: string) {
   const p = new URLSearchParams({ theme });
   if (siteId) p.set('site', siteId);
   if (siteName) p.set('siteName', siteName);
+  // Which Hub's feed to render. A plant has one per acquisition point, so
+  // "the site's live view" is incomplete on its own — the viewer picks. Read
+  // only on this side: a customer chooses what to look at, never what happens
+  // to the hardware.
+  if (hubId) p.set('hub', hubId);
   return `${PEAKVIEW_URL}?${p.toString()}`;
 }
+
+const HUB_DOT: Record<string, string> = {
+  online: 'bg-emerald-500',
+  offline: 'bg-slate-400',
+  provisioning: 'bg-sky-500',
+  decommissioned: 'bg-slate-300',
+};
 
 const DOT: Record<Device['status'], string> = {
   online: 'bg-emerald-500',
@@ -57,6 +70,7 @@ const rank = (type: string) => {
 export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defaultOpen?: boolean }) {
   const { settings } = useSettings();
   const [open, setOpen] = useState(defaultOpen);
+  const [activeHubId, setActiveHubId] = useState<string | null>(null);
   const [lightbox, setLightbox] = useState<number | null>(null);
   const frame = useRef<HTMLIFrameElement>(null);
   const photos = useSitePhotos(site.id);
@@ -138,14 +152,44 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
   }
 
   // ── Hub present ───────────────────────────────────────────────────────
+  const hubs = liveHubsAt(site.id);
+  const active = hubs.find((h) => h.id === activeHubId) ?? hubs.find((h) => h.state === 'online') ?? hubs[0];
   const pad = [...site.devices].sort((a, b) => rank(a.type) - rank(b.type)).slice(0, 8);
+
+  const hubBar = hubs.length ? (
+    <div className="flex flex-wrap items-center gap-2 border-b border-slate-200 bg-white px-3 py-2 dark:border-slate-800 dark:bg-slate-900">
+      <span className="text-[10.5px] font-semibold uppercase tracking-wide text-slate-400">
+        {hubs.length > 1 ? `${hubs.length} Hubs` : 'Hub'}
+      </span>
+      {hubs.map((h) => {
+        const on = h.id === active?.id;
+        return (
+          <button
+            key={h.id}
+            onClick={() => setActiveHubId(h.id)}
+            aria-pressed={on}
+            title={`${h.model} · firmware ${h.firmware} · last seen ${h.lastSeen ?? '—'}`}
+            className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors ${
+              on ? 'border-brand-purple-mid bg-brand-purple-mid/10' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
+            }`}
+          >
+            <span className={`h-1.5 w-1.5 rounded-full ${HUB_DOT[h.state]}`} />
+            <span className={`font-mono text-[11px] ${on ? 'font-bold text-slate-900 dark:text-white' : 'text-slate-600 dark:text-slate-300'}`}>
+              {h.id}
+            </span>
+            {h.label && <span className="text-[11px] text-slate-500 dark:text-slate-400">{h.label}</span>}
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
 
   return (
     <section>
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h2 className={heading}>Live view</h2>
         <div className="flex items-center gap-2">
-          <a href={peakViewUrl(site.id, site.name, settings.theme)} target="_blank" rel="noreferrer" className={btn}>
+          <a href={peakViewUrl(site.id, site.name, settings.theme, active?.id)} target="_blank" rel="noreferrer" className={btn}>
             Open in new window <ExternalLink size={12} />
           </a>
           <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className={btn}>
@@ -177,13 +221,16 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
           </span>
         </div>
 
+        {open && hubBar}
+
         {open ? (
           <iframe
             ref={frame}
-            // Keyed on site.id ONLY — keying on theme would remount and reload
-            // the app on every toggle, losing whatever was being watched.
-            key={site.id}
-            src={peakViewUrl(site.id, site.name, settings.theme)}
+            // Keyed on the ACTIVE HUB — switching Hub is a real change of
+            // source and must reload. Theme is not, and keying on it would
+            // throw away whatever was being watched on every toggle.
+            key={`${site.id}:${active?.id ?? ''}`}
+            src={peakViewUrl(site.id, site.name, settings.theme, active?.id)}
             title="PeakView360 live operator view"
             onLoad={post}
             className="block h-[clamp(440px,68vh,820px)] w-full border-0 bg-[#0b1120]"
@@ -191,8 +238,9 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
         ) : (
           // Collapsed: the equipment readings, so collapsing the Facility View
           // still leaves the site's equipment on screen.
-          <div className="overflow-x-auto bg-white dark:bg-slate-900">
-            <div className="flex min-w-max items-center gap-2 p-3">
+          <div className="bg-white dark:bg-slate-900">
+            {hubBar}
+            <div className="flex min-w-max items-center gap-2 overflow-x-auto p-3">
               {pad.map((d, i) => (
                 <div key={d.id} className="flex items-center gap-2">
                   <div className="min-w-[136px] rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 dark:border-slate-700 dark:bg-slate-800/50">

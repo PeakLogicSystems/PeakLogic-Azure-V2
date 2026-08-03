@@ -1,8 +1,9 @@
 import { useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { ArrowLeft, CheckCircle2, ChevronRight, Hammer, PencilRuler, Plus, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, Archive, CheckCircle2, ChevronRight, Hammer, PencilRuler, Plus, SlidersHorizontal } from 'lucide-react';
 import { usePartner } from '@/PartnerContext';
 import { siteById, type Device } from '@/data/types';
+import { DecommissionedTable } from '@/components/DecommissionedTable';
 import { DeviceStatusDot, HealthPill } from '@/components/ui';
 import { DeviceDetail } from '@/components/DeviceDetail';
 import { TicketRow } from '@/components/TicketRow';
@@ -12,11 +13,15 @@ import { PeakViewEmbed } from '@/components/PeakViewEmbed';
 
 
 export function SiteDetail() {
-  const { partner, tickets, updateTicket } = usePartner();
+  const { partner, tickets, updateTicket, hubs } = usePartner();
   const { siteId = '' } = useParams();
   const navigate = useNavigate();
   const site = siteById(partner, siteId);
   const t = partner.terms;
+  const retired = useMemo(
+    () => hubs.filter((h) => h.state === 'decommissioned' && h.siteId === siteId),
+    [hubs, siteId],
+  );
 
   const [devices, setDevices] = useState<Device[]>(() => site?.devices.map((d) => ({ ...d })) ?? []);
   const [selected, setSelected] = useState<Device | null>(null);
@@ -140,6 +145,24 @@ export function SiteDetail() {
           </table>
         </div>
       </section>
+
+      {/* Only when there is something to show. An empty "Decommissioned
+          Hardware" heading on a site that has never replaced anything is noise
+          on every page in the portal; the full list per customer lives on its
+          own page, reachable from the header. */}
+      {retired.length > 0 && (
+        <section>
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <h2 className={`flex items-center gap-1.5 ${heading}`}>
+              <Archive size={14} /> Decommissioned hardware
+            </h2>
+            <Link to="/decommissioned" className="text-xs font-semibold text-partner-primary hover:underline">
+              All customers
+            </Link>
+          </div>
+          <DecommissionedTable hubs={retired} siteNameOf={() => site.name} />
+        </section>
+      )}
 
       <section>
         <h2 className={`mb-3 ${heading}`}>Work at this {t.siteSingular.toLowerCase()}</h2>

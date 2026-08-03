@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
-import { Bell, FileText, LayoutDashboard, LogOut, Moon, Settings as SettingsIcon, Sun } from 'lucide-react';
+import { Bell, FileText, LayoutDashboard, LogOut, Moon, Router, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useAuth } from '@/AuthContext';
 import { useBrandTab } from '@/useBrandTab';
 import { useBrandOverride } from '@/brandOverride';
@@ -14,6 +14,7 @@ const NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },
   { to: '/alerts', label: 'Alerts', icon: Bell, end: false },
   { to: '/reports', label: 'Reports', icon: FileText, end: false },
+  { to: '/hardware', label: 'Hardware', icon: Router, end: false },
 ];
 
 export function Shell({ children }: { children: ReactNode }) {
