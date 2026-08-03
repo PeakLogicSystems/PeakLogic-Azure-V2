@@ -1,0 +1,372 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>PeakLogic — Infrastructure & Compute Forecast</title><style>
+:root {
+  --ink:        #14161d;
+  --ink-2:      #3d4356;
+  --ink-3:      #6b7285;
+  --rule:       #d6dae4;
+  --rule-2:     #eef0f5;
+  --paper:      #ffffff;
+  --tint:       #f6f7fa;
+  --accent:     #4c2a9c;
+  --accent-2:   #7c5ad4;
+  --accent-pale:#efe9fb;
+  --pos:        #15683f;
+  --neg:        #a52020;
+  --warn:       #8a5205;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 10.2pt; line-height: 1.52;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+.page { max-width: 190mm; margin: 0 auto; padding: 18mm 0 24mm; }
+
+/* ── Cover ─────────────────────────────────────────────────────────── */
+.cover { min-height: 232mm; display: flex; flex-direction: column; break-after: page; page-break-after: always; }
+.cover__mark { display: flex; align-items: center; gap: 9px; }
+.cover__word { font-family: var(--sans); font-weight: 800; font-size: 15pt; letter-spacing: -.02em; }
+.cover__word span { color: var(--accent-2); }
+.cover__mid { margin-top: auto; }
+.cover__kicker { font-family: var(--mono); font-size: 8.5pt; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+.cover h1 {
+  font-family: var(--serif); font-weight: 400; font-size: 40pt; line-height: 1.02;
+  letter-spacing: -.018em; margin: 14px 0 0; max-width: 20ch;
+}
+.cover__sub { font-size: 13pt; color: var(--ink-2); margin-top: 16px; max-width: 54ch; line-height: 1.45; }
+.cover__rule { height: 3px; background: var(--accent); width: 68px; margin: 26px 0 0; }
+.cover__meta { margin-top: auto; padding-top: 30px; border-top: 1px solid var(--rule);
+  display: flex; justify-content: space-between; gap: 20px; font-size: 8.6pt; color: var(--ink-3); }
+.cover__meta b { display: block; color: var(--ink); font-size: 9.4pt; font-weight: 650; margin-bottom: 2px; }
+
+/* ── Contents ──────────────────────────────────────────────────────── */
+.toc { break-after: page; page-break-after: always; }
+.toc ol { list-style: none; counter-reset: toc; margin: 0; padding: 0; }
+.toc li { counter-increment: toc; display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule-2); font-size: 11pt; }
+.toc li::before { content: counter(toc, decimal-leading-zero); font-family: var(--mono);
+  font-size: 8.5pt; color: var(--accent); flex: none; width: 22px; }
+.toc li span { color: var(--ink-3); font-size: 9.4pt; margin-left: auto; text-align: right; max-width: 46%; }
+
+/* ── Structure ─────────────────────────────────────────────────────── */
+main { counter-reset: sec; }
+section { counter-increment: sec; break-inside: auto; margin-bottom: 26px; }
+section > h2 {
+  font-family: var(--serif); font-weight: 400; font-size: 19pt; letter-spacing: -.012em;
+  margin: 0 0 4px; padding-top: 12px; border-top: 2px solid var(--ink);
+  break-after: avoid; page-break-after: avoid; text-wrap: balance;
+}
+section > h2::before { content: counter(sec) ".  "; font-family: var(--mono); font-size: 11pt; color: var(--accent); }
+.dek { color: var(--ink-2); font-size: 10.4pt; max-width: 72ch; margin: 0 0 14px; }
+h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; letter-spacing: -.004em; break-after: avoid; }
+p { margin: 0 0 9px; max-width: 76ch; }
+p:last-child { margin-bottom: 0; }
+ul, ol.body { margin: 0 0 10px; padding-left: 17px; }
+li { margin-bottom: 4px; max-width: 74ch; }
+b, strong { font-weight: 650; color: var(--ink); }
+em { font-style: normal; color: var(--accent); font-weight: 600; }
+code { font-family: var(--mono); font-size: .87em; background: var(--tint); padding: 1px 4px; border-radius: 3px; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Lede ──────────────────────────────────────────────────────────── */
+.lede { font-family: var(--serif); font-size: 14pt; line-height: 1.45; color: var(--ink);
+  max-width: 62ch; margin: 0 0 16px; }
+
+/* ── Pull statement ────────────────────────────────────────────────── */
+.pull { border-left: 3px solid var(--accent); padding: 4px 0 4px 20px; margin: 16px 0;
+  break-inside: avoid; page-break-inside: avoid; }
+.pull p { font-family: var(--serif); font-size: 13pt; line-height: 1.45; max-width: 64ch; }
+
+/* ── Tables ────────────────────────────────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9.2pt; }
+.tbl thead { display: table-header-group; }  /* repeat headers across pages */
+.tbl th { text-align: left; font-size: 7.6pt; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-3); font-weight: 700; padding: 8px 9px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+.tbl td { padding: 7px 9px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+.tbl tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+.tbl .n { text-align: right; font-family: var(--mono); font-size: 8.8pt;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl .tot td { font-weight: 700; background: var(--tint); border-top: 1.5px solid var(--ink); }
+.tbl .pos { color: var(--pos); }
+.tbl .neg { color: var(--neg); }
+.cap { font-size: 8.4pt; color: var(--ink-3); margin: 5px 0 0; max-width: 84ch; line-height: 1.45; }
+figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
+
+/* ── Metric row ────────────────────────────────────────────────────── */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 6px 0 14px;
+  border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; break-inside: avoid; }
+.metrics.three { grid-template-columns: repeat(3, 1fr); }
+.metric { padding: 12px 14px; border-right: 1px solid var(--rule); }
+.metric:last-child { border-right: none; }
+.metric__l { font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 700; }
+.metric__v { font-size: 19pt; font-weight: 700; letter-spacing: -.028em; margin-top: 3px;
+  font-variant-numeric: tabular-nums; line-height: 1; }
+.metric__s { font-size: 8.2pt; color: var(--ink-3); margin-top: 4px; line-height: 1.35; }
+.metric--key { background: var(--accent-pale); }
+.metric--key .metric__v { color: var(--accent); }
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+.cards { display: grid; gap: 11px; margin: 4px 0 12px; }
+.cards.c2 { grid-template-columns: 1fr 1fr; }
+.cards.c3 { grid-template-columns: repeat(3, 1fr); }
+.cards.c4 { grid-template-columns: repeat(4, 1fr); }
+.card { border: 1px solid var(--rule); border-radius: 4px; padding: 13px 15px;
+  break-inside: avoid; page-break-inside: avoid; }
+.card h4 { font-size: 10pt; margin: 0 0 5px; font-weight: 700; }
+.card p { font-size: 9.2pt; color: var(--ink-2); margin: 0; max-width: none; }
+.card__k { font-family: var(--mono); font-size: 7.6pt; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 5px; }
+
+/* ── Numbered driver blocks ────────────────────────────────────────── */
+.driver { display: flex; gap: 16px; padding: 15px 0; border-top: 1px solid var(--rule-2);
+  break-inside: avoid; page-break-inside: avoid; }
+.driver:first-of-type { border-top: none; }
+.driver__n { font-family: var(--serif); font-size: 26pt; line-height: .9; color: var(--accent);
+  opacity: .28; flex: none; width: 40px; }
+.driver__b { min-width: 0; }
+.driver h3 { margin-top: 0; font-size: 11.5pt; }
+.driver p { font-size: 9.6pt; color: var(--ink-2); }
+
+.tag { display: inline-block; font-size: 7.4pt; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 2px; margin-bottom: 6px; }
+.tag--pos { background: #e3f4ea; color: var(--pos); }
+.tag--warn { background: #fbf0da; color: var(--warn); }
+.tag--neg { background: #fae5e5; color: var(--neg); }
+.tag--acc { background: var(--accent-pale); color: var(--accent); }
+
+/* ── Layer stack (product architecture) ────────────────────────────── */
+.stack { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
+  margin: 6px 0 6px; break-inside: avoid; page-break-inside: avoid; }
+.stack__row { display: grid; grid-template-columns: 118px 1fr; align-items: start;
+  gap: 0; border-bottom: 1px solid var(--rule-2); }
+.stack__row:last-child { border-bottom: none; }
+.stack__l { padding: 11px 13px; background: var(--tint); border-right: 1px solid var(--rule);
+  font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+  font-weight: 700; align-self: stretch; }
+.stack__r { padding: 10px 14px; }
+.stack__n { font-size: 10.4pt; font-weight: 700; letter-spacing: -.006em; }
+.stack__n em { font-style: normal; color: var(--accent); }
+.stack__d { font-size: 9pt; color: var(--ink-2); margin-top: 2px; }
+.stack__flow { display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  background: var(--accent-pale); font-family: var(--mono); font-size: 7.8pt;
+  letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+
+.foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--rule);
+  font-size: 8.2pt; color: var(--ink-3); line-height: 1.5; }
+
+@page { size: A4; margin: 15mm 12mm 14mm; }
+@media print {
+  .page { max-width: none; padding: 0; }
+  section { break-inside: auto; }
+}
+</style></head>
+<body><div class="page">
+<header class="cover">
+  <div class="cover__mark">
+    <svg width="26" height="20" viewBox="4 10 24 18" aria-hidden="true">
+      <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#4c2a9c"/>
+      <path d="M18 20 L23 12 L28 28 Z" fill="#22a05c" opacity=".85"/>
+    </svg>
+    <span class="cover__word">Peak<span>Logic</span></span>
+  </div>
+  <div class="cover__mid">
+    <div class="cover__kicker">Technical & financial due diligence</div>
+    <h1>Infrastructure & Compute Forecast</h1>
+    <div class="cover__rule"></div>
+    <p class="cover__sub">What the cloud costs per site, where the platform changes gear, and why infrastructure never threatens the software margin.</p>
+  </div>
+  <div class="cover__meta"><div><b>Document</b>Artifact #39 · v1.0</div><div><b>Prepared</b>2 August 2026</div><div><b>Basis</b>Azure list rates, East US</div><div><b>Status</b>Model · not yet metered</div></div>
+</header>
+
+<nav class="toc">
+  <h2 style="font-family:var(--serif);font-weight:400;font-size:19pt;margin:0 0 12px;padding-top:12px;border-top:2px solid var(--ink)">Contents</h2>
+  <ol><li>What this answers<span>Three questions, in the order they get asked</span></li><li>Telemetry assumptions<span>The load-bearing numbers</span></li><li>Cost per site<span>Monthly Azure spend, years 1–5</span></li><li>Cost against revenue<span>Infrastructure as a share of ARR</span></li><li>Where the money goes<span>Composition, and the first optimisation</span></li><li>Scaling inflection points<span>When to act, and on what</span></li><li>Exclusions<span>What these figures do not carry</span></li><li>Method<span>Reproducing and challenging the model</span></li></ol>
+</nav>
+
+<main>
+
+<section>
+  <h2>What this answers</h2>
+  <p class="lede">Infrastructure costs <b>$0.72–$0.91 per site per month</b> against $22–38 of recurring revenue, stays under 2% of ARR at every stage of the plan, and falls as the estate grows.</p>
+  <div class="metrics">
+    <div class="metric metric--key"><div class="metric__l">Cost per site</div><div class="metric__v">$0.72</div><div class="metric__s">per month at 8,000 sites</div></div>
+    <div class="metric"><div class="metric__l">Share of ARR</div><div class="metric__v">1.8%</div><div class="metric__s">never exceeds 2.0%</div></div>
+    <div class="metric"><div class="metric__l">Year-5 spend</div><div class="metric__v">$68.8K</div><div class="metric__s">annual, 8,000 sites</div></div>
+    <div class="metric"><div class="metric__l">First hard gate</div><div class="metric__v">250</div><div class="metric__s">sites — Postgres leaves Burstable</div></div>
+  </div>
+  <p>Three questions get asked of this platform, in this order. What does the cloud actually cost per site, given the recurring price is $22–38 and infrastructure has to disappear inside it. At what site counts does each service change tier, so capacity is planned rather than discovered. And does the cost curve stay under the revenue curve — the question behind the other two.</p>
+</section>
+
+<section>
+  <h2>Telemetry assumptions</h2>
+  <p class="dek">Every figure in this document derives from these six numbers. Change one and the model moves.</p>
+  <table class="tbl">
+    <thead><tr><th>Assumption</th><th class="n">Value</th><th>Rationale</th></tr></thead>
+    <tbody>
+      <tr><td>Metrics per site</td><td class="n">8</td><td>Matches the tile count on both configured site types</td></tr>
+      <tr><td>Sample interval</td><td class="n">60 s</td><td>Below the fastest silence-detection window, so a dead sensor is caught inside one sweep</td></tr>
+      <tr><td>Messages per site / day</td><td class="n">1,440</td><td><b>Batched</b> — one message carrying all eight metrics</td></tr>
+      <tr><td>Readings per site / day</td><td class="n">11,520</td><td>8 metrics × 1,440 messages</td></tr>
+      <tr><td>Bytes per reading</td><td class="n">48</td><td>Narrow row: device key, metric, value, timestamp</td></tr>
+      <tr><td>Full-resolution retention</td><td class="n">90 d</td><td>In Postgres, then compressed to blob at ~12% of raw</td></tr>
+    </tbody>
+  </table>
+  <div class="pull"><p>Batching is the most consequential decision here. IoT Hub bills per message under 4&nbsp;KB, so one message per metric would multiply that line <em>eightfold</em> for identical data — the difference between S1&nbsp;×7 and S2&nbsp;×3 at 1,800 sites.</p></div>
+</section>
+
+<section>
+  <h2>Cost per site</h2>
+  <p class="dek">Priced at pay-as-you-go list rates. No reserved instances, no enterprise agreement, no negotiated discount — each of which is available later and only improves these figures.</p>
+
+  <figure>
+  <h3 style="margin-top:0">Monthly infrastructure cost per site</h3>
+  <svg viewBox="0 0 680 150" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="52" y1="124" x2="638" y2="124" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="127" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0.00</text><line x1="52" y1="72" x2="638" y2="72" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="75" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0.50</text><line x1="52" y1="20" x2="638" y2="20" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="23" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$1.00</text><text x="45" y="12" text-anchor="end" font-size="7.4" fill="#6b7285" font-family="monospace">$ / site / mo</text><path d="M 52 124 L 52 38.72 L 198.5 29.36 L 345 37.68000000000001 L 491.5 50.16 L 638 49.120000000000005 L 638 124 Z" fill="#4c2a9c" opacity=".07"/><path d="M 52 38.72 L 198.5 29.36 L 345 37.68000000000001 L 491.5 50.16 L 638 49.120000000000005" fill="none" stroke="#4c2a9c" stroke-width="2"/><circle cx="52" cy="38.72" r="2.6" fill="#fff" stroke="#4c2a9c" stroke-width="1.6"/>
+<text x="52" y="29.72" text-anchor="middle" font-size="7.8" fill="#6b7285" font-family="monospace" font-weight="400">$0.82</text><circle cx="198.5" cy="29.36" r="2.6" fill="#fff" stroke="#4c2a9c" stroke-width="1.6"/>
+<text x="198.5" y="20.36" text-anchor="middle" font-size="7.8" fill="#6b7285" font-family="monospace" font-weight="400">$0.91</text><circle cx="345" cy="37.68000000000001" r="2.6" fill="#fff" stroke="#4c2a9c" stroke-width="1.6"/>
+<text x="345" y="28.680000000000007" text-anchor="middle" font-size="7.8" fill="#6b7285" font-family="monospace" font-weight="400">$0.83</text><circle cx="491.5" cy="50.16" r="2.6" fill="#fff" stroke="#4c2a9c" stroke-width="1.6"/>
+<text x="491.5" y="41.16" text-anchor="middle" font-size="7.8" fill="#6b7285" font-family="monospace" font-weight="400">$0.71</text><circle cx="638" cy="49.120000000000005" r="4" fill="#4c2a9c" stroke="#4c2a9c" stroke-width="1.6"/>
+<text x="638" y="40.120000000000005" text-anchor="middle" font-size="7.8" fill="#4c2a9c" font-family="monospace" font-weight="700">$0.72</text><text x="52" y="141" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><text x="198.5" y="141" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><text x="345" y="141" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><text x="491.5" y="141" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><text x="638" y="141" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text></svg>
+  <p class="cap">Cost per site falls as the estate grows: the fixed floor — database compute, observability baseline, Key Vault — amortises across more sites. There is no point at which this inverts.</p>
+</figure>
+
+  <table class="tbl">
+    <thead><tr><th>Yr</th><th class="n">Sites</th><th class="n">Msg/day</th><th>IoT Hub</th><th>PostgreSQL</th><th class="n">Functions</th><th class="n">Log&nbsp;Analytics</th><th class="n">APIM</th><th class="n">Egress</th><th class="n">Total/mo</th><th class="n">$/site</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td><td class="n">150</td><td class="n">216K</td>
+        <td>S1 ×1</td><td>B2s</td>
+        <td class="n">$13</td><td class="n">$35</td><td class="n">$11</td><td class="n">$3</td>
+        <td class="n"><b>$122</b></td><td class="n">$0.82</td></tr><tr>
+        <td>2</td><td class="n">600</td><td class="n">864K</td>
+        <td>S1 ×3</td><td>D2ds_v5</td>
+        <td class="n">$72</td><td class="n">$159</td><td class="n">$53</td><td class="n">$38</td>
+        <td class="n"><b>$544</b></td><td class="n">$0.91</td></tr><tr>
+        <td>3</td><td class="n">1,800</td><td class="n">2592K</td>
+        <td>S1 ×7</td><td>D4ds_v5</td>
+        <td class="n">$227</td><td class="n">$490</td><td class="n">$167</td><td class="n">$132</td>
+        <td class="n"><b>$1K</b></td><td class="n">$0.83</td></tr><tr>
+        <td>4</td><td class="n">4,000</td><td class="n">5760K</td>
+        <td>S2 ×1</td><td>D4ds_v5</td>
+        <td class="n">$512</td><td class="n">$1K</td><td class="n">$375</td><td class="n">$305</td>
+        <td class="n"><b>$3K</b></td><td class="n">$0.71</td></tr><tr>
+        <td>5</td><td class="n">8,000</td><td class="n">11520K</td>
+        <td>S2 ×2</td><td>D8ds_v5</td>
+        <td class="n">$1K</td><td class="n">$2K</td><td class="n">$753</td><td class="n">$618</td>
+        <td class="n"><b>$6K</b></td><td class="n">$0.72</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">Monthly figures. IoT Hub and PostgreSQL tiers shown as provisioned; all other lines are consumption-priced.</p>
+</section>
+
+<section>
+  <h2>Cost against revenue</h2>
+  <figure>
+  <h3 style="margin-top:0">Annual recurring revenue against annual infrastructure cost</h3>
+  <svg viewBox="0 0 680 168" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="52" y1="142" x2="670" y2="142" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="145" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><line x1="52" y1="112" x2="670" y2="112" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="115" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$1M</text><line x1="52" y1="82" x2="670" y2="82" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="85" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$2M</text><line x1="52" y1="52" x2="670" y2="52" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="55" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$3M</text><line x1="52" y1="22" x2="670" y2="22" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="25" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$4M</text><g transform="translate(52,10)"><rect x="0" y="-6" width="8" height="8" fill="#4c2a9c" rx="1"/><text x="12" y="1" font-size="8" fill="#6b7285">ARR</text><rect x="118" y="-6" width="8" height="8" fill="#7c5ad4" rx="1"/><text x="130" y="1" font-size="8" fill="#6b7285">Infrastructure (annual)</text></g><rect x="87.8" y="139.09" width="24" height="2.91" fill="#4c2a9c" rx="1"/><text x="100.8" y="135.09" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$97K</text><rect x="113.8" y="141" width="24" height="1" fill="#7c5ad4" rx="1"/><text x="126.8" y="137" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$1K</text><text x="113.8" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="211.39999999999998" y="132.16" width="24" height="9.84" fill="#4c2a9c" rx="1"/><text x="224.39999999999998" y="128.16" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$328K</text><rect x="237.39999999999998" y="141" width="24" height="1" fill="#7c5ad4" rx="1"/><text x="250.39999999999998" y="137" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$7K</text><text x="237.39999999999998" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="335" y="114.34" width="24" height="27.66" fill="#4c2a9c" rx="1"/><text x="348" y="110.34" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$922K</text><rect x="361" y="141" width="24" height="1" fill="#7c5ad4" rx="1"/><text x="374" y="137" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$18K</text><text x="361" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="458.59999999999997" y="82.9" width="24" height="59.1" fill="#4c2a9c" rx="1"/><text x="471.59999999999997" y="78.9" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$2.0M</text><rect x="484.59999999999997" y="140.9721651317248" width="24" height="1.0278348682751999" fill="#7c5ad4" rx="1"/><text x="497.59999999999997" y="136.9721651317248" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$34K</text><text x="484.59999999999997" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="582.1999999999999" y="29.5" width="24" height="112.5" fill="#4c2a9c" rx="1"/><text x="595.1999999999999" y="25.5" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$3.8M</text><rect x="608.1999999999999" y="139.9363742634496" width="24" height="2.0636257365504" fill="#7c5ad4" rx="1"/><text x="621.1999999999999" y="135.9363742634496" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$69K</text><text x="608.1999999999999" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text></svg>
+  <p class="cap">Drawn to a shared axis. Infrastructure is visible only as a hairline at this scale, which is the point.</p>
+</figure>
+  <table class="tbl">
+    <thead><tr><th>Year</th><th class="n">Infrastructure / yr</th><th class="n">ARR</th><th class="n">Infra as % of ARR</th></tr></thead>
+    <tbody>
+      <tr><td>Year 1</td><td class="n">$1K</td><td class="n">$97K</td><td class="n">1.5%</td></tr><tr><td>Year 2</td><td class="n">$7K</td><td class="n">$328K</td><td class="n">2.0%</td></tr><tr><td>Year 3</td><td class="n">$18K</td><td class="n">$922K</td><td class="n">1.9%</td></tr><tr><td>Year 4</td><td class="n">$34K</td><td class="n">$2.0M</td><td class="n">1.7%</td></tr><tr><td>Year 5</td><td class="n">$69K</td><td class="n">$3.8M</td><td class="n">1.8%</td></tr>
+    </tbody>
+  </table>
+  <p>The 82% software gross margin assumed in the business plan is not at risk from cloud spend. It is at risk from support and field cost, which is where scrutiny belongs.</p>
+</section>
+
+<section>
+  <h2>Where the money goes</h2>
+  <figure>
+  <h3 style="margin-top:0">Monthly cost composition</h3>
+  <svg viewBox="0 0 680 168" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="52" y1="142" x2="584" y2="142" stroke="#e4e7ee"/>
+<text x="45" y="145" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><line x1="52" y1="79" x2="584" y2="79" stroke="#e4e7ee"/>
+<text x="45" y="82" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$3K</text><line x1="52" y1="16" x2="584" y2="16" stroke="#e4e7ee"/>
+<text x="45" y="19" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$6K</text><rect x="81.2" y="141.475" width="48" height="0.6" fill="#4c2a9c"/><rect x="81.2" y="140.78871999999998" width="48" height="0.68628" fill="#7c5ad4"/><rect x="81.2" y="140.50648" width="48" height="0.6" fill="#a58ae4"/><rect x="81.2" y="139.78198" width="48" height="0.7245" fill="#c9b8f0"/><rect x="81.2" y="139.493097081088" width="48" height="0.6" fill="#e2d9f8"/><text x="105.2" y="134.493097081088" text-anchor="middle" font-size="7.6" font-family="monospace" fill="#14161d">$119</text>
+<text x="105.2" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="187.60000000000002" y="140.425" width="48" height="1.5750000000000002" fill="#4c2a9c"/><rect x="187.60000000000002" y="137.41162157824002" width="48" height="3.01337842176" fill="#7c5ad4"/><rect x="187.60000000000002" y="135.90466157824" width="48" height="1.5069599999999999" fill="#a58ae4"/><rect x="187.60000000000002" y="132.57196157824" width="48" height="3.3326999999999996" fill="#c9b8f0"/><rect x="187.60000000000002" y="130.647829902592" width="48" height="1.9241316756479996" fill="#e2d9f8"/><text x="211.60000000000002" y="125.64782990259201" text-anchor="middle" font-size="7.6" font-family="monospace" fill="#14161d">$541</text>
+<text x="211.60000000000002" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="294" y="138.325" width="48" height="3.6750000000000003" fill="#4c2a9c"/><rect x="294" y="132.18286473472" width="48" height="6.14213526528" fill="#7c5ad4"/><rect x="294" y="127.40998473472" width="48" height="4.77288" fill="#a58ae4"/><rect x="294" y="117.12208473472" width="48" height="10.2879" fill="#c9b8f0"/><rect x="294" y="110.83728970777601" width="48" height="6.284795026944" fill="#e2d9f8"/><text x="318" y="105.837289707776" text-anchor="middle" font-size="7.6" font-family="monospace" fill="#14161d">$1K</text>
+<text x="318" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="400.40000000000003" y="136.75" width="48" height="5.25" fill="#4c2a9c"/><rect x="400.40000000000003" y="130.1848105216" width="48" height="6.5651894784" fill="#7c5ad4"/><rect x="400.40000000000003" y="119.42441052160001" width="48" height="10.760399999999999" fill="#a58ae4"/><rect x="400.40000000000003" y="96.38531052160002" width="48" height="23.039099999999998" fill="#c9b8f0"/><rect x="400.40000000000003" y="82.10596601728001" width="48" height="14.27934450432" fill="#e2d9f8"/><text x="424.40000000000003" y="77.10596601728" text-anchor="middle" font-size="7.6" font-family="monospace" fill="#14161d">$3K</text>
+<text x="424.40000000000003" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="506.8" y="131.5" width="48" height="10.5" fill="#4c2a9c"/><rect x="506.8" y="118.3696210432" width="48" height="13.1303789568" fill="#7c5ad4"/><rect x="506.8" y="96.7228210432" width="48" height="21.646799999999995" fill="#a58ae4"/><rect x="506.8" y="50.4997210432" width="48" height="46.2231" fill="#c9b8f0"/><rect x="506.8" y="21.684832034560003" width="48" height="28.814889008639994" fill="#e2d9f8"/><text x="530.8000000000001" y="16.684832034560003" text-anchor="middle" font-size="7.6" font-family="monospace" fill="#14161d">$6K</text>
+<text x="530.8000000000001" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text><rect x="590" y="16" width="8" height="8" fill="#e2d9f8" rx="1"/><text x="602" y="23" font-size="7.8" fill="#6b7285">APIM + egress</text><rect x="590" y="31" width="8" height="8" fill="#c9b8f0" rx="1"/><text x="602" y="38" font-size="7.8" fill="#6b7285">Log Analytics</text><rect x="590" y="46" width="8" height="8" fill="#a58ae4" rx="1"/><text x="602" y="53" font-size="7.8" fill="#6b7285">Functions</text><rect x="590" y="61" width="8" height="8" fill="#7c5ad4" rx="1"/><text x="602" y="68" font-size="7.8" fill="#6b7285">PostgreSQL</text><rect x="590" y="76" width="8" height="8" fill="#4c2a9c" rx="1"/><text x="602" y="83" font-size="7.8" fill="#6b7285">IoT Hub</text></svg>
+  <p class="cap">Two lines dominate, and neither is the one intuition suggests.</p>
+</figure>
+  <div class="cards c3">
+    <div class="card"><span class="card__k">Largest by year 3</span><h4>Log Analytics</h4><p>Observability, not compute — $490/mo rising to $2,200. It is also the most compressible: moving verbose diagnostics to a Basic table roughly halves it. The first optimisation to make, not the first thing to buy more of.</p></div>
+    <div class="card"><span class="card__k">Least elastic</span><h4>PostgreSQL</h4><p>The largest fixed commitment. Everything else scales smoothly with usage; the database steps, and each step needs planning ahead of the load rather than in response to it.</p></div>
+    <div class="card"><span class="card__k">Cheaper than expected</span><h4>IoT Hub</h4><p>$500/mo at 8,000 sites, precisely because telemetry is batched. This is the line that would have dominated under a naive per-metric design.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Scaling inflection points</h2>
+  <p class="dek">Site counts at which something must change. These are planning triggers, not failures.</p>
+  <figure>
+  <h3 style="margin-top:0">When the platform changes gear</h3>
+  <svg viewBox="0 0 680 150" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="16" y1="56" x2="664" y2="56" stroke="#e4e7ee" stroke-width="2"/><circle cx="145.19046497239825" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="145.19046497239825" y="42" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">6</text>
+<text x="145.19046497239825" y="33" text-anchor="middle" font-size="7.2" fill="#6b7285">IoT Hub → S1</text><circle cx="245.1458530574142" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="245.1458530574142" y="80" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">24</text>
+<text x="245.1458530574142" y="89" text-anchor="middle" font-size="7.2" fill="#6b7285">Functions past free tier</text><circle cx="414.1115297874601" cy="56" r="5" fill="#4c2a9c"/>
+<text x="414.1115297874601" y="22" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="700" fill="#4c2a9c">250</text>
+<text x="414.1115297874601" y="13" text-anchor="middle" font-size="7.2" fill="#6b7285">Postgres leaves Burstable</text><circle cx="421.76595288172695" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="421.76595288172695" y="100" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">278</text>
+<text x="421.76595288172695" y="109" text-anchor="middle" font-size="7.2" fill="#6b7285">Second S1 unit</text><circle cx="543.3019947598583" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="543.3019947598583" y="42" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">1,500</text>
+<text x="543.3019947598583" y="33" text-anchor="middle" font-size="7.2" fill="#6b7285">Postgres → D4ds</text><circle cx="564.044611914984" cy="56" r="5" fill="#4c2a9c"/>
+<text x="564.044611914984" y="80" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="700" fill="#4c2a9c">2,000</text>
+<text x="564.044611914984" y="89" text-anchor="middle" font-size="7.2" fill="#6b7285">Partition telemetry</text><circle cx="587.7363678176556" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="587.7363678176556" y="22" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">2,778</text>
+<text x="587.7363678176556" y="13" text-anchor="middle" font-size="7.2" fill="#6b7285">IoT Hub → S2</text><circle cx="604.3943491932919" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="604.3943491932919" y="100" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">3,500</text>
+<text x="604.3943491932919" y="109" text-anchor="middle" font-size="7.2" fill="#6b7285">Read replica</text><path d="M664 51 L637 46" stroke="#e4e7ee" stroke-width="1" fill="none"/><circle cx="664" cy="56" r="3.2" fill="#7c5ad4"/>
+<text x="637" y="42" text-anchor="middle" font-size="8.4" font-family="monospace" font-weight="400" fill="#14161d">8,000</text>
+<text x="637" y="33" text-anchor="middle" font-size="7.2" fill="#6b7285">Postgres → D8ds</text><text x="16" y="145" font-size="7.4" fill="#6b7285">sites (log scale)</text></svg>
+  <p class="cap">Log scale. Marked points need a decision; the rest are automatic.</p>
+</figure>
+  <table class="tbl">
+    <thead><tr><th class="n">Sites</th><th>What changes</th><th>Action required</th></tr></thead>
+    <tbody>
+      <tr><td class="n">~6</td><td>IoT Hub leaves the free tier</td><td>None — $25/mo</td></tr>
+      <tr><td class="n">~24</td><td>Functions exceeds 1M free monthly executions</td><td>None — marginal cost is pennies</td></tr>
+      <tr class="tot"><td class="n">~250</td><td>PostgreSQL must leave Burstable</td><td><b>First real decision.</b> B-series runs on CPU credits; sustained ingest exhausts them and latency collapses without warning. Migrate <em>before</em> this point.</td></tr>
+      <tr><td class="n">~278</td><td>IoT Hub needs a second S1 unit</td><td>Additive and instant; no migration</td></tr>
+      <tr><td class="n">~1,500</td><td>PostgreSQL → D4ds_v5</td><td>Index maintenance on telemetry becomes the bottleneck ahead of raw CPU</td></tr>
+      <tr class="tot"><td class="n">~2,000</td><td>Partition telemetry by month</td><td>Vacuum and scan cost on one large table starts to hurt. Partitioning also makes the 90-day retention drop a metadata operation.</td></tr>
+      <tr><td class="n">~2,778</td><td>IoT Hub → S2</td><td>Also the point to evaluate consuming Event Hubs directly</td></tr>
+      <tr><td class="n">~3,500</td><td>Read replica for reporting</td><td>Analytics begins competing with ingest; a replica is cheaper than sizing the primary for both</td></tr>
+      <tr><td class="n">~5,000</td><td>PostgreSQL → D8ds_v5; streaming archival</td><td>Nightly batch archival no longer completes inside its window</td></tr>
+    </tbody>
+  </table>
+  <div class="pull"><p>The one to plan for is <em>250 sites</em>. Everything before it is automatic and everything after it is a scheduled migration with a known cost — but Burstable-to-General-Purpose is the only transition where mistiming produces an outage rather than a bill.</p></div>
+</section>
+
+<section>
+  <h2>Exclusions</h2>
+  <p class="dek">Stated plainly, because a forecast that omits its own gaps is not usable.</p>
+  <div class="cards c2">
+    <div class="card"><h4>Non-production environments</h4><p>Dev and staging add roughly 25–30% in years 1–2, less thereafter as they stay small while production grows.</p></div>
+    <div class="card"><h4>Hub-side compute</h4><p>The on-premises appliance is customer hardware, costed inside the $1,800 site kit rather than here.</p></div>
+    <div class="card"><h4>AI inference</h4><p>Tier 3 prescriptive analytics is design-only. When it ships it becomes the fastest-growing line in this model and needs its own forecast.</p></div>
+    <div class="card"><h4>Reserved-instance discount</h4><p>One- and three-year commitments cut database compute 30–55%. Not assumed; available once load is proven.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Method</h2>
+  <p>Every figure is produced by <code>docs/business/infra-forecast.mjs</code>, committed alongside this document. The assumptions above are arguable, and an argument about them should be settled by changing an input and re-running rather than by debating a spreadsheet nobody can see.</p>
+  <p>Prices last verified against Azure list rates on 2 August 2026. Re-run before quoting externally.</p>
+</section>
+
+<p class="foot">PeakLogic · Infrastructure &amp; Compute Forecast · Artifact #39 v1.0 · Prepared 2 August 2026. Figures are modelled projections against published list pricing, not metered bills; no environment has been deployed. Confidential.</p>
+</main></div></body></html>

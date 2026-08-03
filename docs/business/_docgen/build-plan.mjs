@@ -1,191 +1,42 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><title>PeakLogic — Business Plan & Investment Case</title><style>
-:root {
-  --ink:        #14161d;
-  --ink-2:      #3d4356;
-  --ink-3:      #6b7285;
-  --rule:       #d6dae4;
-  --rule-2:     #eef0f5;
-  --paper:      #ffffff;
-  --tint:       #f6f7fa;
-  --accent:     #4c2a9c;
-  --accent-2:   #7c5ad4;
-  --accent-pale:#efe9fb;
-  --pos:        #15683f;
-  --neg:        #a52020;
-  --warn:       #8a5205;
-  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
-  --sans: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
-  --mono: "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
-}
+import { writeFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+import { cover, toc, docShell } from './style.mjs';
+import { columns, waterfall, line, COLOURS as C, money } from './charts.mjs';
 
-* { box-sizing: border-box; }
-body {
-  margin: 0; background: var(--paper); color: var(--ink);
-  font-family: var(--sans); font-size: 10.2pt; line-height: 1.52;
-  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
-}
-.page { max-width: 190mm; margin: 0 auto; padding: 18mm 0 24mm; }
+const out = join(dirname(fileURLToPath(import.meta.url)), '..');
 
-/* ── Cover ─────────────────────────────────────────────────────────── */
-.cover { min-height: 232mm; display: flex; flex-direction: column; break-after: page; page-break-after: always; }
-.cover__mark { display: flex; align-items: center; gap: 9px; }
-.cover__word { font-family: var(--sans); font-weight: 800; font-size: 15pt; letter-spacing: -.02em; }
-.cover__word span { color: var(--accent-2); }
-.cover__mid { margin-top: auto; }
-.cover__kicker { font-family: var(--mono); font-size: 8.5pt; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
-.cover h1 {
-  font-family: var(--serif); font-weight: 400; font-size: 40pt; line-height: 1.02;
-  letter-spacing: -.018em; margin: 14px 0 0; max-width: 20ch;
-}
-.cover__sub { font-size: 13pt; color: var(--ink-2); margin-top: 16px; max-width: 54ch; line-height: 1.45; }
-.cover__rule { height: 3px; background: var(--accent); width: 68px; margin: 26px 0 0; }
-.cover__meta { margin-top: auto; padding-top: 30px; border-top: 1px solid var(--rule);
-  display: flex; justify-content: space-between; gap: 20px; font-size: 8.6pt; color: var(--ink-3); }
-.cover__meta b { display: block; color: var(--ink); font-size: 9.4pt; font-weight: 650; margin-bottom: 2px; }
+const YR = ['Yr 1', 'Yr 2', 'Yr 3', 'Yr 4', 'Yr 5'];
+const ARR = [97_000, 328_000, 922_000, 1_970_000, 3_750_000];
+const REV = [319_000, 1_020_000, 2_790_000, 5_410_000, 10_060_000];
+const FCF = [-419_000, -195_000, -76_000, 442_000, 1_490_000];
+const SITES = [150, 600, 1800, 4000, 8000];
 
-/* ── Contents ──────────────────────────────────────────────────────── */
-.toc { break-after: page; page-break-after: always; }
-.toc ol { list-style: none; counter-reset: toc; margin: 0; padding: 0; }
-.toc li { counter-increment: toc; display: flex; align-items: baseline; gap: 10px;
-  padding: 7px 0; border-bottom: 1px solid var(--rule-2); font-size: 11pt; }
-.toc li::before { content: counter(toc, decimal-leading-zero); font-family: var(--mono);
-  font-size: 8.5pt; color: var(--accent); flex: none; width: 22px; }
-.toc li span { color: var(--ink-3); font-size: 9.4pt; margin-left: auto; text-align: right; max-width: 46%; }
+const body = `
+${cover({
+  kicker: 'Business plan & investment case',
+  title: 'An intelligence layer for essential field services',
+  sub: 'Predictive analytics and asset management for the distributed critical equipment that was never large enough to justify a control system.',
+  meta: [
+    { k: 'Investment sought', v: '$1.05M equity' },
+    { k: 'Prepared', v: '2 August 2026' },
+    { k: 'Forecast return', v: '3.6–5.7× by year 5' },
+    { k: 'Status', v: 'Confidential' },
+  ],
+})}
 
-/* ── Structure ─────────────────────────────────────────────────────── */
-main { counter-reset: sec; }
-section { counter-increment: sec; break-inside: auto; margin-bottom: 26px; }
-section > h2 {
-  font-family: var(--serif); font-weight: 400; font-size: 19pt; letter-spacing: -.012em;
-  margin: 0 0 4px; padding-top: 12px; border-top: 2px solid var(--ink);
-  break-after: avoid; page-break-after: avoid; text-wrap: balance;
-}
-section > h2::before { content: counter(sec) ".  "; font-family: var(--mono); font-size: 11pt; color: var(--accent); }
-.dek { color: var(--ink-2); font-size: 10.4pt; max-width: 72ch; margin: 0 0 14px; }
-h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; letter-spacing: -.004em; break-after: avoid; }
-p { margin: 0 0 9px; max-width: 76ch; }
-p:last-child { margin-bottom: 0; }
-ul, ol.body { margin: 0 0 10px; padding-left: 17px; }
-li { margin-bottom: 4px; max-width: 74ch; }
-b, strong { font-weight: 650; color: var(--ink); }
-em { font-style: normal; color: var(--accent); font-weight: 600; }
-code { font-family: var(--mono); font-size: .87em; background: var(--tint); padding: 1px 4px; border-radius: 3px; }
-a { color: inherit; text-decoration: none; }
-
-/* ── Lede ──────────────────────────────────────────────────────────── */
-.lede { font-family: var(--serif); font-size: 14pt; line-height: 1.45; color: var(--ink);
-  max-width: 62ch; margin: 0 0 16px; }
-
-/* ── Pull statement ────────────────────────────────────────────────── */
-.pull { border-left: 3px solid var(--accent); padding: 4px 0 4px 20px; margin: 16px 0;
-  break-inside: avoid; page-break-inside: avoid; }
-.pull p { font-family: var(--serif); font-size: 13pt; line-height: 1.45; max-width: 64ch; }
-
-/* ── Tables ────────────────────────────────────────────────────────── */
-.tbl { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9.2pt; }
-.tbl thead { display: table-header-group; }  /* repeat headers across pages */
-.tbl th { text-align: left; font-size: 7.6pt; text-transform: uppercase; letter-spacing: .1em;
-  color: var(--ink-3); font-weight: 700; padding: 8px 9px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
-.tbl td { padding: 7px 9px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
-.tbl tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
-.tbl .n { text-align: right; font-family: var(--mono); font-size: 8.8pt;
-  font-variant-numeric: tabular-nums; white-space: nowrap; }
-.tbl .tot td { font-weight: 700; background: var(--tint); border-top: 1.5px solid var(--ink); }
-.tbl .pos { color: var(--pos); }
-.tbl .neg { color: var(--neg); }
-.cap { font-size: 8.4pt; color: var(--ink-3); margin: 5px 0 0; max-width: 84ch; line-height: 1.45; }
-figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
-
-/* ── Metric row ────────────────────────────────────────────────────── */
-.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 6px 0 14px;
-  border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; break-inside: avoid; }
-.metrics.three { grid-template-columns: repeat(3, 1fr); }
-.metric { padding: 12px 14px; border-right: 1px solid var(--rule); }
-.metric:last-child { border-right: none; }
-.metric__l { font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 700; }
-.metric__v { font-size: 19pt; font-weight: 700; letter-spacing: -.028em; margin-top: 3px;
-  font-variant-numeric: tabular-nums; line-height: 1; }
-.metric__s { font-size: 8.2pt; color: var(--ink-3); margin-top: 4px; line-height: 1.35; }
-.metric--key { background: var(--accent-pale); }
-.metric--key .metric__v { color: var(--accent); }
-
-/* ── Cards ─────────────────────────────────────────────────────────── */
-.cards { display: grid; gap: 11px; margin: 4px 0 12px; }
-.cards.c2 { grid-template-columns: 1fr 1fr; }
-.cards.c3 { grid-template-columns: repeat(3, 1fr); }
-.cards.c4 { grid-template-columns: repeat(4, 1fr); }
-.card { border: 1px solid var(--rule); border-radius: 4px; padding: 13px 15px;
-  break-inside: avoid; page-break-inside: avoid; }
-.card h4 { font-size: 10pt; margin: 0 0 5px; font-weight: 700; }
-.card p { font-size: 9.2pt; color: var(--ink-2); margin: 0; max-width: none; }
-.card__k { font-family: var(--mono); font-size: 7.6pt; letter-spacing: .12em;
-  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 5px; }
-
-/* ── Numbered driver blocks ────────────────────────────────────────── */
-.driver { display: flex; gap: 16px; padding: 15px 0; border-top: 1px solid var(--rule-2);
-  break-inside: avoid; page-break-inside: avoid; }
-.driver:first-of-type { border-top: none; }
-.driver__n { font-family: var(--serif); font-size: 26pt; line-height: .9; color: var(--accent);
-  opacity: .28; flex: none; width: 40px; }
-.driver__b { min-width: 0; }
-.driver h3 { margin-top: 0; font-size: 11.5pt; }
-.driver p { font-size: 9.6pt; color: var(--ink-2); }
-
-.tag { display: inline-block; font-size: 7.4pt; font-weight: 700; letter-spacing: .06em;
-  text-transform: uppercase; padding: 2px 7px; border-radius: 2px; margin-bottom: 6px; }
-.tag--pos { background: #e3f4ea; color: var(--pos); }
-.tag--warn { background: #fbf0da; color: var(--warn); }
-.tag--neg { background: #fae5e5; color: var(--neg); }
-.tag--acc { background: var(--accent-pale); color: var(--accent); }
-
-/* ── Layer stack (product architecture) ────────────────────────────── */
-.stack { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
-  margin: 6px 0 6px; break-inside: avoid; page-break-inside: avoid; }
-.stack__row { display: grid; grid-template-columns: 118px 1fr; align-items: start;
-  gap: 0; border-bottom: 1px solid var(--rule-2); }
-.stack__row:last-child { border-bottom: none; }
-.stack__l { padding: 11px 13px; background: var(--tint); border-right: 1px solid var(--rule);
-  font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
-  font-weight: 700; align-self: stretch; }
-.stack__r { padding: 10px 14px; }
-.stack__n { font-size: 10.4pt; font-weight: 700; letter-spacing: -.006em; }
-.stack__n em { font-style: normal; color: var(--accent); }
-.stack__d { font-size: 9pt; color: var(--ink-2); margin-top: 2px; }
-.stack__flow { display: flex; align-items: center; gap: 8px; padding: 7px 14px;
-  background: var(--accent-pale); font-family: var(--mono); font-size: 7.8pt;
-  letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
-
-.foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--rule);
-  font-size: 8.2pt; color: var(--ink-3); line-height: 1.5; }
-
-@page { size: A4; margin: 15mm 12mm 14mm; }
-@media print {
-  .page { max-width: none; padding: 0; }
-  section { break-inside: auto; }
-}
-</style></head>
-<body><div class="page">
-<header class="cover">
-  <div class="cover__mark">
-    <svg width="26" height="20" viewBox="4 10 24 18" aria-hidden="true">
-      <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#4c2a9c"/>
-      <path d="M18 20 L23 12 L28 28 Z" fill="#22a05c" opacity=".85"/>
-    </svg>
-    <span class="cover__word">Peak<span>Logic</span></span>
-  </div>
-  <div class="cover__mid">
-    <div class="cover__kicker">Business plan & investment case</div>
-    <h1>An intelligence layer for essential field services</h1>
-    <div class="cover__rule"></div>
-    <p class="cover__sub">Predictive analytics and asset management for the distributed critical equipment that was never large enough to justify a control system.</p>
-  </div>
-  <div class="cover__meta"><div><b>Investment sought</b>$1.05M equity</div><div><b>Prepared</b>2 August 2026</div><div><b>Forecast return</b>3.6–5.7× by year 5</div><div><b>Status</b>Confidential</div></div>
-</header>
-
-<nav class="toc">
-  <h2 style="font-family:var(--serif);font-weight:400;font-size:19pt;margin:0 0 12px;padding-top:12px;border-top:2px solid var(--ink)">Contents</h2>
-  <ol><li>Why operators cannot keep running blind<span>Accountability rising, visibility flat</span></li><li>What the platform does<span>Monitor, predict, dispatch, prove</span></li><li>Positioning<span>The third way between a dialer and SCADA</span></li><li>Why now<span>Four drivers, ranked by force</span></li><li>Business model<span>Three revenue lines, deliberately weighted</span></li><li>Financial model<span>Bottom-up from partner and site counts</span></li><li>Customer acquisition<span>Where seventy partners come from</span></li><li>Competitive position<span>Against SCADA, dialers, and OEM apps</span></li><li>Status and risks<span>What exists, and what could break this</span></li><li>The ask<span>Use of funds, cash flow, and return</span></li></ol>
-</nav>
+${toc([
+  { t: 'Why operators cannot keep running blind', d: 'Accountability rising, visibility flat' },
+  { t: 'What the platform does', d: 'Monitor, predict, dispatch, prove' },
+  { t: 'Positioning', d: 'The third way between a dialer and SCADA' },
+  { t: 'Why now', d: 'Four drivers, ranked by force' },
+  { t: 'Business model', d: 'Three revenue lines, deliberately weighted' },
+  { t: 'Financial model', d: 'Bottom-up from partner and site counts' },
+  { t: 'Customer acquisition', d: 'Where seventy partners come from' },
+  { t: 'Competitive position', d: 'Against SCADA, dialers, and OEM apps' },
+  { t: 'Status and risks', d: 'What exists, and what could break this' },
+  { t: 'The ask', d: 'Use of funds, cash flow, and return' },
+])}
 
 <main>
 
@@ -274,16 +125,15 @@ figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
     <div class="metric metric--key"><div class="metric__l">Year-5 ARR</div><div class="metric__v">$3.75M</div><div class="metric__s">70 partners · 8,000 sites</div></div>
   </div>
 
-  <figure>
-  <h3 style="margin-top:0">Revenue and recurring run-rate</h3>
-  <svg viewBox="0 0 680 168" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="52" y1="142" x2="670" y2="142" stroke="#e4e7ee" stroke-width="1"/>
-<text x="45" y="145" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><line x1="52" y1="112" x2="670" y2="112" stroke="#e4e7ee" stroke-width="1"/>
-<text x="45" y="115" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$3M</text><line x1="52" y1="82" x2="670" y2="82" stroke="#e4e7ee" stroke-width="1"/>
-<text x="45" y="85" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$6M</text><line x1="52" y1="52" x2="670" y2="52" stroke="#e4e7ee" stroke-width="1"/>
-<text x="45" y="55" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$9M</text><line x1="52" y1="22" x2="670" y2="22" stroke="#e4e7ee" stroke-width="1"/>
-<text x="45" y="25" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$12M</text><g transform="translate(52,10)"><rect x="0" y="-6" width="8" height="8" fill="#7c5ad4" rx="1"/><text x="12" y="1" font-size="8" fill="#6b7285">Revenue</text><rect x="118" y="-6" width="8" height="8" fill="#4c2a9c" rx="1"/><text x="130" y="1" font-size="8" fill="#6b7285">ARR (exit run-rate)</text></g><rect x="87.8" y="138.81" width="24" height="3.19" fill="#7c5ad4" rx="1"/><text x="100.8" y="134.81" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$319K</text><rect x="113.8" y="141" width="24" height="1" fill="#4c2a9c" rx="1"/><text x="126.8" y="137" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$97K</text><text x="113.8" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="211.39999999999998" y="131.8" width="24" height="10.200000000000001" fill="#7c5ad4" rx="1"/><text x="224.39999999999998" y="127.80000000000001" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$1.0M</text><rect x="237.39999999999998" y="138.72" width="24" height="3.2800000000000002" fill="#4c2a9c" rx="1"/><text x="250.39999999999998" y="134.72" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$328K</text><text x="237.39999999999998" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="335" y="114.1" width="24" height="27.900000000000002" fill="#7c5ad4" rx="1"/><text x="348" y="110.1" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$2.8M</text><rect x="361" y="132.78" width="24" height="9.22" fill="#4c2a9c" rx="1"/><text x="374" y="128.78" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$922K</text><text x="361" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="458.59999999999997" y="87.9" width="24" height="54.099999999999994" fill="#7c5ad4" rx="1"/><text x="471.59999999999997" y="83.9" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$5.4M</text><rect x="484.59999999999997" y="122.3" width="24" height="19.7" fill="#4c2a9c" rx="1"/><text x="497.59999999999997" y="118.3" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$2.0M</text><text x="484.59999999999997" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="582.1999999999999" y="41.39999999999999" width="24" height="100.60000000000001" fill="#7c5ad4" rx="1"/><text x="595.1999999999999" y="37.39999999999999" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$10.1M</text><rect x="608.1999999999999" y="104.5" width="24" height="37.5" fill="#4c2a9c" rx="1"/><text x="621.1999999999999" y="100.5" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$3.8M</text><text x="608.1999999999999" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text></svg>
-  <p class="cap">Recurring revenue is recognised on the average of opening and closing base, not the exit run-rate — the most common way early-stage models overstate year one.</p>
-</figure>
+  ${columns({
+    categories: YR,
+    series: [
+      { name: 'Revenue', colour: C.accent2, values: REV },
+      { name: 'ARR (exit run-rate)', colour: C.accent, values: ARR },
+    ],
+    caption: 'Revenue and recurring run-rate',
+    note: 'Recurring revenue is recognised on the average of opening and closing base, not the exit run-rate — the most common way early-stage models overstate year one.',
+  })}
 
   <table class="tbl">
     <thead><tr><th>Year</th><th class="n">Partners</th><th class="n">Sites</th><th class="n">of which direct</th><th class="n">Exit ARR</th><th class="n">Revenue</th><th class="n">Gross profit</th></tr></thead>
@@ -376,23 +226,12 @@ figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
     <div class="metric metric--key"><div class="metric__l">Forecast return</div><div class="metric__v">3.6–5.7×</div><div class="metric__s">by year 5 · 29–41% IRR</div></div>
   </div>
 
-  <figure>
-  <h3 style="margin-top:0">Free cash flow by year</h3>
-  <svg viewBox="0 0 680 168" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="56" y1="99.14285714285714" x2="670" y2="99.14285714285714" stroke="#14161d" stroke-width="1"/>
-<text x="49" y="102.14285714285714" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><rect x="94.4" y="99.14285714285714" width="46" height="26.0248447204969" fill="#a52020" opacity=".85" rx="1"/>
-<text x="117.4" y="120.16770186335404" text-anchor="middle" font-size="7.6" fill="#a52020" font-family="monospace" font-weight="700">$-419K</text>
-<text x="117.4" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="217.20000000000002" y="125.16770186335404" width="46" height="12.111801242236027" fill="#a52020" opacity=".85" rx="1"/>
-<text x="240.20000000000002" y="132.27950310559007" text-anchor="middle" font-size="7.6" fill="#a52020" font-family="monospace" font-weight="700">$-195K</text>
-<text x="240.20000000000002" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="340" y="137.27950310559007" width="46" height="4.7204968944099335" fill="#a52020" opacity=".85" rx="1"/>
-<text x="363" y="137" text-anchor="middle" font-size="7.6" fill="#a52020" font-family="monospace" font-weight="700">$-76K</text>
-<text x="363" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="462.79999999999995" y="114.54658385093168" width="46" height="27.453416149068318" fill="#15683f" opacity=".85" rx="1"/>
-<text x="485.79999999999995" y="109.54658385093168" text-anchor="middle" font-size="7.6" fill="#15683f" font-family="monospace" font-weight="700">$442K</text>
-<text x="485.79999999999995" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="585.6" y="22" width="46" height="92.54658385093168" fill="#15683f" opacity=".85" rx="1"/>
-<text x="608.6" y="17" text-anchor="middle" font-size="7.6" fill="#15683f" font-family="monospace" font-weight="700">$1.5M</text>
-<text x="608.6" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text><path d="M 117.4 125.16770186335404 L 240.20000000000002 137.27950310559007 L 363 142 L 485.79999999999995 114.54658385093168 L 608.6 22" fill="none" stroke="#4c2a9c" stroke-width="1.6" stroke-dasharray="3 2"/>
-     <text x="670" y="15" text-anchor="end" font-size="7.6" fill="#4c2a9c" font-family="monospace">cumulative $1.2M</text></svg>
-  <p class="cap">Headcount rises with partner count, not site count — two people through year 2, nine by year 5. Partners install; we do not. The deepest cumulative position is $690K in year 3, inside the capital raised.</p>
-</figure>
+  ${waterfall({
+    categories: YR,
+    values: FCF,
+    caption: 'Free cash flow by year',
+    note: 'Headcount rises with partner count, not site count — two people through year 2, nine by year 5. Partners install; we do not. The deepest cumulative position is $690K in year 3, inside the capital raised.',
+  })}
 
   <h3>How the figure was sized</h3>
   <p>Cash is modelled monthly and the investment sized against the <b>deepest trough — $819K in month 18</b> — plus a buffer. Costs land from month one while recurring revenue compounds late; an annual average would hide the point at which the company actually runs out of money.</p>
@@ -439,4 +278,7 @@ figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
 </section>
 
 <p class="foot">PeakLogic · Business Plan &amp; Investment Case · Prepared 2 August 2026. Financial figures are a model built from partner counts, site counts, and published pricing — not a forecast, and not audited. No customer revenue has been earned to date. Market sizing is directional. Prepared for discussion under confidentiality.</p>
-</main></div></body></html>
+</main>`;
+
+writeFileSync(join(out, 'peaklogic-business-plan.html'), docShell('PeakLogic — Business Plan & Investment Case', body));
+console.log('business plan built');
