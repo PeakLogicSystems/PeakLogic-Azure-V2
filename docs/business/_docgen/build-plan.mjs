@@ -1,16 +1,28 @@
-import { writeFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { cover, toc, docShell } from './style.mjs';
-import { columns, waterfall, line, COLOURS as C, money } from './charts.mjs';
+import { cashCurve, columns, waterfall, COLOURS as C, money } from './charts.mjs';
 
-const out = join(dirname(fileURLToPath(import.meta.url)), '..');
+const here = dirname(fileURLToPath(import.meta.url));
+const out = join(here, '..', 'Investor Documents');
+
+// EVERY figure below comes from finance-model.mjs. Nothing in this document is
+// a typed-in number, because the previous edition typed some of them and the
+// table stopped agreeing with the chart.
+const M = JSON.parse(readFileSync(join(here, 'finance-model.json'), 'utf8'));
+const Y = M.years;
+const H = M.headlines;
 
 const YR = ['Yr 1', 'Yr 2', 'Yr 3', 'Yr 4', 'Yr 5'];
-const ARR = [97_000, 328_000, 922_000, 1_970_000, 3_750_000];
-const REV = [319_000, 1_020_000, 2_790_000, 5_410_000, 10_060_000];
-const FCF = [-419_000, -195_000, -76_000, 442_000, 1_490_000];
-const SITES = [150, 600, 1800, 4000, 8000];
+const ARR = Y.map((y) => y.exitArr);
+const REV = Y.map((y) => y.revenue);
+const FCF = Y.map((y) => y.fcf);
+const CUM_MONTHLY = M.months.map((m) => m.cum);
+
+const k = (n) => (Math.abs(n) >= 1e6 ? `$${(n / 1e6).toFixed(2)}M` : `$${Math.round(n / 1000)}K`);
+const pct = (a, b) => `${Math.round((a / b) * 100)}%`;
+const slip = (d) => M.sensitivity.find((s) => s.delayMonths === d).troughUsd;
 
 const body = `
 ${cover({
@@ -20,7 +32,7 @@ ${cover({
   meta: [
     { k: 'Investment sought', v: '$1.05M equity' },
     { k: 'Prepared', v: '2 August 2026' },
-    { k: 'Forecast return', v: '3.6–5.7× by year 5' },
+    { k: 'Forecast return', v: `${H.multiple5.map((x) => x.toFixed(1)).join('–')}× by year 5` },
     { k: 'Status', v: 'Confidential' },
   ],
 })}
@@ -122,7 +134,7 @@ ${toc([
     <div class="metric"><div class="metric__l">Recurring / site</div><div class="metric__v">$264</div><div class="metric__s">channel · $456 direct</div></div>
     <div class="metric"><div class="metric__l">Hardware / site</div><div class="metric__v">$1,800</div><div class="metric__s">one-time, ~20% margin</div></div>
     <div class="metric"><div class="metric__l">Sites / partner</div><div class="metric__v">~90</div><div class="metric__s">at maturity</div></div>
-    <div class="metric metric--key"><div class="metric__l">Year-5 ARR</div><div class="metric__v">$3.75M</div><div class="metric__s">70 partners · 8,000 sites</div></div>
+    <div class="metric metric--key"><div class="metric__l">Year-5 ARR</div><div class="metric__v">${k(ARR[4])}</div><div class="metric__s">70 partners · 8,000 sites</div></div>
   </div>
 
   ${columns({
@@ -132,22 +144,29 @@ ${toc([
       { name: 'ARR (exit run-rate)', colour: C.accent, values: ARR },
     ],
     caption: 'Revenue and recurring run-rate',
-    note: 'Recurring revenue is recognised on the average of opening and closing base, not the exit run-rate — the most common way early-stage models overstate year one.',
+    note: 'Revenue is recognised monthly on the base that exists during each month, then summed — not on the exit run-rate, which is the most common way an early-stage model overstates year one. Year 1 closes at a $97K run rate but earns $323K, most of it hardware.',
   })}
 
   <table class="tbl">
-    <thead><tr><th>Year</th><th class="n">Partners</th><th class="n">Sites</th><th class="n">of which direct</th><th class="n">Exit ARR</th><th class="n">Revenue</th><th class="n">Gross profit</th></tr></thead>
+    <thead><tr><th>Year</th><th class="n">Partners</th><th class="n">Sites</th><th class="n">of which direct</th><th class="n">Exit ARR</th><th class="n">Revenue</th><th class="n">Gross profit</th><th class="n">Op. cost</th><th class="n">Cash flow</th></tr></thead>
     <tbody>
-      <tr><td>Year 1</td><td class="n">3</td><td class="n">150</td><td class="n">30</td><td class="n">$97K</td><td class="n">$319K</td><td class="n">$94K</td></tr>
-      <tr><td>Year 2</td><td class="n">8</td><td class="n">600</td><td class="n">120</td><td class="n">$328K</td><td class="n">$1.02M</td><td class="n">$337K</td></tr>
-      <tr><td>Year 3</td><td class="n">20</td><td class="n">1,800</td><td class="n">350</td><td class="n">$922K</td><td class="n">$2.79M</td><td class="n">$945K</td></tr>
-      <tr><td>Year 4</td><td class="n">40</td><td class="n">4,000</td><td class="n">800</td><td class="n">$1.97M</td><td class="n">$5.41M</td><td class="n">$1.98M</td></tr>
-      <tr class="tot"><td>Year 5</td><td class="n">70</td><td class="n">8,000</td><td class="n">1,600</td><td class="n">$3.75M</td><td class="n">$10.06M</td><td class="n">$3.78M</td></tr>
+      ${Y.map(
+        (y, i) => `<tr${i === 4 ? ' class="tot"' : ''}><td>Year ${y.yr}</td><td class="n">${y.partners}</td><td class="n">${y.sites.toLocaleString()}</td><td class="n">${y.direct.toLocaleString()}</td><td class="n">${k(y.exitArr)}</td><td class="n">${k(y.revenue)}</td><td class="n">${k(y.grossProfit)}</td><td class="n">${k(y.opex)}</td><td class="n ${y.fcf >= 0 ? 'pos' : 'neg'}">${k(y.fcf)}</td></tr>`,
+      ).join('')}
     </tbody>
   </table>
+  <p class="cap">One model produces this table and every chart in the document — the annual figures are a sum of the monthly build, not a second calculation alongside it.</p>
 
   <h3>Revenue mix, and why gross profit is the better measure</h3>
-  <p>Revenue is hardware-heavy early — only 21% of year-3 revenue is recurring, because every new site carries ~$1,800 of equipment. Presented as SaaS, that would mislead. So the plan reports <b>gross profit mix instead</b>: hardware runs at ~20% margin and software at ~82%, which means recurring gross profit overtakes hardware in <b>year 2</b> and reaches 60% by year 5 and 81% by year 8. Revenue makes this look like an equipment business; profit shows it is not.</p>
+  <p>Revenue is hardware-heavy early — only ${pct(Y[2].recurring, Y[2].revenue)} of year-3 revenue is recurring, because every new site carries ~$1,800 of equipment. Presented as SaaS, that would mislead. So the plan reports <b>gross profit mix instead</b>: hardware runs at ~20% margin and software at ~82%, which means recurring gross profit overtakes hardware in <b>year ${H.gpMixCrossoverYear}</b> and reaches ${pct(Y[4].recurringGp, Y[4].grossProfit)} of gross profit by year 5 while still only ${pct(Y[4].recurring, Y[4].revenue)} of revenue. Revenue makes this look like an equipment business; profit shows it is not.</p>
+  <table class="tbl">
+    <thead><tr><th>Year</th><th class="n">Recurring revenue</th><th class="n">Hardware revenue</th><th class="n">Recurring gross profit</th><th class="n">Hardware gross profit</th><th class="n">Recurring share of GP</th></tr></thead>
+    <tbody>
+      ${Y.map(
+        (y) => `<tr><td>Year ${y.yr}</td><td class="n">${k(y.recurring)}</td><td class="n">${k(y.hardware)}</td><td class="n">${k(y.recurringGp)}</td><td class="n">${k(y.hardwareGp)}</td><td class="n">${pct(y.recurringGp, y.grossProfit)}</td></tr>`,
+      ).join('')}
+    </tbody>
+  </table>
 
   <h3>Is 8,000 sites deliverable?</h3>
   <p>As a single number it reads like more than one installation every working day. The correct unit is per partner, per week.</p>
@@ -221,41 +240,81 @@ ${toc([
   <h2>The ask</h2>
   <div class="metrics">
     <div class="metric metric--key"><div class="metric__l">Investment</div><div class="metric__v">$1.05M</div><div class="metric__s">equity · funds 24 months</div></div>
-    <div class="metric"><div class="metric__l">Deepest trough</div><div class="metric__v">$819K</div><div class="metric__s">month 18 — sizes the raise</div></div>
-    <div class="metric"><div class="metric__l">Cash-flow positive</div><div class="metric__v">Yr 4</div><div class="metric__s">+$1.24M cumulative by Yr 5</div></div>
-    <div class="metric metric--key"><div class="metric__l">Forecast return</div><div class="metric__v">3.6–5.7×</div><div class="metric__s">by year 5 · 29–41% IRR</div></div>
+    <div class="metric"><div class="metric__l">Deepest trough</div><div class="metric__v">${k(H.troughUsd)}</div><div class="metric__s">month ${H.troughMonth} — sizes the raise</div></div>
+    <div class="metric"><div class="metric__l">Monthly breakeven</div><div class="metric__v">Mo ${H.firstPositiveMonth}</div><div class="metric__s">first full positive year: ${H.firstPositiveYear}</div></div>
+    <div class="metric metric--key"><div class="metric__l">Forecast return</div><div class="metric__v">${H.multiple5.map((x) => x.toFixed(1)).join('–')}×</div><div class="metric__s">by year 5 · ${H.irr5.map((x) => Math.round(x)).join('–')}% IRR</div></div>
   </div>
+
+  ${cashCurve({
+    series: CUM_MONTHLY,
+    raise: M.inputs.INVESTMENT,
+    troughMonth: H.troughMonth,
+    breakevenMonth: H.firstPositiveMonth,
+    caption: 'Cumulative cash position, month by month',
+    note: `The curve never reaches the raise line — that gap is the headroom. Cash bottoms out at ${k(H.troughUsd)} in month ${H.troughMonth}, the monthly result turns positive in month ${H.firstPositiveMonth} and stays positive, and the cumulative position crosses zero during year 4. An annual chart cannot show any of this: the deepest point of a year is never its year-end number.`,
+  })}
+
+  <h3>When the company actually turns the corner</h3>
+  <p>Three different things are often collapsed into "cash-flow positive", and they happen at three different times here. Stating them separately matters, because the first is the one an operator manages to and the last is the one that ends the funding requirement.</p>
+  <table class="tbl">
+    <thead><tr><th>Milestone</th><th class="n">When</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td>The monthly result turns positive</td><td class="n">Month ${H.firstPositiveMonth}</td><td>Gross profit covers that month's operating cost. From here the company is no longer consuming capital month to month</td></tr>
+      <tr><td>The first full year in the black</td><td class="n">Year ${H.firstPositiveYear}</td><td>${k(Y[2].fcf)} on ${k(Y[2].revenue)} of revenue — a ${pct(Y[2].fcf, Y[2].revenue)} margin. Genuinely marginal, and it stays marginal because the year absorbs two hires</td></tr>
+      <tr><td>Cumulative cash back above zero</td><td class="n">Year 4</td><td>The capital raised has been fully recovered from operations. ${k(Y[4].cum)} cumulative by year 5</td></tr>
+    </tbody>
+  </table>
+  <p><b>Year 3 is close to the line either way, and the plan does not lean on it.</b> The ${k(Y[2].fcf)} shown depends on hires landing in months ${M.inputs.HIRES[1].month} and ${M.inputs.HIRES[2].month} rather than on day one of the year; put all four people in from month 25 and year 3 turns slightly negative instead. The honest reading is that the business reaches breakeven <em>during</em> year 3 and then deliberately spends back into growth — which is why the raise is sized against the month-${H.troughMonth} trough and not against a year-3 result that can be argued either way.</p>
+
+  <h3>How the figure was sized</h3>
+  <p>Cash is modelled monthly and the investment sized against the <b>deepest trough — ${k(H.troughUsd)} in month ${H.troughMonth}</b> — plus a buffer. Costs land from month one while recurring revenue compounds late, so an annual average would hide the point at which the company actually runs out of money.</p>
+  <p><b>Why ${k(M.inputs.INVESTMENT)} funds ${k(H.opex24)} of cost.</b> Operating cost over 24 months is ${k(H.opex24)}; revenue earned in those months contributes ${k(H.gp24)} of gross profit. Capital is needed only for the gap, and only down to its deepest point — ${k(H.capitalGap24)}, covered with ${Math.round(H.headroom * 100)}% headroom.</p>
+
+  <table class="tbl">
+    <thead><tr><th>Use of funds</th><th class="n">24-mo cost</th><th>What it buys</th></tr></thead>
+    <tbody>
+      <tr><td><b>Team</b> — two senior roles, fully loaded</td><td class="n">${k(M.inputs.LOADED * 2 * 2)}</td><td>Platform and engineering, at market compensation including employer taxes, benefits, and retirement — a loading of roughly 21% over base</td></tr>
+      <tr><td><b>Compliance &amp; security</b></td><td class="n">${k(M.inputs.ONE_OFFS.reduce((n, o) => n + o.amount, 0))}</td><td>SOC 2 Type 1, third-party penetration test, SOC 2 Type 2. Required to sell to utilities, not optional overhead</td></tr>
+      <tr><td><b>Cloud &amp; AI</b></td><td class="n">$52K</td><td>Azure across three environments; AI development tooling — the reason two people can carry this scope</td></tr>
+      <tr><td><b>Outsourced specialist work</b></td><td class="n">$30K</td><td>Panel safety listing, edge-agent work, penetration-test remediation</td></tr>
+      <tr><td><b>Insurance, legal, tooling, travel</b></td><td class="n">$92K</td><td>E&amp;O and cyber liability, partner and reseller agreements, partner recruitment</td></tr>
+      <tr><td>Total operating cost, 24 months</td><td class="n">${k(H.opex24)}</td><td>—</td></tr>
+      <tr><td>Less gross profit earned in period</td><td class="n">(${k(H.gp24)})</td><td>Revenue funds part of the build</td></tr>
+      <tr class="tot"><td>Capital required at the deepest point</td><td class="n">${k(H.capitalGap24)}</td><td>Month ${H.troughMonth}, carried by the ${k(M.inputs.INVESTMENT)} investment with ~${Math.round(H.headroom * 100)}% headroom</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What the headroom is for</h3>
+  <p>A buffer stated as a percentage is an assertion. This one is sized against the single most likely thing to go wrong: <b>partner recruitment running late</b>. Every other number in the plan hangs off partner count, so the model was re-run with the whole revenue ramp delayed while costs stay where they are.</p>
+  <table class="tbl">
+    <thead><tr><th>Partner recruitment runs…</th><th class="n">Deepest cash position</th><th>Covered by ${k(M.inputs.INVESTMENT)}?</th></tr></thead>
+    <tbody>
+      ${M.sensitivity
+        .map(
+          (s) =>
+            `<tr><td>${s.delayMonths === 0 ? 'to plan' : `${s.delayMonths} months late`}</td><td class="n">${k(-s.troughUsd)}</td><td>${
+              s.troughUsd <= M.inputs.INVESTMENT
+                ? '<span class="tag tag--pos">Yes</span>'
+                : `<span class="tag tag--neg">No</span> — needs a further ${k(s.troughUsd - M.inputs.INVESTMENT)}`
+            }</td></tr>`,
+        )
+        .join('')}
+    </tbody>
+  </table>
+  <p class="cap">The raise absorbs a full quarter of slip on the entire partner ramp. It does not absorb half a year, and the plan does not claim it does — a six-month slip is a second conversation, and the month-9 cohort data is the checkpoint that would surface it in time to have that conversation.</p>
 
   ${waterfall({
     categories: YR,
     values: FCF,
     caption: 'Free cash flow by year',
-    note: 'Headcount rises with partner count, not site count — two people through year 2, nine by year 5. Partners install; we do not. The deepest cumulative position is $690K in year 3, inside the capital raised.',
+    note: `Bars are each year's own cash result; the dashed line and the figures beneath it are the cumulative position. Headcount rises with partner count, not site count — ${Y[0].heads} people through year 2, ${Y[4].heads} by year 5. Partners install; we do not.`,
   })}
-
-  <h3>How the figure was sized</h3>
-  <p>Cash is modelled monthly and the investment sized against the <b>deepest trough — $819K in month 18</b> — plus a buffer. Costs land from month one while recurring revenue compounds late; an annual average would hide the point at which the company actually runs out of money.</p>
-  <p><b>Why $1.05M funds $1.13M of cost.</b> Operating cost over 24 months is $1.13M; revenue earned in those months contributes $259K of gross profit. Capital is needed only for the gap, and only down to its deepest point — covered here with roughly 28% headroom.</p>
-
-  <table class="tbl">
-    <thead><tr><th>Use of funds</th><th class="n">24-mo cost</th><th>What it buys</th></tr></thead>
-    <tbody>
-      <tr><td><b>Team</b> — two senior roles, fully loaded</td><td class="n">$870K</td><td>Platform and engineering, at market compensation including employer taxes, benefits, and retirement — a loading of roughly 21% over base</td></tr>
-      <tr><td><b>Compliance &amp; security</b></td><td class="n">$66K</td><td>SOC 2 Type 1, third-party penetration test, SOC 2 Type 2. Required to sell to utilities, not optional overhead</td></tr>
-      <tr><td><b>Cloud &amp; AI</b></td><td class="n">$58K</td><td>Azure across three environments; AI development tooling — the reason two people can carry this scope</td></tr>
-      <tr><td><b>Outsourced specialist work</b></td><td class="n">$36K</td><td>Panel safety listing, edge-agent work, penetration-test remediation</td></tr>
-      <tr><td><b>Insurance, legal, tooling, travel</b></td><td class="n">$102K</td><td>E&amp;O and cyber liability, partner and reseller agreements, partner recruitment</td></tr>
-      <tr><td>Total operating cost, 24 months</td><td class="n">$1.13M</td><td>—</td></tr>
-      <tr><td>Less gross profit earned in period</td><td class="n">($259K)</td><td>Revenue funds part of the build</td></tr>
-      <tr class="tot"><td>Capital required at the deepest point</td><td class="n">$819K</td><td>Month 18, carried by the $1.05M investment with ~28% headroom</td></tr>
-    </tbody>
-  </table>
 
   <h3>Forecast return</h3>
   <table class="tbl">
     <thead><tr><th>Exit</th><th class="n">ARR</th><th class="n">Enterprise value</th><th class="n">Proceeds</th><th class="n">Multiple</th><th class="n">IRR</th></tr></thead>
     <tbody>
-      <tr><td>Year 5</td><td class="n">$3.75M</td><td class="n">$15–24M</td><td class="n">$3.76–5.96M</td><td class="n">3.6–5.7×</td><td class="n">29–41%</td></tr>
+      <tr><td>Year 5</td><td class="n">${k(ARR[4])}</td><td class="n">${H.ev5.map((v) => k(v)).join('–')}</td><td class="n">${H.proceeds5.map((v) => k(v)).join('–')}</td><td class="n">${H.multiple5.map((x) => x.toFixed(1)).join('–')}×</td><td class="n">${H.irr5.map((x) => Math.round(x)).join('–')}%</td></tr>
       <tr><td>Year 10</td><td class="n">$11.8M</td><td class="n">$45–71M</td><td class="n">$11.3–17.7M</td><td class="n">10.8–16.9×</td><td class="n">27–33%</td></tr>
     </tbody>
   </table>
@@ -268,7 +327,7 @@ ${toc([
       <tr><td>Production environment live; first partner fleet monitored</td><td>Month 3</td><td>Converts the platform from built to operating</td></tr>
       <tr><td>150 sites; three documented prevented failures</td><td>Month 9</td><td>First real CAC and churn data; the evidence a second partner needs</td></tr>
       <tr><td>Three partners beyond the affiliate; one OEM letter of intent</td><td>Month 15</td><td>Proves the channel works with parties unrelated to us</td></tr>
-      <tr><td>600 sites; $328K ARR; 8 partners</td><td>Month 24</td><td>Series A metrics, or default-alive on gross profit</td></tr>
+      <tr><td>600 sites; ${k(ARR[1])} ARR; 8 partners</td><td>Month 24</td><td>Series A metrics, or default-alive on gross profit</td></tr>
     </tbody>
   </table>
 

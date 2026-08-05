@@ -1,0 +1,481 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><title>PeakLogic — Business Plan & Investment Case</title><style>
+:root {
+  --ink:        #14161d;
+  --ink-2:      #3d4356;
+  --ink-3:      #6b7285;
+  --rule:       #d6dae4;
+  --rule-2:     #eef0f5;
+  --paper:      #ffffff;
+  --tint:       #f6f7fa;
+  --accent:     #4c2a9c;
+  --accent-2:   #7c5ad4;
+  --accent-pale:#efe9fb;
+  --pos:        #15683f;
+  --neg:        #a52020;
+  --warn:       #8a5205;
+  --serif: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  --sans: "Inter", -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --mono: "SF Mono", "Cascadia Mono", "DejaVu Sans Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--sans); font-size: 10.2pt; line-height: 1.52;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+.page { max-width: 190mm; margin: 0 auto; padding: 18mm 0 24mm; }
+
+/* ── Cover ─────────────────────────────────────────────────────────── */
+.cover { min-height: 232mm; display: flex; flex-direction: column; break-after: page; page-break-after: always; }
+.cover__mark { display: flex; align-items: center; gap: 9px; }
+.cover__word { font-family: var(--sans); font-weight: 800; font-size: 15pt; letter-spacing: -.02em; }
+.cover__word span { color: var(--accent-2); }
+.cover__mid { margin-top: auto; }
+.cover__kicker { font-family: var(--mono); font-size: 8.5pt; letter-spacing: .22em; text-transform: uppercase; color: var(--accent); }
+.cover h1 {
+  font-family: var(--serif); font-weight: 400; font-size: 40pt; line-height: 1.02;
+  letter-spacing: -.018em; margin: 14px 0 0; max-width: 20ch;
+}
+.cover__sub { font-size: 13pt; color: var(--ink-2); margin-top: 16px; max-width: 54ch; line-height: 1.45; }
+.cover__rule { height: 3px; background: var(--accent); width: 68px; margin: 26px 0 0; }
+.cover__meta { margin-top: auto; padding-top: 30px; border-top: 1px solid var(--rule);
+  display: flex; justify-content: space-between; gap: 20px; font-size: 8.6pt; color: var(--ink-3); }
+.cover__meta b { display: block; color: var(--ink); font-size: 9.4pt; font-weight: 650; margin-bottom: 2px; }
+
+/* ── Contents ──────────────────────────────────────────────────────── */
+.toc { break-after: page; page-break-after: always; }
+.toc ol { list-style: none; counter-reset: toc; margin: 0; padding: 0; }
+.toc li { counter-increment: toc; display: flex; align-items: baseline; gap: 10px;
+  padding: 7px 0; border-bottom: 1px solid var(--rule-2); font-size: 11pt; }
+.toc li::before { content: counter(toc, decimal-leading-zero); font-family: var(--mono);
+  font-size: 8.5pt; color: var(--accent); flex: none; width: 22px; }
+.toc li span { color: var(--ink-3); font-size: 9.4pt; margin-left: auto; text-align: right; max-width: 46%; }
+
+/* ── Structure ─────────────────────────────────────────────────────── */
+main { counter-reset: sec; }
+section { counter-increment: sec; break-inside: auto; margin-bottom: 26px; }
+section > h2 {
+  font-family: var(--serif); font-weight: 400; font-size: 19pt; letter-spacing: -.012em;
+  margin: 0 0 4px; padding-top: 12px; border-top: 2px solid var(--ink);
+  break-after: avoid; page-break-after: avoid; text-wrap: balance;
+}
+section > h2::before { content: counter(sec) ".  "; font-family: var(--mono); font-size: 11pt; color: var(--accent); }
+.dek { color: var(--ink-2); font-size: 10.4pt; max-width: 72ch; margin: 0 0 14px; }
+h3 { font-size: 11pt; font-weight: 700; margin: 16px 0 5px; letter-spacing: -.004em; break-after: avoid; }
+p { margin: 0 0 9px; max-width: 76ch; }
+p:last-child { margin-bottom: 0; }
+ul, ol.body { margin: 0 0 10px; padding-left: 17px; }
+li { margin-bottom: 4px; max-width: 74ch; }
+b, strong { font-weight: 650; color: var(--ink); }
+em { font-style: normal; color: var(--accent); font-weight: 600; }
+code { font-family: var(--mono); font-size: .87em; background: var(--tint); padding: 1px 4px; border-radius: 3px; }
+a { color: inherit; text-decoration: none; }
+
+/* ── Lede ──────────────────────────────────────────────────────────── */
+.lede { font-family: var(--serif); font-size: 14pt; line-height: 1.45; color: var(--ink);
+  max-width: 62ch; margin: 0 0 16px; }
+
+/* ── Pull statement ────────────────────────────────────────────────── */
+.pull { border-left: 3px solid var(--accent); padding: 4px 0 4px 20px; margin: 16px 0;
+  break-inside: avoid; page-break-inside: avoid; }
+.pull p { font-family: var(--serif); font-size: 13pt; line-height: 1.45; max-width: 64ch; }
+
+/* ── Tables ────────────────────────────────────────────────────────── */
+.tbl { width: 100%; border-collapse: collapse; margin: 4px 0 6px; font-size: 9.2pt; }
+.tbl thead { display: table-header-group; }  /* repeat headers across pages */
+.tbl th { text-align: left; font-size: 7.6pt; text-transform: uppercase; letter-spacing: .1em;
+  color: var(--ink-3); font-weight: 700; padding: 8px 9px; border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+.tbl td { padding: 7px 9px; border-bottom: 1px solid var(--rule-2); vertical-align: top; }
+.tbl tbody tr:last-child td { border-bottom: 1px solid var(--rule); }
+.tbl .n { text-align: right; font-family: var(--mono); font-size: 8.8pt;
+  font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tbl .tot td { font-weight: 700; background: var(--tint); border-top: 1.5px solid var(--ink); }
+.tbl .pos { color: var(--pos); }
+.tbl .neg { color: var(--neg); }
+.cap { font-size: 8.4pt; color: var(--ink-3); margin: 5px 0 0; max-width: 84ch; line-height: 1.45; }
+figure { margin: 0 0 16px; break-inside: avoid; page-break-inside: avoid; }
+
+/* ── Metric row ────────────────────────────────────────────────────── */
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0; margin: 6px 0 14px;
+  border: 1px solid var(--rule); border-radius: 4px; overflow: hidden; break-inside: avoid; }
+.metrics.three { grid-template-columns: repeat(3, 1fr); }
+.metric { padding: 12px 14px; border-right: 1px solid var(--rule); }
+.metric:last-child { border-right: none; }
+.metric__l { font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3); font-weight: 700; }
+.metric__v { font-size: 19pt; font-weight: 700; letter-spacing: -.028em; margin-top: 3px;
+  font-variant-numeric: tabular-nums; line-height: 1; }
+.metric__s { font-size: 8.2pt; color: var(--ink-3); margin-top: 4px; line-height: 1.35; }
+.metric--key { background: var(--accent-pale); }
+.metric--key .metric__v { color: var(--accent); }
+
+/* ── Cards ─────────────────────────────────────────────────────────── */
+.cards { display: grid; gap: 11px; margin: 4px 0 12px; }
+.cards.c2 { grid-template-columns: 1fr 1fr; }
+.cards.c3 { grid-template-columns: repeat(3, 1fr); }
+.cards.c4 { grid-template-columns: repeat(4, 1fr); }
+.card { border: 1px solid var(--rule); border-radius: 4px; padding: 13px 15px;
+  break-inside: avoid; page-break-inside: avoid; }
+.card h4 { font-size: 10pt; margin: 0 0 5px; font-weight: 700; }
+.card p { font-size: 9.2pt; color: var(--ink-2); margin: 0; max-width: none; }
+.card__k { font-family: var(--mono); font-size: 7.6pt; letter-spacing: .12em;
+  text-transform: uppercase; color: var(--accent); display: block; margin-bottom: 5px; }
+
+/* ── Numbered driver blocks ────────────────────────────────────────── */
+.driver { display: flex; gap: 16px; padding: 15px 0; border-top: 1px solid var(--rule-2);
+  break-inside: avoid; page-break-inside: avoid; }
+.driver:first-of-type { border-top: none; }
+.driver__n { font-family: var(--serif); font-size: 26pt; line-height: .9; color: var(--accent);
+  opacity: .28; flex: none; width: 40px; }
+.driver__b { min-width: 0; }
+.driver h3 { margin-top: 0; font-size: 11.5pt; }
+.driver p { font-size: 9.6pt; color: var(--ink-2); }
+
+.tag { display: inline-block; font-size: 7.4pt; font-weight: 700; letter-spacing: .06em;
+  text-transform: uppercase; padding: 2px 7px; border-radius: 2px; margin-bottom: 6px; }
+.tag--pos { background: #e3f4ea; color: var(--pos); }
+.tag--warn { background: #fbf0da; color: var(--warn); }
+.tag--neg { background: #fae5e5; color: var(--neg); }
+.tag--acc { background: var(--accent-pale); color: var(--accent); }
+
+/* ── Layer stack (product architecture) ────────────────────────────── */
+.stack { border: 1px solid var(--rule); border-radius: 4px; overflow: hidden;
+  margin: 6px 0 6px; break-inside: avoid; page-break-inside: avoid; }
+.stack__row { display: grid; grid-template-columns: 118px 1fr; align-items: start;
+  gap: 0; border-bottom: 1px solid var(--rule-2); }
+.stack__row:last-child { border-bottom: none; }
+.stack__l { padding: 11px 13px; background: var(--tint); border-right: 1px solid var(--rule);
+  font-size: 7.4pt; text-transform: uppercase; letter-spacing: .1em; color: var(--ink-3);
+  font-weight: 700; align-self: stretch; }
+.stack__r { padding: 10px 14px; }
+.stack__n { font-size: 10.4pt; font-weight: 700; letter-spacing: -.006em; }
+.stack__n em { font-style: normal; color: var(--accent); }
+.stack__d { font-size: 9pt; color: var(--ink-2); margin-top: 2px; }
+.stack__flow { display: flex; align-items: center; gap: 8px; padding: 7px 14px;
+  background: var(--accent-pale); font-family: var(--mono); font-size: 7.8pt;
+  letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+
+.foot { margin-top: 30px; padding-top: 12px; border-top: 1px solid var(--rule);
+  font-size: 8.2pt; color: var(--ink-3); line-height: 1.5; }
+
+@page { size: A4; margin: 15mm 12mm 14mm; }
+@media print {
+  .page { max-width: none; padding: 0; }
+  section { break-inside: auto; }
+}
+</style></head>
+<body><div class="page">
+<header class="cover">
+  <div class="cover__mark">
+    <svg width="26" height="20" viewBox="4 10 24 18" aria-hidden="true">
+      <path d="M4 28 L12 10 L18 20 L23 12 L28 28 Z" fill="#4c2a9c"/>
+      <path d="M18 20 L23 12 L28 28 Z" fill="#22a05c" opacity=".85"/>
+    </svg>
+    <span class="cover__word">Peak<span>Logic</span></span>
+  </div>
+  <div class="cover__mid">
+    <div class="cover__kicker">Business plan & investment case</div>
+    <h1>An intelligence layer for essential field services</h1>
+    <div class="cover__rule"></div>
+    <p class="cover__sub">Predictive analytics and asset management for the distributed critical equipment that was never large enough to justify a control system.</p>
+  </div>
+  <div class="cover__meta"><div><b>Investment sought</b>$1.05M equity</div><div><b>Prepared</b>2 August 2026</div><div><b>Forecast return</b>3.6–5.7× by year 5</div><div><b>Status</b>Confidential</div></div>
+</header>
+
+<nav class="toc">
+  <h2 style="font-family:var(--serif);font-weight:400;font-size:19pt;margin:0 0 12px;padding-top:12px;border-top:2px solid var(--ink)">Contents</h2>
+  <ol><li>Why operators cannot keep running blind<span>Accountability rising, visibility flat</span></li><li>What the platform does<span>Monitor, predict, dispatch, prove</span></li><li>Positioning<span>The third way between a dialer and SCADA</span></li><li>Why now<span>Four drivers, ranked by force</span></li><li>Business model<span>Three revenue lines, deliberately weighted</span></li><li>Financial model<span>Bottom-up from partner and site counts</span></li><li>Customer acquisition<span>Where seventy partners come from</span></li><li>Competitive position<span>Against SCADA, dialers, and OEM apps</span></li><li>Status and risks<span>What exists, and what could break this</span></li><li>The ask<span>Use of funds, cash flow, and return</span></li></ol>
+</nav>
+
+<main>
+
+<section>
+  <h2>Why operators cannot keep running blind</h2>
+  <p class="lede">Essential services do not get to fail quietly. When a lift station overflows, a treatment unit stops disinfecting, or a walk-in loses temperature, the outcome is a regulator, a public-health notice, or a customer lost — not a maintenance ticket.</p>
+  <p>Yet these are the assets nobody can see: too dispersed for a control room, too small for SCADA economics, and maintained by crews that shrink while the estate they cover grows. <em>The gap between what an operator is accountable for and what they can actually observe widens every year</em> — and every one of those failures announced itself first, in current draw, in run time, in drifting chemistry.</p>
+  <p>PeakLogic closes that gap without asking anyone to become a SCADA operator. It reads the warning, decides what matters, and puts the work in front of the person who can act on it.</p>
+</section>
+
+<section>
+  <h2>What the platform does</h2>
+  <p class="dek">Four steps. Most competitors stop after the first, which is why an alarm reaches a phone and nothing else happens.</p>
+  <div class="cards c4">
+    <div class="card"><span class="card__k">01 · Monitor</span><h4>Connect what exists</h4><p>Pumps, blowers, chemistry, level, and refrigeration — mixed vendors, one platform, over cellular or the site's own network.</p></div>
+    <div class="card"><span class="card__k">02 · Predict</span><h4>Read the warning</h4><p>Per-asset baselines catch degradation weeks before the failure it becomes.</p></div>
+    <div class="card"><span class="card__k">03 · Dispatch</span><h4>Land the work</h4><p>An alarm becomes a work order in the partner's own system, routed to whoever is accountable.</p></div>
+    <div class="card"><span class="card__k">04 · Prove</span><h4>Keep the evidence</h4><p>Compiled as it happens, not reconstructed from paper afterwards.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Positioning</h2>
+  <div class="pull">
+    <p>For operators of distributed critical equipment — wastewater and septic, campus and assisted-living facilities, food service, pools, and light commercial mechanical — who <em>cannot justify a traditional SCADA deployment but cannot absorb the failures either</em>, PeakLogic is a predictive analytics and asset-management platform that converts unplanned failure into scheduled work.</p>
+    <p>Autodialers call once the overflow has happened. SCADA is priced and scoped as a capital project. PeakLogic reaches these sites a third way — <em>through the service contractors already maintaining them</em> — so it arrives with no integration project and pays for itself out of emergencies that no longer occur.</p>
+  </div>
+</section>
+
+<section>
+  <h2>Why now</h2>
+  <p class="dek">Four forces, ranked by how much of the market each moves. Only the second is time-boxed — but it determines whether these are the right twenty-four months.</p>
+
+  <div class="driver"><div class="driver__n">01</div><div class="driver__b">
+    <span class="tag tag--pos">Market creation, not displacement</span>
+    <h3>At most of these sites, the incumbent is nothing at all</h3>
+    <p>"Displacement" overstates it. The overwhelming majority of lift stations, treatment units, and light commercial mechanical rooms have <b>no monitoring at all, or a phone autodialer that calls once the failure has happened</b>. There is no vendor to unseat, no contract to buy out, and nothing to rip out.</p>
+    <p>That is the stronger position: no switching friction, no incumbent defending an account, and a buyer adopting for the first time rather than being asked to admit an earlier decision was wrong. Where we do displace, it is narrow — ageing autodialers, and OEM apps that see only their own manufacturer's equipment.</p>
+  </div></div>
+
+  <div class="driver"><div class="driver__n">02</div><div class="driver__b">
+    <span class="tag tag--warn">Time-boxed</span>
+    <h3>Consolidation has orphaned the installer channel</h3>
+    <p>DataFlow Systems, the dominant lift-station monitoring vendor, was acquired by SmartCover in 2023 and SmartCover by Badger Meter in 2025 for <b>$185M</b>. The product line is folding into Badger's BlueEdge suite: contracts, billing, support contacts, and domains are all moving, and small-to-midsize lift-station work receives the least attention during an integration of that size.</p>
+    <p>This is both a displacement and a partnership opening, and the partnership half is durable. <b>Panel builders are the distribution channel, not the competition.</b> They already sell to towns and operators, most of their panels still ship with a dialer or nothing, and they want recurring revenue without building cloud software.</p>
+  </div></div>
+
+  <div class="driver"><div class="driver__n">03</div><div class="driver__b">
+    <span class="tag tag--acc">Structural</span>
+    <h3>A modernisation cycle is arriving whether operators are ready or not</h3>
+    <p>Three forces converge on one estate. The installed base of dialers and relay panels is <b>reaching end of life</b> just as the cellular and sensing hardware to replace it has fallen to a fraction of its former cost. Meanwhile the workforce that carried this knowledge in their heads is retiring, and the crews replacing them are smaller and cover more sites.</p>
+    <p>An operator is asked to supervise a growing estate with fewer people and ageing instrumentation — and increasingly to <b>evidence</b> that they can. Modernisation stops being discretionary at that point; the question becomes what they modernise onto.</p>
+  </div></div>
+
+  <div class="driver"><div class="driver__n">04</div><div class="driver__b">
+    <span class="tag tag--neg">Now a procurement gate</span>
+    <h3>Security has moved from a checkbox to a condition of sale</h3>
+    <p>The 2026 coordinated intrusions against US water utilities changed what a security review is for. Legacy dialers and one-off panels have no posture to present: no patching story, no audit trail, no answer to what a compromised device could reach. Regulators, insurers, and boards now ask, and most operators cannot answer.</p>
+    <p><b>Today the platform is read-only by construction</b> — no code path issues a device command. <b>Control is on the roadmap</b>, because operators will want remote reset and shutoff. The advantage is the order in which we build: the authorisation model, safety interlocks, and audit trail are designed before any command path exists, and safety-critical trips stay local to the equipment. Every incumbent is attempting the reverse.</p>
+  </div></div>
+</section>
+
+<section>
+  <h2>Business model</h2>
+  <table class="tbl">
+    <thead><tr><th>Line</th><th>Who pays</th><th class="n">Price</th><th>Role</th></tr></thead>
+    <tbody>
+      <tr><td><b>Partner platform fee</b></td><td>Service company</td><td class="n">$250–$4,000/mo<br>by fleet size</td><td>The durable line. Buys a business system — dispatch, work orders, a branded customer portal, compliance evidence.</td></tr>
+      <tr><td><b>Channel monitoring</b></td><td>Partner, marked up to their customer</td><td class="n">$22/site/mo</td><td>Scales with the partner's own book, resold inside contracts they already hold.</td></tr>
+      <tr><td><b>Direct monitoring</b></td><td>Site owner, sold by us</td><td class="n">$38/site/mo</td><td>No partner margin to share. Higher acquisition cost, and the source of reference customers.</td></tr>
+      <tr><td><b>Hardware &amp; commissioning</b></td><td>Site owner</td><td class="n">~$1,800/site</td><td><span class="tag tag--warn">Cost-plus, ~20%</span> Deliberately not a profit centre — an acquisition cost we recover.</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">Institutional campuses at ~$25K/yr are always sold direct. Direct accounts for roughly 39% of recurring revenue across the plan.</p>
+  <div class="pull"><p>A site owner buys monitoring once, reluctantly, and churns when budgets tighten. A service company buys it to <em>protect margin on contracts they already hold</em> — fewer emergency callouts, fewer wasted visits, evidence when a customer disputes work. That is an operating decision, and it renews.</p></div>
+</section>
+
+<section>
+  <h2>Financial model</h2>
+  <p class="dek">Built from partner and site counts against published pricing. Every figure is arithmetic from those two inputs — no top-down market-share assumption.</p>
+
+  <div class="metrics">
+    <div class="metric"><div class="metric__l">Recurring / site</div><div class="metric__v">$264</div><div class="metric__s">channel · $456 direct</div></div>
+    <div class="metric"><div class="metric__l">Hardware / site</div><div class="metric__v">$1,800</div><div class="metric__s">one-time, ~20% margin</div></div>
+    <div class="metric"><div class="metric__l">Sites / partner</div><div class="metric__v">~90</div><div class="metric__s">at maturity</div></div>
+    <div class="metric metric--key"><div class="metric__l">Year-5 ARR</div><div class="metric__v">$3.75M</div><div class="metric__s">70 partners · 8,000 sites</div></div>
+  </div>
+
+  <figure>
+  <h3 style="margin-top:0">Revenue and recurring run-rate</h3>
+  <svg viewBox="0 0 680 168" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="52" y1="142" x2="670" y2="142" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="145" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><line x1="52" y1="112" x2="670" y2="112" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="115" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$3M</text><line x1="52" y1="82" x2="670" y2="82" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="85" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$6M</text><line x1="52" y1="52" x2="670" y2="52" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="55" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$9M</text><line x1="52" y1="22" x2="670" y2="22" stroke="#e4e7ee" stroke-width="1"/>
+<text x="45" y="25" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$12M</text><g transform="translate(52,10)"><rect x="0" y="-6" width="8" height="8" fill="#7c5ad4" rx="1"/><text x="12" y="1" font-size="8" fill="#6b7285">Revenue</text><rect x="118" y="-6" width="8" height="8" fill="#4c2a9c" rx="1"/><text x="130" y="1" font-size="8" fill="#6b7285">ARR (exit run-rate)</text></g><rect x="87.8" y="138.77263333333335" width="24" height="3.2273666666666667" fill="#7c5ad4" rx="1"/><text x="100.8" y="134.77263333333335" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$323K</text><rect x="113.8" y="141" width="24" height="1" fill="#4c2a9c" rx="1"/><text x="126.8" y="137" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$97K</text><text x="113.8" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="211.39999999999998" y="131.67471666666665" width="24" height="10.325283333333335" fill="#7c5ad4" rx="1"/><text x="224.39999999999998" y="127.67471666666665" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$1.0M</text><rect x="237.39999999999998" y="138.7156" width="24" height="3.2843999999999998" fill="#4c2a9c" rx="1"/><text x="250.39999999999998" y="134.7156" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$328K</text><text x="237.39999999999998" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="335" y="113.89831666666667" width="24" height="28.10168333333333" fill="#7c5ad4" rx="1"/><text x="348" y="109.89831666666667" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$2.8M</text><rect x="361" y="132.776" width="24" height="9.224" fill="#4c2a9c" rx="1"/><text x="374" y="128.776" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$922K</text><text x="361" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="458.59999999999997" y="87.50366666666667" width="24" height="54.496333333333325" fill="#7c5ad4" rx="1"/><text x="471.59999999999997" y="83.50366666666667" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$5.4M</text><rect x="484.59999999999997" y="122.304" width="24" height="19.695999999999998" fill="#4c2a9c" rx="1"/><text x="497.59999999999997" y="118.304" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$2.0M</text><text x="484.59999999999997" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="582.1999999999999" y="40.664500000000004" width="24" height="101.3355" fill="#7c5ad4" rx="1"/><text x="595.1999999999999" y="36.664500000000004" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$10.1M</text><rect x="608.1999999999999" y="104.508" width="24" height="37.492000000000004" fill="#4c2a9c" rx="1"/><text x="621.1999999999999" y="100.508" text-anchor="middle" font-size="7.5" fill="#6b7285" font-family="monospace">$3.7M</text><text x="608.1999999999999" y="159" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text></svg>
+  <p class="cap">Revenue is recognised monthly on the base that exists during each month, then summed — not on the exit run-rate, which is the most common way an early-stage model overstates year one. Year 1 closes at a $97K run rate but earns $323K, most of it hardware.</p>
+</figure>
+
+  <table class="tbl">
+    <thead><tr><th>Year</th><th class="n">Partners</th><th class="n">Sites</th><th class="n">of which direct</th><th class="n">Exit ARR</th><th class="n">Revenue</th><th class="n">Gross profit</th><th class="n">Op. cost</th><th class="n">Cash flow</th></tr></thead>
+    <tbody>
+      <tr><td>Year 1</td><td class="n">3</td><td class="n">150</td><td class="n">30</td><td class="n">$97K</td><td class="n">$323K</td><td class="n">$97K</td><td class="n">$535K</td><td class="n neg">$-438K</td></tr><tr><td>Year 2</td><td class="n">8</td><td class="n">600</td><td class="n">120</td><td class="n">$328K</td><td class="n">$1.03M</td><td class="n">$344K</td><td class="n">$575K</td><td class="n neg">$-231K</td></tr><tr><td>Year 3</td><td class="n">20</td><td class="n">1,800</td><td class="n">350</td><td class="n">$922K</td><td class="n">$2.81M</td><td class="n">$965K</td><td class="n">$839K</td><td class="n pos">$126K</td></tr><tr><td>Year 4</td><td class="n">40</td><td class="n">4,000</td><td class="n">800</td><td class="n">$1.97M</td><td class="n">$5.45M</td><td class="n">$2.01M</td><td class="n">$1.35M</td><td class="n pos">$659K</td></tr><tr class="tot"><td>Year 5</td><td class="n">70</td><td class="n">8,000</td><td class="n">1,600</td><td class="n">$3.75M</td><td class="n">$10.13M</td><td class="n">$3.85M</td><td class="n">$1.99M</td><td class="n pos">$1.85M</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">One model produces this table and every chart in the document — the annual figures are a sum of the monthly build, not a second calculation alongside it.</p>
+
+  <h3>Revenue mix, and why gross profit is the better measure</h3>
+  <p>Revenue is hardware-heavy early — only 23% of year-3 revenue is recurring, because every new site carries ~$1,800 of equipment. Presented as SaaS, that would mislead. So the plan reports <b>gross profit mix instead</b>: hardware runs at ~20% margin and software at ~82%, which means recurring gross profit overtakes hardware in <b>year 2</b> and reaches 63% of gross profit by year 5 while still only 29% of revenue. Revenue makes this look like an equipment business; profit shows it is not.</p>
+  <table class="tbl">
+    <thead><tr><th>Year</th><th class="n">Recurring revenue</th><th class="n">Hardware revenue</th><th class="n">Recurring gross profit</th><th class="n">Hardware gross profit</th><th class="n">Recurring share of GP</th></tr></thead>
+    <tbody>
+      <tr><td>Year 1</td><td class="n">$53K</td><td class="n">$270K</td><td class="n">$43K</td><td class="n">$54K</td><td class="n">44%</td></tr><tr><td>Year 2</td><td class="n">$223K</td><td class="n">$810K</td><td class="n">$182K</td><td class="n">$162K</td><td class="n">53%</td></tr><tr><td>Year 3</td><td class="n">$650K</td><td class="n">$2.16M</td><td class="n">$533K</td><td class="n">$432K</td><td class="n">55%</td></tr><tr><td>Year 4</td><td class="n">$1.49M</td><td class="n">$3.96M</td><td class="n">$1.22M</td><td class="n">$792K</td><td class="n">61%</td></tr><tr><td>Year 5</td><td class="n">$2.93M</td><td class="n">$7.20M</td><td class="n">$2.41M</td><td class="n">$1.44M</td><td class="n">63%</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Is 8,000 sites deliverable?</h3>
+  <p>As a single number it reads like more than one installation every working day. The correct unit is per partner, per week.</p>
+  <table class="tbl">
+    <thead><tr><th>Year</th><th class="n">Channel sites added</th><th class="n">Partners</th><th class="n">Per partner / year</th><th class="n">Per partner / week</th></tr></thead>
+    <tbody>
+      <tr><td>Year 1</td><td class="n">120</td><td class="n">3</td><td class="n">40</td><td class="n">0.83</td></tr>
+      <tr><td>Year 2</td><td class="n">360</td><td class="n">8</td><td class="n">45</td><td class="n">0.94</td></tr>
+      <tr><td>Year 3</td><td class="n">970</td><td class="n">20</td><td class="n">49</td><td class="n">1.01</td></tr>
+      <tr><td>Year 5</td><td class="n">3,200</td><td class="n">70</td><td class="n">46</td><td class="n">0.95</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">48 working weeks. Channel sites only — partners install those on visits already scheduled. The direct book is installed by us and is an order of magnitude smaller.</p>
+  <p><b>Slightly under one site per partner per week, every year, and it never rises.</b> The number looks large only because it is the sum of many small independent efforts, which is what the channel model is for. The real risk is not installation capacity — it is partner recruitment.</p>
+</section>
+
+<section>
+  <h2>Customer acquisition</h2>
+  <p class="dek">Eight partners by month 24 and seventy by year five is the number that carries the plan. Here is where they come from.</p>
+  <table class="tbl">
+    <thead><tr><th>Channel</th><th class="n">Partners by Yr 5</th><th>Route in</th><th>Why they say yes</th></tr></thead>
+    <tbody>
+      <tr><td><b>Affiliate operator</b></td><td class="n">1</td><td>Already held. First fleet live in month 3.</td><td>No sales cycle. Produces the case studies every other conversation needs.</td></tr>
+      <tr><td><b>Control-panel builders</b></td><td class="n">25–30</td><td>Direct outreach to shops serving wastewater and light commercial, concentrated where lift-station density is highest.</td><td>Their panels ship with a dialer or nothing. We add a recurring line to a sale they already make.</td></tr>
+      <tr><td><b>Displaced DataFlow accounts</b></td><td class="n">10–15</td><td>Operators disrupted by the Badger integration, reached through panel-builder referrals and trade associations.</td><td>They need a stable lift-station-first vendor during a transition they did not choose.</td></tr>
+      <tr><td><b>Contractor referral</b></td><td class="n">20–25</td><td>Each live partner introduces adjacent trades — septic to pool, pool to HVAC — inside the same territory.</td><td>A partner already running the platform is a credible reference, and they are not competitors.</td></tr>
+      <tr><td><b>OEM embed</b></td><td class="n">2–4</td><td>Equipment makers shipping connected panels under their own brand.</td><td>Years of app development avoided. Longest cycle, largest volume per agreement.</td></tr>
+    </tbody>
+  </table>
+  <div class="cards c2">
+    <div class="card"><h4>What a partner sale costs</h4><p>Two to four field visits, a witnessed alarm test at one site, and a 90-day pilot before a fleet commitment. Modelled at <b>$15K–$40K per partner</b> against a <b>$173K</b> lifetime value — 4.3× to 11.6×.</p></div>
+    <div class="card"><h4>What makes it repeat</h4><p>Partners expand rather than churn: they add sites from their own book at their own pace. Net revenue retention above 110% comes from site growth inside an existing agreement, not from upselling a new product.</p></div>
+  </div>
+</section>
+
+<section>
+  <h2>Competitive position</h2>
+  <table class="tbl">
+    <thead><tr><th>Category</th><th>Their position</th><th>Ours</th></tr></thead>
+    <tbody>
+      <tr><td>Badger Meter / DataFlow</td><td>Lift-station SCADA absorbed into a metering suite after two mergers</td><td>Lift-station-first, fast pilot, work orders built in, aimed at operators and panel builders rather than large utilities</td></tr>
+      <tr><td>Legacy SCADA</td><td>Excellent for a plant; priced and scoped as a capital project</td><td>Complementary. We instrument the long tail those platforms cannot economically reach, and feed data upward</td></tr>
+      <tr><td>Autodialer vendors</td><td>A phone call once the failure has happened</td><td>Trend history, fleet view, automatic work orders</td></tr>
+      <tr><td>OEM equipment apps</td><td>One manufacturer's equipment only</td><td>One platform across mixed fleets, which is what every real site has</td></tr>
+      <tr><td>Generic cloud IoT</td><td>Built for IT infrastructure</td><td>Built for pumps, blowers, and chemistry, with regulatory thresholds already encoded</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>Status and risks</h2>
+  <div class="cards c3">
+    <div class="card"><span class="tag tag--pos">Built</span><h4>Platform</h4><p>Multi-tenant core with enforced isolation, three portals, operator HMI, edge agent, compliance reporting, predictive baselines, automated work orders.</p></div>
+    <div class="card"><span class="tag tag--warn">Not deployed</span><h4>Infrastructure</h4><p>Defined as code and validated, but no environment provisioned. First deployment is a funded milestone, not a technical unknown.</p></div>
+    <div class="card"><span class="tag tag--neg">None yet</span><h4>Customers</h4><p>No paying customers and no pilot, so no measured acquisition cost or churn. Unit economics here are targets derived from pricing, not observations.</p></div>
+  </div>
+
+  <table class="tbl">
+    <thead><tr><th>Risk</th><th class="n">Severity</th><th>Response</th></tr></thead>
+    <tbody>
+      <tr><td><b>Partner-led model unproven.</b> The thesis assumes service companies will resell monitoring inside their contracts. If they will not, growth reverts to direct sales and the truck-roll ceiling returns.</td><td class="n"><span class="tag tag--neg">High</span></td><td>The first partner deployment tests exactly this, in month one, at low cost.</td></tr>
+      <tr><td><b>No measured CAC or churn.</b> LTV:CAC of 4–12× is derived, not observed.</td><td class="n"><span class="tag tag--neg">High</span></td><td>Both measurable within nine months; month-9 cohort data is the gate for any follow-on round.</td></tr>
+      <tr><td><b>Hardware margin compresses</b>, since it is priced near cost.</td><td class="n"><span class="tag tag--warn">Medium</span></td><td>Not a profit centre; can move to partner-procured with no change to recurring lines.</td></tr>
+      <tr><td><b>Badger integrates faster than expected</b>, closing the displacement window.</td><td class="n"><span class="tag tag--warn">Medium</span></td><td>The window accelerates year one but is not the long-term thesis.</td></tr>
+      <tr><td><b>Municipal sales cycles</b> run long and unpredictably.</td><td class="n"><span class="tag tag--pos">Low</span></td><td>Contract operators and private sites first; towns later, using bid language written to specify condition-based monitoring.</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<section>
+  <h2>The ask</h2>
+  <div class="metrics">
+    <div class="metric metric--key"><div class="metric__l">Investment</div><div class="metric__v">$1.05M</div><div class="metric__s">equity · funds 24 months</div></div>
+    <div class="metric"><div class="metric__l">Deepest trough</div><div class="metric__v">$669K</div><div class="metric__s">month 24 — sizes the raise</div></div>
+    <div class="metric"><div class="metric__l">Monthly breakeven</div><div class="metric__v">Mo 25</div><div class="metric__s">first full positive year: 3</div></div>
+    <div class="metric metric--key"><div class="metric__l">Forecast return</div><div class="metric__v">3.6–5.7×</div><div class="metric__s">by year 5 · 29–42% IRR</div></div>
+  </div>
+
+  <figure>
+  <h3 style="margin-top:0">Cumulative cash position, month by month</h3>
+  <svg viewBox="0 0 680 200" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="58" y1="119.2485748853058" x2="666" y2="119.2485748853058" stroke="#14161d" stroke-width="1"/>
+<text x="51" y="122.2485748853058" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text>
+<line x1="58" y1="170" x2="666" y2="170" stroke="#a52020" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="51" y="173" text-anchor="end" font-size="8" fill="#a52020" font-family="monospace">$-1.1M</text><path d="M 58 121.07194899358548 L 68.30508474576271 122.86852581235249 L 78.61016949152543 124.63830534160681 L 88.91525423728814 126.38128758134845 L 99.22033898305085 128.0974725315774 L 109.52542372881356 129.78686019229372 L 119.83050847457628 131.44945056349735 L 130.135593220339 134.14860683806756 L 140.4406779661017 135.75760263024586 L 150.74576271186442 137.33980113291145 L 161.05084745762713 138.89520234606437 L 171.35593220338984 140.42380626970458 L 181.66101694915255 141.5262977372431 L 191.96610169491527 143.24187259626646 L 202.27118644067798 144.21715951038283 L 212.57627118644066 145.12884414778813 L 222.88135593220338 145.9769265084824 L 233.1864406779661 146.76140659246556 L 243.4915254237288 147.48228439973767 L 253.79661016949152 148.13955993029873 L 264.10169491525426 150.1832739017114 L 274.4067796610169 150.71334487885034 L 284.7118644067797 151.17981357927817 L 295.01694915254234 151.58268000299498 L 305.3220338983051 150.9520409148374 L 315.6271186440678 150.157920745343 L 325.93220338983053 150.07707050282258 L 336.23728813559325 149.8327391789654 L 346.54237288135596 149.4249267737714 L 356.8474576271187 148.85363328724065 L 367.1525423728813 148.11885871937312 L 377.45762711864404 147.22060307016878 L 387.76271186440675 147.03561734793843 L 398.06779661016947 146.6871505443713 L 408.3728813559322 146.17520265946737 L 418.6779661016949 145.49977369322667 L 428.9830508474576 143.40830477898953 L 439.2881355932203 141.02860536374916 L 449.59322033898303 139.23742645581635 L 459.89830508474574 137.15801704688027 L 470.20338983050846 134.79037713694095 L 480.50847457627117 132.13450672599842 L 490.8135593220339 129.19040581405267 L 501.1186440677966 125.95807440110366 L 511.4237288135593 123.3142634954622 L 521.728813559322 120.38222208881751 L 532.0338983050847 117.16195018116957 L 542.3389830508474 113.6534477725184 L 552.6440677966102 107.48812437067656 L 562.9491525423729 100.83298527022376 L 573.2542372881356 94.56478147947081 L 583.5593220338983 87.80676199010693 L 593.8644067796611 80.55892680213219 L 604.1694915254237 72.8212759155465 L 614.4745762711865 65.47056033866065 L 624.7796610169491 57.630029063163875 L 635.0847457627119 49.29968208905622 L 645.3898305084746 41.356270424648415 L 655.6949152542373 32.92304306162967 L 666 24 L 666 119.2485748853058 L 58 119.2485748853058 Z" fill="#4c2a9c" opacity=".08"/><path d="M 58 121.07194899358548 L 68.30508474576271 122.86852581235249 L 78.61016949152543 124.63830534160681 L 88.91525423728814 126.38128758134845 L 99.22033898305085 128.0974725315774 L 109.52542372881356 129.78686019229372 L 119.83050847457628 131.44945056349735 L 130.135593220339 134.14860683806756 L 140.4406779661017 135.75760263024586 L 150.74576271186442 137.33980113291145 L 161.05084745762713 138.89520234606437 L 171.35593220338984 140.42380626970458 L 181.66101694915255 141.5262977372431 L 191.96610169491527 143.24187259626646 L 202.27118644067798 144.21715951038283 L 212.57627118644066 145.12884414778813 L 222.88135593220338 145.9769265084824 L 233.1864406779661 146.76140659246556 L 243.4915254237288 147.48228439973767 L 253.79661016949152 148.13955993029873 L 264.10169491525426 150.1832739017114 L 274.4067796610169 150.71334487885034 L 284.7118644067797 151.17981357927817 L 295.01694915254234 151.58268000299498 L 305.3220338983051 150.9520409148374 L 315.6271186440678 150.157920745343 L 325.93220338983053 150.07707050282258 L 336.23728813559325 149.8327391789654 L 346.54237288135596 149.4249267737714 L 356.8474576271187 148.85363328724065 L 367.1525423728813 148.11885871937312 L 377.45762711864404 147.22060307016878 L 387.76271186440675 147.03561734793843 L 398.06779661016947 146.6871505443713 L 408.3728813559322 146.17520265946737 L 418.6779661016949 145.49977369322667 L 428.9830508474576 143.40830477898953 L 439.2881355932203 141.02860536374916 L 449.59322033898303 139.23742645581635 L 459.89830508474574 137.15801704688027 L 470.20338983050846 134.79037713694095 L 480.50847457627117 132.13450672599842 L 490.8135593220339 129.19040581405267 L 501.1186440677966 125.95807440110366 L 511.4237288135593 123.3142634954622 L 521.728813559322 120.38222208881751 L 532.0338983050847 117.16195018116957 L 542.3389830508474 113.6534477725184 L 552.6440677966102 107.48812437067656 L 562.9491525423729 100.83298527022376 L 573.2542372881356 94.56478147947081 L 583.5593220338983 87.80676199010693 L 593.8644067796611 80.55892680213219 L 604.1694915254237 72.8212759155465 L 614.4745762711865 65.47056033866065 L 624.7796610169491 57.630029063163875 L 635.0847457627119 49.29968208905622 L 645.3898305084746 41.356270424648415 L 655.6949152542373 32.92304306162967 L 666 24" fill="none" stroke="#4c2a9c" stroke-width="2"/>
+<circle cx="295.01694915254234" cy="151.58268000299498" r="3.4" fill="#a52020"/>
+<text x="295.01694915254234" y="166.58268000299498" text-anchor="middle" font-size="7.6" fill="#a52020" font-family="monospace" font-weight="700">deepest $-669K · mo 24</text>
+<line x1="305.3220338983051" y1="24" x2="305.3220338983051" y2="170" stroke="#15683f" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="310.3220338983051" y="33" font-size="7.6" fill="#15683f" font-family="monospace" font-weight="700">mo 25 · monthly result turns positive</text><text x="171.35593220338984" y="192" text-anchor="middle" font-size="8.2" fill="#14161d">mo 12</text><text x="295.01694915254234" y="192" text-anchor="middle" font-size="8.2" fill="#14161d">mo 24</text><text x="418.6779661016949" y="192" text-anchor="middle" font-size="8.2" fill="#14161d">mo 36</text><text x="542.3389830508474" y="192" text-anchor="middle" font-size="8.2" fill="#14161d">mo 48</text><text x="666" y="192" text-anchor="middle" font-size="8.2" fill="#14161d">mo 60</text></svg>
+  <p class="cap">The curve never reaches the raise line — that gap is the headroom. Cash bottoms out at $669K in month 24, the monthly result turns positive in month 25 and stays positive, and the cumulative position crosses zero during year 4. An annual chart cannot show any of this: the deepest point of a year is never its year-end number.</p>
+</figure>
+
+  <h3>When the company actually turns the corner</h3>
+  <p>Three different things are often collapsed into "cash-flow positive", and they happen at three different times here. Stating them separately matters, because the first is the one an operator manages to and the last is the one that ends the funding requirement.</p>
+  <table class="tbl">
+    <thead><tr><th>Milestone</th><th class="n">When</th><th>What it means</th></tr></thead>
+    <tbody>
+      <tr><td>The monthly result turns positive</td><td class="n">Month 25</td><td>Gross profit covers that month's operating cost. From here the company is no longer consuming capital month to month</td></tr>
+      <tr><td>The first full year in the black</td><td class="n">Year 3</td><td>$126K on $2.81M of revenue — a 4% margin. Genuinely marginal, and it stays marginal because the year absorbs two hires</td></tr>
+      <tr><td>Cumulative cash back above zero</td><td class="n">Year 4</td><td>The capital raised has been fully recovered from operations. $1.97M cumulative by year 5</td></tr>
+    </tbody>
+  </table>
+  <p><b>Year 3 is close to the line either way, and the plan does not lean on it.</b> The $126K shown depends on hires landing in months 27 and 33 rather than on day one of the year; put all four people in from month 25 and year 3 turns slightly negative instead. The honest reading is that the business reaches breakeven <em>during</em> year 3 and then deliberately spends back into growth — which is why the raise is sized against the month-24 trough and not against a year-3 result that can be argued either way.</p>
+
+  <h3>How the figure was sized</h3>
+  <p>Cash is modelled monthly and the investment sized against the <b>deepest trough — $669K in month 24</b> — plus a buffer. Costs land from month one while recurring revenue compounds late, so an annual average would hide the point at which the company actually runs out of money.</p>
+  <p><b>Why $1.05M funds $1.11M of cost.</b> Operating cost over 24 months is $1.11M; revenue earned in those months contributes $442K of gross profit. Capital is needed only for the gap, and only down to its deepest point — $669K, covered with 57% headroom.</p>
+
+  <table class="tbl">
+    <thead><tr><th>Use of funds</th><th class="n">24-mo cost</th><th>What it buys</th></tr></thead>
+    <tbody>
+      <tr><td><b>Team</b> — two senior roles, fully loaded</td><td class="n">$871K</td><td>Platform and engineering, at market compensation including employer taxes, benefits, and retirement — a loading of roughly 21% over base</td></tr>
+      <tr><td><b>Compliance &amp; security</b></td><td class="n">$66K</td><td>SOC 2 Type 1, third-party penetration test, SOC 2 Type 2. Required to sell to utilities, not optional overhead</td></tr>
+      <tr><td><b>Cloud &amp; AI</b></td><td class="n">$52K</td><td>Azure across three environments; AI development tooling — the reason two people can carry this scope</td></tr>
+      <tr><td><b>Outsourced specialist work</b></td><td class="n">$30K</td><td>Panel safety listing, edge-agent work, penetration-test remediation</td></tr>
+      <tr><td><b>Insurance, legal, tooling, travel</b></td><td class="n">$92K</td><td>E&amp;O and cyber liability, partner and reseller agreements, partner recruitment</td></tr>
+      <tr><td>Total operating cost, 24 months</td><td class="n">$1.11M</td><td>—</td></tr>
+      <tr><td>Less gross profit earned in period</td><td class="n">($442K)</td><td>Revenue funds part of the build</td></tr>
+      <tr class="tot"><td>Capital required at the deepest point</td><td class="n">$669K</td><td>Month 24, carried by the $1.05M investment with ~57% headroom</td></tr>
+    </tbody>
+  </table>
+
+  <h3>What the headroom is for</h3>
+  <p>A buffer stated as a percentage is an assertion. This one is sized against the single most likely thing to go wrong: <b>partner recruitment running late</b>. Every other number in the plan hangs off partner count, so the model was re-run with the whole revenue ramp delayed while costs stay where they are.</p>
+  <table class="tbl">
+    <thead><tr><th>Partner recruitment runs…</th><th class="n">Deepest cash position</th><th>Covered by $1.05M?</th></tr></thead>
+    <tbody>
+      <tr><td>to plan</td><td class="n">$-669K</td><td><span class="tag tag--pos">Yes</span></td></tr><tr><td>3 months late</td><td class="n">$-840K</td><td><span class="tag tag--pos">Yes</span></td></tr><tr><td>6 months late</td><td class="n">$-1.17M</td><td><span class="tag tag--neg">No</span> — needs a further $116K</td></tr><tr><td>9 months late</td><td class="n">$-1.51M</td><td><span class="tag tag--neg">No</span> — needs a further $464K</td></tr><tr><td>12 months late</td><td class="n">$-1.91M</td><td><span class="tag tag--neg">No</span> — needs a further $857K</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">The raise absorbs a full quarter of slip on the entire partner ramp. It does not absorb half a year, and the plan does not claim it does — a six-month slip is a second conversation, and the month-9 cohort data is the checkpoint that would surface it in time to have that conversation.</p>
+
+  <figure>
+  <h3 style="margin-top:0">Free cash flow by year</h3>
+  <svg viewBox="0 0 680 190" width="100%" role="img" style="display:block;font-family:Inter,-apple-system,'Segoe UI',sans-serif"><line x1="56" y1="124.06700372861584" x2="670" y2="124.06700372861584" stroke="#14161d" stroke-width="1"/>
+<text x="49" y="127.06700372861584" text-anchor="end" font-size="8" fill="#6b7285" font-family="monospace">$0</text><rect x="94.4" y="124.06700372861584" width="46" height="20.91254984118231" fill="#a52020" opacity=".85" rx="1"/>
+<text x="117.4" y="155.97955356979816" text-anchor="middle" font-size="7.8" fill="#a52020" font-family="monospace" font-weight="700">$-438K</text>
+<text x="117.4" y="170" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 1</text><rect x="217.20000000000002" y="144.97955356979816" width="46" height="11.020446430201844" fill="#a52020" opacity=".85" rx="1"/>
+<text x="240.20000000000002" y="167" text-anchor="middle" font-size="7.8" fill="#a52020" font-family="monospace" font-weight="700">$-231K</text>
+<text x="240.20000000000002" y="170" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 2</text><rect x="340" y="149.99255294674157" width="46" height="6.007447053258431" fill="#15683f" opacity=".85" rx="1"/>
+<text x="363" y="143.99255294674157" text-anchor="middle" font-size="7.8" fill="#15683f" font-family="monospace" font-weight="700">$126K</text>
+<text x="363" y="170" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 3</text><rect x="462.79999999999995" y="118.54128490694927" width="46" height="31.451268039792296" fill="#15683f" opacity=".85" rx="1"/>
+<text x="485.79999999999995" y="112.54128490694927" text-anchor="middle" font-size="7.8" fill="#15683f" font-family="monospace" font-weight="700">$659K</text>
+<text x="485.79999999999995" y="170" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 4</text><rect x="585.6" y="30" width="46" height="88.54128490694927" fill="#15683f" opacity=".85" rx="1"/>
+<text x="608.6" y="24" text-anchor="middle" font-size="7.8" fill="#15683f" font-family="monospace" font-weight="700">$1.9M</text>
+<text x="608.6" y="170" text-anchor="middle" font-size="8.5" fill="#14161d">Yr 5</text><path d="M 117.4 144.97955356979816 L 240.20000000000002 156 L 363 149.99255294674157 L 485.79999999999995 118.54128490694927 L 608.6 30" fill="none" stroke="#4c2a9c" stroke-width="1.6" stroke-dasharray="3 2"/>
+     <text x="56" y="18" font-size="7.4" fill="#4c2a9c" font-family="monospace">— — cumulative cash position</text>
+     <text x="117.4" y="184" text-anchor="middle" font-size="7.2" fill="#4c2a9c" font-family="monospace">$-438K</text><text x="240.20000000000002" y="184" text-anchor="middle" font-size="7.2" fill="#4c2a9c" font-family="monospace">$-669K</text><text x="363" y="184" text-anchor="middle" font-size="7.2" fill="#4c2a9c" font-family="monospace">$-543K</text><text x="485.79999999999995" y="184" text-anchor="middle" font-size="7.2" fill="#4c2a9c" font-family="monospace">$116K</text><text x="608.6" y="184" text-anchor="middle" font-size="7.2" fill="#4c2a9c" font-family="monospace">$2.0M</text></svg>
+  <p class="cap">Bars are each year's own cash result; the dashed line and the figures beneath it are the cumulative position. Headcount rises with partner count, not site count — 2 people through year 2, 9 by year 5. Partners install; we do not.</p>
+</figure>
+
+  <h3>Forecast return</h3>
+  <table class="tbl">
+    <thead><tr><th>Exit</th><th class="n">ARR</th><th class="n">Enterprise value</th><th class="n">Proceeds</th><th class="n">Multiple</th><th class="n">IRR</th></tr></thead>
+    <tbody>
+      <tr><td>Year 5</td><td class="n">$3.75M</td><td class="n">$15.10M–$23.91M</td><td class="n">$3.77M–$5.98M</td><td class="n">3.6–5.7×</td><td class="n">29–42%</td></tr>
+      <tr><td>Year 10</td><td class="n">$11.8M</td><td class="n">$45–71M</td><td class="n">$11.3–17.7M</td><td class="n">10.8–16.9×</td><td class="n">27–33%</td></tr>
+    </tbody>
+  </table>
+  <p class="cap">Assumes 25% equity and no dilution from later rounds, valued on a blend of ARR and revenue multiples in line with recent transactions in the category. Returns move with the ownership negotiated and with retention at the time of sale.</p>
+
+  <h3>Milestones</h3>
+  <table class="tbl">
+    <thead><tr><th>Milestone</th><th>By</th><th>Why it is the right gate</th></tr></thead>
+    <tbody>
+      <tr><td>Production environment live; first partner fleet monitored</td><td>Month 3</td><td>Converts the platform from built to operating</td></tr>
+      <tr><td>150 sites; three documented prevented failures</td><td>Month 9</td><td>First real CAC and churn data; the evidence a second partner needs</td></tr>
+      <tr><td>Three partners beyond the affiliate; one OEM letter of intent</td><td>Month 15</td><td>Proves the channel works with parties unrelated to us</td></tr>
+      <tr><td>600 sites; $328K ARR; 8 partners</td><td>Month 24</td><td>Series A metrics, or default-alive on gross profit</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Exit context</h3>
+  <p>The category is consolidating and the comparables are recent and public: SmartCover acquired DataFlow Systems in 2023; Badger Meter acquired SmartCover for <b>$185M</b> in 2025. Xylem and Veralto are acquiring in adjacent water-infrastructure software.</p>
+  <p>What those buyers acquire is <b>distribution into the long tail</b> — the hundreds of thousands of small sites their enterprise products cannot economically reach. A platform arriving with a signed contractor channel, several thousand monitored sites, and a direct reference book is that distribution, already assembled. It is materially harder to build than to buy.</p>
+</section>
+
+<p class="foot">PeakLogic · Business Plan &amp; Investment Case · Prepared 2 August 2026. Financial figures are a model built from partner counts, site counts, and published pricing — not a forecast, and not audited. No customer revenue has been earned to date. Market sizing is directional. Prepared for discussion under confidentiality.</p>
+</main></div></body></html>

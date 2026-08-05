@@ -5,8 +5,9 @@ import { cover, toc, docShell } from './style.mjs';
 import { columns, line, stacked, milestones, COLOURS as C, money } from './charts.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const out = join(here, '..');
-const rows = JSON.parse(readFileSync(join(out, 'infra-forecast.json'), 'utf8'));
+const src = join(here, '..');
+const out = join(here, '..', 'Investor Documents');
+const rows = JSON.parse(readFileSync(join(src, 'infra-forecast.json'), 'utf8'));
 
 const yrs = rows.map((r) => `Yr ${r.yr}`);
 const perSite = rows.map((r) => r.total / r.sites);

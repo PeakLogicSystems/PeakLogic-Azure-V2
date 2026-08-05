@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { cover, toc, docShell } from './style.mjs';
 
-const out = join(dirname(fileURLToPath(import.meta.url)), '..');
+const out = join(dirname(fileURLToPath(import.meta.url)), '..', 'Investor Documents');
 
 const body = `
 ${cover({

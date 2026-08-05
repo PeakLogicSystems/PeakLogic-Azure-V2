@@ -131,9 +131,15 @@ export function line({ categories, values, height = 150, format = money, colour 
   return wrap(W, H, `${grid}${yl}<path d="${area}" fill="${colour}" opacity=".07"/><path d="${path}" fill="none" stroke="${colour}" stroke-width="2"/>${dots}${cats}`, caption, note);
 }
 
-/** Waterfall for cash flow — negative years read as drawdown, positive as build. */
-export function waterfall({ categories, values, height = 168, format = money, caption, note }) {
-  const W = 680, H = height, L = 56, R = 10, T = 22, B = 26;
+/**
+ * Waterfall for cash flow — negative years read as drawdown, positive as build.
+ *
+ * Value labels sit OUTSIDE the bar on the side it grew: above a rising bar,
+ * below a falling one. Placing both above put the label of every negative year
+ * on top of its own bar, which is how the cash-flow figure ended up unreadable.
+ */
+export function waterfall({ categories, values, height = 190, format = money, caption, note }) {
+  const W = 680, H = height, L = 56, R = 10, T = 30, B = 34;
   const iw = W - L - R, ih = H - T - B;
   let run = 0;
   const cum = values.map((v) => (run += v));
@@ -152,9 +158,11 @@ export function waterfall({ categories, values, height = 168, format = money, ca
       const yA = yOf(Math.max(from, to)), yB = yOf(Math.min(from, to));
       const up = to >= from;
       const x = L + gw * i + (gw - bw) / 2;
+      // Label outside the bar, on the side it grew towards.
+      const ly = up ? yA - 6 : yB + 11;
       return `<rect x="${x}" y="${yA}" width="${bw}" height="${Math.max(1.5, yB - yA)}" fill="${up ? POS : NEG}" opacity=".85" rx="1"/>
-<text x="${x + bw / 2}" y="${(up ? yA : yB) - 5}" text-anchor="middle" font-size="7.6" fill="${up ? POS : NEG}" font-family="monospace" font-weight="700">${format(values[i])}</text>
-<text x="${x + bw / 2}" y="${H - 9}" text-anchor="middle" font-size="8.5" fill="${INK}">${esc(c)}</text>`;
+<text x="${x + bw / 2}" y="${ly}" text-anchor="middle" font-size="7.8" fill="${up ? POS : NEG}" font-family="monospace" font-weight="700">${format(values[i])}</text>
+<text x="${x + bw / 2}" y="${H - 20}" text-anchor="middle" font-size="8.5" fill="${INK}">${esc(c)}</text>`;
     })
     .join('');
 
@@ -162,12 +170,62 @@ export function waterfall({ categories, values, height = 168, format = money, ca
   const axis = `<line x1="${L}" y1="${zero}" x2="${W - R}" y2="${zero}" stroke="${INK}" stroke-width="1"/>
 <text x="${L - 7}" y="${zero + 3}" text-anchor="end" font-size="8" fill="${INK3}" font-family="monospace">$0</text>`;
 
+  // The cumulative series is annotated on its own row at the foot of the plot,
+  // not floated next to the line — floating it put it on top of whichever bar
+  // happened to end nearest the right edge.
+  const cumLabels = cum
+    .map((v, i) => `<text x="${L + gw * i + gw / 2}" y="${H - 6}" text-anchor="middle" font-size="7.2" fill="${ACC}" font-family="monospace">${format(v)}</text>`)
+    .join('');
+
   return wrap(
     W, H,
     `${axis}${bars}<path d="${cumLine}" fill="none" stroke="${ACC}" stroke-width="1.6" stroke-dasharray="3 2"/>
-     <text x="${W - R}" y="${yOf(cum[cum.length - 1]) - 7}" text-anchor="end" font-size="7.6" fill="${ACC}" font-family="monospace">cumulative ${format(cum[cum.length - 1])}</text>`,
+     <text x="${L}" y="${T - 12}" font-size="7.4" fill="${ACC}" font-family="monospace">— — cumulative cash position</text>
+     ${cumLabels}`,
     caption, note,
   );
+}
+
+/**
+ * Cumulative cash position, month by month, against the capital raised.
+ *
+ * This is the figure that actually answers "how much do you need, and when do
+ * you stop needing it" — an annual bar chart cannot, because the deepest point
+ * of the year is never the year-end number. The trough, the month the monthly
+ * result turns positive, and the raise itself are all marked, so the reader can
+ * see the headroom rather than being told it.
+ */
+export function cashCurve({ series, raise, troughMonth, breakevenMonth, height = 200, format = money, caption, note }) {
+  const W = 680, H = height, L = 58, R = 14, T = 24, B = 30;
+  const iw = W - L - R, ih = H - T - B;
+  const lo = Math.min(-raise, ...series);
+  const hi = Math.max(0, ...series);
+  const x = (i) => L + (iw * i) / (series.length - 1);
+  const y = (v) => T + ih - ((v - lo) / (hi - lo || 1)) * ih;
+
+  const zero = y(0);
+  const grid = `<line x1="${L}" y1="${zero}" x2="${W - R}" y2="${zero}" stroke="${INK}" stroke-width="1"/>
+<text x="${L - 7}" y="${zero + 3}" text-anchor="end" font-size="8" fill="${INK3}" font-family="monospace">$0</text>
+<line x1="${L}" y1="${y(-raise)}" x2="${W - R}" y2="${y(-raise)}" stroke="${NEG}" stroke-width="1" stroke-dasharray="4 3"/>
+<text x="${L - 7}" y="${y(-raise) + 3}" text-anchor="end" font-size="8" fill="${NEG}" font-family="monospace">${format(-raise)}</text>`;
+
+  const path = series.map((v, i) => `${i ? 'L' : 'M'} ${x(i)} ${y(v)}`).join(' ');
+  const area = `${path} L ${x(series.length - 1)} ${zero} L ${L} ${zero} Z`;
+
+  const ti = troughMonth - 1;
+  const bi = breakevenMonth - 1;
+  const marks = `
+<circle cx="${x(ti)}" cy="${y(series[ti])}" r="3.4" fill="${NEG}"/>
+<text x="${x(ti)}" y="${y(series[ti]) + 15}" text-anchor="middle" font-size="7.6" fill="${NEG}" font-family="monospace" font-weight="700">deepest ${format(series[ti])} · mo ${troughMonth}</text>
+<line x1="${x(bi)}" y1="${T}" x2="${x(bi)}" y2="${T + ih}" stroke="${POS}" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="${x(bi) + 5}" y="${T + 9}" font-size="7.6" fill="${POS}" font-family="monospace" font-weight="700">mo ${breakevenMonth} · monthly result turns positive</text>`;
+
+  const ticks = [12, 24, 36, 48, 60]
+    .filter((t) => t <= series.length)
+    .map((t) => `<text x="${x(t - 1)}" y="${H - 8}" text-anchor="middle" font-size="8.2" fill="${INK}">mo ${t}</text>`)
+    .join('');
+
+  return wrap(W, H, `${grid}<path d="${area}" fill="${ACC}" opacity=".08"/><path d="${path}" fill="none" stroke="${ACC}" stroke-width="2"/>${marks}${ticks}`, caption, note);
 }
 
 /**
