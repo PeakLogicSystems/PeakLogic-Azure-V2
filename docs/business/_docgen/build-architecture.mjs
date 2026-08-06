@@ -282,7 +282,11 @@ function diagramSvg() {
   // Two separate arrows into the top edge, each with its own clearly separated
   // label placed ABOVE row B rather than crowded onto the short vertical run
   // shared with the browser-access trunk below.
-  s += elbow(iotX + iotW / 2, rowBY + 95, dataX + dataW / 2, dataY, { stroke: AZURE, midX: iotX + iotW / 2 });
+  // Target shifted right of centre — the box centre (dataX+dataW/2) sits
+  // almost exactly under the "DATA LAYER" title text next to the E badge,
+  // so the arrowhead was landing on top of the badge and title instead of
+  // clear space on the border.
+  s += elbow(iotX + iotW / 2, rowBY + 95, dataX + 260, dataY, { stroke: AZURE, midX: iotX + iotW / 2 });
   s += flowLabel(iotX + iotW / 2, rowBY + 95 + 17, 'telemetry writes', AZURE);
   s += elbow(apimX + apimW / 2, rowBY + 95, dataX + dataW - 30, dataY, { stroke: AZURE, midX: apimX + apimW / 2 });
   s += flowLabel(apimX + apimW / 2, rowBY + 95 + 17, 'scoped reads/writes', AZURE);
@@ -390,12 +394,19 @@ function diagramSvg() {
   //     the exact fan-out clutter that made this row wrong the first time.
   const busY = agentY + agentH + 10; // 10px below row D — never inside it
   const trunkStartX = apimX + apimW / 2, trunkStartY = rowBY + 95;
-  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkX} ${trunkStartY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3"/>`;
+  // Bidirectionality is shown ONCE, on the shared trunk itself (both markers
+  // here) — not repeated on every branch below. The PeakView360 branch has
+  // almost no horizontal offset from the trunk (a few px), and a marker-start
+  // on that near-zero-length leg rendered as a crossed "bowtie" right where
+  // the branch meets the trunk rather than a clean arrow. One clear
+  // bidirectional marker on the trunk plus the "(2-way)" label already says
+  // the whole path is a round trip; each branch only needs to show where it
+  // terminates.
+  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkX} ${trunkStartY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#arrow-${AZURE.replace('#', '')})" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
   s += flowLabel(trunkX, (trunkStartY + busY) / 2, 'API access (2-way)', AZURE);
   const branchTargets = [...fronts.map((f, i) => feStartX + i * (feW + feGap) + feW / 2), pvX + pvW / 2];
   branchTargets.forEach((cx) => {
-    // marker-start too: a real request/response round trip, not a one-way push.
-    s += `<path d="M ${trunkX} ${busY} L ${cx} ${busY} L ${cx} ${feY}" fill="none" stroke="${AZURE}" stroke-width="1.1" stroke-dasharray="2 3" marker-end="url(#arrow-${AZURE.replace('#', '')})" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
+    s += `<path d="M ${trunkX} ${busY} L ${cx} ${busY} L ${cx} ${feY}" fill="none" stroke="${AZURE}" stroke-width="1.1" stroke-dasharray="2 3" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
   });
 
   const hostLaneY = busY + 10;
@@ -513,7 +524,11 @@ function governanceSvg() {
   const stagesStartX = (W - stagesTotalW) / 2;
 
   s += label(W / 2, widY - 14, 'ENTRA WORKLOAD IDENTITY FEDERATION — one App Registration per stage, no stored client secret', { size: 9.5, fill: AZURE, weight: 800, anchor: 'middle' });
-  s += `<path d="M ${ghX + ghW / 2} ${ghY + ghH} L ${ghX + ghW / 2} ${widY + 30} L ${W / 2} ${widY + 30}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="3 3"/>`;
+  // The fan-out row sits ABOVE idBoxY (widY+20) with real clearance — it
+  // previously sat 10px BELOW that, drawing the branch lines through the top
+  // of each App Registration box instead of stopping above it.
+  const fanY = widY + 5;
+  s += `<path d="M ${ghX + ghW / 2} ${ghY + ghH} L ${ghX + ghW / 2} ${fanY} L ${W / 2} ${fanY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="3 3"/>`;
 
   stages.forEach((stage, i) => {
     const cx0 = stagesStartX + i * (stageColW + stageGap);
@@ -522,16 +537,23 @@ function governanceSvg() {
     s += iconKey(cx0 + 12, idBoxY + 10, 0.85, AZURE, '#eaf2fc');
     s += label(cx0 + 44, idBoxY + 22, `PeakLogic-${stage}-CiCd`, { size: 9.3, weight: 700, family: 'mono' });
     s += label(cx0 + 12, idBoxY + 38, 'Federated credential trusts this repo — OIDC token exchange at deploy time.', { size: 7, fill: INK3, weight: 500 });
-    s += `<path d="M ${W / 2} ${widY + 30} L ${cx0 + stageColW / 2} ${widY + 30} L ${cx0 + stageColW / 2} ${idBoxY}" fill="none" stroke="${AZURE}" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
-
-    // Trigger semantics — the real approval gate on this free GitHub tier
-    const trigY = idBoxY + idBoxH + 14;
-    const auto = stage === 'dev';
-    s += `<circle cx="${cx0 + 9}" cy="${trigY}" r="6" fill="${auto ? POS : SEC}"/>`;
-    s += label(cx0 + 24, trigY + 5, auto ? 'Auto-deploys on push to dev' : 'workflow_dispatch only — a human clicking Run is the approval gate', { size: 7.4, fill: auto ? POS : SEC, weight: 700 });
+    s += `<path d="M ${W / 2} ${fanY} L ${cx0 + stageColW / 2} ${fanY} L ${cx0 + stageColW / 2} ${idBoxY}" fill="none" stroke="${AZURE}" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
 
     // Resource group
+    const trigY = idBoxY + idBoxH + 14;
     const rgY = trigY + 26, rgH = 165;
+
+    // Drawn BEFORE the trigger label below, so the label's opaque background
+    // paints over the segment of this line it crosses — the line passes
+    // visibly BEHIND the text instead of striking through its letters.
+    s += `<path d="M ${cx0 + stageColW / 2} ${idBoxY + idBoxH} L ${cx0 + stageColW / 2} ${rgY}" fill="none" stroke="${AZURE}" stroke-width="1.1" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
+
+    // Trigger semantics — the real approval gate on this free GitHub tier
+    const auto = stage === 'dev';
+    const trigText = auto ? 'Auto-deploys on push to dev' : 'workflow_dispatch only — human-triggered (approval gate)';
+    s += `<rect x="${cx0 + 18}" y="${trigY - 8}" width="${trigText.length * 4.6}" height="14" fill="#fff"/>`;
+    s += `<circle cx="${cx0 + 9}" cy="${trigY}" r="6" fill="${auto ? POS : SEC}"/>`;
+    s += label(cx0 + 24, trigY + 5, trigText, { size: 7.4, fill: auto ? POS : SEC, weight: 700 });
     s += box(cx0, rgY, stageColW, rgH, { fill: '#fff', stroke: RULE, rx: 10 });
     s += iconFolder(cx0 + 12, rgY + 10, 1.0, INK2, '#f6f7fa');
     s += label(cx0 + 44, rgY + 22, `peaklogic-${stage}-rg`, { size: 9.6, weight: 700, family: 'mono' });
@@ -555,8 +577,6 @@ function governanceSvg() {
     s += iconLock(cx0 + 20, rgY + 116, 0.8, SEC, SEC_BG);
     s += label(cx0 + 44, rgY + 128, 'Cost Kill-Switch Function', { size: 8, weight: 700, fill: SEC });
     s += label(cx0 + 20, rgY + 142, 'Own least-privileged identity, scoped only to this RG\'s Postgres. Stops it at 100% of budget.', { size: 6.6, fill: SEC, weight: 500 });
-
-    s += `<path d="M ${cx0 + stageColW / 2} ${idBoxY + idBoxH} L ${cx0 + stageColW / 2} ${rgY}" fill="none" stroke="${AZURE}" stroke-width="1.1" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
   });
 
   // Deploy mechanics footnote, centered under the three stages
