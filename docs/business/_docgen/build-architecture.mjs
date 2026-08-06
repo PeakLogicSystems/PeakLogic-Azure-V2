@@ -402,17 +402,27 @@ function diagramSvg() {
   // bidirectional marker on the trunk plus the "(2-way)" label already says
   // the whole path is a round trip; each branch only needs to show where it
   // terminates.
-  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkX} ${trunkStartY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3" marker-end="url(#arrow-${AZURE.replace('#', '')})" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
+  // marker-start only. This trunk doesn't END at (trunkX, busY) — it forks
+  // into branches there — so an arrowhead at that point marked nothing real
+  // and read as an unexplained arrow pointing at empty space. The single
+  // start-arrow at API Functions plus the branches' own end-arrows is enough
+  // to show the shape of the path without inventing a false destination.
+  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkX} ${trunkStartY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
   s += flowLabel(trunkX, (trunkStartY + busY) / 2, 'API access (2-way)', AZURE);
   const branchTargets = [...fronts.map((f, i) => feStartX + i * (feW + feGap) + feW / 2), pvX + pvW / 2];
   branchTargets.forEach((cx) => {
     s += `<path d="M ${trunkX} ${busY} L ${cx} ${busY} L ${cx} ${feY}" fill="none" stroke="${AZURE}" stroke-width="1.1" stroke-dasharray="2 3" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
   });
 
+  // Fans out to all four boxes, the same shape as the API-access trunk above
+  // it — a single representative line plus a text claim read as a missing
+  // connection ("does it actually reach the other three, or not?"). Showing
+  // all four leaves nothing to take on faith.
   const hostLaneY = busY + 10;
-  const hostCx = feStartX + feW / 2; // lands on Customer Portal; label says it serves all four
-  s += `<path d="M ${hostX + hostW / 2} ${hostY + agentH} L ${hostX + hostW / 2} ${hostLaneY} L ${hostCx} ${hostLaneY} L ${hostCx} ${feY}" fill="none" stroke="${POS}" stroke-width="1.1" stroke-dasharray="2 3" marker-end="url(#arrow-${POS.replace('#', '')})"/>`;
-  s += flowLabel((hostX + hostW / 2 + hostCx) / 2 + 90, hostLaneY, 'serves all 4 bundles', POS);
+  s += `<path d="M ${hostX + hostW / 2} ${hostY + agentH} L ${hostX + hostW / 2} ${hostLaneY}" fill="none" stroke="${POS}" stroke-width="1.3" stroke-dasharray="2 3" marker-start="url(#arrow-${POS.replace('#', '')})"/>`;
+  branchTargets.forEach((cx) => {
+    s += `<path d="M ${hostX + hostW / 2} ${hostLaneY} L ${cx} ${hostLaneY} L ${cx} ${feY}" fill="none" stroke="${POS}" stroke-width="1.1" stroke-dasharray="2 3" marker-end="url(#arrow-${POS.replace('#', '')})"/>`;
+  });
 
   // Direct LAN path — ONE path with a marker at each real endpoint, so no
   // arrowhead appears at a bend that is not an actual destination.
@@ -456,16 +466,19 @@ function diagramSvg() {
   s += label(EXT_X + 60, scadaY + 26, 'Customer SCADA / Historian', { size: 9.6, weight: 700 });
   s += label(EXT_X + 12, scadaY + 40, '(optional — only where one already exists)', { size: 7.4, fill: INK3, weight: 500 });
   s += wrapText(EXT_X + 12, scadaY + 54, 'Normalized telemetry fed upward for plants that already run SCADA — PeakLogic instruments what it cannot economically reach, not what it replaces.', 276, { size: 7.4 });
-  // Routed through the clear inter-row gap (below Ingest/API Functions,
-  // above Data Layer/Identity — the same 40px band used elsewhere), then
-  // straight across to just outside the external boundary, THEN down and a
-  // final short horizontal jog INTO the box. That last horizontal segment is
-  // what makes the arrowhead point rightward into the box's edge — a path
-  // that ends on a vertical run instead points down past the box, which is
-  // what made this arrow look like it missed its target.
-  const scadaLaneY = rowBY + 95 + 20; // 355 — clear of every row-B/C/D box
+  // Routed through the row A/B gap (above Ingest/API Functions, below IoT
+  // Hub/API Management — a band nothing else uses horizontally) rather than
+  // the row B/C gap below: that lower band is where the telemetry-writes and
+  // scoped-reads-writes arrows descend into Data Layer, and running this
+  // line through the same space produced a tangle of crossings right where
+  // those arrowheads land. One clean crossing with the API Management→API
+  // Functions connector partway across is the trade — a single crossing
+  // between differently-styled lines reads fine; the cluster it replaces did
+  // not. The final segment is horizontal into the box's own edge, so the
+  // arrowhead points rightward into it rather than down past it.
+  const scadaLaneY = rowAY + 95 + 25; // 205 — the row A/B gap, clear of Data Layer entirely
   const scadaApproachX = extBoundX - 15; // just outside the external boundary's own border
-  const scadaPath = `M ${iotX + iotW} ${rowBY + 47} L ${iotX + iotW + 30} ${rowBY + 47} L ${iotX + iotW + 30} ${scadaLaneY} L ${scadaApproachX} ${scadaLaneY} L ${scadaApproachX} ${scadaY + 47} L ${EXT_X} ${scadaY + 47}`;
+  const scadaPath = `M ${iotX + iotW} ${rowBY + 20} L ${iotX + iotW + 20} ${rowBY + 20} L ${iotX + iotW + 20} ${scadaLaneY} L ${scadaApproachX} ${scadaLaneY} L ${scadaApproachX} ${scadaY + 47} L ${EXT_X} ${scadaY + 47}`;
   s += `<path d="${scadaPath}" fill="none" stroke="${EXPORT}" stroke-width="1.3" stroke-dasharray="3 3" marker-end="url(#arrow-${EXPORT.replace('#', '')})"/>`;
   s += flowLabel((iotX + iotW + scadaApproachX) / 2 + 60, scadaLaneY - 8, 'EXPORT · normalized telemetry', EXPORT);
 
