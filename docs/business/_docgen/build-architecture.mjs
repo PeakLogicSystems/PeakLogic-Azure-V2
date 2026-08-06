@@ -279,16 +279,17 @@ function diagramSvg() {
   s += label(dataX + 46, dataY + 94, 'app.current_tenant_id', { size: 8, weight: 700, family: 'mono' });
   s += wrapText(dataX + 18, dataY + 106, 'set_config() per request — RLS returns zero rows outside scope, never another tenant’s. No public network access.', dataW - 36, { size: 7.2, fill: SEC });
 
-  // Two separate arrows into the top edge, each with its own clearly separated
-  // label placed ABOVE row B rather than crowded onto the short vertical run
-  // shared with the browser-access trunk below.
-  // Target shifted right of centre — the box centre (dataX+dataW/2) sits
-  // almost exactly under the "DATA LAYER" title text next to the E badge,
-  // so the arrowhead was landing on top of the badge and title instead of
-  // clear space on the border.
-  s += elbow(iotX + iotW / 2, rowBY + 95, dataX + 260, dataY, { stroke: AZURE, midX: iotX + iotW / 2 });
+  // Two separate arrows into the top edge. Both used to finish with a
+  // HORIZONTAL segment that terminated exactly on Data Layer's top border —
+  // arrowhead pointing sideways, riding along the edge instead of piercing
+  // it. A box's top edge wants a vertical approach, arrowhead pointing down.
+  // Fixed by jogging through the clear 5px gap just below row B (335–340,
+  // below every row-B box's own bottom border) before turning to descend
+  // perpendicular into Data Layer at the target x.
+  const dlJogY = rowBY + 95 + 5; // 340 — below row B, above Data Layer
+  s += `<path d="M ${iotX + iotW / 2} ${rowBY + 95} L ${iotX + iotW / 2} ${dlJogY} L ${dataX + 260} ${dlJogY} L ${dataX + 260} ${dataY}" fill="none" stroke="${AZURE}" stroke-width="1.6" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
   s += flowLabel(iotX + iotW / 2, rowBY + 95 + 17, 'telemetry writes', AZURE);
-  s += elbow(apimX + apimW / 2, rowBY + 95, dataX + dataW - 30, dataY, { stroke: AZURE, midX: apimX + apimW / 2 });
+  s += `<path d="M ${apimX + apimW / 2} ${rowBY + 95} L ${apimX + apimW / 2} ${dlJogY} L ${dataX + dataW - 30} ${dlJogY} L ${dataX + dataW - 30} ${dataY}" fill="none" stroke="${AZURE}" stroke-width="1.6" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
   s += flowLabel(apimX + apimW / 2, rowBY + 95 + 17, 'scoped reads/writes', AZURE);
 
   // ── Identity boundary (row C, right of data layer) ──
