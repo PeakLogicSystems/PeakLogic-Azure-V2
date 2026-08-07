@@ -173,7 +173,7 @@ function badge(x, y, letter, colour = ACCENT) {
 const EXPORT = '#8a5205';
 
 function diagramSvg() {
-  const W = 1900, H = 1000;
+  const W = 1900, H = 900;
   const colours = [INK2, AZURE, ACCENT, POS, SEC, INK3, ACCENT2, EXPORT];
 
   // A strict grid — every box below is placed against these columns/rows and
@@ -181,7 +181,7 @@ function diagramSvg() {
   // pixel. That is what keeps six independent boundaries from drifting into
   // each other as the diagram is edited.
   const COL = [40, 400, 620, 840, 1060, 1280, 1500]; // column edges — Azure boundary
-  const ROW = [50, 215, 350, 515, 625, 755, 840]; // row edges
+  const ROW = [50, 215, 350, 515, 625, 810, 840]; // row edges — ROW[5] pushed down to give the frontend-row branches real vertical drop (see feY below)
   const EXT_X = COL[6] + 40; // external-systems column starts right of the Azure boundary
 
   let s = '';
@@ -357,7 +357,15 @@ function diagramSvg() {
   // (below) run side by side through the gap without touching, and the
   // section caption moves BELOW the boxes entirely (see after the loop) so it
   // never sits on top of either lane the way it did directly above them.
-  const feY = ROW[4] + 30, feH = 115;
+  // +80 rather than +30: the branch fan-outs below (API-access and static
+  // hosting) each finish with a vertical segment landing on this row's top
+  // edge, and that final segment was only 10–20px against horizontal runs of
+  // several hundred — technically pointing down, but too short to read as
+  // "down" against a line that long. +80 gives each branch a 60–70px drop,
+  // long enough to read as vertical without pushing the page's total height
+  // past its margin (a first attempt at +130 did exactly that — the diagram
+  // grew tall enough to overlap the page footer).
+  const feY = ROW[4] + 80, feH = 115;
   const feW = 175, feGap = 20;
   const feStartX = dataX;
   const fronts = [
@@ -408,7 +416,18 @@ function diagramSvg() {
   // and read as an unexplained arrow pointing at empty space. The single
   // start-arrow at API Functions plus the branches' own end-arrows is enough
   // to show the shape of the path without inventing a false destination.
-  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkX} ${trunkStartY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
+  //
+  // The path's FIRST segment used to go straight into the horizontal run —
+  // marker-start orients off that immediate tangent, so it rendered pointing
+  // sideways (reversed-horizontal) even though it sits on API Functions'
+  // BOTTOM edge, where a correct connection reads as vertical. A short
+  // vertical stub before the turn gives the marker a vertical tangent to
+  // orient from, so it points straight up into the box instead.
+  // Kept just 2px below the box edge and strictly above the scoped-reads-writes
+  // jog at rowBY+95+5 (340) — enough for the marker to read as vertical
+  // without the trunk's horizontal run crossing that arrow's own jog line.
+  const trunkStubY = trunkStartY + 2;
+  s += `<path d="M ${trunkStartX} ${trunkStartY} L ${trunkStartX} ${trunkStubY} L ${trunkX} ${trunkStubY} L ${trunkX} ${busY}" fill="none" stroke="${AZURE}" stroke-width="1.3" stroke-dasharray="2 3" marker-start="url(#arrow-${AZURE.replace('#', '')})"/>`;
   s += flowLabel(trunkX, (trunkStartY + busY) / 2, 'API access (2-way)', AZURE);
   const branchTargets = [...fronts.map((f, i) => feStartX + i * (feW + feGap) + feW / 2), pvX + pvW / 2];
   branchTargets.forEach((cx) => {
