@@ -173,7 +173,7 @@ function badge(x, y, letter, colour = ACCENT) {
 const EXPORT = '#8a5205';
 
 function diagramSvg() {
-  const W = 1900, H = 900;
+  const W = 1900, H = 930;
   const colours = [INK2, AZURE, ACCENT, POS, SEC, INK3, ACCENT2, EXPORT];
 
   // A strict grid — every box below is placed against these columns/rows and
@@ -181,7 +181,15 @@ function diagramSvg() {
   // pixel. That is what keeps six independent boundaries from drifting into
   // each other as the diagram is edited.
   const COL = [40, 400, 620, 840, 1060, 1280, 1500]; // column edges — Azure boundary
-  const ROW = [50, 215, 350, 515, 625, 810, 840]; // row edges — ROW[5] pushed down to give the frontend-row branches real vertical drop (see feY below)
+  // ROW[5] is the shared "just past everything" line — the Azure boundary,
+  // the on-prem boundary, AND the LAN-path dip all measure off it. When the
+  // frontend row was pushed down (feY = ROW[4]+80, below) to fix the
+  // arrow-legibility issue, this value was not recomputed to match — the
+  // Azure boundary's bottom edge stayed at the OLD height while the portal
+  // boxes it's supposed to contain moved 10px past it. That is the "services
+  // that should be inside the cloud are not" bug: real box math, not a
+  // rendering fluke. 830 = frontend row bottom (820) + 10px clearance.
+  const ROW = [50, 215, 350, 515, 625, 830, 840]; // row edges
   const EXT_X = COL[6] + 40; // external-systems column starts right of the Azure boundary
 
   let s = '';
@@ -306,7 +314,7 @@ function diagramSvg() {
   // Anchored exactly on API Management's right border (not inset), so the
   // connector visibly starts AT the box rather than floating near it.
   s += elbow(apimX + apimW, rowAY + 47, idX + idW / 2, idY, { stroke: AZURE, dash: '3 3', width: 1.2, midX: idX + idW / 2 });
-  s += flowLabel(idX + idW / 2, idY - 8, 'token validation', AZURE);
+  s += flowLabel(idX + idW / 2, idY - 18, 'token validation', AZURE);
 
   // ── Agent bus + monitoring (row D) ──
   const agentY = ROW[3] + 15, agentH = 95;
@@ -315,7 +323,10 @@ function diagramSvg() {
   s += iconEye(dataX + 32, agentY + 12, 0.95, ACCENT, '#f4f1fb');
   s += label(dataX + 64, agentY + 24, '16-agent operations team', { size: 9.5, weight: 700, fill: ACCENT });
   s += wrapText(dataX + 14, agentY + 40, 'agent_events (Postgres bus) → Timer Functions. Findings advise; an operator authorizes every action. No agent issues a device command.', dataW - 28, { size: 7.4 });
-  s += elbow(dataX + dataW / 2, dataY + dataH, dataX + dataW / 2, agentY, { stroke: ACCENT2 });
+  // Target shifted right of the box's own centre — dataX+dataW/2 (620) sits
+  // inside the "16-agent operations team" title's span (roughly 494–650),
+  // so the arrowhead was landing on the title instead of clear border.
+  s += `<path d="M ${dataX + dataW / 2} ${dataY + dataH} L ${dataX + dataW / 2} ${dataY + dataH + 8} L ${dataX + dataW - 100} ${dataY + dataH + 8} L ${dataX + dataW - 100} ${agentY}" fill="none" stroke="${ACCENT2}" stroke-width="1.6" marker-end="url(#arrow-${ACCENT2.replace('#', '')})"/>`;
 
   const monX = idX, monW = idW;
   s += box(monX, agentY, monW, agentH, { fill: '#fff', stroke: RULE, rx: 10 });
