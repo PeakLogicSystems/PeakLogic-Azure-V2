@@ -117,17 +117,53 @@ function label(x, y, text, { size = 11, weight = 700, fill = INK, anchor = 'star
   return `<text x="${x}" y="${y}" font-family="${ff}" font-size="${size}" font-weight="${weight}" fill="${fill}" text-anchor="${anchor}">${esc(text)}</text>`;
 }
 
+/**
+ * Words may carry a `<b>...</b>` marker to render that phrase bold within an
+ * otherwise-normal-weight wrapped paragraph — used sparingly, for the rare
+ * case where one clause of a description needs to stand out (e.g. "shared
+ * packages/" in the Static Web Hosting box). The markers are stripped before
+ * computing line-wrap width, so they never affect where a line breaks.
+ */
 function wrapText(x, y, text, width, { size = 9, fill = INK3, lineHeight = 12 } = {}) {
   const charsPerLine = Math.floor(width / (size * 0.56));
-  const words = text.split(' ');
+  let bold = false;
+  const words = text.split(' ').map((w) => {
+    if (w.startsWith('<b>')) bold = true;
+    const plain = w.replace(/<\/?b>/g, '');
+    const isBold = bold;
+    if (w.endsWith('</b>')) bold = false;
+    return { plain, bold: isBold };
+  });
+
   const lines = [];
-  let cur = '';
+  let cur = [];
+  let curLen = 0;
   for (const w of words) {
-    const test = cur ? `${cur} ${w}` : w;
-    if (test.length > charsPerLine && cur) { lines.push(cur); cur = w; } else cur = test;
+    const addLen = curLen ? w.plain.length + 1 : w.plain.length;
+    if (curLen + addLen > charsPerLine && cur.length) { lines.push(cur); cur = []; curLen = 0; }
+    cur.push(w);
+    curLen += curLen ? w.plain.length + 1 : w.plain.length;
   }
-  if (cur) lines.push(cur);
-  return lines.map((l, i) => `<text x="${x}" y="${y + i * lineHeight}" font-family="'Inter','Segoe UI',sans-serif" font-size="${size}" fill="${fill}">${esc(l)}</text>`).join('');
+  if (cur.length) lines.push(cur);
+
+  return lines
+    .map((lineWords, i) => {
+      // Group consecutive same-weight words into one tspan each, rather than
+      // one tspan per word — fewer elements, and no risk of SVG collapsing
+      // inter-element whitespace (the joining space lives inside the tspan's
+      // own text content instead of between elements).
+      const runs = [];
+      for (const w of lineWords) {
+        const last = runs[runs.length - 1];
+        if (last && last.bold === w.bold) last.text += ` ${w.plain}`;
+        else runs.push({ bold: w.bold, text: w.plain });
+      }
+      const tspans = runs
+        .map((r, ri) => `<tspan font-weight="${r.bold ? 700 : 400}">${esc(ri ? ` ${r.text}` : r.text)}</tspan>`)
+        .join('');
+      return `<text x="${x}" y="${y + i * lineHeight}" font-family="'Inter','Segoe UI',sans-serif" font-size="${size}" fill="${fill}">${tspans}</text>`;
+    })
+    .join('');
 }
 
 /**
@@ -373,7 +409,7 @@ function diagramSvg() {
   s += badge(hostX + 15, hostY + 18, 'H', POS);
   s += iconCloud(hostX + 32, hostY + 10, 0.9, POS, '#e3f4ea');
   s += label(hostX + 64, hostY + 24, 'Static Web Hosting', { size: 9.3, weight: 700 });
-  s += wrapText(hostX + 14, hostY + 40, 'Storage + CDN. Serves each portal’s own built bundle, from its own code plus shared packages/ — separate from the API, which serves only data.', hostW - 28, { size: 7.2 });
+  s += wrapText(hostX + 14, hostY + 40, 'Storage + CDN. Serves each portal’s own built bundle, from its own code plus <b>shared packages/</b> — separate from the API, which serves only data.', hostW - 28, { size: 7.2 });
 
   // ── Frontends (row E) ──
   //
