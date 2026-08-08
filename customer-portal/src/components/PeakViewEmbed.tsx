@@ -6,6 +6,7 @@ import { liveHubsAt } from '@/data/hardware';
 import { useSitePhotos } from '@/sitePhoto';
 import { PhotoLightbox } from '@shared/ui/PhotoLightbox';
 import { DEVICE_DOT, HUB_DOT, PEAKVIEW_URL, THEME_MESSAGE, peakViewUrl } from '@shared/ui/peakViewShared';
+import { HUB_MODELS } from '@shared/domain/hubs';
 
 // PeakView360, embedded in the site page rather than linked away to.
 //
@@ -141,7 +142,7 @@ export function PeakViewEmbed({ site, defaultOpen = false }: { site: Site; defau
             key={h.id}
             onClick={() => setActiveHubId(h.id)}
             aria-pressed={on}
-            title={`${h.model} · firmware ${h.firmware} · last seen ${h.lastSeen ?? '—'}`}
+            title={`${HUB_MODELS[h.model].name} · firmware ${h.firmware} · last seen ${h.lastSeen ?? '—'}`}
             className={`inline-flex items-center gap-1.5 rounded-md border px-2 py-1 transition-colors ${
               on ? 'border-brand-purple-mid bg-brand-purple-mid/10' : 'border-slate-200 hover:border-slate-300 dark:border-slate-700 dark:hover:border-slate-600'
             }`}

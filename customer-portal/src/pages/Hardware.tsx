@@ -1,6 +1,13 @@
 import { Archive, Infinity as InfinityIcon, Router } from 'lucide-react';
 import { CUSTOMER, siteById } from '@/data';
 import { HUBS, RETENTION_LABEL, daysUntilPurge, retiredHubs, type Hub } from '@/data/hardware';
+import { HUB_MODELS } from '@shared/domain/hubs';
+
+// h.model is the short domain code ('hub-400') used to key firmware/protocol
+// lookups — HUB_MODELS[h.model].name is the customer-facing product name
+// ("PeakLogic Hub 400"), the same lookup the Partner Portal's own hardware
+// tables use (channel-partner-portal/src/components/DecommissionedTable.tsx).
+const modelName = (h: Hub) => HUB_MODELS[h.model].name;
 
 // The customer's hardware register: what is on their sites now, and what has
 // been retired from them.
@@ -85,7 +92,7 @@ export function Hardware() {
                       {h.id}
                     </p>
                     <p className="text-[11px] text-slate-400">
-                      {h.model}
+                      {modelName(h)}
                       {h.label ? ` · ${h.label}` : ''}
                     </p>
                   </td>
@@ -130,7 +137,7 @@ export function Hardware() {
                     <td className="px-4 py-3 align-top">
                       <p className="font-mono text-[12.5px] font-bold text-slate-800 dark:text-slate-100">{h.id}</p>
                       <p className="text-[11px] text-slate-400">
-                        {h.model} · S/N <span className="font-mono">{h.serial}</span>
+                        {modelName(h)} · S/N <span className="font-mono">{h.serial}</span>
                       </p>
                     </td>
                     <td className="px-4 py-3 align-top">

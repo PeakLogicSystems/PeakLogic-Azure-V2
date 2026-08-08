@@ -11,7 +11,11 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ### Changed
 
-- **Customer Portal and Partner Portal now share common frontend source** (`packages/ui`, `packages/domain`) instead of duplicated/hand-mirrored files. Three files were byte-identical between the two portals; the Customer Portal's hardware register was a hand-typed mirror of a few records from the Partner Portal's fleet register, with no compiler check forcing the two to stay in sync. Both portals now import the same source via a `@shared/*` alias — no separate build step, no behavior change, both verified to typecheck and build clean. SysAdmin Guide bumped to v2.1.1; nothing user-facing changed, so the User Guide was not bumped.
+- **Customer Portal and Partner Portal now share common frontend source** (`packages/ui`, `packages/domain`) instead of duplicated/hand-mirrored files. Three files were byte-identical between the two portals; the Customer Portal's hardware register was a hand-typed mirror of a few records from the Partner Portal's fleet register, with no compiler check forcing the two to stay in sync. Both portals now import the same source via a `@shared/*` alias — no separate build step. Verified with both `npm run build` (typecheck + bundle) **and** both portals' dev servers loaded in a real browser (login bypass, Home, Hardware, a Hub-bearing site's Facility View, the Partner Portal's Decommission dialog) — build passing alone would not have caught the issue below. SysAdmin Guide bumped to v2.1.1; nothing user-facing changed, so the User Guide was not bumped.
+
+### Fixed
+
+- **Customer Portal's Hardware page and PeakView360 embed showed a Hub's raw internal model code** (`hub-400`) **instead of its product name** (`PeakLogic Hub 400`) — caught by the runtime review above, not by typecheck. The Customer Portal's old hand-typed hardware fixture stored the friendly name directly; the canonical domain model it now reads from stores the short code (used to key firmware/protocol lookups) and expects callers to resolve the display name via `HUB_MODELS[model].name`, exactly as the Partner Portal's own hardware tables already did. Fixed in the same commit that introduced the shared domain model, before any release.
 
 ---
 
