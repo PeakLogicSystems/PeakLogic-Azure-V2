@@ -1,0 +1,130 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1900 760" width="100%" style="display:block;background:#fff"><defs><marker id="arrow-3d4356" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#3d4356"/></marker><marker id="arrow-0d5fb8" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#0d5fb8"/></marker><marker id="arrow-4c2a9c" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#4c2a9c"/></marker><marker id="arrow-15683f" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#15683f"/></marker><marker id="arrow-a52020" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#a52020"/></marker><marker id="arrow-6b7285" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 0 L10 5 L0 10 z" fill="#6b7285"/></marker></defs><rect x="780" y="40" width="340" height="110" rx="10" fill="#f6f7fa" stroke="#6b7285" stroke-width="1.4"/><g><circle cx="797" cy="60" r="9" fill="#3d4356"/><text x="797" y="64" font-family="'Inter','Segoe UI',sans-serif" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">K</text></g>
+<g transform="translate(812,54) scale(1.15)">
+  <circle cx="9" cy="9" r="8" fill="#fff" stroke="#3d4356" stroke-width="1.3"/>
+  <circle cx="6" cy="6" r="1.6" fill="#3d4356"/><circle cx="12" cy="6" r="1.6" fill="#3d4356"/><circle cx="9" cy="13" r="1.6" fill="#3d4356"/>
+  <path d="M6 7.5V10a2 2 0 0 0 2 2h.3M12 7.5V10a2 2 0 0 1-2 2h-.3" fill="none" stroke="#3d4356" stroke-width="1.1"/>
+</g><text x="846" y="64" font-family="'Inter','Segoe UI',sans-serif" font-size="10" font-weight="700" fill="#14161d" text-anchor="start">GitHub — PeakLogic-Azure-V2</text><text x="812" y="82" font-family="'Inter','Segoe UI',sans-serif" font-size="7.6" fill="#6b7285">ci.yml on every push (typecheck, build, test, dependency audit,</text><text x="812" y="94" font-family="'Inter','Segoe UI',sans-serif" font-size="7.6" fill="#6b7285">Bicep validate, PSRule). deploy-{dev,staging,prod}.yml — separate</text><text x="812" y="106" font-family="'Inter','Segoe UI',sans-serif" font-size="7.6" fill="#6b7285">workflows per stage.</text><text x="950" y="186" font-family="'Inter','Segoe UI',sans-serif" font-size="9.5" font-weight="800" fill="#0d5fb8" text-anchor="middle">ENTRA WORKLOAD IDENTITY FEDERATION — one App Registration per stage, no stored client secret</text><path d="M 950 150 L 950 205 L 950 205" fill="none" stroke="#0d5fb8" stroke-width="1.3" stroke-dasharray="3 3"/><rect x="110" y="220" width="520" height="60" rx="8" fill="#eaf2fc" stroke="#bcd6f2" stroke-width="1.4"/>
+<g transform="translate(122,230) scale(0.85)">
+  <circle cx="5.5" cy="10" r="4" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M9 10h9.5M15.5 10v3M18 10v2" stroke="#0d5fb8" stroke-width="1.4" stroke-linecap="round"/>
+</g><text x="154" y="242" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.3" font-weight="700" fill="#14161d" text-anchor="start">PeakLogic-dev-CiCd</text><text x="122" y="258" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Federated credential trusts this repo — OIDC token exchange at deploy time.</text><path d="M 950 205 L 370 205 L 370 220" fill="none" stroke="#0d5fb8" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-0d5fb8)"/><path d="M 370 280 L 370 320" fill="none" stroke="#0d5fb8" stroke-width="1.1" marker-end="url(#arrow-0d5fb8)"/><rect x="128" y="286" width="124.19999999999999" height="14" fill="#fff"/><circle cx="119" cy="294" r="6" fill="#15683f"/><text x="134" y="299" font-family="'Inter','Segoe UI',sans-serif" font-size="7.4" font-weight="700" fill="#15683f" text-anchor="start">Auto-deploys on push to dev</text><rect x="110" y="320" width="520" height="165" rx="10" fill="#fff" stroke="#d6dae4" stroke-width="1.4"/>
+<g transform="translate(122,330) scale(1)">
+  <path d="M1 4.5c0-.8.6-1.4 1.4-1.4h4l1.6 2h8.6c.8 0 1.4.6 1.4 1.4v8.2c0 .8-.6 1.4-1.4 1.4H2.4C1.6 16.1 1 15.5 1 14.7V4.5z" fill="#f6f7fa" stroke="#3d4356" stroke-width="1.3"/>
+</g><text x="154" y="342" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.6" font-weight="700" fill="#14161d" text-anchor="start">peaklogic-dev-rg</text><text x="122" y="356" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Resource group — created out-of-band by az group create, not by the pipeline itself</text>
+<g transform="translate(152,376) scale(0.85)">
+  <rect x="1" y="1" width="16" height="16" rx="3" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M6 5.5 L11.5 9 L6 12.5" fill="none" stroke="#0d5fb8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</g><text x="162" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Functions</text>
+<g transform="translate(256,376) scale(0.85)">
+  <path d="M0 3.5C0 1.6 3.6 0 8 0s8 1.6 8 3.5v13C16 18.4 12.4 20 8 20S0 18.4 0 16.5v-13z" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+  <ellipse cx="8" cy="3.5" rx="8" ry="3.5" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+</g><text x="266" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">PostgreSQL</text>
+<g transform="translate(360,376) scale(0.85)">
+  <path d="M6 20c-3.3 0-6-2.6-6-5.8 0-2.7 1.9-5 4.5-5.6C5.2 4.7 8.7 2 12.8 2c4.6 0 8.4 3.4 9 7.8 3 .6 5.2 3.2 5.2 6.3 0 3.5-2.9 6.3-6.5 6.3H6z"
+    fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+</g><text x="370" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">IoT Hub</text>
+<g transform="translate(464,376) scale(0.85)">
+  <rect x="1" y="4" width="18" height="13" rx="2" fill="#f3f1fa" stroke="#4c2a9c" stroke-width="1.4"/>
+  <circle cx="6" cy="10.5" r="1.4" fill="#4c2a9c"/>
+  <path d="M9.5 7.5a4.2 4.2 0 0 1 0 6" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M12 5.5a7 7 0 0 1 0 11" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="4" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+  <rect x="12" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+</g><text x="474" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">APIM</text>
+<g transform="translate(568,376) scale(0.85)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="578" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Key Vault</text><rect x="122" y="428" width="496" height="44" rx="6" fill="#fdf1f1" stroke="#e3a8a8" stroke-width="1.4"/>
+<g transform="translate(130,436) scale(0.8)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="154" y="448" font-family="'Inter','Segoe UI',sans-serif" font-size="8" font-weight="700" fill="#a52020" text-anchor="start">Cost Kill-Switch Function</text><text x="130" y="462" font-family="'Inter','Segoe UI',sans-serif" font-size="6.6" font-weight="500" fill="#a52020" text-anchor="start">Own least-privileged identity, scoped only to this RG's Postgres. Stops it at 100% of budget.</text><rect x="690" y="220" width="520" height="60" rx="8" fill="#eaf2fc" stroke="#bcd6f2" stroke-width="1.4"/>
+<g transform="translate(702,230) scale(0.85)">
+  <circle cx="5.5" cy="10" r="4" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M9 10h9.5M15.5 10v3M18 10v2" stroke="#0d5fb8" stroke-width="1.4" stroke-linecap="round"/>
+</g><text x="734" y="242" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.3" font-weight="700" fill="#14161d" text-anchor="start">PeakLogic-staging-CiCd</text><text x="702" y="258" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Federated credential trusts this repo — OIDC token exchange at deploy time.</text><path d="M 950 205 L 950 205 L 950 220" fill="none" stroke="#0d5fb8" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-0d5fb8)"/><path d="M 950 280 L 950 320" fill="none" stroke="#0d5fb8" stroke-width="1.1" marker-end="url(#arrow-0d5fb8)"/><rect x="708" y="286" width="257.59999999999997" height="14" fill="#fff"/><circle cx="699" cy="294" r="6" fill="#a52020"/><text x="714" y="299" font-family="'Inter','Segoe UI',sans-serif" font-size="7.4" font-weight="700" fill="#a52020" text-anchor="start">workflow_dispatch only — human-triggered (approval gate)</text><rect x="690" y="320" width="520" height="165" rx="10" fill="#fff" stroke="#d6dae4" stroke-width="1.4"/>
+<g transform="translate(702,330) scale(1)">
+  <path d="M1 4.5c0-.8.6-1.4 1.4-1.4h4l1.6 2h8.6c.8 0 1.4.6 1.4 1.4v8.2c0 .8-.6 1.4-1.4 1.4H2.4C1.6 16.1 1 15.5 1 14.7V4.5z" fill="#f6f7fa" stroke="#3d4356" stroke-width="1.3"/>
+</g><text x="734" y="342" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.6" font-weight="700" fill="#14161d" text-anchor="start">peaklogic-staging-rg</text><text x="702" y="356" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Resource group — created out-of-band by az group create, not by the pipeline itself</text>
+<g transform="translate(732,376) scale(0.85)">
+  <rect x="1" y="1" width="16" height="16" rx="3" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M6 5.5 L11.5 9 L6 12.5" fill="none" stroke="#0d5fb8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</g><text x="742" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Functions</text>
+<g transform="translate(836,376) scale(0.85)">
+  <path d="M0 3.5C0 1.6 3.6 0 8 0s8 1.6 8 3.5v13C16 18.4 12.4 20 8 20S0 18.4 0 16.5v-13z" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+  <ellipse cx="8" cy="3.5" rx="8" ry="3.5" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+</g><text x="846" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">PostgreSQL</text>
+<g transform="translate(940,376) scale(0.85)">
+  <path d="M6 20c-3.3 0-6-2.6-6-5.8 0-2.7 1.9-5 4.5-5.6C5.2 4.7 8.7 2 12.8 2c4.6 0 8.4 3.4 9 7.8 3 .6 5.2 3.2 5.2 6.3 0 3.5-2.9 6.3-6.5 6.3H6z"
+    fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+</g><text x="950" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">IoT Hub</text>
+<g transform="translate(1044,376) scale(0.85)">
+  <rect x="1" y="4" width="18" height="13" rx="2" fill="#f3f1fa" stroke="#4c2a9c" stroke-width="1.4"/>
+  <circle cx="6" cy="10.5" r="1.4" fill="#4c2a9c"/>
+  <path d="M9.5 7.5a4.2 4.2 0 0 1 0 6" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M12 5.5a7 7 0 0 1 0 11" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="4" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+  <rect x="12" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+</g><text x="1054" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">APIM</text>
+<g transform="translate(1148,376) scale(0.85)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="1158" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Key Vault</text><rect x="702" y="428" width="496" height="44" rx="6" fill="#fdf1f1" stroke="#e3a8a8" stroke-width="1.4"/>
+<g transform="translate(710,436) scale(0.8)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="734" y="448" font-family="'Inter','Segoe UI',sans-serif" font-size="8" font-weight="700" fill="#a52020" text-anchor="start">Cost Kill-Switch Function</text><text x="710" y="462" font-family="'Inter','Segoe UI',sans-serif" font-size="6.6" font-weight="500" fill="#a52020" text-anchor="start">Own least-privileged identity, scoped only to this RG's Postgres. Stops it at 100% of budget.</text><rect x="1270" y="220" width="520" height="60" rx="8" fill="#eaf2fc" stroke="#bcd6f2" stroke-width="1.4"/>
+<g transform="translate(1282,230) scale(0.85)">
+  <circle cx="5.5" cy="10" r="4" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M9 10h9.5M15.5 10v3M18 10v2" stroke="#0d5fb8" stroke-width="1.4" stroke-linecap="round"/>
+</g><text x="1314" y="242" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.3" font-weight="700" fill="#14161d" text-anchor="start">PeakLogic-prod-CiCd</text><text x="1282" y="258" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Federated credential trusts this repo — OIDC token exchange at deploy time.</text><path d="M 950 205 L 1530 205 L 1530 220" fill="none" stroke="#0d5fb8" stroke-width="1.1" stroke-dasharray="3 3" marker-end="url(#arrow-0d5fb8)"/><path d="M 1530 280 L 1530 320" fill="none" stroke="#0d5fb8" stroke-width="1.1" marker-end="url(#arrow-0d5fb8)"/><rect x="1288" y="286" width="257.59999999999997" height="14" fill="#fff"/><circle cx="1279" cy="294" r="6" fill="#a52020"/><text x="1294" y="299" font-family="'Inter','Segoe UI',sans-serif" font-size="7.4" font-weight="700" fill="#a52020" text-anchor="start">workflow_dispatch only — human-triggered (approval gate)</text><rect x="1270" y="320" width="520" height="165" rx="10" fill="#fff" stroke="#d6dae4" stroke-width="1.4"/>
+<g transform="translate(1282,330) scale(1)">
+  <path d="M1 4.5c0-.8.6-1.4 1.4-1.4h4l1.6 2h8.6c.8 0 1.4.6 1.4 1.4v8.2c0 .8-.6 1.4-1.4 1.4H2.4C1.6 16.1 1 15.5 1 14.7V4.5z" fill="#f6f7fa" stroke="#3d4356" stroke-width="1.3"/>
+</g><text x="1314" y="342" font-family="'SF Mono','Cascadia Mono',Consolas,monospace" font-size="9.6" font-weight="700" fill="#14161d" text-anchor="start">peaklogic-prod-rg</text><text x="1282" y="356" font-family="'Inter','Segoe UI',sans-serif" font-size="7" font-weight="500" fill="#6b7285" text-anchor="start">Resource group — created out-of-band by az group create, not by the pipeline itself</text>
+<g transform="translate(1312,376) scale(0.85)">
+  <rect x="1" y="1" width="16" height="16" rx="3" fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+  <path d="M6 5.5 L11.5 9 L6 12.5" fill="none" stroke="#0d5fb8" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+</g><text x="1322" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Functions</text>
+<g transform="translate(1416,376) scale(0.85)">
+  <path d="M0 3.5C0 1.6 3.6 0 8 0s8 1.6 8 3.5v13C16 18.4 12.4 20 8 20S0 18.4 0 16.5v-13z" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+  <ellipse cx="8" cy="3.5" rx="8" ry="3.5" fill="#ffffff" stroke="#14161d" stroke-width="1.3"/>
+</g><text x="1426" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">PostgreSQL</text>
+<g transform="translate(1520,376) scale(0.85)">
+  <path d="M6 20c-3.3 0-6-2.6-6-5.8 0-2.7 1.9-5 4.5-5.6C5.2 4.7 8.7 2 12.8 2c4.6 0 8.4 3.4 9 7.8 3 .6 5.2 3.2 5.2 6.3 0 3.5-2.9 6.3-6.5 6.3H6z"
+    fill="#eaf2fc" stroke="#0d5fb8" stroke-width="1.4"/>
+</g><text x="1530" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">IoT Hub</text>
+<g transform="translate(1624,376) scale(0.85)">
+  <rect x="1" y="4" width="18" height="13" rx="2" fill="#f3f1fa" stroke="#4c2a9c" stroke-width="1.4"/>
+  <circle cx="6" cy="10.5" r="1.4" fill="#4c2a9c"/>
+  <path d="M9.5 7.5a4.2 4.2 0 0 1 0 6" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <path d="M12 5.5a7 7 0 0 1 0 11" fill="none" stroke="#4c2a9c" stroke-width="1.3" stroke-linecap="round"/>
+  <rect x="4" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+  <rect x="12" y="17" width="4" height="2.4" fill="#4c2a9c"/>
+</g><text x="1634" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">APIM</text>
+<g transform="translate(1728,376) scale(0.85)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="1738" y="412" font-family="'Inter','Segoe UI',sans-serif" font-size="6.8" font-weight="600" fill="#3d4356" text-anchor="middle">Key Vault</text><rect x="1282" y="428" width="496" height="44" rx="6" fill="#fdf1f1" stroke="#e3a8a8" stroke-width="1.4"/>
+<g transform="translate(1290,436) scale(0.8)">
+  <rect x="1.5" y="8" width="13" height="10" rx="1.6" fill="#fdf1f1" stroke="#a52020" stroke-width="1.3"/>
+  <path d="M4 8V5.5a4 4 0 0 1 8 0V8" fill="none" stroke="#a52020" stroke-width="1.4"/>
+  <circle cx="8" cy="12.6" r="1.3" fill="#a52020"/>
+  <rect x="7.35" y="13.4" width="1.3" height="2.6" fill="#a52020"/>
+</g><text x="1314" y="448" font-family="'Inter','Segoe UI',sans-serif" font-size="8" font-weight="700" fill="#a52020" text-anchor="start">Cost Kill-Switch Function</text><text x="1290" y="462" font-family="'Inter','Segoe UI',sans-serif" font-size="6.6" font-weight="500" fill="#a52020" text-anchor="start">Own least-privileged identity, scoped only to this RG's Postgres. Stops it at 100% of budget.</text><rect x="110" y="501" width="1680" height="70" rx="8" fill="#fbfaf7" stroke="#d6dae4" stroke-width="1.4"/><g><circle cx="127" cy="519" r="9" fill="#3d4356"/><text x="127" y="523" font-family="'Inter','Segoe UI',sans-serif" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">L</text></g><text x="143" y="523" font-family="'Inter','Segoe UI',sans-serif" font-size="9.3" font-weight="800" fill="#14161d" text-anchor="start">Deploy mechanics — two steps, every stage</text><text x="126" y="541" font-family="'Inter','Segoe UI',sans-serif" font-size="7.6" fill="#6b7285">1. az deployment group create provisions/updates Azure resources from Bicep.   2. Azure/functions-action separately zip-deploys backend/'s built code to the Function App. Neither step happens without the other on a fresh resource group.</text></svg>

@@ -130,10 +130,28 @@ function wrapText(x, y, text, width, { size = 9, fill = INK3, lineHeight = 12 } 
   return lines.map((l, i) => `<text x="${x}" y="${y + i * lineHeight}" font-family="'Inter','Segoe UI',sans-serif" font-size="${size}" fill="${fill}">${esc(l)}</text>`).join('');
 }
 
-/** An orthogonal arrow: horizontal, then vertical, then horizontal — the Visio-standard elbow connector. */
+/**
+ * An orthogonal arrow: horizontal, then vertical, then horizontal — the
+ * Visio-standard elbow connector.
+ *
+ * CRITICAL: consecutive duplicate points are removed before the path is
+ * emitted. When the bend x happens to equal x1 (a straight vertical drop) or
+ * x2 (an L-bend), the naive 4-point form produces a ZERO-LENGTH final
+ * segment — and SVG orients `marker-end` off the final segment's tangent,
+ * which for a zero-length segment is undefined. The renderer then falls back
+ * to an arbitrary angle, which is why arrowheads on perfectly straight
+ * vertical connectors were rendering horizontally. Deduping collapses those
+ * to a real 2- or 3-point path whose last segment has a genuine direction.
+ *
+ * This single defect accounted for most of the "arrow points the wrong way"
+ * faults in this diagram; it is caught automatically now by verify-diagram.mjs
+ * rule R2.
+ */
 function elbow(x1, y1, x2, y2, { stroke = INK2, dash = null, width = 1.6, midX = null } = {}) {
   const mx = midX ?? (x1 + x2) / 2;
-  const d = `M ${x1} ${y1} L ${mx} ${y1} L ${mx} ${y2} L ${x2} ${y2}`;
+  const raw = [[x1, y1], [mx, y1], [mx, y2], [x2, y2]];
+  const pts = raw.filter((p, i) => i === 0 || Math.hypot(p[0] - raw[i - 1][0], p[1] - raw[i - 1][1]) > 0.01);
+  const d = pts.map((p, i) => `${i ? 'L' : 'M'} ${p[0]} ${p[1]}`).join(' ');
   return `<path d="${d}" fill="none" stroke="${stroke}" stroke-width="${width}"${dash ? ` stroke-dasharray="${dash}"` : ''} marker-end="url(#arrow-${stroke.replace('#', '')})"/>`;
 }
 
@@ -287,18 +305,21 @@ function diagramSvg() {
   s += label(dataX + 46, dataY + 94, 'app.current_tenant_id', { size: 8, weight: 700, family: 'mono' });
   s += wrapText(dataX + 18, dataY + 106, 'set_config() per request — RLS returns zero rows outside scope, never another tenant’s. No public network access.', dataW - 36, { size: 7.2, fill: SEC });
 
-  // Two separate arrows into the top edge. Both used to finish with a
-  // HORIZONTAL segment that terminated exactly on Data Layer's top border —
-  // arrowhead pointing sideways, riding along the edge instead of piercing
-  // it. A box's top edge wants a vertical approach, arrowhead pointing down.
-  // Fixed by jogging through the clear 5px gap just below row B (335–340,
-  // below every row-B box's own bottom border) before turning to descend
-  // perpendicular into Data Layer at the target x.
-  const dlJogY = rowBY + 95 + 5; // 340 — below row B, above Data Layer
-  s += `<path d="M ${iotX + iotW / 2} ${rowBY + 95} L ${iotX + iotW / 2} ${dlJogY} L ${dataX + 260} ${dlJogY} L ${dataX + 260} ${dataY}" fill="none" stroke="${AZURE}" stroke-width="1.6" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
-  s += flowLabel(iotX + iotW / 2, rowBY + 95 + 17, 'telemetry writes', AZURE);
-  s += `<path d="M ${apimX + apimW / 2} ${rowBY + 95} L ${apimX + apimW / 2} ${dlJogY} L ${dataX + dataW - 30} ${dlJogY} L ${dataX + dataW - 30} ${dataY}" fill="none" stroke="${AZURE}" stroke-width="1.6" marker-end="url(#arrow-${AZURE.replace('#', '')})"/>`;
-  s += flowLabel(apimX + apimW / 2, rowBY + 95 + 17, 'scoped reads/writes', AZURE);
+  // STRAIGHT vertical drops. Ingest Functions (centre x=510) and API
+  // Functions (centre x=730) both sit directly above the Data Layer box
+  // (x 430–810), so each connector is a plain vertical line — no dogleg.
+  //
+  // An earlier revision routed both through a sideways jog, on the theory
+  // that a horizontal final approach was making the arrowheads point
+  // sideways. That diagnosis was wrong: the real cause was elbow() emitting
+  // a zero-length final segment (see its comment), which left the marker
+  // angle undefined. With that fixed, the direct vertical line is both
+  // correct AND the clearest possible route. verify-diagram.mjs rule R4
+  // now fails the build if a dogleg is used where a straight drop exists.
+  s += elbow(iotX + iotW / 2, rowBY + 95, iotX + iotW / 2, dataY, { stroke: AZURE, midX: iotX + iotW / 2 });
+  s += flowLabel(iotX + iotW / 2, rowBY + 95 + 20, 'telemetry writes', AZURE);
+  s += elbow(apimX + apimW / 2, rowBY + 95, apimX + apimW / 2, dataY, { stroke: AZURE, midX: apimX + apimW / 2 });
+  s += flowLabel(apimX + apimW / 2, rowBY + 95 + 20, 'scoped reads/writes', AZURE);
 
   // ── Identity boundary (row C, right of data layer) ──
   const idX = COL[3] + 20, idY = dataY, idW = COL[4] - COL[3] - 40, idH = dataH;
@@ -323,10 +344,12 @@ function diagramSvg() {
   s += iconEye(dataX + 32, agentY + 12, 0.95, ACCENT, '#f4f1fb');
   s += label(dataX + 64, agentY + 24, '16-agent operations team', { size: 9.5, weight: 700, fill: ACCENT });
   s += wrapText(dataX + 14, agentY + 40, 'agent_events (Postgres bus) → Timer Functions. Findings advise; an operator authorizes every action. No agent issues a device command.', dataW - 28, { size: 7.4 });
-  // Target shifted right of the box's own centre — dataX+dataW/2 (620) sits
-  // inside the "16-agent operations team" title's span (roughly 494–650),
-  // so the arrowhead was landing on the title instead of clear border.
-  s += `<path d="M ${dataX + dataW / 2} ${dataY + dataH} L ${dataX + dataW / 2} ${dataY + dataH + 8} L ${dataX + dataW - 100} ${dataY + dataH + 8} L ${dataX + dataW - 100} ${agentY}" fill="none" stroke="${ACCENT2}" stroke-width="1.6" marker-end="url(#arrow-${ACCENT2.replace('#', '')})"/>`;
+  // Straight vertical drop, same reasoning as the two Data Layer inflows
+  // above: the Agent box spans x 430–810 directly below Data Layer, so no
+  // dogleg is needed. The arrowhead lands on the top border at y=agentY,
+  // while the "16-agent operations team" title's baseline is 24px lower —
+  // they do not overlap.
+  s += elbow(dataX + dataW / 2, dataY + dataH, dataX + dataW / 2, agentY, { stroke: ACCENT2, midX: dataX + dataW / 2 });
 
   const monX = idX, monW = idW;
   s += box(monX, agentY, monW, agentH, { fill: '#fff', stroke: RULE, rx: 10 });
@@ -770,3 +793,21 @@ ${governancePage()}
 
 writeFileSync(join(out, 'peaklogic-architecture-diagram.html'), body);
 console.log('architecture diagram built');
+
+// ── Standalone editable SVG export ───────────────────────────────────────
+//
+// The same page-1 diagram written out as a plain .svg file, so it can be
+// opened directly in Illustrator, Inkscape, Figma or any vector editor and
+// hand-adjusted without going back through this generator. Every box, label
+// and connector is a real, selectable element.
+const page1Svg = diagramSvg();
+writeFileSync(
+  join(out, 'peaklogic-architecture-diagram-page1-editable.svg'),
+  `<?xml version="1.0" encoding="UTF-8"?>\n${page1Svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')}`,
+);
+const govSvg = governanceSvg();
+writeFileSync(
+  join(out, 'peaklogic-architecture-diagram-page4-editable.svg'),
+  `<?xml version="1.0" encoding="UTF-8"?>\n${govSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')}`,
+);
+console.log('editable SVGs written');
