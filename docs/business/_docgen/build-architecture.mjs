@@ -570,7 +570,11 @@ const iconPerson2 = (x, y, s, stroke = INK2, fill = '#fff') => `
  * governance diagrams turn illegible.
  */
 function governanceSvg() {
-  const W = 1900, H = 760;
+  // H tracks the actual content extent: the deploy-mechanics note ends at
+  // y≈571 (noteY 501 + 70). It was 760, leaving ~190px of empty canvas that
+  // still consumed vertical space on the page — enough to push the
+  // "Not deployed" disclosure into the footer.
+  const W = 1900, H = 600;
   const colours = [INK2, AZURE, ACCENT, POS, SEC, INK3];
   let s = '';
   s += arrowDefs(colours);
@@ -660,7 +664,7 @@ function governancePage() {
   return `<section class="slide">
   <div class="kicker">Cloud governance &amp; subscription topology</div>
   <h1>How the Azure tenant itself is organised</h1>
-  <p class="sub">A different question from pages 1–3: not how the application's data moves, but how the account, identity-for-deployment, and CI/CD path are structured. Single subscription today, one resource group per stage — matches this project's cost-conscious MVP posture everywhere else (documented in CLAUDE.md's Environments/Deployment Stages section).</p>
+  <p class="sub"><b>What this diagram shows — the deployment path:</b> how code in source control becomes running Azure infrastructure, and what separates dev from production. Top to bottom: <b>(K)</b> the GitHub repository (CI on every push, one deploy workflow per stage) → <b>Entra Workload Identity Federation</b>, issuing each stage its own App Registration that trusts this repo over OIDC, so no client secret is ever stored → three <b>resource groups</b>, one per stage, each with a full copy of the platform's services and its own cost kill-switch → <b>(L)</b> the two-step mechanism every deploy performs. The coloured dot above each resource group is its trigger: dev deploys automatically; staging and prod need a human to start the run. Pages 1–3 cover how data moves through the running system; this page covers how that system gets deployed.</p>
   <div class="diagram-frame">${governanceSvg()}</div>
   <p class="sub" style="margin-top:8px"><span class="tag tag--sec">Not deployed</span> No environment has been created yet — <code>peaklogic-{dev,staging,prod}-rg</code>, the Entra App Registrations, and the federated credentials are all still to-do, not running infrastructure. This page describes the designed target, same disclosure as pages 1–3.</p>
   <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 2 August 2026</span><span>Page 4 of 4</span></div>
