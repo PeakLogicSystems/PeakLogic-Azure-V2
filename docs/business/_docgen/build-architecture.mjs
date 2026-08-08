@@ -840,14 +840,18 @@ console.log('architecture diagram built');
 // opened directly in Illustrator, Inkscape, Figma or any vector editor and
 // hand-adjusted without going back through this generator. Every box, label
 // and connector is a real, selectable element.
+//
+// Written to Archived/, not the top level: these are an ancillary editing
+// fallback, not the current investor-facing document (that's the combined
+// .html/.pdf above) — see the Archived/ folder's own reasoning.
 const page1Svg = diagramSvg();
 writeFileSync(
-  join(out, 'peaklogic-architecture-diagram-page1-editable.svg'),
+  join(out, 'Archived', 'peaklogic-architecture-diagram-page1-editable.svg'),
   `<?xml version="1.0" encoding="UTF-8"?>\n${page1Svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')}`,
 );
 const govSvg = governanceSvg();
 writeFileSync(
-  join(out, 'peaklogic-architecture-diagram-page4-editable.svg'),
+  join(out, 'Archived', 'peaklogic-architecture-diagram-page4-editable.svg'),
   `<?xml version="1.0" encoding="UTF-8"?>\n${govSvg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ')}`,
 );
 console.log('editable SVGs written');
