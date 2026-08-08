@@ -90,7 +90,7 @@ export function Hardware() {
                     </p>
                   </td>
                   <td className="px-4 py-3 align-top text-slate-700 dark:text-slate-200">{siteName(h.siteId)}</td>
-                  <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">{fmt(h.installedAt)}</td>
+                  <td className="px-4 py-3 align-top text-slate-600 dark:text-slate-300">{fmt(h.provisionedAt)}</td>
                   <td className="px-4 py-3 align-top font-mono text-[12px] text-slate-600 dark:text-slate-300">
                     {h.firmware} <span className="text-slate-400">({h.channel})</span>
                   </td>

@@ -6,8 +6,8 @@ import { usePartner } from '@/PartnerContext';
 import { useSettings } from '@/SettingsContext';
 import { PartnerSwitcher } from '@/components/PartnerSwitcher';
 import { useBrandTab } from '@/useBrandTab';
-import { useBrandOverride } from '@/brandOverride';
-import { derivedHeader, inkOn } from '@/brandColor';
+import { useBrandOverride } from '@shared/ui/brandOverride';
+import { derivedHeader, inkOn } from '@shared/ui/brandColor';
 
 const NAV = [
   { to: '/', label: 'Home', icon: LayoutDashboard, end: true },

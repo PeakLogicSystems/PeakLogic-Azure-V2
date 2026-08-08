@@ -4,7 +4,8 @@ import { useSettings } from '@/settings';
 import { CUSTOMER, type Device, type Site } from '@/data';
 import { liveHubsAt } from '@/data/hardware';
 import { useSitePhotos } from '@/sitePhoto';
-import { PhotoLightbox } from '@/components/PhotoLightbox';
+import { PhotoLightbox } from '@shared/ui/PhotoLightbox';
+import { DEVICE_DOT, HUB_DOT, PEAKVIEW_URL, THEME_MESSAGE, peakViewUrl } from '@shared/ui/peakViewShared';
 
 // PeakView360, embedded in the site page rather than linked away to.
 //
@@ -22,41 +23,13 @@ import { PhotoLightbox } from '@/components/PhotoLightbox';
 // customer cannot install a Hub themselves, so offering them an "add it" button
 // would be a dead end. It names their service provider instead — the party who
 // can actually do it.
+//
+// PEAKVIEW_URL/THEME_MESSAGE/peakViewUrl/DEVICE_DOT/HUB_DOT live in
+// packages/ui/peakViewShared.ts — identical to the partner portal's copy by
+// construction, not by coincidence. PAD_ORDER stays local: it encodes real
+// domain judgement about equipment ordering, tuned separately per portal.
 
-const PEAKVIEW_URL = 'http://localhost:5175/';
-
-/** Must match ThemeProvider's listener in peakview360/src/theme.tsx. */
-const THEME_MESSAGE = 'peaklogic:theme';
-
-// `site` is the scope contract, not a hint: PeakView360 renders only the site
-// it is opened for and refuses outright if it holds no data for that site,
-// rather than falling back to whichever facility it happens to have. See
-// peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
-// name the site the viewer is actually entitled to see.
-function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark', hubId?: string) {
-  const p = new URLSearchParams({ theme });
-  if (siteId) p.set('site', siteId);
-  if (siteName) p.set('siteName', siteName);
-  // Which Hub's feed to render. A plant has one per acquisition point, so
-  // "the site's live view" is incomplete on its own — the viewer picks. Read
-  // only on this side: a customer chooses what to look at, never what happens
-  // to the hardware.
-  if (hubId) p.set('hub', hubId);
-  return `${PEAKVIEW_URL}?${p.toString()}`;
-}
-
-const HUB_DOT: Record<string, string> = {
-  online: 'bg-emerald-500',
-  offline: 'bg-slate-400',
-  provisioning: 'bg-sky-500',
-  decommissioned: 'bg-slate-300',
-};
-
-const DOT: Record<Device['status'], string> = {
-  online: 'bg-emerald-500',
-  fault: 'bg-amber-500',
-  offline: 'bg-slate-400',
-};
+const DOT: Record<Device['status'], string> = DEVICE_DOT;
 
 /** Equipment-pad order, so the strip reads the way the water actually flows. */
 const PAD_ORDER = ['Pump', 'Blower', 'Filter', 'Chlorinator', 'Analyzer', 'Chemistry', 'Level', 'Temp'];

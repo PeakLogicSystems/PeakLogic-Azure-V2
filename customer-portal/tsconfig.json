@@ -17,8 +17,15 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "baseUrl": ".",
-    "paths": { "@/*": ["src/*"] }
+    "paths": {
+      "@/*": ["src/*"],
+      "@shared/*": ["../packages/*"],
+      "react": ["node_modules/@types/react"],
+      "react-dom": ["node_modules/@types/react-dom"],
+      "react/jsx-runtime": ["node_modules/@types/react/jsx-runtime"],
+      "lucide-react": ["node_modules/lucide-react/dist/lucide-react.d.ts"]
+    }
   },
-  "include": ["src"],
+  "include": ["src", "../packages"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

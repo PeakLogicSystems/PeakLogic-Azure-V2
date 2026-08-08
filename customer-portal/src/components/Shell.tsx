@@ -3,8 +3,8 @@ import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { Bell, FileText, LayoutDashboard, LogOut, Moon, Router, Settings as SettingsIcon, Sun } from 'lucide-react';
 import { useAuth } from '@/AuthContext';
 import { useBrandTab } from '@/useBrandTab';
-import { useBrandOverride } from '@/brandOverride';
-import { derivedHeader, inkOn } from '@/brandColor';
+import { useBrandOverride } from '@shared/ui/brandOverride';
+import { derivedHeader, inkOn } from '@shared/ui/brandColor';
 import { CUSTOMER } from '@/data';
 import { useSettings } from '@/settings';
 

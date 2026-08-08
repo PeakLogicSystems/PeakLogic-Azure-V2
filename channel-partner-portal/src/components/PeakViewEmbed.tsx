@@ -6,8 +6,9 @@ import { usePartner } from '@/PartnerContext';
 import type { Device, Site } from '@/data/types';
 import { HUB_MODELS, type Hub } from '@/data/hubs';
 import { useSitePhotos } from '@/sitePhoto';
-import { PhotoLightbox } from '@/components/PhotoLightbox';
+import { PhotoLightbox } from '@shared/ui/PhotoLightbox';
 import { DecommissionDialog } from '@/components/DecommissionDialog';
+import { DEVICE_DOT, HUB_DOT, PEAKVIEW_URL, THEME_MESSAGE, peakViewUrl } from '@shared/ui/peakViewShared';
 
 // PeakView360, embedded in the site page rather than linked away to.
 //
@@ -24,41 +25,13 @@ import { DecommissionDialog } from '@/components/DecommissionDialog';
 // the Facility View for a dense readout of the same equipment, the duplicate
 // section is gone, and the page has one place where equipment lives instead of
 // two that can disagree.
+//
+// PEAKVIEW_URL/THEME_MESSAGE/peakViewUrl/DEVICE_DOT/HUB_DOT live in
+// packages/ui/peakViewShared.ts — identical to the customer portal's copy by
+// construction, not by coincidence. PAD_ORDER stays local: it encodes real
+// domain judgement about equipment ordering, tuned separately per portal.
 
-const PEAKVIEW_URL = 'http://localhost:5175/';
-
-/** Must match ThemeProvider's listener in peakview360/src/theme.tsx. */
-const THEME_MESSAGE = 'peaklogic:theme';
-
-// `site` is the scope contract, not a hint: PeakView360 renders only the site
-// it is opened for and refuses outright if it holds no data for that site,
-// rather than falling back to whichever facility it happens to have. See
-// peakview360/src/scope.ts. `siteName` exists purely so its refusal screen can
-// name the site the viewer is actually entitled to see.
-function peakViewUrl(siteId: string, siteName: string, theme: 'light' | 'dark', hubId?: string) {
-  const p = new URLSearchParams({ theme });
-  if (siteId) p.set('site', siteId);
-  if (siteName) p.set('siteName', siteName);
-  // Which Hub's feed to render. A plant's three Hubs each acquire a different
-  // part of the process, so "the site's live view" is an incomplete idea —
-  // there is one per acquisition point and the operator picks.
-  if (hubId) p.set('hub', hubId);
-  return `${PEAKVIEW_URL}?${p.toString()}`;
-}
-
-const HUB_DOT: Record<Hub['state'], string> = {
-  online: 'bg-emerald-500',
-  offline: 'bg-slate-400',
-  provisioning: 'bg-sky-500',
-  available: 'bg-slate-300',
-  decommissioned: 'bg-slate-300',
-};
-
-const DOT: Record<Device['status'], string> = {
-  online: 'bg-emerald-500',
-  fault: 'bg-amber-500',
-  offline: 'bg-slate-400',
-};
+const DOT: Record<Device['status'], string> = DEVICE_DOT;
 
 /** Equipment-pad order, so the strip reads the way the water actually flows. */
 const PAD_ORDER = ['Pump', 'Filter', 'Chlorinator', 'Heater', 'Chemistry', 'Controller', 'Salt', 'Blower', 'Analyzer', 'Level', 'Temp'];
