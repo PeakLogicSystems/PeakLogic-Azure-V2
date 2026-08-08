@@ -9,7 +9,9 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
-_Nothing yet._
+### Changed
+
+- **Customer Portal and Partner Portal now share common frontend source** (`packages/ui`, `packages/domain`) instead of duplicated/hand-mirrored files. Three files were byte-identical between the two portals; the Customer Portal's hardware register was a hand-typed mirror of a few records from the Partner Portal's fleet register, with no compiler check forcing the two to stay in sync. Both portals now import the same source via a `@shared/*` alias — no separate build step, no behavior change, both verified to typecheck and build clean. SysAdmin Guide bumped to v2.1.1; nothing user-facing changed, so the User Guide was not bumped.
 
 ---
 

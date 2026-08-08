@@ -373,7 +373,7 @@ function diagramSvg() {
   s += badge(hostX + 15, hostY + 18, 'H', POS);
   s += iconCloud(hostX + 32, hostY + 10, 0.9, POS, '#e3f4ea');
   s += label(hostX + 64, hostY + 24, 'Static Web Hosting', { size: 9.3, weight: 700 });
-  s += wrapText(hostX + 14, hostY + 40, 'Storage + CDN. Serves the built SPA bundle for all four surfaces — separate from the API, which serves only data.', hostW - 28, { size: 7.2 });
+  s += wrapText(hostX + 14, hostY + 40, 'Storage + CDN. Serves each portal’s own built bundle, from its own code plus shared packages/ — separate from the API, which serves only data.', hostW - 28, { size: 7.2 });
 
   // ── Frontends (row E) ──
   //

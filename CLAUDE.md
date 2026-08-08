@@ -39,12 +39,30 @@ Six sub-packages (five with their own `package.json`/`tsconfig.json`; `marketing
 | `backend/` | Azure Functions — REST API, telemetry ingest, scheduled jobs | Node 20 |
 | `customer-portal/` | **Customer Portal** — equipment owners; their own sites, alerts and compliance reports only | Browser |
 | `channel-partner-portal/` | **Partner Portal** — a service company's whole book of business (home, sites, device *Control* affordance, work orders, Facility Builder, partner switching). White-labelled per partner | Browser |
+| `packages/` | **Shared, buildless frontend source** — see below | — |
 | `peakview360/` | **PeakView360** — the live per-site operator view (Facility View, Historian, Equipment + docked alarm panel). Launched from inside a portal; *not* a separate login | Browser |
 | `marketing/` | Public site (`peaklogicsolutions.com`) + `demo.html` (demo index) + `control-center.html` (**Control Center**, staff-only) | Browser |
 | `windows-hub/` | PeakLogic Edge — the .NET on-prem Hub agent (Windows + Linux) | .NET 8 |
 | `scripts/` | Admin tooling, DB migrations | Node 20 |
 | `ops/` | Standalone operational functions (cost kill switch) | Node 20 |
 | `infra/` | ⚠️ **DEPRECATED** — pre-pivot AWS CDK. Deployed by nothing; see `infra/README.md` | Node 20 |
+
+### `packages/` — shared frontend source (added 2026-08-08)
+
+Not an npm workspace and not independently built — plain TypeScript/TSX source, imported directly by `customer-portal` and `channel-partner-portal` via a `@shared/*` alias (`vite.config.ts`'s `resolve.alias` + each portal's `tsconfig.json` `paths`) that resolves to `../packages/*`. Each portal still typechecks and bundles it as part of its own `npm run build` — there is no separate install or build step for `packages/` itself, and no `package.json` lives there.
+
+This exists because the two portals had accumulated real duplication with no compiler check holding the copies in sync: three files were byte-identical (`brandColor.ts`, `brandOverride.ts`, `components/PhotoLightbox.tsx`), and the Customer Portal's hardware register (`customer-portal/src/data/hardware.ts`) was a hand-typed mirror of a handful of records from the Partner Portal's fleet register (`channel-partner-portal/src/data/fleet.ts`) — a firmware bump or decommission on the partner side had no way of forcing the customer-side copy to be updated to match.
+
+| Path | Contents |
+|---|---|
+| `packages/domain/hubs.ts` | The canonical Hub domain model — types, lifecycle functions (`registerHub`, `decommissionHub`, retention policy). Moved verbatim from `channel-partner-portal/src/data/hubs.ts`, which now just re-exports it |
+| `packages/domain/fleet.ts` | The seeded Hub fleet fixture (`HUBS_BY_PARTNER`). Moved verbatim from `channel-partner-portal/src/data/fleet.ts`, which now just re-exports it. `customer-portal/src/data/hardware.ts` reads this SAME register directly, filtered to that preview build's customer, instead of carrying a second hand-typed copy |
+| `packages/ui/brandColor.ts`, `brandOverride.ts`, `PhotoLightbox.tsx` | The three byte-identical files, moved verbatim |
+| `packages/ui/sitePhoto.ts` | The full read/write site-photo hook (cross-origin broker protocol, upload/downscale/remove) — moved verbatim from the Partner Portal, which was already the superset implementation. The Customer Portal's own `src/sitePhoto.ts` wraps this hook and exposes only `.photos`, since that side is deliberately read-only (photos are taken by the servicing partner's technician, not the equipment owner) |
+| `packages/ui/useBrandTab.ts` | A generic `useBrandTab(subject: BrandTabSubject, tabSuffix)` — each portal's own `src/useBrandTab.ts` is now a thin wrapper resolving its `Customer`/`Partner` record down to that shape, preserving the original per-portal call sites (`useBrandTab(customer)`, `useBrandTab(partner)`) unchanged |
+| `packages/ui/peakViewShared.ts` | The pieces of the PeakView360 embed genuinely identical across both portals — the iframe URL builder, the theme-sync message name, and the device/hub status-dot colour maps. Each portal's own `components/PeakViewEmbed.tsx` remains a separate composition (read-only vs. full hub-decommission/photo-upload capability) — deliberately NOT merged into one parameterized component, since the two are that different in what they let an operator do, not just how they look. Equipment-pad ordering also stays local per portal — it encodes real domain judgement about how the water actually flows through each fixture set, not incidental duplication |
+
+**A file importing `react`/`react-dom`/`lucide-react` from inside `packages/` needs each portal's own `vite.config.ts` (`resolve.dedupe` for react/react-dom, an explicit alias for lucide-react) and `tsconfig.json` (`paths` redirecting all three to that portal's own `node_modules`) to resolve them — `packages/` has no `node_modules` of its own, and without this a shared file would either fail to resolve entirely or load a second React instance alongside the portal's own (breaking hooks at runtime). Both portals' configs already carry this; a third portal adopting `@shared` would need the same two blocks.
 
 **The backend is not deployed independently.** CDK bundles it at deploy time via esbuild. The `ApiStack` in `infra/lib/api-stack.ts` points `entry:` directly into `../../backend/`. There is no build step to run before deploying the backend.
 
