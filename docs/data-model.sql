@@ -848,6 +848,12 @@ CREATE TABLE audit_log_entries (
   prior_value                   JSONB,
   new_value                     JSONB,
   occurred_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Added by migration 1784300120000 (architecture-review Gap 13) — the
+  -- request's correlation id (backend/shared/correlation.ts), nullable:
+  -- an entry written outside an HTTP request's async chain (a scheduled
+  -- job) has no request to derive one from. Opt-in enrichment, not a new
+  -- access-control or lookup dimension -- deliberately unindexed.
+  correlation_id                TEXT,
   -- Widened by migration 1784300000000 (TD-55): tenant-only, partner-only,
   -- AND platform-scoped (both null -- an agent action, a cost-kill-switch
   -- trip, a WARDEN-TEN finding) are all valid now; only claiming both

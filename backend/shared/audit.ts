@@ -1,4 +1,5 @@
 import type { PoolClient } from 'pg';
+import { getCorrelationId } from './correlation';
 
 // AUD-1/AUD-2 (SRS §3.10) — Security Architecture §5 designed this helper
 // (2026-07-09) but never actually implemented it: no file existed at this
@@ -77,29 +78,36 @@ export type AuditEntry = TenantAuditEntry | ChannelPartnerAuditEntry | PlatformA
 export async function writeAuditLog(client: PoolClient, entry: AuditEntry): Promise<void> {
   const priorValue = entry.priorValue !== undefined ? JSON.stringify(entry.priorValue) : null;
   const newValue = entry.newValue !== undefined ? JSON.stringify(entry.newValue) : null;
+  // Architecture-review Gap 13 — read implicitly via AsyncLocalStorage
+  // (shared/correlation.ts), not a new parameter on every one of this
+  // function's ~40 call sites. Null outside an HTTP request's async chain
+  // (e.g. a scheduled job writing an audit entry directly) — a real,
+  // disclosed limitation, not silently pretended away: those entry points
+  // don't have a request to derive one from yet.
+  const correlationId = getCorrelationId() ?? null;
 
   if (entry.scope === 'tenant') {
     await client.query(
       `INSERT INTO audit_log_entries
-         (tenant_id, actor_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [entry.tenantId, entry.actorId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+         (tenant_id, actor_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value, correlation_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [entry.tenantId, entry.actorId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue, correlationId],
     );
   } else if (entry.scope === 'channel_partner') {
     await client.query(
       `INSERT INTO audit_log_entries
-         (channel_partner_id, actor_channel_partner_user_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-      [entry.channelPartnerId, entry.actorChannelPartnerUserId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+         (channel_partner_id, actor_channel_partner_user_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value, correlation_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [entry.channelPartnerId, entry.actorChannelPartnerUserId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue, correlationId],
     );
   } else {
     // Platform-scoped: tenant_id and channel_partner_id both left NULL,
     // which the widened audit_log_entries_scope_check now permits.
     await client.query(
       `INSERT INTO audit_log_entries
-         (actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
-       VALUES ($1, $2, $3, $4, $5, $6)`,
-      [entry.actorStaffUserId, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+         (actor_staff_user_id, action, target_entity, target_id, prior_value, new_value, correlation_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [entry.actorStaffUserId, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue, correlationId],
     );
   }
 }
