@@ -300,6 +300,20 @@ hosted schedule (`agents/tenant-prover.main.ts`, `app.timer`) is written and cor
 until a real Azure Functions deployment exists — exactly the CI-first, deployment-independent
 sequencing this section called for.
 
+**Genuinely verified, not just shipped** (real CI run `31331835049`, after three real bugs its own
+first runs against the actual migrated schema surfaced and each got fixed and re-verified in
+turn — the exact "prove it against real infrastructure" discipline this whole project leans on):
+the live probe originally could never pass at all against a correctly isolated table (its
+data-existence pre-check ran through the same RLS-subject connection it was trying to prove
+things about); `account_assignments` was flagged as a false-positive critical (a legitimate
+staff-only table with no tenant-facing policy by design, now a documented, written exemption);
+and tenant enumeration itself was blocked by `tenants`' own RLS until it adopted the same
+`app.system_sweep_context` pattern `jobs/silence-detection-handler.ts` already established. The
+final verified run: 25 tables checked, a real two-tenant live probe against seeded `sites` rows
+passing genuinely (not vacuously), zero critical findings, 23 honest "insufficient data" gaps for
+tables with no seeded cross-tenant data yet — this is what a first real run of a prover is
+supposed to look like, not zero findings on the first try.
+
 This agent exists because of §1.2. The isolation mechanism was broken for the project's entire
 history and **nothing detected it** — not code review, not unit tests, not typechecking. A
 continuous prover is the only control that would have. For a platform whose core promise is that

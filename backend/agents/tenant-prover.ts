@@ -144,6 +144,20 @@ export async function checkSessionVariableActuallyApplies(client: PoolClient): P
  * data," even with real two-tenant data present. Fixed by folding the
  * data-existence check into the same tenant-scoped transaction as the leak
  * check itself, once per direction.
+ *
+ * DISCLOSED NUANCE, confirmed 2026-08-09 real CI run: `hasOwnData` means
+ * "this tenant's context sees at least one row," not "this tenant has a
+ * row it created." For a table with a deliberate global-read carve-out
+ * (`policies`' platform-default rows, tenant_id NULL, visible under any
+ * tenant context — CLAUDE.md's Policy Engine section), that's satisfiable
+ * without genuine per-tenant data, so the "insufficient data" gap under-
+ * fires there specifically. This does not weaken the actual leak check
+ * (still an explicit `tenant_id = otherTenant` match) or risk a false
+ * CRITICAL — it only means a real leak on `policies` between two tenants
+ * that have never created their own override row would currently read as
+ * a silent pass rather than a gap. Accepted as a known limitation rather
+ * than special-cased, since it's the one table in the schema with this
+ * shared-visibility shape.
  */
 export async function checkNoCrossTenantLeak(
   client: PoolClient,
