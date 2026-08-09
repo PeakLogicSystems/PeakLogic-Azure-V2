@@ -117,6 +117,12 @@ resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls11': 'False'
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Ssl30': 'False'
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168': 'False'
+      // Added 2026-08-09 after the first real infra-psrule run against this
+      // fix still failed Azure.APIM.Ciphers — PSRule.Rules.Azure's own rule
+      // definition checks for this specific named cipher suite in addition
+      // to the ones above, confirmed via its actual reported REASON text
+      // ("does not exist"), not guessed from documentation alone.
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_128_CBC_SHA': 'False'
     }
   }
 }
