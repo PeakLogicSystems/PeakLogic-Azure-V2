@@ -131,6 +131,8 @@ module budget 'modules/budget.bicep' = {
     budgetLimitUsd: budgetLimitUsd
     postgresServerId: data.outputs.postgresServerId
     oncallActionGroupId: monitoring.outputs.actionGroupId
+    keyVaultName: data.outputs.keyVaultName
+    keyVaultUri: data.outputs.keyVaultUri
     killswitchSecret: killswitchSecret
   }
 }

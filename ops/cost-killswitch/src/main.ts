@@ -1,5 +1,6 @@
 import { app, type HttpRequest, type HttpResponseInit, type InvocationContext } from '@azure/functions';
 import { stopPostgresServer } from './stop-server';
+import { setThrottleFlag } from './throttle';
 import { isValidSecret } from './auth';
 
 // Invoked by the Azure Monitor Action Group budget.bicep wires to the cost
@@ -48,6 +49,39 @@ app.http('cost-killswitch', {
       return { status: 200, body: JSON.stringify(result) };
     } catch (err) {
       context.error('Failed to stop Postgres server', err);
+      return { status: 500, body: String(err) };
+    }
+  },
+});
+
+// The 90% graduated tier (architecture-review Gap 4/ADR-003) — sets a Key
+// Vault flag rather than stopping anything. Same shared-secret auth as
+// cost-killswitch above (KILLSWITCH_SECRET is reused, not a second secret
+// to provision/rotate — this function has far less power than the one
+// above, but there's no reason to weaken auth just because the action is
+// gentler). See throttle.ts for why this latches rather than auto-clearing.
+app.http('cost-throttle', {
+  methods: ['POST'],
+  authLevel: 'anonymous',
+  handler: async (request: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> => {
+    const providedSecret = request.query.get('secret');
+    if (!isValidSecret(providedSecret, process.env.KILLSWITCH_SECRET)) {
+      context.warn('Rejected cost-throttle invocation — missing or incorrect secret');
+      return { status: 401, body: 'Unauthorized' };
+    }
+
+    const keyVaultUri = process.env.KEY_VAULT_URI;
+    if (!keyVaultUri) {
+      context.error('KEY_VAULT_URI is not set — refusing to guess where to write the throttle flag');
+      return { status: 500, body: 'Misconfigured: KEY_VAULT_URI is not set' };
+    }
+
+    context.warn('Cost budget reached 90% — setting cost-throttle-active=true in Key Vault');
+    try {
+      await setThrottleFlag(keyVaultUri, true);
+      return { status: 200, body: JSON.stringify({ throttleActive: true }) };
+    } catch (err) {
+      context.error('Failed to set cost-throttle flag', err);
       return { status: 500, body: String(err) };
     }
   },

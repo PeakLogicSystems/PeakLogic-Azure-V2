@@ -4,17 +4,22 @@
 // budgets are alert-only... replicating the same protection requires
 // hand-building custom automation"). This is that automation.
 //
-// Same 50%/80%/100% shape as the AWS side, deliberately: 50%/80% are
-// email-only early warnings (reusing monitoring.bicep's existing on-call
-// Action Group — no new email channel needed for those); 100% ALSO invokes
-// a dedicated, narrowly-scoped Function (ops/cost-killswitch/) that stops
-// the Postgres Flexible Server. Two SEPARATE Action Groups are required,
-// not one: an Action Group fires every receiver it has whenever ANY alert
-// references it, so if the stop-function receiver lived on the SAME action
-// group as monitoring.bicep's health alerts (CPU/storage/connections), a
-// mere CPU spike would ALSO stop the database — clearly wrong. The
-// dedicated killswitchActionGroup below is used ONLY by this budget's 100%
-// notification.
+// 50% / 80% / 90% / 100%, deliberately graduated (architecture-review
+// Gap 4/ADR-003, added 2026-08-09 — the previous binary 50/80/100 shape
+// meant a telemetry spike could shut off the very production database
+// serving live alarms, which is itself an availability failure the
+// platform would have deliberately introduced): 50%/80% are email-only
+// early warnings (reusing monitoring.bicep's existing on-call Action
+// Group); 90% invokes a SEPARATE, much gentler Function that sets a Key
+// Vault flag (cost-throttle-active) for budget-conscious background
+// workloads to check and skip themselves — it stops nothing; 100% invokes
+// the dedicated, narrowly-scoped Function that stops the Postgres Flexible
+// Server. THREE separate Action Groups are required, not one: an Action
+// Group fires every receiver it has whenever ANY alert references it, so
+// if the stop-function receiver lived on the SAME action group as
+// monitoring.bicep's health alerts (CPU/storage/connections), a mere CPU
+// spike would ALSO stop the database — clearly wrong; the same reasoning
+// is why the 90% throttle receiver needs its own group separate from both.
 //
 // NOT VALIDATED AGAINST A REAL SUBSCRIPTION (no Azure CLI/subscription
 // access in this environment) — same disclosed limitation as every other
@@ -56,6 +61,12 @@ param postgresServerId string
 
 @description('monitoring.bicep\'s existing on-call Action Group — reused for the 50%/80% email-only warnings so a second "just email" Action Group isn\'t provisioned redundantly.')
 param oncallActionGroupId string
+
+@description('data.bicep\'s Key Vault name — the 90% throttle Function needs Secrets Officer access to it to set cost-throttle-active.')
+param keyVaultName string
+
+@description('data.bicep\'s Key Vault URI — passed straight through as the throttle Function\'s KEY_VAULT_URI app setting, same pattern api.bicep already uses (data.outputs.keyVaultUri), rather than reconstructing it from keyVaultName and assuming the DNS suffix.')
+param keyVaultUri string
 
 @secure()
 @description('Shared secret the cost-killswitch webhook must present (query string ?secret=...) — supplied at deploy time, e.g. `az deployment group create ... --parameters killswitchSecret=$(openssl rand -hex 32)`. Mirrors main.bicep\'s existing @secure() dbAdminPassword convention. Never logged, never defaulted.')
@@ -125,6 +136,10 @@ resource functionApp 'Microsoft.Web/sites@2023-12-01' = {
         { name: 'WEBSITE_NODE_DEFAULT_VERSION', value: '~20' }
         { name: 'POSTGRES_SERVER_RESOURCE_ID', value: postgresServerId }
         { name: 'KILLSWITCH_SECRET', value: killswitchSecret }
+        // Consumed by the 90% /api/cost-throttle route (throttle.ts) — the
+        // same app hosts both functions, so this setting is unused by the
+        // 100% route but harmless there.
+        { name: 'KEY_VAULT_URI', value: keyVaultUri }
       ]
     }
   }
@@ -148,6 +163,52 @@ resource stopPermission 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     // Built-in "Contributor" role definition GUID — a well-known Azure
     // constant, not something specific to this deployment.
     roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b24988ac-6180-42a0-ab88-20f7382dd24c')
+  }
+}
+
+// ── Scoped role assignment: Key Vault Secrets Officer on JUST this vault ──
+// Same least-privilege-at-scope reasoning as stopPermission above, applied
+// to the 90% throttle route's much gentler action (set one secret) — this
+// grants set/get/list/delete on secrets, not the whole vault's management
+// plane. "Key Vault Secrets Officer" is a well-known built-in role GUID.
+resource existingKeyVault 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: keyVaultName
+}
+
+resource throttleSecretPermission 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(existingKeyVault.id, functionApp.id, 'KeyVaultSecretsOfficer')
+  scope: existingKeyVault
+  properties: {
+    principalId: functionApp.identity.principalId
+    principalType: 'ServicePrincipal'
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7')
+  }
+}
+
+// ── The dedicated throttle Action Group — 90% threshold ONLY ───────────
+// Separate from BOTH the on-call group (50%/80%) and the kill-switch group
+// (100%) — see this file's header comment for why three groups, not one
+// or two, are required.
+resource throttleActionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
+  name: '${namePrefix}-cost-throttle-ag'
+  location: 'global'
+  properties: {
+    groupShortName: take('${stage}-thrtl', 12)
+    enabled: true
+    emailReceivers: [
+      {
+        name: 'throttle-notify'
+        emailAddress: alertEmail
+        useCommonAlertSchema: true
+      }
+    ]
+    webhookReceivers: [
+      {
+        name: 'setThrottleFlag'
+        serviceUri: 'https://${functionApp.properties.defaultHostName}/api/cost-throttle?secret=${killswitchSecret}'
+        useCommonAlertSchema: true
+      }
+    ]
   }
 }
 
@@ -207,6 +268,18 @@ resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
         contactGroups: [oncallActionGroupId]
         contactRoles: []
       }
+      // 90% — email AND set the cost-throttle-active Key Vault flag. Stops
+      // nothing; a budget-conscious background workload checks the flag
+      // and skips its own non-critical work (backend/shared/cost-throttle.ts).
+      Actual_GreaterThan_90_Percent: {
+        enabled: true
+        operator: 'GreaterThanOrEqualTo'
+        threshold: 90
+        thresholdType: 'Actual'
+        contactEmails: []
+        contactGroups: [throttleActionGroup.id]
+        contactRoles: []
+      }
       // 100% — email AND stop the Postgres server.
       Actual_GreaterThan_100_Percent: {
         enabled: true
@@ -243,6 +316,19 @@ resource budget 'Microsoft.Consumption/budgets@2023-11-01' = {
 //    iot.bicep exist and introduce other billable, stoppable resources,
 //    extend stopPostgresServer()'s pattern (or generalize it) to cover
 //    them too — not done here since those resources don't exist yet.
+// 5. The 90% throttle flag (added 2026-08-09) LATCHES — it does not clear
+//    itself when next month's budget period starts at $0 again, the same
+//    documented behavior as the separate, agent-specific AGENT_KILLSWITCH
+//    (CLAUDE.md: "lowering spend does not quietly re-arm the team"). A
+//    human (or a future ops workflow) must explicitly clear
+//    cost-throttle-active in Key Vault to resume throttled work.
+// 6. No non-critical background workload checks the throttle flag yet —
+//    Policy Engine notification fan-out and agent Timer functions are the
+//    two named candidates, and neither runs in production today. The
+//    mechanism (this module + backend/shared/cost-throttle.ts) is built
+//    ahead of its first real consumer, the same precedent
+//    disableDeviceIdentity() set before DPS enrollment existed.
 
 output functionAppName string = functionApp.name
 output killswitchActionGroupId string = killswitchActionGroup.id
+output throttleActionGroupId string = throttleActionGroup.id
