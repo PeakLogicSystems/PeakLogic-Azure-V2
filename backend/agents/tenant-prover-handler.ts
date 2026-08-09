@@ -22,6 +22,25 @@ export interface ProveResult {
 }
 
 /**
+ * Tables that carry a `tenant_id` column but are NOT tenant-facing —
+ * staff-only administrative tables no tenant-authenticated connection can
+ * reach through any grant, where `tenant_id` is an attribute of the row
+ * (e.g. "which tenant is this staff assignment for"), not an access
+ * boundary. `checkHasPolicyReferencingTenant` assumes the opposite for
+ * every tenant-scoped table; this is a deliberate, narrow, WRITTEN
+ * exception to that assumption, not a hand-maintained substitute for the
+ * table-discovery itself — every other table is still auto-discovered.
+ *
+ * Found by CI (2026-08-09): `account_assignments`' only policy
+ * (`account_assignment_visibility`, docs/data-model.sql) scopes by
+ * `staff_user_id`/superadmin role, matching `channel_partners`' own
+ * documented, deliberate exemption from the standard tenant model in the
+ * same file. Any addition here needs the same citation of the real policy
+ * that provides isolation instead.
+ */
+const TENANT_POLICY_CHECK_EXEMPT_TABLES: ReadonlySet<string> = new Set(['account_assignments']);
+
+/**
  * Runs every WARDEN-TEN check against every tenant-scoped table this
  * database actually has, plus the two connection/session-level checks that
  * only need to run once. Picks the two most-recently-created real tenants
@@ -49,8 +68,10 @@ export async function proveTenantIsolation(pool: Pool): Promise<ProveResult> {
     const rlsFinding = await checkRlsEnabledAndForced(pool, table);
     if (rlsFinding) findings.push(rlsFinding);
 
-    const policyFinding = await checkHasPolicyReferencingTenant(pool, table);
-    if (policyFinding) findings.push(policyFinding);
+    if (!TENANT_POLICY_CHECK_EXEMPT_TABLES.has(table)) {
+      const policyFinding = await checkHasPolicyReferencingTenant(pool, table);
+      if (policyFinding) findings.push(policyFinding);
+    }
   }
 
   const { rows: tenantRows } = await pool.query<{ id: string }>(

@@ -127,10 +127,23 @@ export async function checkSessionVariableActuallyApplies(client: PoolClient): P
  * Check 4 (§9.3) — the live cross-tenant probe. Opens a transaction as
  * tenant A (via the exact same set_config() mechanism the real application
  * uses, not a shortcut), queries the table, and asserts zero rows carry
- * tenant B's id. "Never fabricate. Missing data is reported as a gap,
- * never interpolated, never rendered as healthy" (§9.1 preamble) — a table
- * with fewer than two tenants' worth of real data can't be live-probed at
- * all, and says so explicitly rather than reporting a false pass.
+ * tenant B's id — then repeats the other direction (as tenant B, looking
+ * for tenant A's rows). "Never fabricate. Missing data is reported as a
+ * gap, never interpolated, never rendered as healthy" (§9.1 preamble) — a
+ * table where a tenant has no visible rows of its own can't be live-probed
+ * at all, and says so explicitly rather than reporting a false pass.
+ *
+ * BUG FIXED 2026-08-09, caught by the real backend-integration-tests CI run
+ * (not locally — this file's own integration tests only run there): the
+ * original implementation counted rows with a plain, unscoped
+ * `count(DISTINCT tenant_id)` query BEFORE setting any tenant context. That
+ * query runs through this same non-privileged client — the same client
+ * check 3 requires NOT be a superuser/BYPASSRLS role — so on a genuinely,
+ * correctly isolated table it always saw zero rows (RLS filters everything
+ * out with no tenant context set) and permanently misreported "insufficient
+ * data," even with real two-tenant data present. Fixed by folding the
+ * data-existence check into the same tenant-scoped transaction as the leak
+ * check itself, once per direction.
  */
 export async function checkNoCrossTenantLeak(
   client: PoolClient,
@@ -138,25 +151,33 @@ export async function checkNoCrossTenantLeak(
   tenantA: string,
   tenantB: string,
 ): Promise<Finding | null> {
-  const { rows: [countRow] } = await client.query<{ n: string }>(
-    `SELECT count(DISTINCT tenant_id) AS n FROM ${quoteIdent(table)} WHERE tenant_id IN ($1, $2)`,
-    [tenantA, tenantB],
-  );
-  if (Number(countRow.n) < 2) {
+  const asA = await probeAsTenant(client, table, tenantA, tenantB);
+  const asB = await probeAsTenant(client, table, tenantB, tenantA);
+
+  if (!asA.hasOwnData || !asB.hasOwnData) {
     return { severity: 'gap', check: 'no-cross-tenant-leak', table, detail: `insufficient data to live-probe (fewer than 2 tenants have rows) — not a pass, a gap` };
   }
+  if (asA.sawOtherTenant || asB.sawOtherTenant) {
+    // Deliberately no row contents in the finding — the alert must never
+    // become a second exposure of the leaked data (§9.3 FAILURE HANDLING).
+    return { severity: 'critical', check: 'no-cross-tenant-leak', table, detail: `a tenant's session read at least one row belonging to another tenant — cross-tenant leak` };
+  }
+  return null;
+}
 
+async function probeAsTenant(
+  client: PoolClient,
+  table: string,
+  asTenant: string,
+  otherTenant: string,
+): Promise<{ hasOwnData: boolean; sawOtherTenant: boolean }> {
   await client.query('BEGIN');
   try {
-    await client.query(`SELECT set_config('app.current_tenant_id', $1, true)`, [tenantA]);
-    const { rows } = await client.query(`SELECT 1 FROM ${quoteIdent(table)} WHERE tenant_id = $1 LIMIT 1`, [tenantB]);
+    await client.query(`SELECT set_config('app.current_tenant_id', $1, true)`, [asTenant]);
+    const { rows: ownRows } = await client.query(`SELECT 1 FROM ${quoteIdent(table)} LIMIT 1`);
+    const { rows: otherRows } = await client.query(`SELECT 1 FROM ${quoteIdent(table)} WHERE tenant_id = $1 LIMIT 1`, [otherTenant]);
     await client.query('COMMIT');
-    if (rows.length > 0) {
-      // Deliberately no row contents in the finding — the alert must never
-      // become a second exposure of the leaked data (§9.3 FAILURE HANDLING).
-      return { severity: 'critical', check: 'no-cross-tenant-leak', table, detail: `tenant A's session read at least one row belonging to tenant B — cross-tenant leak` };
-    }
-    return null;
+    return { hasOwnData: ownRows.length > 0, sawOtherTenant: otherRows.length > 0 };
   } catch (err) {
     await client.query('ROLLBACK').catch(() => {});
     throw err;
