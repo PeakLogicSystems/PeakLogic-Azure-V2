@@ -62,14 +62,22 @@ param keyVaultName string
 @description('IoT Hub unit count. 1 unit = 400,000 messages/day (S1) — generous for this platform\'s near-term traffic (one pilot facility); raise deliberately if a real device count needs more, not preemptively (same "don\'t build/pay ahead of a named need" discipline as api.bicep\'s maximumInstanceCount).')
 param iotHubCapacity int = 1
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 resource iotHub 'Microsoft.Devices/IotHubs@2023-06-30' = {
   name: '${namePrefix}-iothub-${uniqueSuffix}'
   location: location
+  tags: tags
   sku: {
     name: 'S1' // Standard — required for device twins (D2) and future Direct Methods (Device & Command Security §4.3). Basic/Free would not support either.
     capacity: iotHubCapacity
   }
   properties: {
+    // Azure.IoTHub.MinTLS (architecture-review PSRule remediation,
+    // 2026-08-09) — matches every other TLS-terminating resource in this
+    // tree (api.bicep/budget.bicep Function Apps, data.bicep's storage).
+    minTlsVersion: '1.2'
     // No custom message routing — the platform's default fallback route
     // already sends every device-to-cloud message to the built-in
     // Event-Hub-compatible endpoint (eventHubEndpoints.events), which is
@@ -146,6 +154,7 @@ resource registryConnectionSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01'
 resource dps 'Microsoft.Devices/provisioningServices@2022-02-05' = {
   name: '${namePrefix}-dps-${uniqueSuffix}'
   location: location
+  tags: tags
   sku: {
     name: 'S1' // DPS's only SKU — not a tier choice the way IoT Hub's is.
     capacity: iotHubCapacity

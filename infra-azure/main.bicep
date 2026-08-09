@@ -85,12 +85,25 @@ param corsAllowedOrigin string = ''
 var namePrefix = 'peaklogic-${stage}'
 var uniqueSuffix = uniqueString(resourceGroup().id)
 
+// Standard resource tags — Azure.Resource.UseTags (architecture-review
+// PSRule remediation, 2026-08-09: the first real infra-psrule CI run
+// surfaced this as the single largest finding category, ~25 of 66, since
+// no resource anywhere in this tree had ever set `tags`). One place to
+// define the convention; every module receives it via its own `tags`
+// param and applies it to each of its taggable resources.
+var commonTags = {
+  project: 'PeakLogic'
+  stage: stage
+  managedBy: 'bicep'
+}
+
 module network 'modules/network.bicep' = {
   name: 'network-${stage}'
   params: {
     namePrefix: namePrefix
     location: location
     stage: stage
+    tags: commonTags
   }
 }
 
@@ -106,6 +119,7 @@ module data 'modules/data.bicep' = {
     computeSubnetId: network.outputs.computeSubnetId
     dbAdminUsername: dbAdminUsername
     dbAdminPassword: dbAdminPassword
+    tags: commonTags
   }
 }
 
@@ -117,6 +131,8 @@ module monitoring 'modules/monitoring.bicep' = {
     stage: stage
     alertEmail: alertEmail
     postgresServerId: data.outputs.postgresServerId
+    keyVaultId: data.outputs.keyVaultId
+    tags: commonTags
   }
 }
 
@@ -134,6 +150,7 @@ module budget 'modules/budget.bicep' = {
     keyVaultName: data.outputs.keyVaultName
     keyVaultUri: data.outputs.keyVaultUri
     killswitchSecret: killswitchSecret
+    tags: commonTags
   }
 }
 
@@ -145,6 +162,7 @@ module iot 'modules/iot.bicep' = {
     location: location
     stage: stage
     keyVaultName: data.outputs.keyVaultName
+    tags: commonTags
   }
 }
 
@@ -188,6 +206,7 @@ module api 'modules/api.bicep' = {
     iotHubEventHubName: iot.outputs.eventHubName
     corsAllowedOrigin: corsAllowedOrigin
     apimSharedSecret: apimSharedSecret
+    tags: commonTags
   }
 }
 
@@ -201,6 +220,7 @@ module apim 'modules/apim.bicep' = {
     publisherEmail: alertEmail
     functionAppDefaultHostName: api.outputs.functionAppDefaultHostName
     apimSharedSecret: apimSharedSecret
+    tags: commonTags
   }
 }
 
@@ -217,6 +237,7 @@ module ingestAlerts 'modules/ingest-alerts.bicep' = {
     actionGroupId: monitoring.outputs.actionGroupId
     functionAppId: api.outputs.functionAppId
     iotHubId: iot.outputs.iotHubId
+    tags: commonTags
   }
 }
 

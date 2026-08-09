@@ -40,6 +40,9 @@ param functionAppId string
 @description('iot.bicep\'s iotHubId output.')
 param iotHubId string
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 // Function App error-rate alert (Microsoft.Web/sites, Http5xx). Threshold
 // is a disclosed placeholder engineering estimate, not tuned against real
 // traffic — same honesty as device-silence detection's interval defaults
@@ -49,9 +52,13 @@ param iotHubId string
 resource functionErrorRateAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   name: '${namePrefix}-api-http5xx-high'
   location: 'global'
+  tags: tags
   properties: {
     severity: 1 // Error — a 5xx spike on the one API surface this platform has is a real, active incident, not a warning
     enabled: true
+    // Azure.Alert.MetricAutoMitigate, architecture-review PSRule
+    // remediation 2026-08-09 — see monitoring.bicep's identical comment.
+    autoMitigate: true
     scopes: [functionAppId]
     evaluationFrequency: 'PT5M'
     windowSize: 'PT5M'
@@ -85,9 +92,13 @@ resource functionErrorRateAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 resource ingestRateZeroAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   name: '${namePrefix}-iot-ingest-rate-zero'
   location: 'global'
+  tags: tags
   properties: {
     severity: 1
     enabled: true
+    // Azure.Alert.MetricAutoMitigate, architecture-review PSRule
+    // remediation 2026-08-09 — see monitoring.bicep's identical comment.
+    autoMitigate: true
     scopes: [iotHubId]
     evaluationFrequency: 'PT5M'
     windowSize: 'PT30M'

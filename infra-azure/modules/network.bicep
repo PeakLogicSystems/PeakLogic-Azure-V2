@@ -42,6 +42,9 @@ param location string
 @allowed(['dev', 'staging', 'prod'])
 param stage string
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 // Mirrors network-stack.ts's exact NAT-gateway-count-by-stage table
 // (Deployment Architecture §3.1) — 0 for dev (cost-minimal, matches this
 // fork's own not-yet-decided Key Vault-bypass question, Technical Debt
@@ -56,6 +59,7 @@ var deployNatGateway = stage != 'dev'
 resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
   name: '${namePrefix}-vnet'
   location: location
+  tags: tags
   properties: {
     addressSpace: {
       addressPrefixes: ['10.0.0.0/16']
@@ -65,6 +69,15 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
         name: 'snet-compute'
         properties: {
           addressPrefix: '10.0.1.0/24'
+          // Microsoft.Storage service endpoint — lets api.bicep's storage
+          // account firewall (Azure.Storage.Firewall remediation,
+          // architecture-review PSRule pass 2026-08-09) allow this subnet
+          // specifically via a virtualNetworkRules entry, rather than
+          // relying solely on the broader, less-precise "AzureServices"
+          // bypass.
+          serviceEndpoints: [
+            { service: 'Microsoft.Storage' }
+          ]
           delegations: [
             {
               name: 'functions-delegation'
@@ -103,6 +116,7 @@ resource vnet 'Microsoft.Network/virtualNetworks@2023-11-01' = {
 resource natGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = if (deployNatGateway) {
   name: '${namePrefix}-nat-pip'
   location: location
+  tags: tags
   sku: { name: 'Standard' }
   properties: {
     publicIPAllocationMethod: 'Static'
@@ -112,6 +126,7 @@ resource natGatewayPublicIp 'Microsoft.Network/publicIPAddresses@2023-11-01' = i
 resource natGateway 'Microsoft.Network/natGateways@2023-11-01' = if (deployNatGateway) {
   name: '${namePrefix}-natgw'
   location: location
+  tags: tags
   sku: { name: 'Standard' }
   properties: {
     publicIpAddresses: [
@@ -120,14 +135,50 @@ resource natGateway 'Microsoft.Network/natGateways@2023-11-01' = if (deployNatGa
   }
 }
 
+// Two explicit outbound-deny rules on BOTH NSGs below satisfy
+// Azure.NSG.LateralTraversal (architecture-review PSRule pass, 2026-08-09):
+// "deny outbound management connections from non-management hosts." Neither
+// subnet hosts anything that legitimately originates RDP/SSH (Functions and
+// a managed Postgres server, not VMs), so this closes a real theoretical
+// lateral-movement path with zero effect on actual traffic.
+var lateralTraversalDenyRules = [
+  {
+    name: 'DenyOutboundRdp'
+    properties: {
+      priority: 4090
+      direction: 'Outbound'
+      access: 'Deny'
+      protocol: 'Tcp'
+      sourceAddressPrefix: '*'
+      sourcePortRange: '*'
+      destinationAddressPrefix: '*'
+      destinationPortRange: '3389'
+    }
+  }
+  {
+    name: 'DenyOutboundSsh'
+    properties: {
+      priority: 4091
+      direction: 'Outbound'
+      access: 'Deny'
+      protocol: 'Tcp'
+      sourceAddressPrefix: '*'
+      sourcePortRange: '*'
+      destinationAddressPrefix: '*'
+      destinationPortRange: '22'
+    }
+  }
+]
+
 // Compute subnet NSG — outbound-only posture, mirroring
 // network-stack.ts's LambdaSg (`allowAllOutbound: true`, no inbound rules
 // since nothing calls a Function directly through this VNet path).
 resource computeNsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
   name: '${namePrefix}-compute-nsg'
   location: location
+  tags: tags
   properties: {
-    securityRules: []
+    securityRules: lateralTraversalDenyRules
   }
 }
 
@@ -137,35 +188,39 @@ resource computeNsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
 resource dataNsg 'Microsoft.Network/networkSecurityGroups@2023-11-01' = {
   name: '${namePrefix}-data-nsg'
   location: location
+  tags: tags
   properties: {
-    securityRules: [
-      {
-        name: 'AllowPostgresFromCompute'
-        properties: {
-          priority: 100
-          direction: 'Inbound'
-          access: 'Allow'
-          protocol: 'Tcp'
-          sourceAddressPrefix: '10.0.1.0/24'
-          sourcePortRange: '*'
-          destinationAddressPrefix: '10.0.2.0/24'
-          destinationPortRange: '5432'
+    securityRules: concat(
+      [
+        {
+          name: 'AllowPostgresFromCompute'
+          properties: {
+            priority: 100
+            direction: 'Inbound'
+            access: 'Allow'
+            protocol: 'Tcp'
+            sourceAddressPrefix: '10.0.1.0/24'
+            sourcePortRange: '*'
+            destinationAddressPrefix: '10.0.2.0/24'
+            destinationPortRange: '5432'
+          }
         }
-      }
-      {
-        name: 'DenyAllOtherInbound'
-        properties: {
-          priority: 4096
-          direction: 'Inbound'
-          access: 'Deny'
-          protocol: '*'
-          sourceAddressPrefix: '*'
-          sourcePortRange: '*'
-          destinationAddressPrefix: '*'
-          destinationPortRange: '*'
+        {
+          name: 'DenyAllOtherInbound'
+          properties: {
+            priority: 4096
+            direction: 'Inbound'
+            access: 'Deny'
+            protocol: '*'
+            sourceAddressPrefix: '*'
+            sourcePortRange: '*'
+            destinationAddressPrefix: '*'
+            destinationPortRange: '*'
+          }
         }
-      }
-    ]
+      ],
+      lateralTraversalDenyRules
+    )
   }
 }
 

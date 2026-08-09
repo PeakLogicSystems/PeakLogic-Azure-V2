@@ -178,6 +178,9 @@ param corsAllowedOrigin string = ''
 @description('Water-Sector Security Hardening Strategy §5 Tier 0.5 — passed straight through from main.bicep\'s own apimSharedSecret param (see its description for why this defaults to empty/not-enforced). backend/api/handler.ts reads it as APIM_SHARED_SECRET and validates it against the X-PeakLogic-Apim-Secret header apim.bicep\'s policy injects.')
 param apimSharedSecret string = ''
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 // Storage account backing both AzureWebJobsStorage (Functions host
 // bookkeeping — queues/tables/blobs) and the Flex Consumption deployment
 // package container. Identity-based access only (no shared key), matching
@@ -191,20 +194,46 @@ param apimSharedSecret string = ''
 resource storageAccount 'Microsoft.Storage/storageAccounts@2023-01-01' = {
   name: take(toLower(replace('${namePrefix}api${uniqueSuffix}', '-', '')), 24)
   location: location
+  tags: tags
+  // Azure.Storage.UseReplication (architecture-review PSRule remediation,
+  // 2026-08-09) — ZRS over LRS, small cost delta for zone-level resilience.
   sku: {
-    name: 'Standard_LRS'
+    name: 'Standard_ZRS'
   }
   kind: 'StorageV2'
   properties: {
     minimumTlsVersion: 'TLS1_2'
     allowBlobPublicAccess: false
     allowSharedKeyAccess: false
+    // Azure.Storage.Firewall NOT applied here — deliberately, not an
+    // oversight (architecture-review PSRule pass, 2026-08-09). This
+    // module's own header comment already flags VNet integration on Flex
+    // Consumption as its single unverified assumption, "the highest-
+    // priority item to verify first" against a live deployment; stacking a
+    // second unverified assumption (a storage-firewall + virtualNetworkRules
+    // combination on that same unverified VNet path) onto the one Function
+    // App this entire platform's API depends on is a real risk this pass
+    // chose not to take blind. network.bicep's snet-compute already carries
+    // a Microsoft.Storage service endpoint so this is a contained follow-up
+    // once VNet integration itself is confirmed working, not a redesign.
   }
 }
 
 resource deploymentBlobService 'Microsoft.Storage/storageAccounts/blobServices@2023-01-01' = {
   parent: storageAccount
   name: 'default'
+  properties: {
+    // Azure.Storage.SoftDelete / Azure.Storage.ContainerSoftDelete
+    // (architecture-review PSRule remediation, 2026-08-09).
+    deleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+    containerDeleteRetentionPolicy: {
+      enabled: true
+      days: 7
+    }
+  }
 }
 
 resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2023-01-01' = {
@@ -218,6 +247,7 @@ resource deploymentContainer 'Microsoft.Storage/storageAccounts/blobServices/con
 resource apiPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
   name: '${namePrefix}-api-plan'
   location: location
+  tags: tags
   kind: 'functionapp'
   sku: {
     name: 'FC1'
@@ -231,6 +261,7 @@ resource apiPlan 'Microsoft.Web/serverfarms@2024-04-01' = {
 resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
   name: '${namePrefix}-api'
   location: location
+  tags: tags
   kind: 'functionapp,linux'
   identity: {
     // System-assigned, matching this repo's existing convention
@@ -244,8 +275,15 @@ resource apiFunctionApp 'Microsoft.Web/sites@2024-04-01' = {
     serverFarmId: apiPlan.id
     httpsOnly: true
     virtualNetworkSubnetId: computeSubnetId
+    // Azure.AppService.ARRAffinity (architecture-review PSRule remediation,
+    // 2026-08-09) — this API is stateless (auth/tenant context travels in
+    // the JWT/request, backend/shared/db.ts holds no per-instance session
+    // state), so disabling affinity is strictly correct, not just
+    // rule-compliance.
+    clientAffinityEnabled: false
     siteConfig: {
       minTlsVersion: '1.2'
+      http20Enabled: true
       appSettings: [
         { name: 'AzureWebJobsStorage__accountName', value: storageAccount.name }
         { name: 'AzureWebJobsStorage__credential', value: 'managedidentity' }
@@ -443,6 +481,20 @@ resource keyVaultSecretsRole 'Microsoft.Authorization/roleAssignments@2022-04-01
 //    Real, disclosed follow-up, same item apim.bicep names: an
 //    authentication-based restriction (a shared-secret header APIM injects,
 //    validated here) — a backend code change, not done in this pass.
+// 7. Azure.Storage.Firewall (architecture-review PSRule pass, 2026-08-09)
+//    deliberately not applied to this module's storage account — see the
+//    storageAccount resource's own comment. network.bicep's snet-compute
+//    already carries the Microsoft.Storage service endpoint this would
+//    need once VNet integration itself (gap 1 above) is confirmed working
+//    against a real deployment.
+// 8. Azure.AppService.PlanInstanceCount / Azure.AppService.AvailabilityZone
+//    (same PSRule pass) not fixed — both ask for multiple/zone-redundant
+//    instances, which Flex Consumption's scale-to-zero, per-execution
+//    billing model doesn't have a knob for the way a Premium/Dedicated
+//    plan does; forcing either would mean abandoning Flex Consumption
+//    entirely (this module's own header comment already models that
+//    crossover and rejects it at current traffic). Structural, not
+//    declined.
 
 output functionAppName string = apiFunctionApp.name
 output functionAppId string = apiFunctionApp.id

@@ -31,11 +31,18 @@ param alertEmail string
 @description('Resource ID of the Postgres Flexible Server to alert on (data.bicep\'s postgresServerId output).')
 param postgresServerId string
 
+@description('data.bicep\'s keyVaultId output — this module creates the vault\'s audit-log diagnostic setting (Azure.KeyVault.Logs), since data.bicep runs before this module\'s Log Analytics workspace exists (main.bicep\'s module order).')
+param keyVaultId string
+
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 var isProd = stage == 'prod'
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: '${namePrefix}-law'
   location: location
+  tags: tags
   properties: {
     sku: {
       name: 'PerGB2018'
@@ -58,6 +65,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   name: '${namePrefix}-appi'
   location: location
+  tags: tags
   kind: 'web'
   properties: {
     Application_Type: 'web'
@@ -66,9 +74,32 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
   }
 }
 
+// Azure.KeyVault.Logs (architecture-review PSRule remediation, 2026-08-09)
+// — AuditEvent is Key Vault's own documented diagnostic category covering
+// every secret/key/certificate get/set/delete, streamed to the same
+// workspace every other resource in this tree already logs to.
+resource existingKeyVaultForDiagnostics 'Microsoft.KeyVault/vaults@2023-07-01' existing = {
+  name: last(split(keyVaultId, '/'))
+}
+
+resource keyVaultDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  scope: existingKeyVaultForDiagnostics
+  name: 'audit-to-law'
+  properties: {
+    workspaceId: logAnalytics.id
+    logs: [
+      {
+        category: 'AuditEvent'
+        enabled: true
+      }
+    ]
+  }
+}
+
 resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
   name: '${namePrefix}-oncall-ag'
   location: 'global' // Action Groups are always deployed at 'global', regardless of the parent template's location
+  tags: tags
   properties: {
     groupShortName: take('${stage}-oncall', 12) // Azure hard limit: groupShortName <= 12 chars
     enabled: true
@@ -92,9 +123,15 @@ resource actionGroup 'Microsoft.Insights/actionGroups@2023-01-01' = {
 resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   name: '${namePrefix}-pg-cpu-high'
   location: 'global'
+  tags: tags
   properties: {
     severity: 2
     enabled: true
+    // Azure.Alert.MetricAutoMitigate (architecture-review PSRule
+    // remediation, 2026-08-09) — the alert auto-resolves once the metric
+    // drops back below threshold, instead of requiring someone to
+    // manually acknowledge/close it before it can fire again.
+    autoMitigate: true
     scopes: [postgresServerId]
     evaluationFrequency: 'PT1M'
     windowSize: 'PT5M'
@@ -123,9 +160,15 @@ resource cpuAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 resource storageAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   name: '${namePrefix}-pg-storage-high'
   location: 'global'
+  tags: tags
   properties: {
     severity: 2
     enabled: true
+    // Azure.Alert.MetricAutoMitigate (architecture-review PSRule
+    // remediation, 2026-08-09) — the alert auto-resolves once the metric
+    // drops back below threshold, instead of requiring someone to
+    // manually acknowledge/close it before it can fire again.
+    autoMitigate: true
     scopes: [postgresServerId]
     evaluationFrequency: 'PT1M'
     windowSize: 'PT5M'
@@ -161,9 +204,15 @@ resource storageAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
   name: '${namePrefix}-pg-connections-failed'
   location: 'global'
+  tags: tags
   properties: {
     severity: 2
     enabled: true
+    // Azure.Alert.MetricAutoMitigate (architecture-review PSRule
+    // remediation, 2026-08-09) — the alert auto-resolves once the metric
+    // drops back below threshold, instead of requiring someone to
+    // manually acknowledge/close it before it can fire again.
+    autoMitigate: true
     scopes: [postgresServerId]
     evaluationFrequency: 'PT1M'
     windowSize: 'PT5M'
@@ -206,6 +255,21 @@ resource connectionsFailedAlert 'Microsoft.Insights/metricAlerts@2018-03-01' = {
 //    Analytics query alert if Postgres query logs are ever streamed there.
 //    Neither is built here — flagged as real follow-up work, not faked.
 //    Restated in ingest-alerts.bicep's own disclosed-gap list too.
+// 3. Azure.AppInsights.LocalAuth (architecture-review PSRule pass,
+//    2026-08-09) NOT fixed — disabling local (instrumentation-key/
+//    connection-string) auth requires the sending side to authenticate
+//    with Entra instead, which needs SDK-level changes nothing in this
+//    codebase has built (api.bicep's Function App currently wires the
+//    plain connection string via APPLICATIONINSIGHTS_CONNECTION_STRING).
+//    Flipping this alone, with no corresponding sender change, would
+//    silently stop all telemetry ingestion — a real, disclosed follow-up,
+//    not attempted blind.
+// 4. Azure.Log.Replication (architecture-review PSRule pass, 2026-08-09)
+//    NOT fixed — workspace replication requires nominating a specific
+//    paired replica region, a real subscription/regional-availability
+//    decision this template cannot make on its own without a live
+//    subscription to check against (Infrastructure as Code §8's standing
+//    limitation).
 
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output appInsightsConnectionString string = appInsights.properties.ConnectionString

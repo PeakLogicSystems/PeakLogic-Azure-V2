@@ -74,16 +74,50 @@ param rateLimitCallsPerMinute int = 300
 @description('Water-Sector Security Hardening Strategy §5 Tier 0.5 — closes gap #1 below (the direct-bypass limitation). Injected into every forwarded request as X-PeakLogic-Apim-Secret; api.bicep passes the same value to the Function App as APIM_SHARED_SECRET for backend/shared/apim-guard.ts to validate. Defaults to empty string — see main.bicep\'s apimSharedSecret param description for why an empty value on both sides means "not enforced yet," not "misconfigured."')
 param apimSharedSecret string = ''
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
   name: '${namePrefix}-apim-${uniqueSuffix}'
   location: location
+  tags: tags
   sku: {
     name: 'Consumption'
     capacity: 0 // Consumption tier has no scale units — must be 0, not a choice left unset.
   }
+  // Azure.APIM.ManagedIdentity (architecture-review PSRule remediation,
+  // 2026-08-09) — no resource in this module actually needs it to
+  // authenticate anywhere yet (the backend is reached over plain HTTPS,
+  // not Key-Vault-referenced secrets or managed-identity-authenticated
+  // calls), but granting the identity costs nothing and is the documented
+  // prerequisite for e.g. a future Key-Vault-backed named value.
+  identity: {
+    type: 'SystemAssigned'
+  }
   properties: {
     publisherEmail: publisherEmail
     publisherName: publisherName
+    // Azure.APIM.MinAPIVersion (architecture-review PSRule remediation,
+    // 2026-08-09) — blocks management-plane (control-plane REST API) calls
+    // older than this version; unrelated to and does not affect the actual
+    // /v1/* data-plane traffic this module proxies.
+    apiVersionConstraint: {
+      minApiVersion: '2021-08-01'
+    }
+    // Azure.APIM.Ciphers (architecture-review PSRule remediation,
+    // 2026-08-09) — disables TLS 1.0/1.1/SSL3.0 and the weak 3DES cipher on
+    // both the client-facing gateway and the backend leg, the exact
+    // documented property set Microsoft's own remediation guidance names
+    // for this rule.
+    customProperties: {
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls11': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Ssl30': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls10': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls11': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Ssl30': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168': 'False'
+    }
   }
 }
 
@@ -99,6 +133,11 @@ resource api 'Microsoft.ApiManagement/service/apis@2023-05-01-preview' = {
   name: 'peaklogic-api'
   properties: {
     displayName: 'PeakLogic API'
+    // Azure.APIM.APIDescriptors (architecture-review PSRule remediation,
+    // 2026-08-09) — a real, human-readable description, not filler: this
+    // is the one API this instance proxies (api.bicep's Function App
+    // catch-all route).
+    description: 'PeakLogic platform REST API (/v1/*) — proxied to the backend Azure Functions app for rate limiting only; authentication is Entra JWT validation inside the backend itself, not an APIM-layer credential.'
     path: 'v1'
     protocols: ['https']
     serviceUrl: 'https://${functionAppDefaultHostName}/v1'
@@ -206,6 +245,21 @@ resource ratePolicy 'Microsoft.ApiManagement/service/apis/policies@2023-05-01-pr
 //    interpolates ${rateLimitCallsPerMinute} the same way a regular string
 //    literal would — a detail this module relies on but hasn't seen
 //    compiled by a real Bicep CLI.
+// 6. Three PSRule findings deliberately NOT fixed (architecture-review
+//    PSRule pass, 2026-08-09), all structural limitations of the
+//    Consumption tier this module chose for cost reasons (see TIER CHOICE
+//    above), not oversights:
+//      - Azure.APIM.AvailabilityZone / Azure.APIM.MultiRegion — zone and
+//        multi-region redundancy require Premium tier (~$2,700+/mo list),
+//        cost-prohibitive at this platform's current MVP/single-pilot
+//        scale. Revisit only alongside a real Premium-tier decision, not
+//        piecemeal.
+//      - Azure.APIM.DefenderCloud — Microsoft Defender for APIs is a
+//        subscription-level Defender plan (Microsoft.Security/pricings),
+//        which deploys at subscription scope; this template deploys at
+//        resource-group scope (main.bicep's targetScope). Enabling it
+//        belongs in a subscription-level template/step, not this module,
+//        and is a real recurring cost, not a free toggle.
 
 output apimName string = apim.name
 output apimGatewayUrl string = apim.properties.gatewayUrl

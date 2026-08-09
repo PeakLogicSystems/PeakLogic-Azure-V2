@@ -38,6 +38,9 @@ param dbAdminUsername string
 @secure()
 param dbAdminPassword string
 
+@description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
+param tags object = {}
+
 var isProd = stage == 'prod'
 
 // Mirrors data-stack.ts's exact instanceType table: t3.micro (Burstable)
@@ -55,6 +58,7 @@ var keyVaultName = take('${namePrefix}-kv-${uniqueSuffix}', 24)
 resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: keyVaultName
   location: location
+  tags: tags
   properties: {
     sku: {
       family: 'A'
@@ -64,6 +68,17 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
+    // Azure.KeyVault.PurgeProtect (architecture-review PSRule remediation,
+    // 2026-08-09) — irreversible once enabled (a purge-protected vault can
+    // never have this turned back off) and, since keyVaultName is derived
+    // deterministically from resourceGroup().id (uniqueSuffix), a deleted-
+    // and-recreated dev resource group would collide with its own
+    // soft-deleted, purge-protected predecessor for up to the 7-day
+    // retention window. Prod only, matching postgresDeleteLock's and
+    // highAvailability's own isProd-only precedent below: dev/staging keep
+    // the ability to tear down and rebuild cleanly, which this project's
+    // pre-first-real-deploy phase genuinely still needs.
+    enablePurgeProtection: isProd
     networkAcls: {
       defaultAction: 'Deny'
       bypass: 'AzureServices'
@@ -79,6 +94,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' = {
   name: '${namePrefix}-pg-${uniqueSuffix}'
   location: location
+  tags: tags
   sku: {
     name: postgresSkuName
     tier: postgresSkuTier
@@ -92,11 +108,16 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
     }
     backup: {
       backupRetentionDays: 7
-      geoRedundantBackup: 'Disabled'
-      // Single-region posture, matching the AWS version's own deliberate
-      // choice (Deployment Architecture §3.2) — geo-redundant backup is a
-      // real, named Azure option (~1hr RPO) not adopted here, consistent
-      // with that decision, not silently different from it.
+      // Azure.PostgreSQL.GeoRedundantBackup (architecture-review PSRule
+      // remediation, 2026-08-09) — prod only, same isProd-only shape as
+      // highAvailability below and postgresDeleteLock above: geo-redundant
+      // backup roughly doubles backup storage cost, a real expense this
+      // project's dev/staging cost-consciousness (TD-43, $0 dev-stage NAT)
+      // doesn't ask for on non-production data. Originally 'Disabled' for
+      // every stage (Deployment Architecture §3.2's single-region posture)
+      // — narrowed to just dev/staging now that prod's actual disaster-
+      // recovery posture benefits from it and can absorb the cost.
+      geoRedundantBackup: isProd ? 'Enabled' : 'Disabled'
     }
     highAvailability: {
       mode: isProd ? 'ZoneRedundant' : 'Disabled'
@@ -104,6 +125,20 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
       // Multi-AZ (Deployment Architecture §3.1) — confirmed via Microsoft's
       // own business-continuity documentation, not assumed to exist by
       // analogy to AWS's feature name alone.
+    }
+    // Azure.PostgreSQL.MaintenanceWindow (architecture-review PSRule
+    // remediation, 2026-08-09) — Sunday 04:00 UTC, a low-traffic placeholder
+    // window (this platform has no real traffic pattern yet to tune
+    // against, same disclosed-estimate honesty as every other placeholder
+    // constant in this codebase, e.g. jobs/silence-detection.ts's reporting
+    // intervals). Customer-controlled rather than Azure's own system-chosen
+    // window, so a future maintenance event can't collide unpredictably
+    // with a real customer's operating hours once one exists.
+    maintenanceWindow: {
+      customWindow: 'Enabled'
+      dayOfWeek: 0
+      startHour: 4
+      startMinute: 0
     }
     network: {
       delegatedSubnetResourceId: dataSubnetId
@@ -122,6 +157,7 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
 resource privateDnsZone 'Microsoft.Network/privateDnsZones@2020-06-01' = {
   name: '${namePrefix}.postgres.database.azure.com'
   location: 'global'
+  tags: tags
 }
 
 resource privateDnsZoneVnetLink 'Microsoft.Network/privateDnsZones/virtualNetworkLinks@2020-06-01' = {
@@ -183,8 +219,25 @@ resource dbCredentialSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 //    database itself (which this Bicep template cannot do — that's a
 //    migration-tooling concern, `scripts/migrate.ts`'s Azure port, not IaC).
 //    Flagged as real, sequenced follow-up work.
+// 3. Azure.PostgreSQL.AAD / Azure.PostgreSQL.AADOnly (architecture-review
+//    PSRule pass, 2026-08-09) NOT fixed — Entra ID authentication for
+//    Postgres is a real, valuable, but substantial feature, not a property
+//    flip: it needs a Postgres AAD administrator assignment, a matching
+//    change to how backend/shared/db.ts resolves its connection credential
+//    (currently the Key-Vault-stored password this module already
+//    provisions), and — for AADOnly specifically — removing password auth
+//    entirely, which this module's whole credential-provisioning design
+//    (dbCredentialSecret below) currently assumes exists. Real, scoped
+//    follow-up work; flagged rather than half-implemented.
 
 output postgresServerFqdn string = postgresServer.properties.fullyQualifiedDomainName
 output postgresServerId string = postgresServer.id // consumed by monitoring.bicep's metric alerts (Enterprise Audit §6 P0 item 4)
 output keyVaultUri string = keyVault.properties.vaultUri
 output keyVaultName string = keyVault.name
+// Consumed by monitoring.bicep's diagnostic setting (Azure.KeyVault.Logs,
+// architecture-review PSRule remediation 2026-08-09) — data.bicep runs
+// before monitoring.bicep (main.bicep's module order), so the Log
+// Analytics workspace the setting streams to doesn't exist yet here; the
+// diagnostic setting itself is created from the monitoring module instead,
+// which already depends on both this vault and that workspace.
+output keyVaultId string = keyVault.id
