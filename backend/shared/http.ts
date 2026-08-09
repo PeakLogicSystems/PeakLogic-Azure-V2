@@ -33,7 +33,7 @@ export interface PeakResponse {
 
 /**
  * Normalizes an Azure Functions v4 HttpRequest into a PeakRequest. The
- * single catch-all Function (api/main.ts) calls this once per request before
+ * single catch-all Function (api/api.main.ts) calls this once per request before
  * handing off to the dispatcher.
  *
  * `path` is taken from the URL pathname, which is `/v1/...` provided

@@ -49,6 +49,16 @@ import {
 } from '@aws-sdk/client-secrets-manager';
 import { Pool, PoolClient } from 'pg';
 
+// Disclosed, deliberate scope boundary (2026-08-09): this whole file is
+// AWS IoT Core device provisioning — porting it to Azure IoT Hub/DPS is
+// real, separate, tracked work (hub-enrollment-and-identity-design.md),
+// not attempted here. migrate.ts's own DB-credential resolution (this
+// file's closest sibling — buildClient() below used to mirror it exactly)
+// was ported to Key Vault while fixing the CI migration-validate step;
+// this file's copy was deliberately left AWS-only rather than silently
+// scope-creeping a CI/CD fix into IoT provisioning. Port both together
+// when DPS enrollment work actually starts.
+
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const THING_TYPE    = 'PeakLogicSensor';

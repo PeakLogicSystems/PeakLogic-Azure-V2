@@ -173,6 +173,53 @@ jobs:
       - run: npm run typecheck
         working-directory: scripts
 
+  # Architecture-review Gap 5/ADR-004, added 2026-08-09 — closes a real,
+  # confirmed gap: no workflow ever ran scripts/migrate.ts, against any
+  # database, in this project's entire history ("have not yet been run
+  # against a real database" was migrate.ts's own header comment until
+  # this same pass ported it off AWS Secrets Manager onto Key Vault). This
+  # doesn't run against a real Azure Postgres (no subscription exists) —
+  # it proves the full migration set (scripts/migrations/*.sql, in order,
+  # from the 2026-07 baseline through the newest) actually applies cleanly
+  # to a fresh Postgres, using the same postgis/postgis service container
+  # backend-integration-tests already establishes works for this schema's
+  # PostGIS-dependent tables (territories.boundary). Deliberately its own
+  # job, not folded into backend-integration-tests: a migration failure and
+  # an application-logic test failure are different signals and should
+  # fail the pipeline distinguishably.
+  migration-validate:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: peaklogic_migrate_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: scripts/package-lock.json
+      - run: npm ci
+        working-directory: scripts
+      - run: npm run migrate:up
+        working-directory: scripts
+        env:
+          # DB_DATABASE_URL is migrate.ts's own local/CI bypass (mirrors
+          # backend/shared/db.ts's TEST_DATABASE_URL) — a real Azure
+          # deployment sets KEY_VAULT_URI instead and never sets this.
+          DB_DATABASE_URL: postgresql://test:test@localhost:5432/peaklogic_migrate_test
+
   # CI/CD Pipeline §2.2 — renamed from `infra-synth`. This project's live
   # infra is now infra-azure/ (Bicep); infra/ (AWS CDK) is retained in this
   # repo only as historical reference (CLAUDE.md's fork notice) and is no

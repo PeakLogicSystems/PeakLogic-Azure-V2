@@ -91,3 +91,24 @@ jobs:
         with:
           app-name: peaklogic-dev-api
           package: backend
+
+      # Architecture-review Gap 6/ADR-004 — this workflow used to end at the
+      # zip-deploy step above with no verification at all: a bad deploy had
+      # no automated safety net. api/health.main.ts is a dedicated liveness
+      # endpoint, deliberately independent of Postgres/Entra/APIM, so this
+      # can tell "the deploy failed" apart from "a downstream dependency is
+      # slow today." A Function App can take a short while to come up after
+      # a zip-deploy, hence the short retry loop rather than one immediate
+      # request.
+      - name: Smoke test — /health
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf "https://peaklogic-dev-api.azurewebsites.net/health"; then
+              echo "Smoke test passed."
+              exit 0
+            fi
+            echo "Smoke test attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::Smoke test failed after 5 attempts — /health did not respond successfully."
+          exit 1

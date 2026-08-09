@@ -88,3 +88,23 @@ jobs:
         with:
           app-name: peaklogic-prod-api
           package: backend
+
+      # Architecture-review Gap 6/ADR-004 — see deploy-dev.yml's header
+      # comment for the full reasoning (api/health.main.ts is a dedicated,
+      # dependency-free liveness endpoint; the retry loop absorbs a Function
+      # App's normal post-deploy warmup). Most valuable here of all three
+      # stages: prod has no automated rollback trigger today (CLAUDE.md's
+      # Rollback Procedure is a manual runbook), so a human watching this
+      # step fail is the only automated signal a bad prod deploy gets.
+      - name: Smoke test — /health
+        run: |
+          for i in 1 2 3 4 5; do
+            if curl -sf "https://peaklogic-prod-api.azurewebsites.net/health"; then
+              echo "Smoke test passed."
+              exit 0
+            fi
+            echo "Smoke test attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          echo "::error::Smoke test failed after 5 attempts — /health did not respond successfully."
+          exit 1

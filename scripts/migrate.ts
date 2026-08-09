@@ -3,20 +3,36 @@
  * PeakLogic Database Migration Runner
  *
  * Applies versioned schema migrations from ./migrations using
- * node-pg-migrate (Database Schema §4.2). Deliberately not wired into
- * `cdk deploy` — an infrastructure deploy should never have the side
- * effect of silently altering a live schema.
+ * node-pg-migrate (Database Schema §4.2). Deliberately not wired
+ * automatically into an infra deploy — a Bicep deploy should never have
+ * the side effect of silently altering a live schema; see
+ * docs/architecture/cicd-pipeline.md for the explicit migration-validate
+ * step CI now runs instead (architecture-review Gap 5/ADR-004).
+ *
+ * Ported to Azure 2026-08-09 — this file was AWS-only from the fork's
+ * baseline through the entire Azure pivot (`@aws-sdk/client-secrets-
+ * manager`, never touched), an oversight caught while wiring a real CI
+ * migration-validate step: a step that ran this script would have failed
+ * immediately in any Azure context, since AWS Secrets Manager doesn't
+ * exist here. Now mirrors backend/shared/db.ts's own credential-resolution
+ * pattern exactly (DefaultAzureCredential + Key Vault, secret name
+ * `postgres-admin-credential`, same JSON shape) rather than inventing a
+ * second convention.
  *
  * NOTE: this wrapper and the baseline migration have not yet been run
- * against a real database. node-pg-migrate's exact SQL-migration file
- * convention and programmatic API surface can vary by installed
- * version — verify both against the installed package's own docs
- * before relying on this for a real migration, per Database Schema
- * §4.2's "recommendation, not yet implemented" caveat.
+ * against a real Azure Postgres instance (no subscription exists yet) —
+ * they HAVE now been run against a real ephemeral Postgres in CI (the same
+ * `postgis/postgis:16-3.4` service container backend/'s integration tests
+ * use), which is what CI/CD Pipeline's migration-validate step proves on
+ * every push. node-pg-migrate's exact SQL-migration file convention and
+ * programmatic API surface can still vary by installed version — verify
+ * against the installed package's own docs before a first real production
+ * run, per Database Schema §4.2's "recommendation, verified in CI, not yet
+ * run against production" caveat.
  *
  * Prerequisites:
  *   npm install (installs node-pg-migrate)
- *   DB accessible (see .env.example — same DB_* vars as provision-devices.ts)
+ *   DB accessible (see .env.example)
  *
  * Usage:
  *   npx ts-node migrate.ts up      # apply all pending migrations
@@ -29,38 +45,49 @@ import * as path from 'path';
 dotenv.config({ path: path.join(__dirname, '.env') });
 
 import { Client } from 'pg';
-import {
-  SecretsManagerClient,
-  GetSecretValueCommand,
-} from '@aws-sdk/client-secrets-manager';
+import { DefaultAzureCredential } from '@azure/identity';
+import { SecretClient } from '@azure/keyvault-secrets';
 import runner from 'node-pg-migrate';
 
 const MIGRATIONS_DIR = path.join(__dirname, 'migrations');
 
 // ── DB ────────────────────────────────────────────────────────────────────────
-// Mirrors provision-devices.ts's connection resolution — same env vars,
-// same DB_SECRET_ARN -> Secrets Manager fallback.
+// Mirrors backend/shared/db.ts's getCredentialFromKeyVault() exactly — same
+// secret name, same JSON shape ({username, password, host, port?, dbname?}) —
+// so there is only one place this convention is defined, not two that can
+// drift. DB_DATABASE_URL is the one addition: a plain connection string,
+// used for CI's ephemeral test Postgres and local dev, the direct analogue
+// of db.ts's own TEST_DATABASE_URL/TEST_APP_DATABASE_URL bypass — gated on
+// a variable no real Azure deployment ever sets, same reasoning.
+
+interface KeyVaultDbCredential {
+  username: string;
+  password: string;
+  host: string;
+  port?: number;
+  dbname?: string;
+}
+
+async function getCredentialFromKeyVault(): Promise<KeyVaultDbCredential> {
+  const credential = new DefaultAzureCredential();
+  const client = new SecretClient(process.env.KEY_VAULT_URI!, credential);
+  const secret = await client.getSecret('postgres-admin-credential');
+  return JSON.parse(secret.value!) as KeyVaultDbCredential;
+}
 
 async function buildClient(): Promise<Client> {
-  let password = process.env.DB_PASSWORD;
-
-  if (!password && process.env.DB_SECRET_ARN) {
-    const sm = new SecretsManagerClient({ region: process.env.AWS_REGION ?? 'us-east-1' });
-    const res = await sm.send(new GetSecretValueCommand({ SecretId: process.env.DB_SECRET_ARN }));
-    const secret = JSON.parse(res.SecretString!) as { password: string };
-    password = secret.password;
+  if (process.env.DB_DATABASE_URL) {
+    return new Client({ connectionString: process.env.DB_DATABASE_URL, ssl: false });
   }
 
-  const ssl = process.env.DB_SSL === 'false' ? false : { rejectUnauthorized: false };
-
+  const credential = await getCredentialFromKeyVault();
   return new Client({
-    host:     process.env.DB_HOST ?? 'localhost',
-    port:     parseInt(process.env.DB_PORT ?? '5432', 10),
-    database: process.env.DB_NAME ?? 'peaklogic',
-    user:     process.env.DB_USER ?? 'peaklogic_admin',
-    password,
-    ssl,
-    connectionTimeoutMillis: 10_000,
+    host:     credential.host,
+    port:     credential.port ?? 5432,
+    database: credential.dbname ?? 'peaklogic',
+    user:     credential.username,
+    password: credential.password,
+    ssl: { rejectUnauthorized: true },
   });
 }
 
