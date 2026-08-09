@@ -109,6 +109,12 @@ resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
     // both the client-facing gateway and the backend leg, the exact
     // documented property set Microsoft's own remediation guidance names
     // for this rule.
+    // The full 8-cipher list below was NOT guessed from documentation
+    // prose (that took two real, failed infra-psrule CI runs to discover
+    // was incomplete, 2026-08-09) — it's the exact allOf condition list
+    // read directly from PSRule.Rules.Azure's own rule source
+    // (Azure.APIM.Ciphers, github.com/Azure/PSRule.Rules.Azure), every
+    // path required 'False' with no exceptions.
     customProperties: {
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls10': 'False'
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Protocols.Tls11': 'False'
@@ -117,12 +123,13 @@ resource apim 'Microsoft.ApiManagement/service@2023-05-01-preview' = {
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Tls11': 'False'
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Backend.Protocols.Ssl30': 'False'
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TripleDes168': 'False'
-      // Added 2026-08-09 after the first real infra-psrule run against this
-      // fix still failed Azure.APIM.Ciphers — PSRule.Rules.Azure's own rule
-      // definition checks for this specific named cipher suite in addition
-      // to the ones above, confirmed via its actual reported REASON text
-      // ("does not exist"), not guessed from documentation alone.
       'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_128_CBC_SHA': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_256_CBC_SHA': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_128_CBC_SHA256': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_256_CBC_SHA256': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA': 'False'
+      'Microsoft.WindowsAzure.ApiManagement.Gateway.Security.Ciphers.TLS_RSA_WITH_AES_128_GCM_SHA256': 'False'
     }
   }
 }
