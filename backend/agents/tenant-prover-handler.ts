@@ -74,11 +74,7 @@ export async function proveTenantIsolation(pool: Pool): Promise<ProveResult> {
     }
   }
 
-  const { rows: tenantRows } = await pool.query<{ id: string }>(
-    `SELECT id FROM tenants ORDER BY created_at DESC LIMIT 2`,
-  );
-  const tenantsProbed: [string, string] | null =
-    tenantRows.length === 2 ? [tenantRows[0].id, tenantRows[1].id] : null;
+  const tenantsProbed = await enumerateTwoTenantsToProbe(pool);
 
   if (tenantsProbed) {
     const probeClient = await pool.connect();
@@ -101,6 +97,42 @@ export async function proveTenantIsolation(pool: Pool): Promise<ProveResult> {
   }
 
   return { tablesChecked: tables, tenantsProbed, findings };
+}
+
+/**
+ * `tenants` itself is RLS-protected (`staff_tenant_access`, staff-only) —
+ * this prover's own connection is deliberately a non-privileged app role
+ * (check 3 requires it), so a plain `SELECT id FROM tenants` through `pool`
+ * sees zero rows regardless of how much real tenant data exists. Same bug
+ * shape as checkNoCrossTenantLeak's original count query, and the exact
+ * reason it went uncaught until the real warden-ten CI job ran against the
+ * genuinely migrated schema (2026-08-09) rather than a synthetic one.
+ *
+ * Fixed using the SAME narrowly-scoped system read jobs/silence-detection-
+ * handler.ts's enumerateTenantIds() already established for this identical
+ * problem (a scheduled cross-tenant job needing to enumerate tenants
+ * without becoming a general-purpose cross-tenant hole): `SET LOCAL
+ * app.system_sweep_context = 'true'` (migration 1784051700000) is a
+ * hardcoded literal, not a bind parameter, so it's unaffected by the SET
+ * LOCAL bind-parameter bug — activates ONLY tenants' permissive
+ * system_sweep_read policy, for this one query, then reverts at COMMIT.
+ */
+async function enumerateTwoTenantsToProbe(pool: Pool): Promise<[string, string] | null> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query("SET LOCAL app.system_sweep_context = 'true'");
+    const { rows } = await client.query<{ id: string }>(
+      `SELECT id FROM tenants ORDER BY created_at DESC LIMIT 2`,
+    );
+    await client.query('COMMIT');
+    return rows.length === 2 ? [rows[0].id, rows[1].id] : null;
+  } catch (err) {
+    await client.query('ROLLBACK').catch(() => {});
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 /** Exit-code-ready summary, per §9.3: "In CI: fail the build." */
