@@ -717,7 +717,88 @@ function governancePage() {
   <p class="sub"><b>What this diagram shows — the deployment path:</b> how code in source control becomes running Azure infrastructure, and what separates dev from production. Top to bottom: <b>(K)</b> the GitHub repository (CI on every push, one deploy workflow per stage) → <b>Entra Workload Identity Federation</b>, issuing each stage its own App Registration that trusts this repo over OIDC, so no client secret is ever stored → three <b>resource groups</b>, one per stage, each with a full copy of the platform's services and its own budget guardrail → <b>(L)</b> the two-step mechanism every deploy performs. The coloured dot above each resource group is its trigger: dev deploys automatically; staging and prod need a human to start the run. Dev and staging carry an automated Cost Kill-Switch Function that can stop their own database at 100% of budget; prod deliberately does not — see the card below. Pages 1–3 cover how data moves through the running system; this page covers how that system gets deployed.</p>
   <div class="diagram-frame">${governanceSvg()}</div>
   <p class="sub" style="margin-top:8px"><span class="tag tag--sec">Not deployed</span> No environment has been created yet — <code>peaklogic-{dev,staging,prod}-rg</code>, the Entra App Registrations, and the federated credentials are all still to-do, not running infrastructure. This page describes the designed target, same disclosure as pages 1–3.</p>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 4 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 4 of 5</span></div>
+</section>`;
+}
+
+// Scale & Operational Maturity — added 2026-08-09 in response to an
+// independent third-party architect review (peaklogic-architecture-
+// validation.md). Pages 1-4 show WHAT is built and how it's secured; none
+// of them answered "at what actual scale does this stop working" or "is
+// this actually ready to run" with real numbers. This page answers both,
+// pulling directly from the project's own cited sources — the scale
+// triggers from infrastructure-and-compute-forecast.md (already numeric,
+// not invented for this page) and the review's own scoring framework and
+// verdict, not a marketing gloss on either.
+function scaleOperationsPage() {
+  const scoreRows = [
+    ['Overall architecture', 8, 5, 3, 'Strong corpus, patchy build, nothing deployed'],
+    ['Security', 8, 6, 3, 'Six "closed" findings all carry disclosed residuals; zero real-subscription validation'],
+    ['Multi-tenancy', 8, 7, 5, 'Mechanism now correct; test-proof gap (Gap 1) closed 2026-08-09'],
+    ['Testing', 8, 8, 6, "Genuinely strong — badly undersold by the project's own docs until corrected"],
+    ['Cost architecture', 6, 7, 4, 'Clever, fully wired; binary kill-switch replaced with a graduated tier 2026-08-09'],
+    ['CI/CD', 7.5, 7, 3, 'One of the stronger areas; real tests, real scanning; never deployed live'],
+    ['Scalability', 7, 4, 2, 'Honest, numeric scale triggers; the code those triggers point to mostly waits on real traffic'],
+    ['Infrastructure', 7, 5, 2, 'Well-reasoned Bicep modules; zero live-subscription validation anywhere'],
+  ];
+  const scoreTable = `<table>
+    <thead><tr><th>Area</th><th style="width:34px">AQ</th><th style="width:34px">IM</th><th style="width:34px">OR</th><th>Independent reviewer's note</th></tr></thead>
+    <tbody>${scoreRows
+      .map(
+        ([area, aq, im, or_, note]) =>
+          `<tr><td><b>${area}</b></td><td>${aq}</td><td>${im}</td><td>${or_}</td><td style="color:${INK3}">${esc(note)}</td></tr>`,
+      )
+      .join('')}</tbody>
+  </table>`;
+
+  const conditions = [
+    ['RLS isolation proven by a superuser test connection that bypasses it by definition, not the real app role', '✅ Closed 2026-08-09', POS],
+    ['Tenant-side users have no per-site authorization scope, unlike the partner side’s real DB-enforced territory model', '✅ Closed 2026-08-09', POS],
+    ['CLAUDE.md stated "no test suites exist," contradicted by 38 real test files already in the repo', '✅ Closed 2026-08-09', POS],
+    ['Nothing has ever been deployed to a live Azure subscription — every scale/alerting/rollback claim is unverified against reality', 'Open — sequencing fact, not a design defect (Page 4)', SEC],
+  ];
+
+  return `<section class="slide">
+  <div class="kicker">Scale triggers &amp; operational maturity &middot; independent review</div>
+  <h1>How this actually scales, and how ready it is today</h1>
+  <p class="sub">Pages 1&ndash;4 show what is built and how it is secured. This page answers the two questions those pages don't: <b>at what real, numeric scale does this design need to change</b>, and <b>how ready is it to run in production right now</b> &mdash; scored by an independent third-party Principal Architect review commissioned against the full 45-document architecture corpus, not this diagram alone.</p>
+
+  <div class="card" style="margin-top:6px">
+    <h3>Scale triggers &mdash; when the design changes, not if</h3>
+    <p style="margin-bottom:8px">Numeric thresholds already defined in the platform's own compute forecast, re-verified independently. <b>No new infrastructure is justified before these are hit</b> &mdash; not Kafka, not Cosmos DB, not a dedicated message broker, not a physical microservice split.</p>
+    <table>
+      <thead><tr><th style="width:110px">Sites</th><th>Trigger</th><th>Action</th></tr></thead>
+      <tbody>
+        <tr><td><b>~250</b></td><td>PostgreSQL Burstable tier saturates</td><td>Move off Burstable &mdash; the first real infrastructure decision this platform will make</td></tr>
+        <tr><td><b>~2,000</b></td><td>Vacuum/full-scan cost on the telemetry table starts to hurt</td><td>Partition telemetry by month &mdash; already a <code>-- partition by month in v2</code> comment in the live schema, not a future redesign</td></tr>
+        <tr><td><b>~2,778</b></td><td>IoT Hub S1 unit capacity reached</td><td>Move to S2; evaluate consuming Event Hubs directly for the highest-volume sites, bypassing IoT Hub's per-device features where they're no longer needed</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="cols" style="grid-template-columns:1.35fr 1fr;margin-top:12px">
+    <div class="card">
+      <h3>Independent scorecard &mdash; representative areas</h3>
+      <p style="margin-bottom:8px"><b>AQ</b> = Architecture Quality (is the design sound) &middot; <b>IM</b> = Implementation Maturity (is it actually built and verified) &middot; <b>OR</b> = Operational Readiness (could this safely run in production today). Scored 0&ndash;10; full 25-area scorecard in the underlying review.</p>
+      ${scoreTable}
+    </div>
+    <div class="card">
+      <h3>Reviewer's verdict: conditional sign-off</h3>
+      <p style="margin-bottom:8px">"<i>The foundation is sound. It needs the last mile of proof, not more design.</i>" Four concrete, boundable conditions were named &mdash; none requiring new infrastructure or a redesign:</p>
+      <table>
+        <tbody>
+          ${conditions
+            .map(
+              ([text, status, color]) =>
+                `<tr><td style="color:${INK2}">${esc(text)}</td><td style="width:150px"><span class="tag" style="background:${color === POS ? '#e3f4ea' : SEC_BG};color:${color}">${esc(status)}</span></td></tr>`,
+            )
+            .join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <p class="sub" style="margin-top:10px"><span class="tag tag--pos">Not marketing</span> The AQ/IM/OR gap above is the point of this page, not a flaw to hide: a platform that honestly scores itself 8/5/3 and shows exactly which three conditions it closed and why the fourth can't be closed without a live deployment is a stronger signal of engineering discipline than a diagram with no gap on it at all.</p>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 5 of 5</span></div>
 </section>`;
 }
 
@@ -753,7 +834,7 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <h1>PeakLogic platform — system &amp; data-flow diagram</h1>
   <p class="sub">Azure-native, multi-tenant. Every arrow below is a real data flow; every dashed boundary is an enforced isolation boundary, not an aspiration. Prepared for architectural and security review.</p>
   <div class="diagram-frame">${diagramSvg()}</div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 1 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 1 of 5</span></div>
 </section>
 
 <section class="slide">
@@ -813,7 +894,7 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
         .join('')}
     </div>
   </div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 2 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 2 of 5</span></div>
 </section>
 
 <section class="slide">
@@ -838,10 +919,12 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
     <div class="card"><h3>Deployment reality</h3><p>Defined in Bicep, validated by <code>az bicep build</code> and PSRule on every push. <span class="tag tag--sec">No environment deployed yet</span> — this diagram describes the architecture as designed and CI-validated, not a running production system.</p></div>
     <div class="card"><h3>Cost containment</h3><p>Dev and staging each carry a dedicated Cost Kill-Switch Function (its own least-privileged identity, scoped only to that stage's Postgres resource) that stops the database at 100% of budget. Prod deliberately does not carry this function — an automated stop is an availability risk that environment doesn't accept — and instead gets a real four-threshold budget routed entirely to email. Agents run on the existing consumption plan — additive spend is near $0.</p></div>
   </div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 3 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 3 of 5</span></div>
 </section>
 
 ${governancePage()}
+
+${scaleOperationsPage()}
 
 </body></html>`;
 
