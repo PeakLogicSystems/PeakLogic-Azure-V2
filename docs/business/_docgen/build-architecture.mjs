@@ -392,7 +392,7 @@ function diagramSvg() {
   s += iconEye(monX + 14, agentY + 12, 0.9, INK2);
   s += label(monX + 42, agentY + 24, 'App Insights / Log', { size: 9.3, weight: 700 });
   s += label(monX + 14, agentY + 38, 'Analytics + Action Groups', { size: 9.3, weight: 700 });
-  s += wrapText(monX + 14, agentY + 52, 'Cost kill-switch, alerts, agent report delivery.', monW - 28, { size: 7.2 });
+  s += wrapText(monX + 14, agentY + 52, 'Cost kill-switch (dev/staging), budget alerts, agent report delivery.', monW - 28, { size: 7.2 });
   s += elbow(dataX + dataW, agentY + agentH / 2, monX, agentY + agentH / 2, { stroke: INK3 });
 
   // ── Static hosting (row D, right of Monitoring) ──
@@ -680,10 +680,24 @@ function governanceSvg() {
       s += label(cx0 + iw * j + iw / 2, rgY + 92, name, { size: 6.8, weight: 600, anchor: 'middle', fill: INK2 });
     });
 
-    s += box(cx0 + 12, rgY + 108, stageColW - 24, 44, { fill: SEC_BG, stroke: SEC_BORDER, rx: 6 });
-    s += iconLock(cx0 + 20, rgY + 116, 0.8, SEC, SEC_BG);
-    s += label(cx0 + 44, rgY + 128, 'Cost Kill-Switch Function', { size: 8, weight: 700, fill: SEC });
-    s += label(cx0 + 20, rgY + 142, 'Own least-privileged identity, scoped only to this RG\'s Postgres. Stops it at 100% of budget.', { size: 6.6, fill: SEC, weight: 500 });
+    // Prod deliberately does NOT get the automated stop mechanism (removed
+    // 2026-08-09) — an unattended function able to stop the production
+    // database is itself an availability risk on the one environment where
+    // that risk is least acceptable. Dev/staging keep it; prod gets a real
+    // four-threshold budget routed to email only, same neutral/informational
+    // tone as the Entra identity box above (AZURE), not the red "control"
+    // tone dev/staging's actual stop mechanism uses.
+    if (stage === 'prod') {
+      s += box(cx0 + 12, rgY + 108, stageColW - 24, 44, { fill: AZURE_BG, stroke: '#bcd6f2', rx: 6 });
+      s += iconLock(cx0 + 20, rgY + 116, 0.8, AZURE, AZURE_BG);
+      s += label(cx0 + 44, rgY + 128, 'Budget alerts only', { size: 8, weight: 700, fill: AZURE });
+      s += label(cx0 + 20, rgY + 142, 'No automated stop function here — an unattended DB stop is an availability risk prod doesn\'t accept. Email at 50/80/90/100%.', { size: 6.6, fill: AZURE, weight: 500 });
+    } else {
+      s += box(cx0 + 12, rgY + 108, stageColW - 24, 44, { fill: SEC_BG, stroke: SEC_BORDER, rx: 6 });
+      s += iconLock(cx0 + 20, rgY + 116, 0.8, SEC, SEC_BG);
+      s += label(cx0 + 44, rgY + 128, 'Cost Kill-Switch Function', { size: 8, weight: 700, fill: SEC });
+      s += label(cx0 + 20, rgY + 142, 'Own least-privileged identity, scoped only to this RG\'s Postgres. Stops it at 100% of budget.', { size: 6.6, fill: SEC, weight: 500 });
+    }
   });
 
   // Deploy mechanics footnote, centered under the three stages
@@ -700,10 +714,10 @@ function governancePage() {
   return `<section class="slide">
   <div class="kicker">Cloud governance &amp; subscription topology</div>
   <h1>How the Azure tenant itself is organised</h1>
-  <p class="sub"><b>What this diagram shows — the deployment path:</b> how code in source control becomes running Azure infrastructure, and what separates dev from production. Top to bottom: <b>(K)</b> the GitHub repository (CI on every push, one deploy workflow per stage) → <b>Entra Workload Identity Federation</b>, issuing each stage its own App Registration that trusts this repo over OIDC, so no client secret is ever stored → three <b>resource groups</b>, one per stage, each with a full copy of the platform's services and its own cost kill-switch → <b>(L)</b> the two-step mechanism every deploy performs. The coloured dot above each resource group is its trigger: dev deploys automatically; staging and prod need a human to start the run. Pages 1–3 cover how data moves through the running system; this page covers how that system gets deployed.</p>
+  <p class="sub"><b>What this diagram shows — the deployment path:</b> how code in source control becomes running Azure infrastructure, and what separates dev from production. Top to bottom: <b>(K)</b> the GitHub repository (CI on every push, one deploy workflow per stage) → <b>Entra Workload Identity Federation</b>, issuing each stage its own App Registration that trusts this repo over OIDC, so no client secret is ever stored → three <b>resource groups</b>, one per stage, each with a full copy of the platform's services and its own budget guardrail → <b>(L)</b> the two-step mechanism every deploy performs. The coloured dot above each resource group is its trigger: dev deploys automatically; staging and prod need a human to start the run. Dev and staging carry an automated Cost Kill-Switch Function that can stop their own database at 100% of budget; prod deliberately does not — see the card below. Pages 1–3 cover how data moves through the running system; this page covers how that system gets deployed.</p>
   <div class="diagram-frame">${governanceSvg()}</div>
   <p class="sub" style="margin-top:8px"><span class="tag tag--sec">Not deployed</span> No environment has been created yet — <code>peaklogic-{dev,staging,prod}-rg</code>, the Entra App Registrations, and the federated credentials are all still to-do, not running infrastructure. This page describes the designed target, same disclosure as pages 1–3.</p>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 2 August 2026</span><span>Page 4 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 4 of 4</span></div>
 </section>`;
 }
 
@@ -739,7 +753,7 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <h1>PeakLogic platform — system &amp; data-flow diagram</h1>
   <p class="sub">Azure-native, multi-tenant. Every arrow below is a real data flow; every dashed boundary is an enforced isolation boundary, not an aspiration. Prepared for architectural and security review.</p>
   <div class="diagram-frame">${diagramSvg()}</div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 2 August 2026</span><span>Page 1 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 1 of 4</span></div>
 </section>
 
 <section class="slide">
@@ -799,7 +813,7 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
         .join('')}
     </div>
   </div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 2 August 2026</span><span>Page 2 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 2 of 4</span></div>
 </section>
 
 <section class="slide">
@@ -822,9 +836,9 @@ const body = `<!doctype html><html lang="en"><head><meta charset="utf-8">
   <div class="cols" style="margin-top:16px">
     <div class="card"><h3>Tenant isolation</h3><p>Every tenant-scoped query runs inside a transaction that sets <code>app.current_tenant_id</code> via <code>set_config()</code>, activating PostgreSQL RLS — <b>forced</b>, not merely enabled, and with no <code>BYPASSRLS</code> role. A site outside a viewer's scope is refused, never approximated.</p></div>
     <div class="card"><h3>Deployment reality</h3><p>Defined in Bicep, validated by <code>az bicep build</code> and PSRule on every push. <span class="tag tag--sec">No environment deployed yet</span> — this diagram describes the architecture as designed and CI-validated, not a running production system.</p></div>
-    <div class="card"><h3>Cost containment</h3><p>A dedicated Cost Kill-Switch Function (its own least-privileged identity, scoped only to the Postgres resource) stops the database at 100% of budget. Agents run on the existing consumption plan — additive spend is near $0.</p></div>
+    <div class="card"><h3>Cost containment</h3><p>Dev and staging each carry a dedicated Cost Kill-Switch Function (its own least-privileged identity, scoped only to that stage's Postgres resource) that stops the database at 100% of budget. Prod deliberately does not carry this function — an automated stop is an availability risk that environment doesn't accept — and instead gets a real four-threshold budget routed entirely to email. Agents run on the existing consumption plan — additive spend is near $0.</p></div>
   </div>
-  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 2 August 2026</span><span>Page 3 of 4</span></div>
+  <div class="foot"><span>PeakLogic &middot; Architecture Diagram v1.0 &middot; 9 August 2026</span><span>Page 3 of 4</span></div>
 </section>
 
 ${governancePage()}
