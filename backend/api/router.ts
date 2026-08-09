@@ -5,6 +5,7 @@ import { compileRoutes, matchRoute, type RouteHandler } from './match';
 import * as sites     from './routes/sites';
 import * as assets    from './routes/assets';
 import * as devices   from './routes/devices';
+import * as siteAssignments from './routes/site-assignments';
 import * as alerts    from './routes/alerts';
 import * as tickets   from './routes/tickets';
 import * as telemetry from './routes/telemetry';
@@ -38,6 +39,12 @@ const ROUTES: Record<string, RouteHandler<AuthContext>> = {
   'GET /v1/devices/{deviceId}':     devices.getOne,
   'PUT /v1/devices/{deviceId}':     devices.update,
   'DELETE /v1/devices/{deviceId}':  devices.remove,
+
+  // Site assignments (architecture-review Gap 2/ADR-002) — tenant-side
+  // resource-level authorization, admin-only management surface
+  'GET /v1/users/{userId}/site-assignments':  siteAssignments.listForUser,
+  'POST /v1/site-assignments':                siteAssignments.create,
+  'DELETE /v1/site-assignments/{assignmentId}': siteAssignments.remove,
 
   // Alerts
   'GET /v1/alerts':               alerts.list,

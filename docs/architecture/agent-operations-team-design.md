@@ -405,16 +405,16 @@ Five rules, each deliberate:
 Entries name the agent, its role, the specific target, and the risk grade; `high`-risk approvals
 additionally record that the second confirmation was given.
 
-**🔴 Blocked in the backend — see TD-55.** The Control Center writes all six today, but
-`audit_log_entries_scope_check` requires exactly one of `tenant_id`/`channel_partner_id` to be
-non-null, and most agent actions are scoped to **neither** — disabling an agent, a kill-switch
-trip and every `WARDEN-TEN` finding are platform-level events. Such an INSERT is rejected
-outright, and `backend/shared/audit.ts`'s `AuditEntry` union has no `scope: 'platform'` variant to
-express it. The fix is a migration relaxing that constraint plus the matching union member; it is
-a **hard prerequisite** for the first real agent action, not a follow-up. The *actor* half already
-works — the original migration deliberately permits both actor columns to be null, calling a
-system-triggered entry with no human actor "a legitimate existing case", which is exactly what a
-kill-switch trip is.
+**✅ TD-55 resolved 2026-08-09.** The Control Center writes all six today, and the backend can
+now persist all six too — `audit_log_entries_scope_check` used to require exactly one of
+`tenant_id`/`channel_partner_id` to be non-null, which rejected the majority of agent actions
+(disabling an agent, a kill-switch trip, every `WARDEN-TEN` finding — all platform-level, scoped
+to **neither**). Migration `1784300000000` widened the constraint to "not both" and added a
+`platform_scope_staff_visibility` RLS policy; `backend/shared/audit.ts` has a `scope: 'platform'`
+variant (`PlatformAuditEntry`), tested. The *actor* half already worked — the original migration
+deliberately permits both actor columns to be null, calling a system-triggered entry with no
+human actor "a legitimate existing case", which is exactly what a kill-switch trip is. The
+remaining prerequisite for a real agent action is the execution path itself, not this schema gap.
 
 ### 4.4 Enable / disable
 

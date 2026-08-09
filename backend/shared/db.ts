@@ -280,10 +280,23 @@ export function __resetPoolForTests(): void {
  * covers every route that reaches this function, i.e. the human-facing API.
  * It does NOT cover backend/ingest/handler.ts's telemetry writes, which
  * intentionally bypass withTenant() via an unscoped pool connection.
+ *
+ * `userId` (added 2026-08-09, architecture-review Gap 2/ADR-002) is NEW and
+ * OPTIONAL — closing the confirmed asymmetry where the channel-partner side
+ * had real per-technician resource-level authorization (territory-scoped
+ * sites) and the tenant side had none (any admin/operator could mutate any
+ * device in the tenant). When passed, sets app.current_user_id, which
+ * `site_scoped_access` (a RESTRICTIVE policy on `devices`, migration
+ * `1784300060000`) uses to narrow visibility to a user's assigned sites —
+ * but ONLY for a user who actually has rows in `site_assignments`; a user
+ * with none keeps full tenant access, unchanged. Every existing call site
+ * that doesn't pass `userId` is completely unaffected: the policy's own
+ * first branch treats an unset `app.current_user_id` as "not opted in."
  */
 export async function withTenant<T>(
   tenantId: string,
   fn: (client: PoolClient) => Promise<T>,
+  userId?: string,
 ): Promise<T> {
   const p = await getPool();
   const client = await p.connect();
@@ -298,6 +311,9 @@ export async function withTenant<T>(
     // §2.1a), the same reason it was safe under Lambda's warm-container
     // reuse.
     await client.query("SELECT set_config('app.current_tenant_id', $1, true)", [tenantId]);
+    if (userId) {
+      await client.query("SELECT set_config('app.current_user_id', $1, true)", [userId]);
+    }
 
     const { rows: [tenant] } = await client.query<{ status: string }>(
       'SELECT status FROM tenants WHERE id = $1',

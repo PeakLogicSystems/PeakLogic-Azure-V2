@@ -7,6 +7,15 @@ import { disableDeviceIdentity } from '../../shared/device-identity';
 import type { AuthContext } from '../../shared/auth';
 import type { Device } from '../../shared/types';
 
+// Architecture-review Gap 2/ADR-002 (2026-08-09) — list/getOne/update/remove
+// now pass auth.sub as withTenant()'s new optional userId, which activates
+// the `site_scoped_access` RESTRICTIVE policy (migration `1784300060000`)
+// for any user who has rows in `site_assignments`. A user with none (every
+// tenant/user today) is completely unaffected — this closes the confirmed
+// asymmetry with the channel-partner side (which already scopes a
+// technician to their assigned territory's sites) without changing default
+// behavior for anyone who hasn't opted into scoped assignments.
+
 // NAV-1/NAV-3 (SRS §3.15, added v1.6) — this handler previously ignored
 // _event entirely and always returned the full tenant device list, a real
 // verified defect found while designing the Site→Asset→Device drill-down
@@ -40,7 +49,7 @@ export async function list(event: PeakRequest, auth: AuthContext): Promise<PeakR
       params,
     );
     return ok(rows);
-  });
+  }, auth.sub);
 }
 
 export async function getOne(event: PeakRequest, auth: AuthContext): Promise<PeakResponse> {
@@ -55,7 +64,7 @@ export async function getOne(event: PeakRequest, auth: AuthContext): Promise<Pea
       [deviceId],
     );
     return device ? ok(device) : notFound(`Device ${deviceId} not found`);
-  });
+  }, auth.sub);
 }
 
 /**
@@ -144,7 +153,7 @@ export async function update(event: PeakRequest, auth: AuthContext): Promise<Pea
       action: 'device.update', targetEntity: 'device', targetId: device.id, newValue: body,
     });
     return ok(device);
-  });
+  }, auth.sub);
 }
 
 // Water-Sector Security Hardening Strategy §3/§5 Tier 0.3 — this used to
@@ -174,5 +183,5 @@ export async function remove(event: PeakRequest, auth: AuthContext): Promise<Pea
       action: 'device.decommission', targetEntity: 'device', targetId: device.id,
     });
     return ok(device);
-  });
+  }, auth.sub);
 }

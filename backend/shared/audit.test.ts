@@ -100,6 +100,37 @@ describe('writeAuditLog', () => {
     expect(params[7]).toBe(JSON.stringify({ plan: 'professional' }));
   });
 
+  it('inserts a platform-scoped row (TD-55) leaving tenant_id and channel_partner_id both null', async () => {
+    const client = fakeClient();
+    await writeAuditLog(client, {
+      scope: 'platform',
+      actorStaffUserId: 'staff-1',
+      action: 'agent.state',
+      targetEntity: 'agent',
+      targetId: 'WARDEN-TEN',
+    });
+
+    const [sql, params] = client.query.mock.calls[0];
+    expect(sql).toContain('actor_staff_user_id, action, target_entity, target_id');
+    expect(sql).not.toContain('tenant_id');
+    expect(sql).not.toContain('channel_partner_id');
+    expect(params).toEqual(['staff-1', 'agent.state', 'agent', 'WARDEN-TEN', null, null]);
+  });
+
+  it('allows a null actor on a platform-scoped row — agent.killswitch.trip is attributed to the platform, not a signed-in user', async () => {
+    const client = fakeClient();
+    await writeAuditLog(client, {
+      scope: 'platform',
+      actorStaffUserId: null,
+      action: 'agent.killswitch.trip',
+      targetEntity: 'agent_fleet',
+      targetId: 'all',
+    });
+
+    const [, params] = client.query.mock.calls[0];
+    expect(params[0]).toBeNull();
+  });
+
   it('allows a null actor (system-triggered entry) on either scope', async () => {
     const client = fakeClient();
     await writeAuditLog(client, {

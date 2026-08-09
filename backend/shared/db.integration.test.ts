@@ -774,6 +774,133 @@ describeIfDb('Device claim/provisioning RLS (real Postgres)', () => {
   });
 });
 
+describeIfDb('withTenant(tenantId, fn, userId) — site_scoped_access RESTRICTIVE policy (real Postgres, architecture-review Gap 2/ADR-002)', () => {
+  let setup: Client;
+  let tenantA: string;
+  let userUnscoped: string;
+  let userScoped: string;
+  let siteOne: string;
+  let siteTwo: string;
+  let deviceOnSiteOne: string;
+  let deviceOnSiteTwo: string;
+  let deviceUnclaimed: string;
+
+  beforeAll(async () => {
+    setup = new Client({ connectionString: process.env.TEST_DATABASE_URL });
+    await setup.connect();
+    await setup.query('CREATE EXTENSION IF NOT EXISTS "pgcrypto"');
+    await setup.query(`
+      CREATE OR REPLACE FUNCTION app_uuid(p_setting TEXT) RETURNS UUID AS $$
+        SELECT NULLIF(current_setting(p_setting, true), '')::uuid;
+      $$ LANGUAGE sql STABLE;
+    `);
+
+    await setup.query(`CREATE TABLE tenants (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), name TEXT NOT NULL, slug TEXT NOT NULL UNIQUE, status TEXT NOT NULL DEFAULT 'active')`);
+    await setup.query(`CREATE TABLE users (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, email TEXT NOT NULL)`);
+    await setup.query(`CREATE TABLE sites (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, name TEXT NOT NULL)`);
+    await setup.query(`CREATE TABLE assets (id UUID PRIMARY KEY DEFAULT gen_random_uuid(), tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE, site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE, name TEXT NOT NULL)`);
+    await setup.query(`
+      CREATE TABLE devices (
+        id        UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        asset_id  UUID REFERENCES assets(id) ON DELETE SET NULL,
+        serial    TEXT NOT NULL UNIQUE
+      );
+      ALTER TABLE devices ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY tenant_isolation ON devices
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
+    `);
+    await setup.query(`
+      CREATE TABLE site_assignments (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        tenant_id UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        site_id UUID NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+        UNIQUE (user_id, site_id)
+      );
+      ALTER TABLE site_assignments ENABLE ROW LEVEL SECURITY;
+      CREATE POLICY tenant_isolation ON site_assignments
+        USING (tenant_id = app_uuid('app.current_tenant_id'));
+      CREATE POLICY site_scoped_access ON devices AS RESTRICTIVE
+        USING (
+          app_uuid('app.current_user_id') IS NULL
+          OR NOT EXISTS (SELECT 1 FROM site_assignments sa WHERE sa.user_id = app_uuid('app.current_user_id'))
+          OR asset_id IS NULL
+          OR EXISTS (
+            SELECT 1 FROM assets a
+            JOIN site_assignments sa ON sa.site_id = a.site_id
+            WHERE a.id = devices.asset_id AND sa.user_id = app_uuid('app.current_user_id')
+          )
+        );
+    `);
+
+    const { rows: [t] } = await setup.query(`INSERT INTO tenants (name, slug) VALUES ('Tenant A', 'ten-a-scope') RETURNING id`);
+    tenantA = t.id;
+    const { rows: [u1] } = await setup.query(`INSERT INTO users (tenant_id, email) VALUES ($1, 'unscoped@example.com') RETURNING id`, [tenantA]);
+    userUnscoped = u1.id;
+    const { rows: [u2] } = await setup.query(`INSERT INTO users (tenant_id, email) VALUES ($1, 'scoped@example.com') RETURNING id`, [tenantA]);
+    userScoped = u2.id;
+    const { rows: [s1] } = await setup.query(`INSERT INTO sites (tenant_id, name) VALUES ($1, 'Site One') RETURNING id`, [tenantA]);
+    siteOne = s1.id;
+    const { rows: [s2] } = await setup.query(`INSERT INTO sites (tenant_id, name) VALUES ($1, 'Site Two') RETURNING id`, [tenantA]);
+    siteTwo = s2.id;
+    const { rows: [a1] } = await setup.query(`INSERT INTO assets (tenant_id, site_id, name) VALUES ($1, $2, 'Asset One') RETURNING id`, [tenantA, siteOne]);
+    const { rows: [a2] } = await setup.query(`INSERT INTO assets (tenant_id, site_id, name) VALUES ($1, $2, 'Asset Two') RETURNING id`, [tenantA, siteTwo]);
+    const { rows: [d1] } = await setup.query(`INSERT INTO devices (tenant_id, asset_id, serial) VALUES ($1, $2, 'PLG-SITE-ONE') RETURNING id`, [tenantA, a1.id]);
+    deviceOnSiteOne = d1.id;
+    const { rows: [d2] } = await setup.query(`INSERT INTO devices (tenant_id, asset_id, serial) VALUES ($1, $2, 'PLG-SITE-TWO') RETURNING id`, [tenantA, a2.id]);
+    deviceOnSiteTwo = d2.id;
+    const { rows: [d3] } = await setup.query(`INSERT INTO devices (tenant_id, asset_id, serial) VALUES ($1, NULL, 'PLG-UNCLAIMED-SCOPE-TEST') RETURNING id`, [tenantA]);
+    deviceUnclaimed = d3.id;
+
+    // Only userScoped is assigned — to Site One only. userUnscoped has zero
+    // site_assignments rows, which is the "existing tenants unaffected"
+    // default this whole design exists to preserve.
+    await setup.query(`INSERT INTO site_assignments (tenant_id, user_id, site_id) VALUES ($1, $2, $3)`, [tenantA, userScoped, siteOne]);
+  });
+
+  afterAll(async () => {
+    await setup.query('DROP TABLE IF EXISTS site_assignments, devices, assets, sites, users, tenants CASCADE');
+    await setup.end();
+    const p = await getPool();
+    await p.end();
+    __resetPoolForTests();
+  });
+
+  it('a user with no site_assignments rows sees every device in the tenant, unaffected — the backward-compatibility guarantee this design depends on', async () => {
+    const rows = await withTenant(tenantA, (client) => client.query('SELECT serial FROM devices ORDER BY serial').then(r => r.rows), userUnscoped);
+    expect(rows.map(r => r.serial)).toEqual(['PLG-SITE-ONE', 'PLG-SITE-TWO', 'PLG-UNCLAIMED-SCOPE-TEST']);
+  });
+
+  it('omitting userId entirely (every one of the 39 other withTenant() call sites) sees every device — proves this change cannot silently break an unrelated route', async () => {
+    const rows = await withTenant(tenantA, (client) => client.query('SELECT serial FROM devices ORDER BY serial').then(r => r.rows));
+    expect(rows.map(r => r.serial)).toEqual(['PLG-SITE-ONE', 'PLG-SITE-TWO', 'PLG-UNCLAIMED-SCOPE-TEST']);
+  });
+
+  it('a user assigned to Site One only sees that site\'s device plus the unclaimed device, and NOT Site Two\'s device — the actual fix for the confirmed gap', async () => {
+    const rows = await withTenant(tenantA, (client) => client.query('SELECT serial FROM devices ORDER BY serial').then(r => r.rows), userScoped);
+    expect(rows.map(r => r.serial)).toEqual(['PLG-SITE-ONE', 'PLG-UNCLAIMED-SCOPE-TEST']);
+  });
+
+  it('a scoped user cannot UPDATE a device outside their assignment — RLS blocks it at the database layer, not just the API not offering the button', async () => {
+    const { rows } = await withTenant(
+      tenantA,
+      (client) => client.query('UPDATE devices SET serial = serial WHERE id = $1 RETURNING id', [deviceOnSiteTwo]),
+      userScoped,
+    );
+    expect(rows).toHaveLength(0);
+  });
+
+  it('a scoped user CAN update a device inside their assignment', async () => {
+    const { rows } = await withTenant(
+      tenantA,
+      (client) => client.query('UPDATE devices SET serial = serial WHERE id = $1 RETURNING id', [deviceOnSiteOne]),
+      userScoped,
+    );
+    expect(rows).toHaveLength(1);
+  });
+});
+
 if (!RUN) {
   // eslint-disable-next-line no-console
   console.log('db.integration.test.ts skipped — TEST_DATABASE_URL not set. See Test Strategy §4.');

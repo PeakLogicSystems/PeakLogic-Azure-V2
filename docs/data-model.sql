@@ -268,8 +268,15 @@ CREATE TABLE devices (
                                 -- of RLS that would have failed provisioning outright
   asset_id         UUID        REFERENCES assets(id) ON DELETE SET NULL,
   serial           TEXT        NOT NULL UNIQUE,   -- printed on hardware label
-  thing_name       TEXT        NOT NULL UNIQUE,   -- AWS IoT Core thing name
-  firmware_version TEXT,
+  thing_name       TEXT        NOT NULL UNIQUE,   -- Legacy AWS IoT Core naming, carried over
+                                -- unrenamed in the Azure pivot (same disclosed-but-unactioned
+                                -- category as cognito_sub below) -- the Azure-native equivalent
+                                -- is an IoT Hub device ID; renaming the column is a mechanical
+                                -- follow-up, not attempted here to avoid an unrelated migration.
+  firmware_version TEXT,   -- Free text, no release-channel concept -- unlike packages/domain/hubs.ts's
+                           -- Hub.firmware (channel-scoped: stable/beta/preview). A real, disclosed
+                           -- inconsistency between how Devices and Hubs model versioning; extend
+                           -- ReleaseChannel down to Devices rather than inventing a second scheme.
   status           TEXT        NOT NULL DEFAULT 'provisioning'
                    CHECK (status IN ('provisioning','online','offline','decommissioned')),
   last_seen_at     TIMESTAMPTZ,
@@ -310,6 +317,54 @@ CREATE POLICY device_claim ON devices FOR UPDATE
   WITH CHECK (tenant_id = app_uuid('app.current_tenant_id'));
 
 CREATE INDEX devices_asset_idx ON devices(asset_id);
+
+-- ─────────────────────────────────────────────────────────────
+-- SITE ASSIGNMENTS  (added migration 1784300060000, architecture-review
+-- Gap 2/ADR-002 — tenant-side resource-level authorization)
+--
+-- Closes a confirmed asymmetry: the channel-partner side already scopes a
+-- technician to their assigned territory's sites (channel_partner_can_read_
+-- site()/route_assignments below); the tenant side had no per-site/
+-- per-device ACL at all — any admin/operator could mutate any device in
+-- the tenant. A user with ZERO rows here keeps full tenant access
+-- (backward-compatible default); a user WITH at least one row is restricted
+-- to exactly those sites' devices, via site_scoped_access below — a
+-- RESTRICTIVE policy that can only narrow devices' existing tenant_isolation
+-- grant, never widen it.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE site_assignments (
+  id         UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id  UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  site_id    UUID        NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (user_id, site_id)
+);
+
+ALTER TABLE site_assignments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE site_assignments FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON site_assignments
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
+
+CREATE INDEX site_assignments_user_idx ON site_assignments(user_id);
+CREATE INDEX site_assignments_site_idx ON site_assignments(site_id);
+
+-- RESTRICTIVE, not permissive: AND-combines with devices' tenant_isolation
+-- policy rather than granting independently, so it can only take access
+-- away from an opted-in user, never accidentally grant more. A device with
+-- no asset yet (unclaimed/unassigned, asset_id NULL) has no site to scope
+-- by and is treated as visible to everyone in the tenant.
+CREATE POLICY site_scoped_access ON devices AS RESTRICTIVE
+  USING (
+    app_uuid('app.current_user_id') IS NULL
+    OR NOT EXISTS (SELECT 1 FROM site_assignments sa WHERE sa.user_id = app_uuid('app.current_user_id'))
+    OR asset_id IS NULL
+    OR EXISTS (
+      SELECT 1 FROM assets a
+      JOIN site_assignments sa ON sa.site_id = a.site_id
+      WHERE a.id = devices.asset_id AND sa.user_id = app_uuid('app.current_user_id')
+    )
+  );
 
 -- ─────────────────────────────────────────────────────────────
 -- TELEMETRY  (high-volume — partition by month in v2)
@@ -580,7 +635,9 @@ CREATE POLICY tenant_isolation ON service_tickets
 -- tickets yet; add if/when one does, not preemptively.
 
 -- Channel Partner Portal & Dispatch tables (below) are declared before
--- Audit Log Entries (further below) so that audit_log_entries'
+-- Audit Log Entries (further below, scope widened to also allow a third,
+-- platform-scoped shape -- neither tenant nor partner -- by migration
+-- 1784300000000, TD-55) so that audit_log_entries'
 -- actor_channel_partner_user_id FK can reference channel_partner_users,
 -- which must already exist.
 
@@ -791,9 +848,13 @@ CREATE TABLE audit_log_entries (
   prior_value                   JSONB,
   new_value                     JSONB,
   occurred_at                   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  -- Widened by migration 1784300000000 (TD-55): tenant-only, partner-only,
+  -- AND platform-scoped (both null -- an agent action, a cost-kill-switch
+  -- trip, a WARDEN-TEN finding) are all valid now; only claiming both
+  -- scopes on one row is rejected. See platform_scope_staff_visibility
+  -- below for how a platform-scoped row's RLS visibility is gated instead.
   CONSTRAINT audit_log_entries_scope_check CHECK (
-    (tenant_id IS NOT NULL AND channel_partner_id IS NULL)
-    OR (tenant_id IS NULL AND channel_partner_id IS NOT NULL)
+    NOT (tenant_id IS NOT NULL AND channel_partner_id IS NOT NULL)
   ),
   -- Not "exactly one actor" -- a system-triggered entry with no human
   -- actor (all three null) is legitimate; what's invalid is claiming
@@ -811,6 +872,17 @@ CREATE POLICY tenant_isolation ON audit_log_entries
   USING (tenant_id = app_uuid('app.current_tenant_id'));
 CREATE POLICY channel_partner_isolation ON audit_log_entries
   USING (channel_partner_id = app_uuid('app.current_channel_partner_id'));
+-- Added by migration 1784300000000 (TD-55): a platform-scoped row (both
+-- tenant_id and channel_partner_id null) is visible only inside an active
+-- staff session -- an ordinary tenant/partner session never sets
+-- app.current_staff_user_id, so this policy quietly denies them the same
+-- way the two policies above deny a mismatched tenant/partner.
+CREATE POLICY platform_scope_staff_visibility ON audit_log_entries
+  USING (
+    tenant_id IS NULL
+    AND channel_partner_id IS NULL
+    AND app_uuid('app.current_staff_user_id') IS NOT NULL
+  );
 
 CREATE INDEX audit_log_entries_lookup ON audit_log_entries(tenant_id, target_entity, target_id, occurred_at DESC);
 CREATE INDEX audit_log_entries_channel_partner_idx ON audit_log_entries(channel_partner_id);

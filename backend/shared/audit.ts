@@ -51,7 +51,28 @@ export interface ChannelPartnerAuditEntry extends AuditEntryBase {
   actorStaffUserId?: string | null;
 }
 
-export type AuditEntry = TenantAuditEntry | ChannelPartnerAuditEntry;
+// TD-55 fix (2026-08-09) — audit_log_entries_scope_check used to require
+// EXACTLY one of tenant_id/channel_partner_id, which rejected platform-scoped
+// entries outright: disabling an agent, a cost-kill-switch trip, and every
+// WARDEN-TEN tenant-isolation finding belong to neither a tenant nor a
+// partner. Migration 1784300000000 widened the constraint to "not both" (so
+// tenant-only, partner-only, and platform-scoped — both null — are all
+// valid) and added a third RLS policy making a platform-scoped row visible
+// only inside an active staff session. This was a named hard prerequisite
+// (agent-operations-team-design.md §4.3/§10) for wiring any real agent
+// action to execution — fixed here, not deferred further.
+export interface PlatformAuditEntry extends AuditEntryBase {
+  scope: 'platform';
+  // Null for a platform-attributed event — CLAUDE.md's audit rules require
+  // agent.killswitch.trip to be attributed to the platform, "not to whoever
+  // was signed in, because nobody authorised it." Set to the staff member
+  // for every other platform-scoped action (agent.action.approve/reject,
+  // agent.state, agent.report.schedule) — an agent itself is never the
+  // actor; "the actor is the operator who authorised it, never the agent."
+  actorStaffUserId: string | null;
+}
+
+export type AuditEntry = TenantAuditEntry | ChannelPartnerAuditEntry | PlatformAuditEntry;
 
 export async function writeAuditLog(client: PoolClient, entry: AuditEntry): Promise<void> {
   const priorValue = entry.priorValue !== undefined ? JSON.stringify(entry.priorValue) : null;
@@ -64,12 +85,21 @@ export async function writeAuditLog(client: PoolClient, entry: AuditEntry): Prom
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [entry.tenantId, entry.actorId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
     );
-  } else {
+  } else if (entry.scope === 'channel_partner') {
     await client.query(
       `INSERT INTO audit_log_entries
          (channel_partner_id, actor_channel_partner_user_id, actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
       [entry.channelPartnerId, entry.actorChannelPartnerUserId, entry.actorStaffUserId ?? null, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
+    );
+  } else {
+    // Platform-scoped: tenant_id and channel_partner_id both left NULL,
+    // which the widened audit_log_entries_scope_check now permits.
+    await client.query(
+      `INSERT INTO audit_log_entries
+         (actor_staff_user_id, action, target_entity, target_id, prior_value, new_value)
+       VALUES ($1, $2, $3, $4, $5, $6)`,
+      [entry.actorStaffUserId, entry.action, entry.targetEntity, entry.targetId, priorValue, newValue],
     );
   }
 }
