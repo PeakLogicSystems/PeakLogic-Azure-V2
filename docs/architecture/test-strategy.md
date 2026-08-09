@@ -6,6 +6,7 @@
 **Status:** Approved v1
 **Depends on:** [CI/CD Pipeline](cicd-pipeline.md) (draft v0.1), [Multi-Tenant Architecture](multi-tenant-architecture.md) (approved v1), [Infrastructure as Code](infrastructure-as-code.md) (approved v1)
 **Last updated:** 2026-07-11
+**⚠️ Snapshot correction (2026-08-09):** the "21 real tests across 3 files" count and "integration tests have never run" claim below (§4.4, §9 item 1) describe this document's authorship date, not current reality — both are now stale and were not caught by this document's own subsequent review passes (§10). As of this correction: **38 test files** exist repo-wide (`backend/`, `infra/`, `ops/cost-killswitch/`, `peakassist-prototype/`), and the integration suite **has actually run**, in `ci.yml`'s `backend-integration-tests` job against a real `postgis/postgis:16-3.4` container — this is how the `SET LOCAL $1` tenant-isolation bug (CLAUDE.md, Tenant Isolation section) was caught. The test *pyramid philosophy* below (unit + real-Postgres-integration prioritized over frontend E2E, §2/§4/§6) remains accurate and is not what's being corrected — only the point-in-time counts and the "never run" status are stale. This document is otherwise due a full refresh against current test coverage; treat the counts anywhere below as historical, not current.
 
 ---
 
