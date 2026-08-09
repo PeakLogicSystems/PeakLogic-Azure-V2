@@ -114,6 +114,81 @@ jobs:
           # keeps using TEST_DATABASE_URL (the superuser) for schema DDL.
           TEST_APP_DATABASE_URL: postgresql://peaklogic_test_app:test@localhost:5432/peaklogic_test
 
+  # WARDEN-TEN (agent-operations-team-design.md §3.14/§9.3) — "the
+  # highest-priority gap in this entire design... buildable today against
+  # the existing CI Postgres service container. It needs no Azure
+  # subscription." Architecture-review Gap 9. Runs against the REAL, fully
+  # migrated schema (scripts/migrate.ts, not a hand-picked subset of
+  # tables) so a new tenant-scoped table is picked up automatically the
+  # next time this runs, not left for someone to remember to add to a list.
+  # A separate job, own Postgres container, from backend-integration-tests
+  # above: this agent's job is to prove something about the SCHEMA, not to
+  # exercise application route handlers.
+  warden-ten:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: peaklogic_warden_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+        working-directory: scripts
+      - run: npm run migrate:up
+        working-directory: scripts
+        env:
+          DB_DATABASE_URL: postgresql://test:test@localhost:5432/peaklogic_warden_test
+      - run: npm ci
+        working-directory: backend
+      # Creates the same non-superuser peaklogic_test_app role
+      # vitest.integration.setup.ts creates for backend-integration-tests —
+      # duplicated here in three lines of plain SQL rather than shared,
+      # since this job runs outside vitest entirely and isn't worth a new
+      # shared script for three lines. Also seeds two minimal tenants so
+      # WARDEN-TEN's live cross-tenant probe has real data to check rather
+      # than reporting "insufficient data" for every table — real
+      # verification, not just schema introspection.
+      - name: Seed test-app role and two tenants
+        run: |
+          node -e "
+          const { Client } = require('pg');
+          (async () => {
+            const c = new Client({ connectionString: 'postgresql://test:test@localhost:5432/peaklogic_warden_test' });
+            await c.connect();
+            await c.query(\"DO \$\$ BEGIN IF NOT EXISTS (SELECT FROM pg_roles WHERE rolname = 'peaklogic_test_app') THEN CREATE ROLE peaklogic_test_app LOGIN PASSWORD 'test' NOSUPERUSER NOBYPASSRLS; END IF; END \$\$;\");
+            await c.query('GRANT USAGE ON SCHEMA public TO peaklogic_test_app');
+            await c.query('ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO peaklogic_test_app');
+            await c.query('GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO peaklogic_test_app');
+            const { rows: [a] } = await c.query(\"INSERT INTO tenants (name, slug, status) VALUES ('Warden CI Tenant A', 'warden-ci-a', 'active') ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id\");
+            const { rows: [b] } = await c.query(\"INSERT INTO tenants (name, slug, status) VALUES ('Warden CI Tenant B', 'warden-ci-b', 'active') ON CONFLICT (slug) DO UPDATE SET name = EXCLUDED.name RETURNING id\");
+            // At least one real table with two tenants' worth of data, so
+            // WARDEN-TEN's live cross-tenant probe genuinely exercises RLS
+            // instead of reporting 'insufficient data' for every table.
+            await c.query('INSERT INTO sites (tenant_id, name, type) VALUES (\$1, \$3, \$4), (\$2, \$3, \$4)', [a.id, b.id, 'Warden CI Site', 'other']);
+            await c.end();
+          })().catch((e) => { console.error(e); process.exit(1); });
+          "
+        working-directory: backend
+      - run: npm run agent:warden-ten
+        working-directory: backend
+        env:
+          TEST_APP_DATABASE_URL: postgresql://peaklogic_test_app:test@localhost:5432/peaklogic_warden_test
+
   customer-portal-build:
     runs-on: ubuntu-latest
     steps:

@@ -274,7 +274,7 @@ Never files with a regulator; the operator remains filer of record. *Gap — dis
 | # | Role | Callsign | Build | Cadence |
 |---|---|---|---|---|
 | 3.13 | Threat Detection Officer | `AEGIS-SEC` | Partial | Every 15 min |
-| 3.14 | **Tenant Isolation Prover** | `WARDEN-TEN` | Specified | Every push + hourly |
+| 3.14 | **Tenant Isolation Prover** | `WARDEN-TEN` | **Live** (2026-08-09) | Every push + hourly |
 | 3.15 | Identity & Secrets Custodian | `CIPHER-IAM` | Specified | Daily 03:00 |
 | 3.16 | Incident Commander | `MARSHAL-IR` | Partial | Event-driven |
 
@@ -282,10 +282,23 @@ Never files with a regulator; the operator remains filer of record. *Gap — dis
 shifts, gateway bypass. May isolate one compromised device identity; may not patch or change
 firewall rules. *Maps to brief agent #4, minus auto-patching (§2.2).*
 
-**3.14 `WARDEN-TEN`** — **the highest-priority gap in this entire design.** Enumerates every
-tenant-scoped table, asserts RLS is `ENABLED` *and* `FORCED`, verifies no application role holds
-`BYPASSRLS`, and runs live cross-tenant probes that must return zero rows. Any finding is
-critical by definition — there is no warning tier for a tenant boundary.
+**3.14 `WARDEN-TEN`** — **the highest-priority gap in this entire design, now built and running for
+real (2026-08-09, architecture-review Gap 9).** Enumerates every tenant-scoped table via
+`information_schema` (self-discovering, not a hand-maintained list — a new tenant-scoped table is
+picked up automatically next run), asserts RLS is `ENABLED` *and* `FORCED`, verifies no
+application role holds `BYPASSRLS`, proves `set_config()`'s session-variable mechanism actually
+applies (and reverts) inside a real transaction, and runs live cross-tenant probes that must
+return zero rows. Any finding is critical by definition — there is no warning tier for a tenant
+boundary. Implementation: `backend/agents/tenant-prover*.ts` (pure checks +
+`proveTenantIsolation()` orchestrator + CLI), 15 tests (11 unit + 4 real-Postgres integration,
+the latter proving the two check families catch genuinely different failure modes — a live probe
+against a non-superuser app role does NOT by itself catch a table with RLS enabled-but-not-forced;
+`checkRlsEnabledAndForced` run as the table owner does). Runs on **every CI push** today
+(`.github/workflows/ci.yml`'s `warden-ten` job — its own ephemeral Postgres, the real migrated
+schema via `scripts/migrate.ts`, two seeded tenants) via `npm run agent:warden-ten`; the hourly
+hosted schedule (`agents/tenant-prover.main.ts`, `app.timer`) is written and correct but inert
+until a real Azure Functions deployment exists — exactly the CI-first, deployment-independent
+sequencing this section called for.
 
 This agent exists because of §1.2. The isolation mechanism was broken for the project's entire
 history and **nothing detected it** — not code review, not unit tests, not typechecking. A
@@ -625,8 +638,11 @@ sales collateral remains a separate go/no-go decision.
 1. **Severity thresholds are engineering estimates.** No production telemetry exists to tune
    against. Expect a false-positive shakedown period.
 2. **No agent has run against real infrastructure.** Nothing is deployed.
-3. **`WARDEN-TEN` must be built and verified before any real customer data lands.** It is the
-   control that would have caught the isolation defect.
+3. **`WARDEN-TEN` is built and verified in CI (2026-08-09)** — it is the control that would have
+   caught the isolation defect, and now runs on every push against a real Postgres. Still not
+   verified against a real hosted deployment (no Azure Functions module exists yet), and its
+   findings don't reach `security.alert`/`MARSHAL-IR` until the agent bus (§4.1) is wired up —
+   today it fails its own CI job loudly, which is the honest interim behavior, not silent.
 4. **The escalation chain needs real contacts** — SMS number, secondary contact, IR retainer.
 5. **Regulatory triggers need legal review.** CIRCIA applicability and state notification
    thresholds vary by jurisdiction and utility class.
@@ -639,7 +655,7 @@ Ordered by consequence, not convenience.
 
 | Phase | Agents | Rationale |
 |---|---|---|
-| **0 — now** | `WARDEN-TEN` | The gap with a demonstrated total failure. Runs in CI; needs no deployment. |
+| **0 — now** | `WARDEN-TEN` | **Built 2026-08-09.** The gap with a demonstrated total failure. Runs in CI on every push; needs no deployment. |
 | **1** | `MARSHAL-IR`, `QUILL-RPT` | Without the voice and the report, other agents' findings reach no one. Cadence confirmed: weekly Mon 06:00. |
 | **2** | `ABACUS-FIN`, `CIPHER-IAM` | Makes the cost rule enforceable; closes the fleet-dark expiry risk. |
 | **3** | `PULSE-OPS`, `ASSAY-DQ`, `AEGIS-SEC` | Complete existing partial implementations. |
@@ -785,7 +801,7 @@ equipment state. Recommend them in the action plan for a human to execute.
 - [ ] Provide SMS number and secondary escalation contact
 - [ ] Confirm Teams over Slack
 - [x] ~~`KEEPER-DR` spend~~ — **approved, monthly drills (~$3/mo)**, confirmed 2026-08-01
-- [ ] **Build `WARDEN-TEN`** — phase 0, needs no subscription
+- [x] **Build `WARDEN-TEN`** — phase 0, needs no subscription — done 2026-08-09, running in CI on every push (`.github/workflows/ci.yml`'s `warden-ten` job); hourly hosted schedule (`agents/tenant-prover.main.ts`) written but inert pending a real Functions deployment
 - [ ] Wire the approval queue (§2.2a) to real agent execution — the UI and the action catalogue exist; no agent can actually run anything yet
 - [ ] Decide whether the $100 agent kill-switch threshold is right once real spend data exists
 - [ ] Legal review of CIRCIA/state regulatory triggers
