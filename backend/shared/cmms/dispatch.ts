@@ -6,6 +6,7 @@ type Queryable = Pick<PoolClient, 'query'>;
 
 export interface TicketForDispatch {
   id: string;
+  tenantId: string;
   title: string;
   description: string;
   priority: string;
@@ -20,6 +21,7 @@ export function buildWorkOrder(
 ): WorkOrder {
   return {
     peaklogicTicketId: ticket.id,
+    tenantId: ticket.tenantId,
     title: ticket.title,
     description: ticket.description,
     priority: ticket.priority,

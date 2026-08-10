@@ -634,6 +634,81 @@ CREATE POLICY tenant_isolation ON service_tickets
 -- requirement (TR-1-TR-3) needs a channel-partner session to read
 -- tickets yet; add if/when one does, not preemptively.
 
+-- ─────────────────────────────────────────────────────────────
+-- CMMS ENTERPRISE MATURITY (reporting-and-kpi-design.md §2.2/§2.3/§6/§7
+-- open decision #2, resolved 2026-08-09: first CMMS vendor = ServiceTitan,
+-- named by The Purple Standard) — migration 1784300180000. See that
+-- migration's own header for the full reasoning behind each addition.
+-- ─────────────────────────────────────────────────────────────
+CREATE TABLE cmms_dispatch_outbox (
+  id               UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id        UUID        NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  connector_id     UUID        NOT NULL REFERENCES cmms_connectors(id) ON DELETE CASCADE,
+  ticket_id        UUID        REFERENCES service_tickets(id) ON DELETE CASCADE,
+  kind             TEXT        NOT NULL CHECK (kind IN ('work_order', 'billing_record')),
+  payload          JSONB       NOT NULL,
+  status           TEXT        NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'sent', 'failed')),
+  attempt_count    INT         NOT NULL DEFAULT 0,
+  last_error       TEXT,
+  next_attempt_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  external_ref     TEXT,
+  created_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at       TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX cmms_dispatch_outbox_due_idx
+  ON cmms_dispatch_outbox (tenant_id, next_attempt_at) WHERE status = 'pending';
+ALTER TABLE cmms_dispatch_outbox ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cmms_dispatch_outbox FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON cmms_dispatch_outbox
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
+
+CREATE INDEX service_tickets_connector_external_ref_idx
+  ON service_tickets (cmms_connector_id, external_ref) WHERE external_ref IS NOT NULL;
+
+-- Narrow system-context read: an inbound vendor webhook knows only the
+-- CMMS's own work-order id, not which PeakLogic tenant it belongs to —
+-- mirrors system_sweep_read/ingest_context's precedent exactly.
+CREATE POLICY cmms_callback_lookup ON service_tickets FOR SELECT
+  USING (current_setting('app.cmms_callback_context', true) = 'true');
+
+-- Account-data cache (customers/locations/proposals/invoices pulled from a
+-- connector's own CRM/Sales/Accounting APIs) — generic JSONB, not a rigid
+-- per-field schema, since the exact record shape is vendor-specific and
+-- unverified against a live account (see backend/shared/cmms/adapters/
+-- servicetitan.ts's own header for exactly what is and isn't confirmed).
+CREATE TABLE cmms_account_records (
+  id             UUID        PRIMARY KEY DEFAULT gen_random_uuid(),
+  connector_id   UUID        NOT NULL REFERENCES cmms_connectors(id) ON DELETE CASCADE,
+  tenant_id      UUID        REFERENCES tenants(id) ON DELETE SET NULL,
+  record_type    TEXT        NOT NULL CHECK (record_type IN ('customer', 'location', 'proposal', 'invoice')),
+  external_id    TEXT        NOT NULL,
+  data           JSONB       NOT NULL,
+  synced_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE (connector_id, record_type, external_id)
+);
+CREATE INDEX cmms_account_records_tenant_idx ON cmms_account_records (tenant_id) WHERE tenant_id IS NOT NULL;
+ALTER TABLE cmms_account_records ENABLE ROW LEVEL SECURITY;
+ALTER TABLE cmms_account_records FORCE ROW LEVEL SECURITY;
+CREATE POLICY tenant_isolation ON cmms_account_records
+  USING (tenant_id = app_uuid('app.current_tenant_id'));
+-- A channel partner sees every record for connectors THEY own, mapped or
+-- not — an unmapped record is exactly what a partner admin needs to see to
+-- complete the tenant mapping in the first place.
+CREATE POLICY cmms_account_records_partner ON cmms_account_records
+  USING (EXISTS (
+    SELECT 1 FROM cmms_connectors c
+    WHERE c.id = cmms_account_records.connector_id
+      AND c.channel_partner_id = app_uuid('app.current_channel_partner_id')
+  ));
+-- System context for the sync job (enumerate + upsert across every
+-- connector — a connector-scoped sync has no natural per-tenant iteration
+-- boundary the way a tenant sweep does).
+CREATE POLICY cmms_account_records_sync_context ON cmms_account_records
+  USING (current_setting('app.cmms_sync_context', true) = 'true');
+CREATE POLICY cmms_connector_sync_context ON cmms_connectors FOR SELECT
+  USING (current_setting('app.cmms_sync_context', true) = 'true');
+
 -- Channel Partner Portal & Dispatch tables (below) are declared before
 -- Audit Log Entries (further below, scope widened to also allow a third,
 -- platform-scoped shape -- neither tenant nor partner -- by migration

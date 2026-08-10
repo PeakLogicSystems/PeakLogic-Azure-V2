@@ -21,7 +21,7 @@ beforeEach(() => {
 describe('buildWorkOrder', () => {
   it('maps a ticket to a normalized work order, defaulting source to automated', () => {
     const wo = buildWorkOrder({
-      id: 'tkt-1', title: 'Critical alert', description: 'pump down',
+      id: 'tkt-1', tenantId: 'tenant-1', title: 'Critical alert', description: 'pump down',
       priority: 'emergency', assetId: 'asset-1', deviceThingName: 'plx-1',
     });
     expect(wo.peaklogicTicketId).toBe('tkt-1');
@@ -61,8 +61,14 @@ describe('adapter registry', () => {
     expect(supportedVendors()).toContain('generic_webhook');
   });
 
-  it('returns null for a vendor with no adapter yet', () => {
-    expect(getAdapter('servicetitan')).toBeNull();
+  it('resolves the servicetitan adapter (adapter #2, added 2026-08-09) and reports it supported', () => {
+    expect(getAdapter('servicetitan')).not.toBeNull();
+    expect(getAdapter('servicetitan')!.vendor).toBe('servicetitan');
+    expect(supportedVendors()).toContain('servicetitan');
+  });
+
+  it('returns null for a vendor with no adapter registered', () => {
+    expect(getAdapter('maximo')).toBeNull();
   });
 });
 
@@ -71,7 +77,7 @@ describe('genericWebhookAdapter.send', () => {
     id: null, vendor: 'generic_webhook', baseUrl: 'https://hooks.example/wo',
     credentialRef: null, fieldMapping: {}, inboundMode: 'none',
   };
-  const wo = buildWorkOrder({ id: 'tkt-9', title: 't', description: 'd', priority: 'emergency', assetId: null, deviceThingName: 'thing-9' });
+  const wo = buildWorkOrder({ id: 'tkt-9', tenantId: 'tenant-9', title: 't', description: 'd', priority: 'emergency', assetId: null, deviceThingName: 'thing-9' });
 
   it('posts the work order and reports ok (no synchronous external ref)', async () => {
     const res = await genericWebhookAdapter.send(connector, wo, null);

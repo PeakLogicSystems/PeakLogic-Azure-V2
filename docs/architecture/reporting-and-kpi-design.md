@@ -8,6 +8,8 @@
 
 > **⚡ Unified Platform (v2.0) amendment — 2026-07-25.** Adds **compliance / DMR automation** as a reporting class: a regulator-relevant report compiled from a period's monitored values + exceedances (wastewater NPDES/DMR first), operator-as-filer-of-record, audit-backed — schema `compliance_reports`/`compliance_templates`/`exceedance_records` (migration `1784142180000`) plus a built, tested generator (`backend/compliance/report-generator.ts`, coverage-gap-honest). Generation ≠ delivery (CP-5 blocked on absent outbound infra). The dispatch→on-site conversion funnel defined here is unchanged and now also feeds the CMMS view. Full plan: [`unified-platform-integration-plan.md`](unified-platform-integration-plan.md).
 
+> **🚀 Enterprise CMMS amendment — 2026-08-09.** §7 open decision #2 resolved: **The Purple Standard runs ServiceTitan** — a real, named FSM/CRM/billing system, adapter #2 (`backend/shared/cmms/adapters/servicetitan.ts`). Closes the phase-1 "remaining sub-items" named in §6 (durable retry outbox, real `external_ref` persistence) and builds phase 2 (inbound sync + `service_visits`) for real, plus two capabilities not originally scoped here: an **account-data sync** (pulls ServiceTitan Customers/Locations/Estimates/Invoices into a new `cmms_account_records` cache — the "receive data about customer accounts, proposals, and billing" ask) and a **billing export** (a new `BillingRecord`/`sendBilling()` path, period-based, dispatched through the same outbox as work orders). See §2.4/§2.5/§9 below for the full detail; this amendment does not change §3's funnel model or §4's Reports section, both still open.
+
 ## 0. The asks, precisely
 
 1. **CMMS dispatch + value KPI:** automated tickets (from critical alerts) must land in the channel partner's **CMMS** (Computerized Maintenance Management System — UpKeep, Fiix, Limble, MaintainX, eMaint, Maximo, ServiceTitan, etc.) as a **work order**. PeakLogic then needs to know **how many of those automated work orders resulted in an actual service call** — the conversion metric that proves the platform generates real service work, shown on the Platform Control Center.
@@ -117,6 +119,16 @@ Three inbound modes (per connector, in priority order):
 
 Vendor status → funnel-stage mapping is part of each adapter (e.g. UpKeep `open`→accepted, `in_progress`→`started_at`, `done`→`completed_at`+`outcome`). Adapters that only surface a subset of stages simply leave the others null — a partial funnel is fine (the conversion headline only needs `dispatched_at` and `started_at`).
 
+**✅ Built 2026-08-09** (adapter #2, ServiceTitan), a real, if narrower, shape than sketched above: the callback is `backend/api/cmms-callback.main.ts` (standalone anonymous Function, `POST /cmms/callback/{connectorId}`), signature-verified per-adapter (`CmmsAdapter.verifyWebhookSignature`), and reconciles via the **existing, unmodified** `advanceWorkOrderStage()` (`work-order-lifecycle-handler.ts`) — funnel stages are `service_tickets`' own four timestamp columns, not a separate `cmms_work_order_ref`/`outcome`-enum table as first sketched; a matching ticket is found by `(cmms_connector_id, external_ref)`, not a synced `service_visits.cmms_work_order_ref`. `poll` mode remains undesigned (webhook is what ServiceTitan's own V2 platform actually offers, confirmed via live lookup — see the adapter's own header).
+
+### 2.4 Billing export — "send service information for billing" (added 2026-08-09)
+
+Not originally scoped in this doc: a **period-based** (not per-event) export of billable services delivered, dispatched to whichever vendor adapter supports it. `BillingRecord` (`backend/shared/cmms/types.ts`) summarizes a tenant's completed `service_visits` for a period; `backend/jobs/cmms-billing-export.main.ts` runs monthly (1st, 06:00 UTC), exporting the **prior** calendar month, and skips a tenant with zero completed visits rather than sending an empty record (this codebase's "never fabricate" discipline applied to invoicing). Dispatched through the **same durable outbox** as work orders (`kind='billing_record'`), to `CmmsAdapter.sendBilling()` — ServiceTitan's posts a standalone Accounting-API invoice, deliberately not an appended line item on a partner-created invoice (this integration has no way to know that invoice's id). A partner's own pricing is never dictated by PeakLogic — the exported record states *what service was delivered*, not a dollar amount.
+
+### 2.5 Account-data sync — "receive data... customer accounts, proposals, and billings" (added 2026-08-09)
+
+Also not originally scoped: a **daily** (05:00 UTC) pull of a connector's own CRM/Sales/Accounting data — ServiceTitan Customers, Locations, Estimates (proposals), Invoices — into a new generic cache table, `cmms_account_records` (`connector_id`, `record_type`, `external_id`, `data JSONB`, nullable `tenant_id`). Deliberately generic JSONB, not a rigid per-field schema: the exact vendor record shape is unverified against a live account (see `adapters/servicetitan.ts`'s own disclosed-uncertainty header). A record's `tenant_id` starts null and is set only when an admin confirms the match (`PUT /v1/admin/channel-partners/{id}/cmms-tenant-mapping/{tenantId}`) — this is also what populates `cmms_connectors.field_mapping.tenantMappings[tenantId]`, the per-tenant Customer/Location ids §2.2's dispatch and §2.4's billing export both require before they can target the right ServiceTitan entity. Runs outside `withTenant()` entirely (`app.cmms_sync_context`, migration `1784300180000`) — a connector-scoped sync has no natural per-tenant iteration boundary the way the dispatch sweep does.
+
 ---
 
 ## 3. The conversion funnel (the model) + the headline KPI
@@ -184,36 +196,40 @@ A saved **report definition** — `{ domain, filters, group_by, metrics, date_ra
 
 ## 5. API surface (RLS-scoped; fan-out for cross-org)
 
-- `GET /v1/admin/reports/kpi/dispatch-conversion?from=&to=&groupBy=partner|tenant` — the headline KPI.
-- `GET /v1/admin/reports` · `GET /v1/admin/reports/{id}/run` · `POST /v1/admin/reports` (+ `.../schedule`).
-- **CMMS connectors:** `GET/POST/PUT /v1/admin/channel-partners/{id}/cmms-connector` (staff via act-as) and a partner-portal equivalent.
-- **Inbound callback:** `POST /v1/cmms/callback/{connectorId}` — authenticated per-connector; maps a CMMS status change to a `service_visits` upsert.
-- Tenant/partner-scoped equivalents for their own reports and connectors.
+- `GET /v1/admin/reports/kpi/dispatch-conversion?from=&to=&groupBy=partner|tenant` — the headline KPI. Not yet built (§6 phase 3).
+- `GET /v1/admin/reports` · `GET /v1/admin/reports/{id}/run` · `POST /v1/admin/reports` (+ `.../schedule`). Not yet built (§6 phase 4).
+- **CMMS connectors — ✅ built 2026-08-09:** `GET/PUT /v1/admin/channel-partners/{id}/cmms-connector` (staff via act-as; `backend/api/routes/admin-cmms-connectors.ts`), plus two endpoints not originally named here — `GET .../cmms-account-records` (review synced data before mapping) and `PUT .../cmms-tenant-mapping/{tenantId}` (confirm a tenant's ServiceTitan Customer/Location ids, §2.5). No partner-portal equivalent yet — staff-only for now.
+- **Inbound callback — ✅ built 2026-08-09, one real change from the original design:** `POST /cmms/callback/{connectorId}` — no `/v1/` prefix. This runs as a **standalone anonymous Azure Function** (`backend/api/cmms-callback.main.ts`), not a router.ts route: the caller is a CMMS vendor's server, not an authenticated PeakLogic session, so it needs no Entra JWT and the v1 API's own auth pipeline would only break it. Authentication is the adapter's own signature verification (`CmmsAdapter.verifyWebhookSignature`), not a connector-level shared secret.
+- Tenant/partner-scoped equivalents for their own reports and connectors — not yet built.
 
 ---
 
 ## 6. Delivery phases
 
-1. **Connector framework + outbound push** — `cmms_connectors`, the `service_tickets` attribution columns, the vendor-adapter interface with **`generic_webhook`** (today's `postWebhook`) as adapter #1, and a durable/idempotent dispatch. **Every auto-ticket now becomes an attributable work order.** *(Shipped: migration `1783875900000`, `backend/shared/cmms/*`, ingest wiring, 12 unit tests — behaviour preserved, dispatch stamped transactionally. Remaining sub-items: the durable **retry sweep** for dispatches that never confirm, the one-time **backfill** reclassifying existing alert-generated rows to `source='automated'`, and per-vendor **secret resolution** from Key Vault as credential-backed adapters are added.)*
-2. **Inbound sync + `service_visits`** — the callback endpoint and/or poller for the first real partner's CMMS vendor; the numerator starts filling with real data.
-3. **The KPI** — the conversion endpoint (fan-out) + Fleet Overview card + partner funnel.
-4. **Reports section** — the standard catalog (seeded) + export.
-5. **Custom builder + scheduling.**
-6. **Read-model rollups** — materialize heavy aggregates when volume warrants.
+1. **Connector framework + outbound push** — `cmms_connectors`, the `service_tickets` attribution columns, the vendor-adapter interface with **`generic_webhook`** (today's `postWebhook`) as adapter #1, and a durable/idempotent dispatch. **Every auto-ticket now becomes an attributable work order.** *(Shipped: migration `1783875900000`, `backend/shared/cmms/*`, ingest wiring, 12 unit tests — behaviour preserved, dispatch stamped transactionally.)* **✅ All three remaining sub-items closed 2026-08-09:** the durable **retry outbox** (`cmms_dispatch_outbox`, migration `1784300180000`, `backend/shared/cmms/outbox.ts` + `cmms-dispatch-sweep.main.ts` running every minute) now actually persists `external_ref` on confirmed dispatch — a real, previously-silent gap (the original fire-and-forget path never wrote it anywhere); per-vendor **secret resolution** from Key Vault is built (`credentials.ts`, generic over any connector's `credential_ref`, not just Postgres's). The one-time **backfill** for pre-existing alert-generated rows remains genuinely undone — no rows existed to backfill in this environment (nothing has ever deployed), flagged as real follow-up before a first production migration from an earlier schema state, not forgotten.
+2. **Inbound sync + `service_visits`** — ✅ **built 2026-08-09** for ServiceTitan (adapter #2) — see §2.3's amendment. The numerator starts filling with real data the moment a real connector is configured and dispatching.
+3. **The KPI** — the conversion endpoint (fan-out) + Fleet Overview card + partner funnel. Still not built — `computeFunnel()` (work-order-lifecycle.ts) already computes the model from real timestamps; only the `GET /v1/admin/reports/kpi/dispatch-conversion` endpoint and its UI card are missing.
+4. **Reports section** — the standard catalog (seeded) + export. Not built.
+5. **Custom builder + scheduling.** Not built.
+6. **Read-model rollups** — materialize heavy aggregates when volume warrants. Not built — no real dispatch volume exists yet to warrant it.
 
-First real CMMS vendor adapter is chosen by the first partner's actual system (named-need discipline); `generic_webhook` covers the rest until then.
+**Two capabilities not originally scoped in this phase list, built 2026-08-09 alongside adapter #2:** a **billing export** (§2.4) and an **account-data sync** (§2.5) — both real, named asks ("send service information for billing," "receive data... customer accounts, proposals, billings") that arrived with the same partner/vendor decision phase 2 was waiting on, so built together rather than as a separate future phase.
+
+First real CMMS vendor adapter is chosen by the first partner's actual system (named-need discipline) — **resolved 2026-08-09, see §7 item 2**; `generic_webhook` covers every other partner until their own vendor is named.
 
 ---
 
 ## 7. Open decisions
 
 1. ~~**"Service call" definition**~~ **Decided (2026-07-18):** track the **full funnel** (dispatched → accepted → on-site → completed); the **headline KPI is dispatched → on-site** (`service_visits.started_at`). See §3.
-2. **First CMMS vendor(s)** — which do the launch partners actually run (UpKeep / Fiix / Limble / MaintainX / ServiceTitan …)? That names adapter #1.
-3. **Dispatch target** — always the tenant's attributed `channel_partner_id`, or can a ticket route to a different/tenant-owned CMMS? Schema supports both; default = attributed partner.
-4. **Inbound trust** — the callback endpoint must authenticate the CMMS per connector (signed secret / mTLS) and is a real external attack surface — its own threat-model pass before go-live.
+2. ~~**First CMMS vendor(s)**~~ **Decided (2026-08-09): ServiceTitan**, named by a real partner — The Purple Standard. Adapter #2 (`servicetitan.ts`), built alongside this decision rather than after it. Still open for every OTHER partner: UpKeep/Fiix/Limble/MaintainX/Maximo remain unimplemented enum values, `generic_webhook` covers them until their own partner names one.
+3. **Dispatch target** — always the tenant's attributed `channel_partner_id`, or can a ticket route to a different/tenant-owned CMMS? Schema supports both; default = attributed partner. Still open — unaffected by the ServiceTitan build.
+4. ~~**Inbound trust**~~ **Decided/built 2026-08-09:** HMAC-SHA256 signature verification (`x-servicetitan-signature`, confirmed via live lookup — see `servicetitan.ts`'s own "Sources consulted" header), constant-time comparison, fails closed on any missing/malformed credential. **Genuinely unverified, disclosed honestly, not resolved by this decision:** the digest encoding (hex assumed, not confirmed) and the exact webhook envelope field names (`jobId`/`status` assumed) — both need a real ServiceTitan developer sandbox to confirm before go-live, named explicitly in the adapter's own header rather than silently assumed correct.
 
 ---
 
 ## 8. Artifact amendments when built
 
 **Database Schema** (`cmms_connectors`, `service_visits`, `service_tickets` columns, read-models + RLS), **Domain Model** (`CmmsConnector`, `ServiceVisit`; ticket `source`/dispatch), **API Specification** (reports, KPI, connector, callback endpoints), **Security / Multi-Tenant Architecture** (audit `service_visits` + connector partner-scope through the two-question framework; the inbound callback threat model; Key Vault credential refs), **Device & Command / Platform Services §6** (CMMS connectors reuse the adapter framework), **ingest `handler.ts`** (stamp `source`/attribution + route through the dispatch outbox), **CLAUDE.md** (the alert→ticket→CMMS dispatch flow).
+
+**✅ Done 2026-08-09:** Database Schema (`cmms_dispatch_outbox`, `cmms_account_records`, the `service_tickets_connector_external_ref_idx`/`cmms_callback_lookup`/`cmms_*_sync_context` additions — migration `1784300180000`, mirrored in `docs/data-model.sql`); CLAUDE.md (new CMMS/ServiceTitan section). **Still open:** Domain Model, API Specification, and Security/Multi-Tenant Architecture have not been formally amended with this pass's additions (`BillingRecord`, `CmmsAccountRecord`, the callback's two-marker system-context read pattern) — a real, disclosed documentation gap, not a silent one, tracked the same way this project tracks every other stale-doc risk (Technical Debt Register).

@@ -9,6 +9,12 @@ Versioning follows [Semantic Versioning 2.0.0](https://semver.org/spec/v2.0.0.ht
 
 ## [Unreleased]
 
+### Added
+
+- **ServiceTitan CMMS/FSM integration** (`backend/shared/cmms/adapters/servicetitan.ts`) — adapter #2, built for a real named partner (The Purple Standard). Outbound: automated tickets dispatch as ServiceTitan Jobs; a new monthly billing export summarizes a tenant's completed service visits into a ServiceTitan invoice ("send service information for billing"). Inbound: a signature-verified webhook callback reconciles Job status changes back onto the existing dispatch funnel; a new daily account-data sync pulls ServiceTitan Customers/Locations/Estimates/Invoices into a local cache for staff to map against a PeakLogic tenant ("receive data... customer accounts, proposals, and billings"). Full detail: `docs/architecture/reporting-and-kpi-design.md` §2.3–§2.5, CLAUDE.md's new "Enterprise CMMS & ServiceTitan Integration" section, Technical Debt Register TD-58 (the genuinely unverified schema points, each disclosed at its point of use).
+- **CMMS dispatch outbox** (`cmms_dispatch_outbox`) — closes a real, previously-disclosed gap: outbound CMMS dispatch was fire-and-forget with no retry and never persisted the vendor's returned work-order id anywhere. A 1-minute sweep now owns all delivery, with backoff and an eventual `failed` state after 6 attempts.
+- Admin CMMS connector management (`GET/PUT /v1/admin/channel-partners/{id}/cmms-connector`, `.../cmms-account-records`, `.../cmms-tenant-mapping/{tenantId}`) — the configuration surface the design doc named as a gap but never built; without it nobody could actually configure a partner's CMMS connector at all.
+
 ### Security
 
 - **Prod no longer deploys the automated cost-kill-switch actions.** `infra-azure/modules/budget.bicep`'s 90% (Key Vault throttle flag) and 100% (Postgres stop) automated actions are now dev/staging only — an unattended mechanism able to stop the production database is itself an availability risk on the one environment where that risk is least acceptable. Prod keeps a real four-threshold budget, routed entirely to email, matching what native Azure Cost Management already provides. `killswitchSecret` stays a required deploy-time input for all three stages for consistency but is inert for prod. SysAdmin Guide bumped to v2.1.2 (§3.2); nothing user-facing changed, so the User Guide was not bumped.

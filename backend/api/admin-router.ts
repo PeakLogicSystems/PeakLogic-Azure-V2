@@ -8,6 +8,7 @@ import * as partners from './routes/admin-partners';
 import * as staff from './routes/admin-staff';
 import * as assignments from './routes/admin-assignments';
 import * as tenantActions from './routes/admin-tenant-actions';
+import * as cmmsConnectors from './routes/admin-cmms-connectors';
 
 // API Specification §4.7 — the third dispatcher (staff/StaffAuthContext),
 // same shape as router.ts / partner-router.ts.
@@ -35,6 +36,13 @@ const ADMIN_ROUTES: Record<string, RouteHandler<StaffAuthContext>> = {
   'PUT /v1/admin/tenants/{tenantId}/devices/{deviceId}':    tenantActions.updateDevice,
   'PUT /v1/admin/tenants/{tenantId}/assets/{assetId}':      tenantActions.updateAsset,
   'PUT /v1/admin/tenants/{tenantId}/alerts/{alertId}':      tenantActions.updateAlert,
+
+  // CMMS connector management (reporting-and-kpi-design.md §5, built
+  // 2026-08-09 alongside the servicetitan adapter).
+  'GET /v1/admin/channel-partners/{partnerId}/cmms-connector': cmmsConnectors.getOne,
+  'PUT /v1/admin/channel-partners/{partnerId}/cmms-connector': cmmsConnectors.upsert,
+  'PUT /v1/admin/channel-partners/{partnerId}/cmms-tenant-mapping/{tenantId}': cmmsConnectors.setTenantMapping,
+  'GET /v1/admin/channel-partners/{partnerId}/cmms-account-records': cmmsConnectors.listAccountRecords,
 };
 
 const compiled = compileRoutes(ADMIN_ROUTES);

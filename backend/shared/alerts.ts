@@ -1,6 +1,7 @@
 import { PoolClient } from 'pg';
 import { resolveConnector, buildWorkOrder } from './cmms/dispatch';
 import { getAdapter } from './cmms/adapters';
+import { enqueueOutbox } from './cmms/outbox';
 import type { AssetSpecs, Device, Alert, ServiceTicket } from './types';
 
 // Extracted from backend/ingest/handler.ts (device-silence detection,
@@ -145,12 +146,13 @@ export async function createTicketForAlert(
   // tenant-scoped withTenant() transaction (e.g. the silence-detection sweep).
   const { connector, channelPartnerId } = await resolveConnector(client, tenantId);
 
-  // Insert the ticket with dispatch attribution stamped transactionally: it's
-  // an automated (alert-generated) ticket, dispatched to `channelPartnerId`
-  // via `connector`. dispatched_at is set optimistically when there's a
-  // connector to send to — matching the fire-and-forget delivery below; a
-  // durable retry sweep for dispatches that never confirm is the next
-  // increment (CMMS Dispatch §6 phase 1 outbox).
+  // Insert the ticket with dispatch attribution stamped transactionally:
+  // it's an automated (alert-generated) ticket, dispatched to
+  // `channelPartnerId` via `connector`. dispatched_at is set optimistically
+  // when there's a connector to send to — it records the INTENT to
+  // dispatch, not confirmed delivery; the durable outbox (below) is what
+  // actually guarantees delivery-or-eventual-failure (CMMS Dispatch §6
+  // phase 1 outbox, built 2026-08-09).
   const { rows: [ticket] } = await client.query<ServiceTicket>(
     `INSERT INTO service_tickets
        (tenant_id, alert_id, asset_id, title, description, priority, source,
@@ -171,28 +173,54 @@ export async function createTicketForAlert(
   );
 
   if (connector && ticket) {
-    const adapter = getAdapter(connector.vendor);
-    if (!adapter) {
-      console.error(`No CMMS adapter for vendor "${connector.vendor}" — ticket ${ticket.id} not dispatched`);
-      return;
-    }
     const workOrder = buildWorkOrder({
       id: ticket.id,
+      tenantId,
       title: ticket.title,
       description: ticket.description ?? '',
       priority: ticket.priority,
       assetId: ticket.asset_id,
       deviceThingName: device.thing_name,
     });
-    // Fire-and-forget — same non-blocking semantics as the prior direct
-    // webhook post, so the external call never holds the caller's txn open.
-    // generic_webhook needs no secret; credential-backed vendors resolve
-    // connector.credentialRef from Key Vault when those adapters are added.
-    adapter
-      .send(connector, workOrder, null)
-      .then((r) => {
-        if (!r.ok) console.error(`CMMS dispatch failed for ticket ${ticket.id}: ${r.error}`);
-      })
-      .catch((err: unknown) => console.error('CMMS dispatch threw', err));
+
+    if (connector.id) {
+      // A real, persisted connector (every credential-backed vendor,
+      // including servicetitan) — durable outbox (CMMS Dispatch §2.2's own
+      // disclosed next increment, built 2026-08-09). Enqueue only,
+      // deliberately no immediate dispatch attempt here: the prior
+      // fire-and-forget adapter.send() call was safe to leave un-awaited
+      // only because it was pure network I/O with zero DB access.
+      // attemptOutboxDispatch() DOES write (recording the result,
+      // persisting external_ref), and `client` belongs to the CALLER's
+      // transaction — firing that off un-awaited would race the caller's
+      // own COMMIT/release and could touch a connection already back in
+      // the pool. The scheduled sweep (cmms-dispatch-sweep.main.ts, runs
+      // every minute) is the sole dispatch path — a pending row is
+      // delivered within one sweep interval, using its own connection,
+      // never this one.
+      await enqueueOutbox(client, {
+        tenantId,
+        connectorId: connector.id,
+        ticketId: ticket.id,
+        kind: 'work_order',
+        payload: workOrder,
+      });
+    } else {
+      // The legacy implicit generic_webhook connector (tenants.settings.
+      // webhook_url, no cmms_connectors row to reference — selectConnector()
+      // synthesises this with id: null). No FK target for the outbox, and
+      // none needed: this path is pure network I/O exactly like before,
+      // safe to leave un-awaited. Preserved byte-for-byte from the original
+      // behavior so no existing tenant's webhook integration changes.
+      const adapter = getAdapter(connector.vendor);
+      if (adapter) {
+        adapter
+          .send(connector, workOrder, null)
+          .then((r) => {
+            if (!r.ok) console.error(`CMMS dispatch failed for ticket ${ticket.id}: ${r.error}`);
+          })
+          .catch((err: unknown) => console.error('CMMS dispatch threw', err));
+      }
+    }
   }
 }
