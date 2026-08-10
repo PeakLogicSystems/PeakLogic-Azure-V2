@@ -10,6 +10,11 @@ build/
 out/
 *.tsbuildinfo
 
+# Derived adapter for publishing the architecture diagram as a Claude
+# Artifact — regenerate via docs/business/_docgen/build-artifact-export.mjs,
+# not an investor deliverable in its own right, don't hand-edit or commit.
+docs/business/_docgen/artifact-export.html
+
 # Environment & secrets — NEVER commit these
 .env
 .env.*
