@@ -38,6 +38,16 @@ param dbAdminUsername string
 @secure()
 param dbAdminPassword string
 
+@description('Entra ID object ID (GUID) of the user/group/service principal to register as this Postgres server\'s Entra administrator (Azure.PostgreSQL.AAD, architecture-review PSRule pass, 2026-08-09). Defaults to empty — the `pgAadAdministrator` resource below is skipped entirely when empty, same off-by-default convention as `apimSharedSecret`/the `entra*` block in main.bicep: a real value is a genuinely new per-deployment decision (whose Entra identity should administer this database) this template cannot make on its own, not something to fabricate. Setting this does NOT disable password authentication — `passwordAuth` stays `Enabled` below, so `backend/shared/db.ts`\'s existing Key-Vault-password connection path is completely unaffected; this only ADDS Entra ID as an available second authentication method. Azure.PostgreSQL.AADOnly (which requires disabling password auth) is a separate, larger, deliberately NOT-done change — see this file\'s disclosed-gaps list below.')
+param pgAadAdminObjectId string = ''
+
+@description('User principal name (or display name for a group/service principal) matching pgAadAdminObjectId — required by the administrators sub-resource\'s own schema alongside the object ID. Ignored when pgAadAdminObjectId is empty.')
+param pgAadAdminPrincipalName string = ''
+
+@allowed(['User', 'Group', 'ServicePrincipal'])
+@description('Principal type of the Entra administrator identified by pgAadAdminObjectId. Ignored when pgAadAdminObjectId is empty.')
+param pgAadAdminPrincipalType string = 'User'
+
 @description('Standard resource tags (project/stage/managedBy) — Azure.Resource.UseTags, architecture-review PSRule remediation 2026-08-09.')
 param tags object = {}
 
@@ -103,6 +113,19 @@ resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2024-08-01' =
     version: '16'
     administratorLogin: dbAdminUsername
     administratorLoginPassword: dbAdminPassword
+    // Azure.PostgreSQL.AAD (architecture-review PSRule remediation,
+    // 2026-08-09) — activeDirectoryAuth: 'Enabled' plus the
+    // pgAadAdministrator sub-resource below together satisfy the rule.
+    // passwordAuth stays 'Enabled' deliberately: this ADDS Entra ID as an
+    // available auth method, it does not replace the existing
+    // Key-Vault-password path db.ts already uses. Azure.PostgreSQL.AADOnly
+    // (passwordAuth: 'Disabled') is a separate, NOT-done change — see the
+    // disclosed-gaps list below for why.
+    authConfig: {
+      activeDirectoryAuth: 'Enabled'
+      passwordAuth: 'Enabled'
+      tenantId: subscription().tenantId
+    }
     storage: {
       storageSizeGB: 32
     }
@@ -185,6 +208,25 @@ resource postgresDeleteLock 'Microsoft.Authorization/locks@2020-05-01' = if (isP
   }
 }
 
+// Azure.PostgreSQL.AAD's sub-resource requirement (verified against
+// PSRule.Rules.Azure's own rule doc, 2026-08-09: the rule checks for this
+// specific sub-resource's existence, not just the authConfig property above)
+// — skipped entirely when pgAadAdminObjectId is empty, so a deploy that
+// hasn't yet decided who the Entra administrator should be does not fail or
+// fabricate one. main.psrule.bicepparam supplies a placeholder value purely
+// so PSRule's own Bicep-expansion analysis can resolve this conditional
+// resource and evaluate the rule — never a real deployment input, same
+// convention as that file's dbAdminPassword/killswitchSecret placeholders.
+resource pgAadAdministrator 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2024-08-01' = if (!empty(pgAadAdminObjectId)) {
+  parent: postgresServer
+  name: pgAadAdminObjectId
+  properties: {
+    principalType: pgAadAdminPrincipalType
+    principalName: pgAadAdminPrincipalName
+    tenantId: subscription().tenantId
+  }
+}
+
 // Store the admin credential in Key Vault immediately after provisioning —
 // direct analogue of fromGeneratedSecret()'s automatic Secrets Manager
 // entry, done explicitly here since Bicep has no equivalent "generate and
@@ -219,16 +261,15 @@ resource dbCredentialSecret 'Microsoft.KeyVault/vaults/secrets@2023-07-01' = {
 //    database itself (which this Bicep template cannot do — that's a
 //    migration-tooling concern, `scripts/migrate.ts`'s Azure port, not IaC).
 //    Flagged as real, sequenced follow-up work.
-// 3. Azure.PostgreSQL.AAD / Azure.PostgreSQL.AADOnly (architecture-review
-//    PSRule pass, 2026-08-09) NOT fixed — Entra ID authentication for
-//    Postgres is a real, valuable, but substantial feature, not a property
-//    flip: it needs a Postgres AAD administrator assignment, a matching
-//    change to how backend/shared/db.ts resolves its connection credential
-//    (currently the Key-Vault-stored password this module already
-//    provisions), and — for AADOnly specifically — removing password auth
-//    entirely, which this module's whole credential-provisioning design
-//    (dbCredentialSecret below) currently assumes exists. Real, scoped
-//    follow-up work; flagged rather than half-implemented.
+// 3. Azure.PostgreSQL.AAD — ✅ Fixed 2026-08-09 (TD-57). authConfig plus the
+//    conditional pgAadAdministrator sub-resource above satisfy the rule
+//    without touching db.ts's existing password-based connection path.
+//    Azure.PostgreSQL.AADOnly (passwordAuth: 'Disabled') is DELIBERATELY
+//    still NOT done — it would break every existing connection unless
+//    backend/shared/db.ts is also changed to resolve an Entra access token
+//    instead of the Key-Vault-stored password this module already
+//    provisions (dbCredentialSecret below), which this pass did not
+//    attempt blind on the platform's one database. Real, scoped follow-up.
 
 output postgresServerFqdn string = postgresServer.properties.fullyQualifiedDomainName
 output postgresServerId string = postgresServer.id // consumed by monitoring.bicep's metric alerts (Enterprise Audit §6 P0 item 4)

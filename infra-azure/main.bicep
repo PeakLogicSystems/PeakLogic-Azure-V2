@@ -32,6 +32,16 @@ param dbAdminUsername string = 'peaklogic_admin'
 @description('Admin password for Azure Database for PostgreSQL Flexible Server, supplied at deploy time (e.g. `az deployment group create ... --parameters dbAdminPassword=$SECRET`). Stored in Key Vault by data.bicep immediately after provisioning — never left in a parameter file or source control. See data.bicep\'s own header comment for why this fork does NOT default to a dev-stage plaintext-bypass path the way the AWS-native repo\'s TD-43 did: that question is explicitly undecided for Azure (Technical Debt Register v1.4) and this template does not assume the answer is "yes."')
 param dbAdminPassword string
 
+@description('Entra ID object ID (GUID) of the user/group/service principal to register as the Postgres server\'s Entra administrator (Azure.PostgreSQL.AAD, architecture-review PSRule remediation 2026-08-09). Passed straight through to data.bicep — see that module\'s own param comment for why this defaults to empty (skips the administrator resource entirely) rather than fabricating a value.')
+param pgAadAdminObjectId string = ''
+
+@description('User principal name (or display name for a group/service principal) matching pgAadAdminObjectId. Ignored when pgAadAdminObjectId is empty.')
+param pgAadAdminPrincipalName string = ''
+
+@allowed(['User', 'Group', 'ServicePrincipal'])
+@description('Principal type of the Entra administrator identified by pgAadAdminObjectId. Ignored when pgAadAdminObjectId is empty.')
+param pgAadAdminPrincipalType string = 'User'
+
 @description('Monthly cost budget in USD for this stage\'s resource group — mirrors the AWS-native repo\'s own `-c budgetLimitUsd=` convention and its $5 default (project_peaklogic_next_steps memory, "Cost Kill Switch" section, CLAUDE.md).')
 param budgetLimitUsd int = 5
 
@@ -119,6 +129,9 @@ module data 'modules/data.bicep' = {
     computeSubnetId: network.outputs.computeSubnetId
     dbAdminUsername: dbAdminUsername
     dbAdminPassword: dbAdminPassword
+    pgAadAdminObjectId: pgAadAdminObjectId
+    pgAadAdminPrincipalName: pgAadAdminPrincipalName
+    pgAadAdminPrincipalType: pgAadAdminPrincipalType
     tags: commonTags
   }
 }

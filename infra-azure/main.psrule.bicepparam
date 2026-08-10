@@ -22,3 +22,9 @@ param stage = 'dev'
 param alertEmail = 'psrule-analysis@example.com'
 param dbAdminPassword = 'PSRuleStaticAnalysisPlaceholder-NotARealSecret!'
 param killswitchSecret = 'PSRuleStaticAnalysisPlaceholder-NotARealSecret!'
+// Non-empty placeholder so PSRule's Bicep expansion includes the conditional
+// pgAadAdministrator sub-resource (data.bicep) and Azure.PostgreSQL.AAD can
+// actually be evaluated — TD-57. A syntactically-valid but fake GUID/UPN,
+// same "safe because it's a placeholder" reasoning as this file's header.
+param pgAadAdminObjectId = '00000000-0000-0000-0000-000000000000'
+param pgAadAdminPrincipalName = 'psrule-analysis-placeholder@example.com'
