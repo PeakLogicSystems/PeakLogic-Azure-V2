@@ -19,6 +19,10 @@ Retired — do not use going forward: *PeakView Hub/360*, *PeakVantage Hub/360*,
 
 > **Unified-platform reframe in progress (2026-07-24):** this repo is `PeakLogic-Azure-V2`, the PeakLogic-first merger/unified-platform development line. The architecture artifacts are being reconciled — docs **and** code — to the three-pillar platform (PeakLogicSystems / PeakView360 / PeakLogic Hubs + PeakAssist) absorbing Purple Standard's MooreView. **Read `docs/architecture/unified-platform-integration-plan.md` for live status.** Much of the AWS-native detail below still describes the pre-reframe state until the sweep reaches it.
 
+## Brand (authoritative, added 2026-10-01)
+
+**`marketing/brand/BRAND_GUIDELINES.md` is the single authoritative source of truth for PeakLogic's visual identity** — the mark, logotype, color palette, typography, and usage rules — across every PeakLogic repository, not just this one. Any inline SVG, color token, or font declaration anywhere in this codebase that conflicts with that document is wrong; fix the code, not the document. A cross-repo audit of known deviations (compiled 2026-10-01) is tracked in `marketing/BRAND_AUDIT_FINDINGS.md` in `PeakLogic-MooreView-Dev` — not duplicated here.
+
 ## Governance: architecture-first (adopted 2026-07-04)
 
 This project is moving to the same architecture-first discipline used by the IronQuill project: documents are produced in dependency order in `docs/architecture/` (see `docs/architecture/README.md` for live status and the full artifact list — Vision → PRD → SRS → Domain Model → Compliance & Certification Roadmap → ... → MVP/Enterprise Roadmap), every implementation decision should trace to the PRD once it exists, and later documents can force revisions to earlier ones.
